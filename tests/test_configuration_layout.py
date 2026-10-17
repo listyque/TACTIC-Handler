@@ -1,1406 +1,321 @@
-from __future__ import annotations
+"""Configuration through real Frame controls and the existing draft owners."""
 
 import os
 from pathlib import Path
-from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
-from PySide6.QtCore import (
-    QObject, QPointF, Property, QMetaObject, Qt, QUrl, Signal, Slot,
-)
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtQuick import QQuickItem
+os.environ.setdefault("QT_QPA_FONTDIR", "C:/Windows/Fonts")
+from PySide6.QtCore import QObject, QPointF, QMetaObject, Qt, QUrl
 from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuick import QQuickItem
 from PySide6.QtTest import QTest
-
+from thlib.environment import env_server
 from thlib.ui.localization import CatalogTranslator
-from thlib.ui.editor_tools import ServerPresetsController
-from thlib.ui.workspace_models.records import RecordListModel
-
+from tests.frame_configuration_fixture import Surface, QML
+from tests import test_configuration_appearance as appearance_fixture
 
 ROOT = Path(__file__).resolve().parents[1]
-QML = ROOT / "thlib" / "ui" / "qml"
-
-
-class _ServerPresetWindowModel(QObject):
-    @Slot(str)
-    def open_help(self, _topic):
-        pass
-
-    @Slot(str)
-    def close_window(self, _window_id):
-        pass
-
-
-class _ServerPresetConfigurationController(QObject):
-    @Slot()
-    def begin_session(self):
-        pass
-
-
-class _ServerPageConfigurationController(QObject):
-    sessionStarted = Signal()
-    pageReset = Signal(str)
-
-    @Slot(str, "QVariantMap")
-    def update_page(self, _page, values):
-        self.updated_values = dict(values)
-
-    @Property(bool, constant=True)
-    def server_test_busy(self):
-        return False
-
-    @Property(str, constant=True)
-    def server_test_status(self):
-        return ""
-
-    @Property(str, constant=True)
-    def server_test_message(self):
-        return ""
-
-    @Slot(str, result="QVariantMap")
-    def page_values(self, _page):
-        return {
-            "serverUrl": "http://server",
-            "presetName": "default",
-            "serverUpdateInterval": 30,
-            "queryMode": "local",
-        }
-
-    @Slot(str, result="QVariantMap")
-    def server_preset_values(self, _preset):
-        return self.page_values("server")
-
-
-class _ServerPageApplication(QObject):
-    @Property(bool, constant=True)
-    def has_ticket(self):
-        return False
-
-    @Property(bool, constant=True)
-    def authentication_required(self):
-        return True
-
-    @Property(str, constant=True)
-    def login_name(self):
-        return ""
-
-
-class _TeamRepositoryController(QObject):
-    def __init__(self):
-        super().__init__()
-        self.synced = False
-
-    @Property(bool, constant=True)
-    def dirty(self):
-        return False
-
-    @Property(bool, constant=True)
-    def busy(self):
-        return False
-
-    @Property(bool, constant=True)
-    def team_local_repository(self):
-        return True
-
-    @Property(str, constant=True)
-    def message(self):
-        return ""
-
-    @Property(str, constant=True)
-    def current_path(self):
-        return "D:/shared/repository"
-
-    @Property(str, constant=True)
-    def current_code(self):
-        return "local"
-
-    @Slot()
-    def begin_edit(self):
-        pass
-
-    @Slot(result=bool)
-    def save(self):
-        return True
-
-    @Slot()
-    def sync_team_repository_path(self):
-        self.synced = True
-
-
-class _ConfigurationHelpWindowModel(QObject):
-    def __init__(self):
-        super().__init__()
-        self.topics = []
-
-    @Slot(str)
-    def open_help(self, topic):
-        self.topics.append(topic)
 
 
 class ConfigurationLayoutTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.app = QGuiApplication.instance() or QGuiApplication([])
+        appearance_fixture.AppearanceConfigurationTests.setUpClass()
+        cls.app = appearance_fixture.AppearanceConfigurationTests.app
+
+    def surface(self, screen, width=800, **kwargs):
+        surface = Surface(screen, width, 740, **kwargs)
+        self.addCleanup(surface.close)
+        self.addCleanup(lambda: self.assertEqual(surface.warnings, []))
+        return surface
+
+    def reveal(self, surface, name):
+        item = surface.item(name)
+        parent = item.parentItem()
+        while parent:
+            if parent.property("contentY") is not None:
+                point = item.mapToItem(parent, QPointF(0, 0))
+                offset = parent.property("contentY")
+                if point.y() < 0:
+                    parent.setProperty("contentY", offset + point.y())
+                elif point.y() + item.height() > parent.height():
+                    parent.setProperty(
+                        "contentY", offset + point.y() + item.height() - parent.height()
+                    )
+            parent = parent.parentItem()
+        surface.settle()
+        return item
+
+    def click(self, surface, name):
+        item = self.reveal(surface, name)
+        point = item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint()
+        QTest.mouseClick(surface.window, Qt.LeftButton, pos=point)
+        surface.settle()
+        return item
+
+    def type(self, surface, name, text):
+        item = self.click(surface, name)
+        QTest.keyClick(surface.window, Qt.Key_A, Qt.ControlModifier)
+        for character in text:
+            QTest.keyClick(surface.window, character)
+        surface.settle()
+        return item
 
     def test_global_page_handler_server_autostart_switch(self):
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        warnings = []
-        engine.warnings.connect(lambda errors: warnings.extend(errors))
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Controls
-import "." as App
-ApplicationWindow {
-    width: 520
-    height: 740
-    visible: true
-    property alias testController: configurationController
-    App.Theme { id: theme; dark: true }
-    QtObject {
-        id: configurationController
-        signal sessionStarted()
-        signal pageReset(string pageId)
-        property var updatedValues: ({})
-        function page_values(pageId) {
-            return ({
-                "closeToTray": true,
-                "autoStartHandlerServer": false,
-                "serverThreads": 4,
-                "localThreads": 4,
-                "debugLogLevels": ["ERROR"],
-                "configPath": "D:/TACTIC"
-            })
-        }
-        function update_page(pageId, values) {
-            updatedValues = values
-        }
-    }
-    App.ConfigurationGlobalPreferencesPage {
-        anchors.fill: parent
-        theme: theme
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_GlobalAutostartTest.qml")),
+        surface = self.surface("global")
+        self.click(surface, "setting_autoStartHandlerServer")
+        self.assertFalse(
+            surface.case.config.page_values("global_preferences")[
+                "autoStartHandlerServer"
+            ]
         )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner, "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            QTest.qWait(40)
-            switch = owner.findChild(QQuickItem, "autoStartHandlerServerSwitch")
-            self.assertIsNotNone(switch)
-            self.assertFalse(switch.property("checked"))
-            for width in (460, 980):
-                owner.setWidth(width)
-                self.app.processEvents()
-                position = switch.mapToScene(QPointF(0, 0))
-                self.assertGreaterEqual(position.x(), 0)
-                self.assertLessEqual(position.x() + switch.width(), width)
-                self.assertGreaterEqual(position.y(), 0)
-                self.assertLessEqual(position.y() + switch.height(), owner.height())
-            QTest.mouseClick(
-                owner, Qt.LeftButton,
-                pos=switch.mapToScene(QPointF(
-                    switch.width() / 2, switch.height() / 2,
-                )).toPoint(),
-            )
-            self.assertTrue(switch.property("checked"))
-            values = owner.property("testController").property("updatedValues")
-            if hasattr(values, "toVariant"):
-                values = values.toVariant()
-            self.assertTrue(values["autoStartHandlerServer"])
-            self.assertEqual(warnings, [])
-        finally:
-            owner.close()
-            owner.deleteLater()
-            engine.deleteLater()
+        self.assertTrue(surface.case.config.dirty)
+        self.assertTrue(surface.case.config.apply_current())
+        self.assertFalse(surface.case.config.dirty)
 
     def test_server_transport_labels_in_russian(self):
-        translator = CatalogTranslator(ROOT / "thlib/ui/translations/ru.json")
-        self.app.installTranslator(translator)
-        self.app.setProperty('rpcTransportTestLanguage', 'ru')
-        try:
-            self.test_server_page_uses_one_background_interval_at_both_widths()
-        finally:
-            self.app.removeTranslator(translator)
-            self.app.setProperty('rpcTransportTestLanguage', '')
+        surface = self.surface("server", language="ru")
+        combo = surface.item("setting_rpcTransport")
+        self.assertEqual(combo.property("currentValue"), "xmlrpc")
+        combo.forceActiveFocus()
+        QTest.keyClick(surface.window, Qt.Key_Down)
+        surface.settle()
+        self.assertEqual(
+            surface.case.config.page_values("server")["rpcTransport"], "json"
+        )
+        self.assertIn("JSON", combo.property("displayText"))
 
     def test_server_page_uses_one_background_interval_at_both_widths(self):
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        warnings = []
-        engine.warnings.connect(lambda errors: warnings.extend(errors))
-        configuration = _ServerPageConfigurationController(engine)
-        application = _ServerPageApplication(engine)
-        presets = RecordListModel(("label",), [{"label": "default"}])
-        window_model = _ServerPresetWindowModel(engine)
-        engine.rootContext().setContextProperty(
-            "configurationController", configuration
+        surface = self.surface("server")
+        self.assertEqual(
+            surface.item("setting_serverUpdateInterval").property("currentValue"), 30
         )
-        engine.rootContext().setContextProperty(
-            "appController", application
-        )
-        engine.rootContext().setContextProperty("serverPresetModel", presets)
-        engine.rootContext().setContextProperty(
-            "windowModel", window_model
-        )
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Window
-import "." as App
-Window {
-    width: 600
-    height: 720
-    visible: true
-    App.Theme { id: theme; dark: true }
-    App.ConfigurationServerPage {
-        anchors.fill: parent
-        theme: theme
-        managed: true
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_ServerPagePollTest.qml")),
-        )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner, "\n".join(error.toString() for error in component.errors())
-        )
-        try:
-            for width in (600, 1000):
-                owner.setWidth(width)
-                QTest.qWait(20)
-                transport = owner.findChild(QQuickItem, "rpcTransportCombo")
-                self.assertIsNotNone(transport)
-                self.assertEqual(transport.property("currentIndex"), 0)
-                transport.forceActiveFocus()
-                QTest.keyClick(owner, Qt.Key_Down)
-                self.assertEqual(transport.property("currentIndex"), 1)
-                self.assertEqual(configuration.updated_values["rpcTransport"], "json")
-                directory = Path('D:/code/TACTIC_VUE/tactic_stream/tests/artifacts/json-transport')
-                directory.mkdir(parents=True, exist_ok=True)
-                language = self.app.property('rpcTransportTestLanguage') or 'en'
-                self.assertTrue(owner.grabWindow().save(str(directory / f'connection-{width}-{language}.png')))
-                QTest.keyClick(owner, Qt.Key_Up)
-                self.assertEqual(configuration.updated_values["rpcTransport"], "xmlrpc")
-                interval = owner.findChild(QQuickItem, "serverUpdateInterval")
-                self.assertIsNotNone(interval)
-                self.assertEqual(interval.property("currentIndex"), 2)
-                self.assertGreater(interval.width(), 0)
-                delivery = owner.findChild(QQuickItem, "serverUpdateMode")
-                self.assertIsNotNone(delivery)
-                self.assertEqual(delivery.property("currentIndex"), 0)
-                delivery.setProperty("currentIndex", 1)
-                QTest.qWait(20)
-                self.assertFalse(interval.property("visible"))
-                batch = owner.findChild(QQuickItem, "serverUpdateBatchDelay")
-                self.assertIsNotNone(batch)
-                self.assertTrue(batch.property("visible"))
-                self.assertEqual(batch.property("currentIndex"), 1 if width == 600 else 3)
-                self.assertGreater(batch.width(), 0)
-                batch.setProperty("currentIndex", 3)
-                values = QMetaObject.invokeMethod(owner.findChild(QQuickItem, "configurationServerPage"), "formValues", Qt.ConnectionType.DirectConnection)
-                self.assertTrue(values)
-                delivery.setProperty("currentIndex", 0)
-            self.assertFalse(
-                [warning for warning in warnings
-                 if "ConfigurationServerPage.qml" in warning.toString()],
-                "\n".join(warning.toString() for warning in warnings),
+        self.assertFalse(
+            any(
+                field.get("field") == "serverUpdateInterval"
+                and field.get("when") is False
+                for field in surface.evaluate("fields")
             )
-        finally:
-            owner.deleteLater()
-            engine.deleteLater()
+        )
+        for width in (360, 980):
+            surface.window.setWidth(width)
+            surface.view.setWidth(width)
+            surface.settle()
+            item = self.reveal(surface, "setting_serverUpdateInterval")
+            point = item.mapToScene(QPointF(0, 0))
+            self.assertGreaterEqual(point.x(), 0)
+            self.assertLessEqual(point.x() + item.width(), width)
 
     def test_configuration_header_help_opens_current_page_article(self):
-        source = (QML / "ConfigurationView.qml").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("return page.helpTopic", source)
-        self.assertIn("return qsTr(page.description", source)
-
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        warnings = []
-        engine.warnings.connect(lambda errors: warnings.extend(errors))
-        pages = RecordListModel(
-            ("title", "target", "icon", "description", "helpTopic"),
-            [{
-                "title": "Configuration",
-                "target": "unregistered_page",
-                "icon": "settings",
-                "description": "External DCC settings",
-                "helpTopic": "dcc_clients",
-            }, {
-                "title": "Second page",
-                "target": "second_page",
-                "icon": "settings",
-                "description": "Another settings page",
-                "helpTopic": "second_article",
-            }],
-        )
-        window_model = _ConfigurationHelpWindowModel()
-        engine.rootContext().setContextProperty("configPageModel", pages)
-        engine.rootContext().setContextProperty("windowModel", window_model)
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Controls
-import "." as App
-
-ApplicationWindow {
-    width: 760
-    height: 560
-    visible: true
-    property alias testController: configurationController
-
-    App.Theme { id: theme; dark: true }
-    QtObject {
-        id: configurationController
-        signal confirmationRequested()
-        property string current_page: "unregistered_page"
-        property bool current_page_dirty: false
-        property bool dirty: false
-        property bool can_reset_current_page: false
-        property int resets: 0
-        property int applies: 0
-        property int saves: 0
-        property int cancels: 0
-        function select_page(pageId) { current_page = pageId }
-        function page_schema(pageId) { return ({}) }
-        function reset_current() { resets += 1 }
-        function apply_current() { applies += 1; return true }
-        function save_all() { saves += 1; dirty = false }
-        function save_and_close() { saves += 1 }
-        function request_close() { cancels += 1 }
-        function discard_and_close() {}
-    }
-
-    App.ConfigurationView {
-        objectName: "configurationView"
-        anchors.fill: parent
-        theme: theme
-        windowId: "configuration"
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_ConfigurationHelpTest.qml")),
-        )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            QTest.qWait(60)
-            button = owner.findChild(
-                QQuickItem, "configurationHelpButton"
-            )
-            self.assertIsNotNone(button)
-            sidebar_divider = owner.findChild(
-                QQuickItem, "configurationSidebarHeaderDivider"
-            )
-            page_divider = owner.findChild(
-                QQuickItem, "configurationPageHeaderDivider"
-            )
-            self.assertIsNotNone(sidebar_divider)
-            self.assertIsNotNone(page_divider)
-            self.assertEqual(owner.findChild(QQuickItem, "configurationCancel").property("toolTip"), "Close")
-            action_names = (
-                "configurationReset", "configurationApply",
-                "configurationSave", "configurationCancel",
-            )
-            for width in (620, 980):
-                owner.setWidth(width)
-                QTest.qWait(30)
-                self.assertAlmostEqual(
-                    sidebar_divider.mapToItem(
-                        owner.contentItem(), QPointF(0, 0)
-                    ).y(),
-                    page_divider.mapToItem(
-                        owner.contentItem(), QPointF(0, 0)
-                    ).y(),
-                    delta=0.5,
-                )
-                position = button.mapToItem(
-                    owner.contentItem(), QPointF(0, 0)
-                )
-                self.assertGreaterEqual(position.x(), 216)
-                self.assertLessEqual(
-                    position.x() + button.width(), width + 0.1
-                )
-                for name in action_names:
-                    action = owner.findChild(QQuickItem, name)
-                    self.assertIsNotNone(action)
-                    position = action.mapToItem(owner.contentItem(), QPointF())
-                    self.assertGreaterEqual(position.x(), 216)
-                    self.assertLessEqual(position.x() + action.width(), width + 0.1)
-                    self.assertLessEqual(
-                        position.y() + action.height(), page_divider.y() + 1
-                    )
-                self.assertFalse(owner.grabWindow().isNull())
-            visual_items = [owner.contentItem()]
-            for item in visual_items:
-                visual_items.extend(item.childItems())
-            second_page = next((item for item in visual_items
-                                if item.objectName() == "configurationPage_second_page"), None)
-            self.assertIsNotNone(second_page, [error.toString() for error in warnings])
-            QTest.mouseClick(
-                owner,
-                Qt.LeftButton,
-                pos=second_page.mapToScene(QPointF(
-                    second_page.width() / 2, second_page.height() / 2
-                )).toPoint(),
-            )
-            QTest.mouseClick(
-                owner,
-                Qt.LeftButton,
-                pos=button.mapToScene(QPointF(
-                    button.width() / 2, button.height() / 2
-                )).toPoint(),
-            )
-            self.assertEqual(window_model.topics, ["second_article"])
-            controller = owner.property("testController")
-            controller.setProperty("current_page_dirty", True)
-            controller.setProperty("can_reset_current_page", True)
-            controller.setProperty("dirty", True)
-            for name in action_names:
-                action = owner.findChild(QQuickItem, name)
-                QTest.mouseClick(
-                    owner, Qt.LeftButton,
-                    pos=action.mapToScene(QPointF(
-                        action.width() / 2, action.height() / 2
-                    )).toPoint(),
-                )
-            self.assertEqual(
-                [controller.property(name) for name in
-                 ("resets", "applies", "saves", "cancels")],
-                [1, 1, 1, 1],
-            )
-            self.assertFalse(owner.findChild(
-                QQuickItem, "configurationSave"
-            ).property("enabled"))
-            self.assertEqual(warnings, [])
-        finally:
-            owner.close()
-            owner.deleteLater()
-            pages.deleteLater()
-            window_model.deleteLater()
-            engine.deleteLater()
+        surface = self.surface("configuration", 1100)
+        for page, topic in [
+            ("cache", "configuration.cache"),
+            ("appearance", "appearance"),
+            ("global_preferences", "configuration.global"),
+        ]:
+            surface.case.config.select_page(page)
+            surface.settle()
+            self.click(surface, "configurationHelp")
+            self.assertEqual(surface.windows.calls[-1], ("help", topic))
 
     def test_manifest_dcc_preferences_render_and_update(self):
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Controls
-import QtQuick.Window
-import "." as App
-
-ApplicationWindow {
-    width: 720
-    height: 760
-    visible: true
-
-    App.Theme { id: theme; dark: true }
-    QtObject {
-        id: configurationController
-        objectName: "mayaConfigurationControllerStub"
-        signal sessionStarted()
-        signal pageReset(string pageId)
-        property var updatedValues: ({})
-        function page_values(pageId) {
-            return ({
-                "current_workdir": "D:/maya/project",
-                "scene_type": "mayaAscii",
-                "create_maya_dirs": true,
-                "focus_after_open": false
-            })
-        }
-        function page_schema(pageId) {
-            return ({
-                "sections": [{
-                    "title": "Scene",
-                    "fields": [{
-                        "key": "current_workdir",
-                        "type": "text",
-                        "title": "Current work directory",
-                        "read_only": true,
-                        "default": ""
-                    }, {
-                        "key": "scene_type",
-                        "type": "choice",
-                        "title": "Scene format",
-                        "default": "mayaBinary",
-                        "choices": [
-                            {"label": "Maya ASCII", "value": "mayaAscii"},
-                            {"label": "Maya Binary", "value": "mayaBinary"}
-                        ]
-                    }, {
-                        "key": "create_maya_dirs",
-                        "type": "boolean",
-                        "title": "Create Maya directories",
-                        "default": false
-                    }, {
-                        "key": "focus_after_open",
-                        "type": "boolean",
-                        "title": "Return focus",
-                        "default": true
-                    }]
-                }]
-            })
-        }
-        function update_page(pageId, values) {
-            updatedValues = values
-        }
-    }
-
-    App.ConfigurationDccPage {
-        objectName: "dccPreferencesPage"
-        anchors.fill: parent
-        theme: theme
-        pageId: "dcc.maya"
-        managed: true
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_DccPreferencesLayoutTest.qml")),
+        surface = self.surface("dcc")
+        page_id = surface.view.property("pageId")
+        field = self.reveal(surface, "setting_current_workdir")
+        self.assertTrue(field.property("readOnly"))
+        before = surface.case.config.page_values(page_id)["focus_after_open"]
+        self.click(surface, "setting_focus_after_open")
+        self.assertEqual(
+            surface.case.config.page_values(page_id)["focus_after_open"], not before
         )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
+
+    def test_configuration_dirty_confirmation_keeps_or_discards_the_real_draft(self):
+        surface = self.surface("configuration")
+        config = surface.case.config
+        values = config.page_values("appearance")
+        values["darkTheme"] = not values["darkTheme"]
+        config.update_page("appearance", values)
+
+        def popup_click(name):
+            dialog = surface.evaluate("unsavedDialog")
+            self.assertTrue(dialog.property("modal"))
+            self.assertTrue(dialog.property("visible"))
+            content = dialog.property("contentItem")
+            children = [content]
+            for item in children:
+                children.extend(item.childItems())
+            control = next(item for item in children if item.objectName() == name)
+            QTest.mouseClick(
+                control.window(),
+                Qt.LeftButton,
+                pos=control.mapToScene(
+                    QPointF(control.width() / 2, control.height() / 2)
+                ).toPoint(),
+            )
+            surface.settle()
+            self.assertFalse(dialog.property("visible"))
+
+        config.request_close()
+        surface.settle()
+        popup_click("configurationConfirm_keep")
+        self.assertTrue(config.dirty)
+        config.request_close()
+        surface.settle()
+        popup_click("configurationConfirm_discard")
+        self.assertFalse(config.dirty)
+
+    def test_cache_and_connection_busy_states_use_their_existing_owners(self):
+        surface = self.surface("cache")
+        surface.cache._busy = True
+        surface.cache._message = "Clearing fixture cache"
+        surface.cache.stateChanged.emit()
+        surface.settle()
+        self.assertFalse(surface.item("setting_clearData").isEnabled())
+        self.assertEqual(
+            surface.item("configurationNotice").property("text"),
+            "Clearing fixture cache",
         )
-        try:
-            QTest.qWait(80)
-            visual_items = [owner.contentItem()]
-            for item in visual_items:
-                visual_items.extend(item.childItems())
-            open_focus_switch = next(
-                item for item in visual_items
-                if item.objectName() == "dccSettingControl_focus_after_open"
-            )
-            directories_switch = next(
-                item for item in visual_items
-                if item.objectName() == "dccSettingControl_create_maya_dirs"
-            )
-            workspace_field = next(
-                item for item in visual_items
-                if item.objectName() == "dccSettingControl_current_workdir"
-            )
-            controller = owner.findChild(
-                QObject, "mayaConfigurationControllerStub"
-            )
-            page = owner.findChild(QObject, "dccPreferencesPage")
-            self.assertIsNotNone(open_focus_switch)
-            self.assertIsNotNone(directories_switch)
-            self.assertFalse(open_focus_switch.property("checked"))
-            self.assertTrue(directories_switch.property("checked"))
-            self.assertEqual(workspace_field.property("text"), "D:/maya/project")
-            self.assertTrue(workspace_field.property("readOnly"))
-            self.assertGreaterEqual(workspace_field.width(), 200)
-            self.assertTrue(page.property("managed"))
-            self.assertFalse(page.property("loadingValues"))
-            scene = owner.contentItem()
-            for width in (320, 500, 720):
-                owner.setProperty("width", width)
-                QTest.qWait(40)
-                for control in (
-                    directories_switch, open_focus_switch, workspace_field,
-                ):
-                    position = control.mapToItem(scene, QPointF(0, 0))
-                    self.assertGreaterEqual(position.x(), -0.1)
+        surface.cache._clear_finished(None)
+        surface.settle()
+        self.assertTrue(surface.item("setting_clearData").isEnabled())
+        self.assertEqual(
+            surface.item("configurationNotice").property("text"),
+            "Cached server data cleared",
+        )
+        server = self.surface("server")
+        server.case.config._set_server_test(
+            True, "testing", "Testing fixture connection"
+        )
+        server.settle()
+        self.assertFalse(server.item("setting_test").isEnabled())
+        self.assertFalse(server.item("setting_signIn").isEnabled())
+
+    def test_long_setting_captions_keep_complete_word_wrapped_lines(self):
+        surface = self.surface("tasks", 800)
+        for language in ("en", "ru"):
+            surface.case.localization.set_language(language)
+            for width in (360, 800, 1100):
+                surface.window.setWidth(width)
+                surface.view.setWidth(width)
+                surface.settle()
+                for name in ("sortMode", "groupMode", "quickViewMode"):
+                    item = surface.item("setting_" + name + "Description")
                     self.assertLessEqual(
-                        position.x() + control.width(), width + 0.1
+                        item.property("contentHeight"), item.height() + 0.5
                     )
-                self.assertFalse(owner.grabWindow().isNull())
-
-            open_focus_switch.forceActiveFocus()
-            QTest.keyClick(owner, Qt.Key_Space)
-            QTest.qWait(20)
-            self.assertTrue(open_focus_switch.property("checked"))
-            values = controller.property("updatedValues")
-            if hasattr(values, "toVariant"):
-                values = values.toVariant()
-            self.assertTrue(values["focus_after_open"])
-            self.assertTrue(values["create_maya_dirs"])
-        finally:
-            owner.close()
-            owner.deleteLater()
-            engine.deleteLater()
 
     def test_task_preferences_load_surface_and_quick_view_choices(self):
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Window
-import "." as App
-
-Window {
-    width: 500
-    height: 600
-    visible: true
-
-    App.Theme { id: theme; dark: true }
-    QtObject {
-        id: configurationController
-        objectName: "taskPreferencesTestController"
-        property var updatedValues: ({})
-        signal sessionStarted()
-        signal pageReset(string pageId)
-        function page_values(pageId) {
-            return ({
-                viewMode: "list", sortMode: "priority",
-                groupMode: "process", quickViewMode: "compact",
-                workspaceSurface: "browser", inspectorExpanded: false,
-                columns: [
-                    {key: "object", label: "Object", width: 180,
-                     visible: true, required: true},
-                    {key: "status", label: "Status", width: 120,
-                     visible: true, required: false}
-                ]
-            })
-        }
-        function update_page(pageId, values) { updatedValues = values }
-    }
-
-    App.ConfigurationTaskPreferencesPage {
-        anchors.fill: parent
-        theme: theme
-        managed: true
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_TaskPreferencesLayoutTest.qml")),
+        surface = self.surface("tasks")
+        combo = surface.item("setting_workspaceSurface")
+        old = combo.property("currentValue")
+        combo.forceActiveFocus()
+        QTest.keyClick(surface.window, Qt.Key_Down)
+        surface.settle()
+        self.assertNotEqual(
+            surface.case.config.page_values("tasks_preferences")["workspaceSurface"],
+            old,
         )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            QTest.qWait(80)
-            def visual_item(name):
-                pending = [owner.contentItem()]
-                while pending:
-                    item = pending.pop()
-                    if item.objectName() == name:
-                        return item
-                    pending.extend(item.childItems())
-                return None
-
-            surface = owner.findChild(
-                QQuickItem, "taskPreferencesSurfaceCombo"
-            )
-            quick_view = owner.findChild(
-                QQuickItem, "taskPreferencesQuickViewCombo"
-            )
-            self.assertIsNotNone(surface)
-            self.assertIsNotNone(quick_view)
-            self.assertEqual(surface.property("currentIndex"), 1)
-            self.assertEqual(quick_view.property("currentIndex"), 1)
-            column_model = owner.findChild(QObject, "taskColumnSettings")
-            self.assertIsNotNone(column_model)
-            self.assertEqual(column_model.property("count"), 2)
-            self.assertIsNotNone(visual_item("taskPreferenceColumn_status"))
-            for width in (500, 760):
-                owner.setProperty("width", width)
-                QTest.qWait(30)
-                self.assertFalse(owner.grabWindow().isNull())
-                for name in (
-                    "taskPreferenceColumn_status",
-                    "taskPreferenceColumnRight_status",
-                ):
-                    item = visual_item(name)
-                    self.assertIsNotNone(item)
-                    right = item.mapToScene(QPointF(item.width(), 0)).x()
-                    self.assertLessEqual(right, width)
-            owner.setProperty("height", 1100)
-            QTest.qWait(30)
-            checkbox = visual_item("taskPreferenceColumnVisible_status")
-            point = checkbox.mapToScene(QPointF(
-                checkbox.width() / 2, checkbox.height() / 2
-            )).toPoint()
-            QTest.mouseClick(owner, Qt.LeftButton, pos=point)
-            controller = owner.findChild(
-                QObject, "taskPreferencesTestController"
-            )
-            values = controller.property("updatedValues")
-            if hasattr(values, "toVariant"):
-                values = values.toVariant()
-            self.assertFalse(values["columns"][1]["visible"])
-        finally:
-            owner.close()
-            owner.deleteLater()
-            engine.deleteLater()
+        quick = surface.item("setting_quickViewMode")
+        self.assertIn(quick.property("currentValue"), ("cards", "compact"))
 
     def test_appearance_picker_updates_independent_preferences(self):
-        translator = CatalogTranslator(
-            ROOT / "thlib" / "ui" / "translations" / "ru.json"
+        surface = self.surface("appearance")
+        self.click(surface, "setting_popupAnimations")
+        self.assertFalse(
+            surface.case.config.page_values("appearance")["popupAnimations"]
         )
-        self.app.installTranslator(translator)
-        self.addCleanup(self.app.removeTranslator, translator)
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Window
-import "." as App
+        self.assertTrue(surface.case.config.dirty)
+        surface.case.config.reset_current()
+        surface.settle()
+        self.assertTrue(surface.item("setting_popupAnimations").property("checked"))
+        self.assertFalse(surface.case.config.dirty)
 
-Window {
-    width: 720
-    height: 640
-    visible: true
-
-    App.Theme { id: theme; dark: true }
-    QtObject {
-        id: appController
-        property var theme_options: [{
-            "value": "md3", "label": "Material 3",
-            "description": "Material 3"
-        }]
-        property var theme_accents: ({
-            "md3": {"light": "steel", "dark": "steel"}
-        })
-        property var accent_presets: [{
-            "value": "steel", "label": "Steel",
-            "light": "#506070", "lightBase": "#f0f0f0",
-            "dark": "#90a0b0", "darkBase": "#202224"
-        }]
-        property var icon_set_options: [{
-            "value": "automatic", "label": "Automatic",
-            "description": "Automatic"
-        }]
-    }
-    QtObject {
-        id: localizationController
-        property var language_options: [{
-            "value": "en", "label": "English"
-        }]
-    }
-    QtObject {
-        id: configurationController
-        objectName: "configurationControllerStub"
-        signal sessionStarted()
-        signal pageReset(string pageId)
-        property var updatedValues: ({})
-        property string updatedPageId: ""
-        function page_values(pageId) {
-            return ({
-                "closeToTray": true,
-                "darkTheme": true,
-                "themeStyle": "md3",
-                "themeAccents": appController.theme_accents,
-                "iconSet": "automatic",
-                "clickAnimations": false,
-                "hoverAnimations": true,
-                "fadeAnimations": false,
-                "popupAnimations": false,
-                "renderBackend": "d3d11",
-                "language": "en",
-                "debugLogLevels": ["ERROR"],
-                "configPath": "D:/TACTIC"
-            })
-        }
-        function update_page(pageId, values) {
-            updatedPageId = pageId
-            updatedValues = values
-        }
-    }
-
-    App.ConfigurationAppearancePage {
-        anchors.fill: parent
-        theme: theme
-        managed: true
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_RenderBackendLayoutTest.qml")),
+    def test_server_presets_save_preserves_other_configuration_drafts(self):
+        surface = self.surface("appearance")
+        self.click(surface, "setting_popupAnimations")
+        surface.case.config.refresh_server_presets()
+        self.assertFalse(
+            surface.case.config.page_values("appearance")["popupAnimations"]
         )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            QTest.qWait(80)
-            combo = owner.findChild(QObject, "renderBackendCombo")
-            controller = owner.findChild(
-                QObject, "configurationControllerStub"
-            )
-            self.assertIsNotNone(combo)
-            self.assertEqual(combo.property("count"), 6)
-            self.assertEqual(combo.property("currentValue"), "d3d11")
-            click_motion = owner.findChild(
-                QObject, "clickAnimationsSwitch"
-            )
-            hover_motion = owner.findChild(
-                QObject, "hoverAnimationsSwitch"
-            )
-            fade_motion = owner.findChild(
-                QObject, "fadeAnimationsSwitch"
-            )
-            popup_motion = owner.findChild(
-                QObject, "popupAnimationsSwitch"
-            )
-            self.assertIsNotNone(click_motion)
-            self.assertIsNotNone(hover_motion)
-            self.assertIsNotNone(fade_motion)
-            self.assertFalse(click_motion.property("checked"))
-            self.assertTrue(hover_motion.property("checked"))
-            self.assertFalse(fade_motion.property("checked"))
-            self.assertIsNotNone(popup_motion)
-            self.assertFalse(popup_motion.property("checked"))
-
-            combo.setProperty("currentIndex", 5)
-            combo.activated.emit(5)
-            QTest.qWait(20)
-            values = controller.property("updatedValues")
-            if hasattr(values, "toVariant"):
-                values = values.toVariant()
-            self.assertEqual(values["renderBackend"], "software")
-            self.assertEqual(controller.property("updatedPageId"), "appearance")
-            self.assertNotIn("closeToTray", values)
-            self.assertNotIn("debugLogLevels", values)
-            self.assertFalse(values["popupAnimations"])
-            popup_motion.setProperty("checked", True)
-            popup_motion.toggled.emit()
-            self.assertTrue(
-                controller.property("updatedValues").toVariant()["popupAnimations"]
-            )
-            for width in (460, 980):
-                owner.setWidth(width)
-                self.app.processEvents()
-                flickable = popup_motion.parentItem()
-                while flickable.property("contentY") is None:
-                    flickable = flickable.parentItem()
-                switch_position = popup_motion.mapToItem(flickable, QPointF(0, 0))
-                flickable.setProperty("contentY", (
-                    flickable.property("contentY") + switch_position.y()
-                    - flickable.height() / 2
-                ))
-                self.app.processEvents()
-                switch_position = popup_motion.mapToScene(QPointF(0, 0))
-                self.assertGreaterEqual(switch_position.x(), 0)
-                self.assertLessEqual(switch_position.x() + popup_motion.width(), width)
-                self.assertGreaterEqual(switch_position.y(), 0)
-                self.assertLessEqual(switch_position.y() + popup_motion.height(), owner.height())
-                previous = popup_motion.property("checked")
-                point = popup_motion.mapToScene(QPointF(
-                    popup_motion.width() / 2, popup_motion.height() / 2,
-                )).toPoint()
-                QTest.mouseClick(owner, Qt.LeftButton, pos=point)
-                values = controller.property("updatedValues").toVariant()
-                self.assertEqual(values["popupAnimations"], not previous)
-        finally:
-            owner.close()
-            owner.deleteLater()
-            engine.deleteLater()
-
-    def test_server_presets_layout_marks_active_and_reserves_scrollbar(self):
-        translator = CatalogTranslator(
-            ROOT / "thlib" / "ui" / "translations" / "ru.json"
-        )
-        self.app.installTranslator(translator)
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        workspace = SimpleNamespace(
-            server_preset_model=RecordListModel(("label",))
-        )
-        presets_controller = ServerPresetsController(workspace)
-        presets_controller._active_name = "default"
-        presets_controller._drafts = {
-            "default": {
-                "server": "https://tactic.example",
-                "user": "artist",
-                "ticket": "stored-ticket",
-                "site": {"site_name": "", "enabled": False},
-                "proxy": {
-                    "login": "", "pass": "", "server": "",
-                    "enabled": False,
-                },
-            },
-            "long-studio-server-preset": {
-                "server": "https://studio.example",
-                "user": "",
-                "ticket": None,
-                "site": {"site_name": "", "enabled": False},
-                "proxy": {
-                    "login": "", "pass": "", "server": "",
-                    "enabled": False,
-                },
-            },
-        }
-        presets_controller._replace(
-            ["default", "long-studio-server-preset"], "default"
-        )
-        window_model = _ServerPresetWindowModel()
-        configuration_controller = _ServerPresetConfigurationController()
-        context = engine.rootContext()
-        context.setContextProperty(
-            "serverPresetsController", presets_controller
-        )
-        context.setContextProperty(
-            "serverPresetsModel", presets_controller.model
-        )
-        context.setContextProperty("windowModel", window_model)
-        context.setContextProperty(
-            "configurationController", configuration_controller
-        )
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Window
-import "." as App
-
-Window {
-    width: 720
-    height: 520
-    visible: true
-
-    App.Theme { id: theme; dark: true }
-
-    App.ServerPresetsView {
-        anchors.fill: parent
-        theme: theme
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_ServerPresetsLayoutTest.qml")),
-        )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            for width in (720, 1040):
-                owner.setWidth(width)
-                QTest.qWait(40)
-                presets = owner.findChild(QQuickItem, "serverPresetsList")
-                details = owner.findChild(
-                    QQuickItem, "serverPresetDetailsPane"
-                )
-                self.assertIsNotNone(presets)
-                self.assertIsNotNone(details)
-                visual_items = [presets]
-                for item in visual_items:
-                    visual_items.extend(item.childItems())
-                row = next((
-                    item for item in visual_items
-                    if item.objectName() == "serverPresetRow"
-                ), None)
-                chip = next((
-                    item for item in visual_items
-                    if item.objectName() == "activeServerPresetChip"
-                ), None)
-                self.assertIsNotNone(row, {
-                    "count": presets.property("count"),
-                    "width": presets.property("width"),
-                    "height": presets.property("height"),
-                    "visible": presets.property("visible"),
-                })
-                self.assertIsNotNone(chip)
-                self.assertGreater(float(presets.property("height")), 0.0)
-                self.assertAlmostEqual(
-                    float(presets.property("width"))
-                        - float(row.property("width")),
-                    14.0,
-                    delta=0.5,
-                )
-                self.assertLessEqual(
-                    chip.mapToScene(QPointF(chip.width(), 0)).x(),
-                    row.mapToScene(QPointF(row.width(), 0)).x() + 0.5,
-                )
-                self.assertLess(
-                    presets.mapToScene(QPointF(presets.width(), 0)).x(),
-                    details.mapToScene(QPointF(0, 0)).x(),
-                )
-                self.assertEqual(chip.property("text"), "Активен")
-            transport = owner.findChild(QQuickItem, "serverPresetRpcTransport")
-            self.assertIsNotNone(transport)
-            transport.forceActiveFocus()
-            QTest.keyClick(owner, Qt.Key_Down)
-            self.assertEqual(presets_controller.selected_values["rpcTransport"], "json")
-            QTest.keyClick(owner, Qt.Key_Up)
-            self.assertEqual(presets_controller.selected_values["rpcTransport"], "xmlrpc")
-            address = owner.findChild(QQuickItem, "serverPresetAddress")
-            team_mode = owner.findChild(
-                QQuickItem, "teamLocalRepositoryCheckBox"
-            )
-            self.assertIsNotNone(address)
-            self.assertIsNotNone(team_mode)
-            self.assertFalse(team_mode.property("checked"))
-            address.forceActiveFocus()
-            QTest.keyClick(owner, Qt.Key_A, Qt.ControlModifier)
-            for character in "http://127.0.0.1:9123":
-                QTest.keyClick(owner, character)
-            self.assertTrue(team_mode.property("checked"))
-            self.assertTrue(
-                presets_controller.selected_values["teamLocalRepository"]
-            )
-        finally:
-            owner.close()
-            owner.deleteLater()
-            presets_controller.deleteLater()
-            workspace.server_preset_model.deleteLater()
-            window_model.deleteLater()
-            configuration_controller.deleteLater()
-            engine.deleteLater()
-            self.app.removeTranslator(translator)
+        self.assertIn("appearance", surface.case.config.dirty_pages)
 
     def test_checkin_rows_have_width_and_do_not_overlap(self):
-        translator = CatalogTranslator(
-            ROOT / "thlib" / "ui" / "translations" / "ru.json"
+        surface = self.surface("checkin")
+        definitions = surface.evaluate("fields")
+        self.assertGreaterEqual(
+            len([field for field in definitions if field.get("field")]), 35
         )
-        self.app.installTranslator(translator)
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Window
-import "." as App
-
-Window {
-    width: 500
-    height: 600
-    visible: true
-
-    App.Theme { id: theme; dark: true }
-    QtObject {
-        id: configurationController
-        signal sessionStarted()
-        signal pageReset(string pageId)
-        function page_values(pageId) {
-            return ({teamLocalRepository: true,
-                     previewsThroughHttp: false, checkinMethod: 1,
-                     checkoutMethod: 0})
-        }
-        function update_page(pageId, values) {}
-    }
-    QtObject {
-        id: repositoryEditorController
-        property string current_path: "D:/TACTIC/repository/project"
-        function check_paths() {}
-    }
-    QtObject {
-        id: windowModel
-        function show_window(name) {}
-    }
-
-    App.CheckinOptionsPage {
-        anchors.fill: parent
-        theme: theme
-        managed: false
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_CheckinLayoutTest.qml")),
-        )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            scene = owner.contentItem()
-            for width in (500, 720):
-                owner.setProperty("width", width)
-                QTest.qWait(60)
-                rows = []
-                for item in owner.findChildren(QQuickItem):
-                    if "SettingsRow" not in item.metaObject().className():
-                        continue
-                    position = item.mapToItem(scene, QPointF(0, 0))
-                    rows.append((position.y(), item.height(), item.width()))
-
-                rows.sort(key=lambda record: record[0])
-                self.assertGreaterEqual(len(rows), 25)
-                self.assertTrue(all(row[2] > 1 for row in rows))
-                self.assertTrue(all(
-                    current[0] + current[1] <= following[0] + 0.1
-                    for current, following in zip(rows, rows[1:])
-                ))
-                for name in (
-                    "previewsThroughHttpSwitch", "checkinMethodComboBox",
-                    "checkoutMethodComboBox",
-                ):
-                    control = owner.findChild(QQuickItem, name)
-                    self.assertIsNotNone(control, name)
-                    self.assertFalse(control.isEnabled(), name)
-        finally:
-            owner.close()
-            owner.deleteLater()
-            engine.deleteLater()
-            self.app.removeTranslator(translator)
+        for width in (360, 1100):
+            surface.window.setWidth(width)
+            surface.view.setWidth(width)
+            surface.settle()
+            for name in (
+                "setting_displayLimitInput",
+                "setting_descriptionLimitInput",
+                "setting_sequencePaddingInput",
+                "setting_minimumFramePaddingInput",
+            ):
+                item = self.reveal(surface, name)
+                point = item.mapToScene(QPointF(0, 0))
+                self.assertGreater(item.width(), 20)
+                self.assertGreaterEqual(point.x(), 0)
+                self.assertLessEqual(point.x() + item.width(), width)
 
     def test_team_repository_sync_requires_dialog_acceptance(self):
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        controller = _TeamRepositoryController()
-        model = RecordListModel((
-            "alias", "title", "code", "windowsPath", "linuxPath",
-            "active", "isDefault", "defaultEligible", "status",
-            "statusText", "projectMapping", "selected", "custom", "color",
-        ))
-        model.replace([{
-            "alias": "base", "title": "General", "code": "base",
-            "windowsPath": "D:/shared/repository", "linuxPath": "",
-            "active": True, "isDefault": True,
-            "defaultEligible": True, "status": "available",
-            "statusText": "Available", "projectMapping": "",
-            "selected": True, "custom": False, "color": "",
-        }])
-        engine.rootContext().setContextProperty(
-            "repositoryEditorController", controller
-        )
-        engine.rootContext().setContextProperty("repositoryEditorModel", model)
-        component = QQmlComponent(engine)
-        component.setData(b'''import QtQuick
-import QtQuick.Window
-import "." as App
-Window {
-    width: 720
-    height: 560
-    visible: true
-    App.Theme { id: theme; dark: true }
-    App.RepositoryEditorView { anchors.fill: parent; theme: theme }
-}
-''', QUrl.fromLocalFile(str(QML / "_TeamRepositoryEditorTest.qml")))
-        owner = component.create()
-        self.assertIsNotNone(
-            owner, "\n".join(error.toString() for error in component.errors())
-        )
-        try:
-            dialog = owner.findChild(QObject, "teamRepositorySyncDialog")
-            sync_button = owner.findChild(
-                QQuickItem, "teamRepositorySyncButton"
-            )
-            self.assertIsNotNone(dialog)
-            self.assertIsNotNone(sync_button)
-            for width in (500, 720, 1000):
-                owner.setWidth(width)
-                QTest.qWait(20)
-                self.assertLessEqual(
-                    sync_button.mapToScene(QPointF(
-                        sync_button.width(), 0
-                    )).x(), float(width),
-                    (owner.width(), owner.contentItem().width(),
-                     sync_button.width(), sync_button.x(), [
-                         (item.metaObject().className(), item.x(), item.width())
-                         for item in (
-                             sync_button.parentItem(),
-                             sync_button.parentItem().parentItem(),
-                             sync_button.parentItem().parentItem().parentItem(),
-                             sync_button.parentItem().parentItem().parentItem().parentItem(),
-                         )
-                     ]),
-                )
-                QTest.mouseClick(
-                    owner, Qt.LeftButton,
-                    pos=sync_button.mapToScene(QPointF(
-                        sync_button.width() / 2,
-                        sync_button.height() / 2,
-                    )).toPoint(),
-                )
-                QTest.qWait(20)
-                self.assertTrue(dialog.property("visible"))
-                self.assertFalse(controller.synced)
-                self.assertTrue(QMetaObject.invokeMethod(dialog, "reject"))
-            self.assertTrue(QMetaObject.invokeMethod(dialog, "open"))
-            self.assertTrue(QMetaObject.invokeMethod(dialog, "accept"))
-            self.assertTrue(controller.synced)
-        finally:
-            owner.close()
-            owner.deleteLater()
-            controller.deleteLater()
-            model.deleteLater()
-            engine.deleteLater()
+        with patch.object(env_server, "is_team_local_repository", return_value=True):
+            surface = self.surface("repository_editor", 1100)
+            self.click(surface, "repositorySync")
+            dialog = surface.view.findChild(QObject, "teamRepositorySyncDialog")
+            self.assertTrue(dialog.property("opened"))
+            self.assertEqual(surface.repositories.sync_calls, 0)
+            QMetaObject.invokeMethod(dialog, "reject")
+            surface.settle()
+            self.assertEqual(surface.repositories.sync_calls, 0)
+            self.click(surface, "repositorySync")
+            QMetaObject.invokeMethod(dialog, "accept")
+            surface.settle()
+            self.assertEqual(surface.repositories.sync_calls, 1)
 
     def test_cache_page_reflows_and_keeps_its_shared_scrollbar(self):
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Window
-import "." as App
-
-Window {
-    width: 360
-    height: 520
-    visible: true
-
-    App.Theme { id: theme; dark: true }
-    QtObject {
-        id: configurationController
-        signal sessionStarted()
-        signal pageReset(string pageId)
-        function page_values(pageId) {
-            return ({
-                reference: true, search: true, snapshots: true,
-                relations: true, tasks: true, notes: true,
-                messages: true, activity: true, work_hours: true
-            })
-        }
-        function update_page(pageId, values) {}
-        function clear_data_cache() { return true }
-    }
-    QtObject {
-        id: serverCacheController
-        property bool busy: false
-        property string message: ""
-    }
-
-    App.ConfigurationCachePage {
-        anchors.fill: parent
-        theme: theme
-        managed: true
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_CachePageLayoutTest.qml")),
-        )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            for width in (360, 760):
-                owner.setProperty("width", width)
-                QTest.qWait(80)
-                image = owner.grabWindow()
-                self.assertFalse(image.isNull())
-                self.assertEqual(image.width(), width)
-            scrollbars = [
-                item for item in owner.findChildren(QQuickItem)
-                if item.objectName() == "cacheScrollBar"
-            ]
-            self.assertTrue(scrollbars)
-            scroll = owner.findChild(QQuickItem, "cacheScrollView")
-            self.assertTrue(
-                any(item.height() > 1 for item in scrollbars),
-                "scroll=({}, {}, {}) bar=({}, {}, {})".format(
-                    scroll.height() if scroll else -1,
-                    scroll.property("contentHeight") if scroll else -1,
-                    scroll.property("availableHeight") if scroll else -1,
-                    scrollbars[0].height(),
-                    scrollbars[0].property("hasOverflow"),
-                    scrollbars[0].property("visible"),
-                ),
-            )
-        finally:
-            owner.close()
-            owner.deleteLater()
-            engine.deleteLater()
+        surface = self.surface("cache", 360)
+        bar = surface.item("configurationSettingsScrollBar")
+        self.assertTrue(bar.property("hasOverflow"))
+        self.assertGreater(bar.width(), 0)
+        switch = self.reveal(surface, "setting_cacheProcessTabs")
+        point = switch.mapToScene(
+            QPointF(switch.width() / 2, switch.height() / 2)
+        ).toPoint()
+        device = QTest.createTouchDevice()
+        tap = QTest.touchEvent(surface.window, device, autoCommit=False)
+        tap.press(0, point, surface.window).commit()
+        self.app.processEvents()
+        tap.release(0, point, surface.window).commit()
+        surface.settle()
+        self.assertFalse(surface.case.config.page_values("cache")["cacheProcessTabs"])
 
     def test_repository_page_reflows_and_keeps_primary_action_visible(self):
-        translator = CatalogTranslator(
-            ROOT / "thlib" / "ui" / "translations" / "ru.json"
-        )
-        self.app.installTranslator(translator)
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Window
-import QtQml.Models
-import "." as App
+        surface = self.surface("repositories", 360)
+        self.click(surface, "setting_edit")
+        self.assertEqual(surface.windows.calls[-1], ("show", "repository_editor"))
 
-Window {
-    width: 480
-    height: 580
-    visible: true
-
-    App.Theme { id: theme; dark: true }
-    ListModel {
-        id: repositoryEditorModel
-        Component.onCompleted: {
-            append({
-                "title": "General", "code": "base",
-                "windowsPath": "D:/TACTIC/repository",
-                "linuxPath": "/mnt/tactic/repository",
-                "active": true, "isDefault": true,
-                "status": "unchecked", "statusText": "Not checked"
-            })
-            append({
-                "title": "Local", "code": "local",
-                "windowsPath": "D:/TACTIC/local",
-                "linuxPath": "/mnt/tactic/local",
-                "active": true, "isDefault": false,
-                "status": "unchecked", "statusText": "Not checked"
-            })
-        }
-    }
-    QtObject {
-        id: repositoryEditorController
-        property bool configuration_required: false
-        property bool configuration_loaded: true
-        property string current_title: "General"
-        property string current_path: "D:/TACTIC/repository"
-        property int active_count: 2
-        property bool busy: false
-        property string message: ""
-        function begin_edit() {}
-        function check_paths() {}
-    }
-    QtObject {
-        id: windowModel
-        function show_window(name) {}
-    }
-
-    App.ConfigurationRepositoryPage {
-        anchors.fill: parent
-        theme: theme
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_RepositoryPageLayoutTest.qml")),
-        )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            scene = owner.contentItem()
-            button = owner.findChild(QQuickItem, "openRepositoryEditorButton")
-            self.assertIsNotNone(button)
-            for width in (480, 820):
-                owner.setProperty("width", width)
-                QTest.qWait(80)
-                position = button.mapToItem(scene, QPointF(0, 0))
-                self.assertGreaterEqual(position.x(), -0.1)
-                self.assertLessEqual(position.x() + button.width(), width + 0.1)
-                self.assertGreater(button.height(), 20)
-                image = owner.grabWindow()
-                self.assertFalse(image.isNull())
-        finally:
-            owner.close()
-            owner.deleteLater()
-            engine.deleteLater()
-            self.app.removeTranslator(translator)
+    def test_project_list_reflows_without_clipping_on_narrow_and_wide_windows(self):
+        surface = self.surface("projects", 360)
+        self.click(surface, "configurationProject_cg")
+        self.assertEqual(surface.evaluate("selected.code"), "cg")
+        surface.window.setWidth(1100)
+        surface.view.setWidth(1100)
+        surface.settle()
+        self.click(surface, "configurationProjectAction_edit")
+        self.assertEqual(surface.evaluate("selected.code"), "cg")
+        self.assertGreater(surface.item("configurationProjects").width(), 300)
 
     def test_missing_repository_opens_one_modal_setup_prompt(self):
         engine = QQmlEngine()
         engine.addImportPath(str(QML))
         component = QQmlComponent(engine)
         component.setData(
-            b'''import QtQuick
+            b"""import QtQuick
 import QtQuick.Window
 import "." as App
 
@@ -1441,7 +356,7 @@ Window {
         smokeMode: false
     }
 }
-''',
+""",
             QUrl.fromLocalFile(str(QML / "_RepositoryPromptTest.qml")),
         )
         owner = component.create()
@@ -1460,251 +375,12 @@ Window {
             owner.deleteLater()
             engine.deleteLater()
 
-    def test_project_list_reflows_without_clipping_on_narrow_and_wide_windows(self):
-        translator = CatalogTranslator(
-            ROOT / "thlib" / "ui" / "translations" / "ru.json"
-        )
-        self.app.installTranslator(translator)
-        engine = QQmlEngine()
-        engine.addImportPath(str(QML))
-        component = QQmlComponent(engine)
-        component.setData(
-            b'''import QtQuick
-import QtQuick.Window
-import QtQml.Models
-import "." as App
-
-Window {
-    width: 520
-    height: 620
-    visible: true
-
-    App.Theme { id: theme; dark: true }
-    ListModel {
-        id: projectModel
-        property bool showRetired: false
-        property bool showTemplates: false
-        property bool showBuiltins: false
-        property int retiredCount: 1
-        property int templateCount: 1
-        property int builtinCount: 1
-        property int visibleCount: count
-        property int totalCount: count
-        function setShowRetired(value) { showRetired = value }
-        function setShowTemplates(value) { showTemplates = value }
-        function setShowBuiltins(value) { showBuiltins = value }
-        Component.onCompleted: {
-            append({"projectDetails": {
-                "code": "animation", "title": "Animation Project",
-                "category": "Production", "projectType": "Animation",
-                "status": "In progress", "systemStatus": "",
-                "isBuiltin": false, "isTemplate": false,
-                "isRetired": false, "isActive": true,
-                "description": "A deliberately long project description for layout testing.",
-                "preview": "", "initials": "AP"
-            }})
-            append({"projectDetails": {
-                "code": "sthpw", "title": "TACTIC system project",
-                "category": "System", "projectType": "built-in",
-                "status": "", "systemStatus": "",
-                "isBuiltin": true, "isTemplate": false,
-                "isRetired": false, "isActive": true,
-                "description": "Built-in project",
-                "preview": "", "initials": "TS"
-            }})
-        }
-    }
-    QtObject {
-        id: appController
-        objectName: "projectRefreshProbe"
-        property int refreshCalls: 0
-        property string current_project_title: "Animation Project"
-        property string current_project_code: "animation"
-        property int deactivateCalls: 0
-        function deactivate_project() { deactivateCalls += 1 }
-        function select_project(code) {}
-        function edit_project(code) {}
-        function refresh_projects() { refreshCalls += 1 }
-    }
-    QtObject {
-        id: projectCreationController
-        objectName: "templateExportProbe"
-        property bool busy: false
-        property string error: ""
-        property string exportedCode: ""
-        function export_project(code) { exportedCode = code }
-    }
-    QtObject {
-        id: windowModel
-        function show_window(name) {}
-    }
-
-    App.ConfigurationPage {
-        anchors.fill: parent
-        theme: theme
-        pageId: "project"
-        managed: true
-    }
-}
-''',
-            QUrl.fromLocalFile(str(QML / "_ProjectLayoutTest.qml")),
-        )
-        owner = component.create()
-        self.assertIsNotNone(
-            owner,
-            "\n".join(error.toString() for error in component.errors()),
-        )
-        try:
-            refresh_probe = owner.findChild(QObject, "projectRefreshProbe")
-            self.assertEqual(refresh_probe.property("refreshCalls"), 1)
-            scene = owner.contentItem()
-            panel = owner.findChild(QQuickItem, "projectPanel")
-            layout = owner.findChild(QQuickItem, "projectPageLayout")
-            section = owner.findChild(QQuickItem, "projectCatalogSection")
-            checked_compact_gap = checked_wide_gap = False
-            for width in (520, 980, 1400):
-                owner.setProperty("width", width)
-                QTest.qWait(100)
-                project_list = owner.findChild(
-                    QQuickItem, "configurationProjectList"
-                )
-                compact_actions = owner.findChild(
-                    QQuickItem, "projectCompactActions"
-                )
-                selected_summary = owner.findChild(
-                    QQuickItem, "projectSelectedSummary"
-                )
-                workspace_actions = owner.findChild(
-                    QQuickItem, "projectWorkspaceActions"
-                )
-                self.assertIsNotNone(compact_actions)
-                self.assertIsNotNone(selected_summary)
-                self.assertIsNotNone(workspace_actions)
-                if compact_actions.isVisible():
-                    action_top = compact_actions.mapToItem(
-                        scene, QPointF(0, 0)
-                    ).y()
-                    list_top = project_list.mapToItem(
-                        scene, QPointF(0, 0)
-                    ).y()
-                    self.assertGreaterEqual(
-                        list_top - (action_top + compact_actions.height()), 10
-                    )
-                    checked_compact_gap = True
-                if workspace_actions.isVisible():
-                    summary_top = selected_summary.mapToItem(
-                        scene, QPointF(0, 0)
-                    ).y()
-                    action_top = workspace_actions.mapToItem(
-                        scene, QPointF(0, 0)
-                    ).y()
-                    self.assertGreaterEqual(
-                        action_top - (summary_top + selected_summary.height()), 10
-                    )
-                    checked_wide_gap = True
-                visual_items = []
-                pending = [scene]
-                while pending:
-                    item = pending.pop()
-                    visual_items.append(item)
-                    pending.extend(item.childItems())
-                cards = [
-                    item for item in visual_items
-                    if item.objectName() == "projectCard"
-                ]
-                self.assertIsNotNone(project_list)
-                self.assertGreater(project_list.width(), 300)
-                self.assertGreater(project_list.height(), 250)
-                previews = [
-                    item for item in visual_items
-                    if item.objectName() == "projectCompactPreview"
-                    and item.isVisible()
-                ]
-                self.assertGreaterEqual(len(previews), 2)
-                self.assertTrue(all(
-                    abs(item.width() - item.height()) < 0.1 for item in previews))
-                self.assertEqual(project_list.property("count"), 2)
-                self.assertGreaterEqual(len(cards), 2)
-                card = next(card for card in cards if card.property("details")["code"] == "animation")
-                QTest.mouseClick(owner, Qt.LeftButton, pos=card.mapToScene(
-                    QPointF(card.width() / 2, card.height() / 2)).toPoint())
-                self.app.processEvents()
-                export = owner.findChild(QQuickItem, (
-                    "exportProjectTemplateCompactButton" if width < 900
-                    else "exportProjectTemplateButton"))
-                deactivate = owner.findChild(QQuickItem, (
-                    "deactivateProjectCompactButton" if width < 900
-                    else "deactivateProjectButton"))
-                self.assertTrue(export.isVisible())
-                self.assertTrue(export.isEnabled())
-                QTest.mouseClick(owner, Qt.LeftButton, pos=export.mapToScene(
-                    QPointF(export.width() / 2, export.height() / 2)).toPoint())
-                self.assertEqual(owner.findChild(QObject, "templateExportProbe").property("exportedCode"), "animation")
-                QTest.mouseClick(owner, Qt.LeftButton, pos=deactivate.mapToScene(
-                    QPointF(deactivate.width() / 2, deactivate.height() / 2)).toPoint())
-                self.assertGreater(refresh_probe.property("deactivateCalls"), 0)
-                for card in cards:
-                    position = card.mapToItem(scene, QPointF(0, 0))
-                    self.assertGreaterEqual(position.x(), -0.1)
-                    self.assertLessEqual(
-                        position.x() + card.width(), width + 0.1,
-                        "card=({}, {}, {}) list=({}, {}, {}) window=({}, {}) scene={} panel={} layout={} section={}".format(
-                            position.x(), card.width(), card.height(),
-                            project_list.x(), project_list.width(), project_list.height(),
-                            owner.width(), owner.height(), scene.width(),
-                            panel.width() if panel else -1,
-                            layout.width(), section.width(),
-                        ),
-                    )
-                    self.assertGreater(card.width(), 280)
-                    self.assertGreaterEqual(card.height(), 110)
-                image = owner.grabWindow()
-                self.assertFalse(image.isNull())
-                self.assertEqual(image.width(), width)
-            self.assertTrue(checked_compact_gap)
-            self.assertTrue(checked_wide_gap)
-            for toggle_name in (
-                "projectFilterRetiredToggle",
-                "projectFilterTemplatesToggle",
-                "projectFilterBuiltinsToggle",
-            ):
-                toggle = owner.findChild(QObject, toggle_name)
-                self.assertIsNotNone(toggle)
-                self.assertFalse(toggle.property("checked"))
-            action_buttons = [
-                owner.findChild(QQuickItem, object_name)
-                for object_name in (
-                    "activateSelectedProjectButton",
-                    "editSelectedProjectButton",
-                    "createProjectButton",
-                )
-            ]
-            self.assertTrue(all(action_buttons))
-            self.assertTrue(all(button.isVisible() for button in action_buttons))
-            button_bounds = [
-                (
-                    button.mapToItem(scene, QPointF(0, 0)).y(),
-                    button.height(),
-                )
-                for button in action_buttons
-            ]
-            self.assertTrue(all(
-                current_y + current_height + 7.5 <= following_y
-                for (current_y, current_height), (following_y, _)
-                in zip(button_bounds, button_bounds[1:])
-            ))
-        finally:
-            owner.close()
-            owner.deleteLater()
-            engine.deleteLater()
-            self.app.removeTranslator(translator)
-
     def test_quick_project_chooser_keeps_filters_and_square_previews_separate(self):
         engine = QQmlEngine()
         engine.addImportPath(str(QML))
         component = QQmlComponent(engine)
         component.setData(
-            b'''import QtQuick
+            b"""import QtQuick
 import QtQuick.Controls
 import "." as App
 
@@ -1756,7 +432,7 @@ ApplicationWindow {
     }
     Component.onCompleted: chooser.open()
 }
-''',
+""",
             QUrl.fromLocalFile(str(QML / "_ProjectChooserLayoutTest.qml")),
         )
         owner = component.create()
@@ -1766,7 +442,7 @@ ApplicationWindow {
         )
         try:
             QTest.qWait(150)
-            scene = owner.contentItem()
+            scene = owner.findChild(QObject, "projectChooser").property("contentItem")
             visual_items = []
             pending = [scene]
             while pending:
@@ -1774,17 +450,19 @@ ApplicationWindow {
                 visual_items.append(item)
                 pending.extend(item.childItems())
             title = next(
-                item for item in visual_items
+                item
+                for item in visual_items
                 if item.objectName() == "projectChooserTitle"
             )
             filters = next(
-                item for item in visual_items
+                item
+                for item in visual_items
                 if item.objectName() == "projectFilterToggles"
             )
             previews = [
-                item for item in visual_items
-                if item.objectName() == "projectGridPreview"
-                and item.isVisible()
+                item
+                for item in visual_items
+                if item.objectName() == "projectGridPreview" and item.isVisible()
             ]
             title_position = title.mapToItem(scene, QPointF(0, 0))
             filter_position = filters.mapToItem(scene, QPointF(0, 0))

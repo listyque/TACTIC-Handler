@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.109 - 2026-10-17
+
+- Move Configuration navigation and all preference pages, repository summary/editor, project catalogue, four-step creation, project editing and template manager to independent Tactic Frame configuration/projects modules. Keep existing persistence, native local/DCC/preset capabilities and operation owners; declare browser XML/web-path additions explicitly.
+- Preserve per-page drafts, Reset/Apply/Save/Close, preset saves without losing other drafts, TEAM confirmation, project image queues, modal project/template confirmations and unknown-creation reconciliation. Add real Qt/browser workflows, lifecycle/retire history checks, original/current comparisons and EN/RU Help.
+
 ## 0.6.0.108 - 2026-10-17
 
 - Move Debug Log, UI responsiveness, profile/editor, sign-in, presets and update/error/confirmation composition to independent Tactic Frame modules. Keep existing authentication, logging, profile ACL/revisions, updater and native file owners; Help and connection menus retain their established Frame contracts.

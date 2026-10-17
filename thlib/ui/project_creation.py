@@ -47,6 +47,7 @@ def creation_command(values: dict) -> tuple[str, dict]:
 
 class ProjectCreationController(QObject):
     stateChanged = Signal()
+    sessionStarted = Signal()
     completed = Signal()
 
     def __init__(self, application, parent=None) -> None:
@@ -73,6 +74,7 @@ class ProjectCreationController(QObject):
         }
         self._step = 0
         self._created_code = ''
+        self._uncertain = False
         self._error = ''
 
     @Slot()
@@ -81,6 +83,7 @@ class ProjectCreationController(QObject):
             return
         self._catalog = {}
         self._reset_draft()
+        self.sessionStarted.emit()
         self.reload_catalog()
 
     @Slot()
@@ -109,11 +112,14 @@ class ProjectCreationController(QObject):
 
     @Slot(str, 'QVariant')
     def set_value(self, key: str, value) -> None:
-        if self._busy or self._created_code or key not in self._draft:
+        if self._busy or self._created_code or self._uncertain or key not in self._draft:
             return
         if key == 'previewPath':
-            url = value if isinstance(value, QUrl) else QUrl(str(value or ''))
-            value = url.toLocalFile() if url.isLocalFile() else str(value or '')
+            if isinstance(value, QUrl):
+                value = value.toLocalFile() or value.toString()
+            else:
+                url = QUrl(str(value or ''))
+                value = url.toLocalFile() if url.isLocalFile() else str(value or '')
         self._draft[key] = value
         if key == 'title' and len(str(value)) <= 100:
             self._draft['code'] = project_identifier(str(value))[:30]
@@ -151,7 +157,7 @@ class ProjectCreationController(QObject):
 
     @Slot()
     def submit(self) -> None:
-        if self._busy or self._step != 3:
+        if self._busy or self._uncertain or self._step != 3:
             return
         if self._created_code:
             self._start(self._load_created_project, (), 'finish')
@@ -238,6 +244,10 @@ class ProjectCreationController(QObject):
         self._busy = False
         if operation == 'catalog':
             self._catalog = dict(result)
+            if self._uncertain:
+                if self._draft['code'] in self._catalog.get('projectCodes', []):
+                    self._created_code = self._draft['code']
+                self._uncertain = False
             if not self._draft['title']:
                 self._draft['isMainProject'] = bool(result.get('isMainProject'))
             themes = [row['value'] for row in result.get('themes', [])]
@@ -268,6 +278,8 @@ class ProjectCreationController(QObject):
         if self._worker is None or self.sender() is not self._worker:
             return
         worker = self._worker
+        if self._operation == 'create':
+            self._uncertain = True
         self._worker = None
         self._busy = False
         payload = error[0] if isinstance(error, (tuple, list)) else error
@@ -394,6 +406,10 @@ class ProjectCreationController(QObject):
     @Property(str, notify=stateChanged)
     def error(self) -> str:
         return self._error
+
+    @Property(bool, notify=stateChanged)
+    def uncertain(self) -> bool:
+        return self._uncertain
 
     @Property(str, notify=stateChanged)
     def createdCode(self) -> str:

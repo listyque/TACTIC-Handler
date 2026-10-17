@@ -321,9 +321,9 @@ class UiStructureTests(unittest.TestCase):
         }
         self.assertNotIn("tool_server_presets", commands)
         self.assertNotIn("tool_server_presets", TOOL_WINDOWS)
-        self.assertIn(
-            'windowModel.show_window("server_presets")', configuration
-        )
+        self.assertIn('Configuration.SettingsPage', configuration)
+        adapter = (QML / "features/configuration/SettingsPage.qml").read_text(encoding="utf-8")
+        self.assertIn('windowModel.show_window("server_presets")', adapter)
         self.assertIn("serverPresetsController.begin_session()", view)
         composition = (QML / 'tactic_frame/features/support/connection/presets.ui.mjs').read_text(encoding='utf-8')
         renderer = (QML / 'tactic_frame/core/FrameView.qml').read_text(encoding='utf-8')

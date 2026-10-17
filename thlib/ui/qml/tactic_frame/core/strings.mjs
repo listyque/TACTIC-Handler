@@ -1731,7 +1731,673 @@ const russian = {
         'Выберите рабочий процесс или создайте новый.',
     'Source key column': 'Исходная ключевая колонка',
     'Vertical position': 'Положение по вертикали',
-    'Workflow list width': 'Ширина списка рабочих процессов'
+    'Workflow list width': 'Ширина списка рабочих процессов',
+    'Connection, sign-in status and server presets':
+        'Подключение, состояние входа и серверные пресеты',
+    Repositories: 'Репозитории',
+    'Repository locations, availability and default storage':
+        'Расположения репозиториев, доступность и хранилище по умолчанию',
+    'Active project and workspace context':
+        'Активный проект и контекст рабочего пространства',
+    'Check-in Options': 'Параметры Check-in',
+    'Naming and file handling defaults':
+        'Настройки именования и работы с файлами',
+    Global: 'Общие',
+    'Application behavior and diagnostics':
+        'Поведение приложения и диагностика',
+    'Themes, animations, language and rendering':
+        'Темы, анимации, язык и рендеринг',
+    Cache: 'Кэш',
+    'Persistent server data and cache policy':
+        'Локальные серверные данные и правила кэширования',
+    'Task Browser layout and Notes inspector defaults':
+        'Настройки Task Browser и инспектора заметок',
+    Preferences: 'Настройки',
+    'Configuration sections': 'Разделы конфигурации',
+    Reset: 'Сбросить',
+    'Configuration help': 'Помощь по настройкам',
+    Repository: 'Репозиторий',
+    'Paths are stored in the active server preset':
+        'Пути хранятся в активном пресете сервера',
+    'Paths are stored in the server configuration':
+        'Пути сохраняются в конфигурации сервера',
+    'Server repository path': 'Серверный путь репозитория',
+    'Repository web URL': 'Веб-адрес репозитория',
+    'Windows path': 'Путь Windows',
+    'Windows client path': 'Клиентский путь Windows',
+    'Linux path': 'Путь Linux',
+    'Linux client path': 'Клиентский путь Linux',
+    'PROJECT MAPPING': 'СОПОСТАВЛЕНИЕ ПРОЕКТА',
+    'Check paths': 'Проверить пути',
+    'Remove custom repository': 'Удалить пользовательский репозиторий',
+    'Advanced settings': 'Расширенные настройки',
+    'Repository Editor': 'Редактор репозиториев',
+    REPOSITORIES: 'РЕПОЗИТОРИИ',
+    'Add custom repository': 'Добавить пользовательский репозиторий',
+    Sync: 'Синхронизировать',
+    sync: 'синхронизация',
+    'Repository storage': 'Хранилище репозитория',
+    'Snapshots, previews, check-in, check-out and synchronization depend on a valid repository path.':
+        'Снапшоты, превью, check-in, check-out и синхронизация зависят от корректного пути репозитория.',
+    'Repository configuration is loading':
+        'Конфигурация репозитория загружается',
+    'Open Repository Editor': 'Открыть редактор репозиториев',
+    'Checking…': 'Проверка…',
+    'Active repositories': 'Активные репозитории',
+    'The default repository is used when an operation does not choose another destination explicitly.':
+        'Репозиторий по умолчанию используется, если операция явно не выбрала другое назначение.',
+    Disabled: 'Отключено',
+    'Not checked': 'Не проверено',
+    'Restart required after changes': 'После изменения нужен перезапуск',
+    'Background jobs': 'Фоновые задания',
+    files: 'файлов',
+    'Bulk file transfers': 'Массовая передача файлов',
+    'Leave empty to keep the stored secret':
+        'Оставьте пустым, чтобы сохранить текущий секрет',
+    'Use default': 'Использовать значение по умолчанию',
+    'Clear stored secret': 'Удалить сохранённый секрет',
+    'Saved value: {value}': 'Сохранённое значение: {value}',
+    'Configured (hidden)': 'Задано (скрыто)',
+    'Default when empty: {value}': 'Если не задано: {value}',
+    'Environment override: {value}': 'Переопределено окружением: {value}',
+    'Web and API': 'Веб-интерфейс и API',
+    'Server endpoint, active preset and current sign-in status.':
+        'Адрес сервера, активный пресет и текущее состояние входа.',
+    'TACTIC HTTP endpoint used by the active server preset and connection test.':
+        'HTTP-адрес TACTIC, используемый активным серверным пресетом и проверкой соединения.',
+    'Server preset': 'Пресет сервера',
+    'Select a saved endpoint and its account and routing configuration.':
+        'Выберите сохранённый адрес сервера вместе с настройками учётной записи и маршрутизации.',
+    'XML-RPC supports Legacy TACTIC and TACTIC Stream. JSON requires TACTIC Stream. Saved separately for each preset; applying reconnects.':
+        'XML-RPC работает с Legacy TACTIC и TACTIC Stream. JSON требует TACTIC Stream. Выбор сохраняется в пресете; применение переподключает сервер.',
+    'XML-RPC': 'XML-RPC',
+    'JSON (TACTIC Stream)': 'JSON (TACTIC Stream)',
+    'Query execution': 'Выполнение запросов',
+    'Local mode needs no server installation. Plugin mode installs or updates the server package on first use with an administrator ticket.':
+        'Локальный режим не требует установки на сервер. Режим плагина устанавливает или обновляет пакет при первом использовании с тикетом администратора.',
+    Local: 'Локально',
+    'Server plugin': 'Серверный плагин',
+    'Background checks': 'Фоновые проверки',
+    'Committed changes are coalesced by one server worker. Only subscribed data is refreshed; presence and authentication keep their own heartbeat.':
+        'Один серверный воркер объединяет зафиксированные изменения. Обновляются только данные подписки; присутствие и авторизация проверяются отдельно.',
+    'Update delivery': 'Получение обновлений',
+    'Server push (SSE) uses the TACTIC Stream collector and refreshes only subscribed data. Other servers require periodic checks.':
+        'SSE использует сборщик TACTIC Stream и обновляет данные подписок. Для других серверов нужен периодический опрос.',
+    'Periodic checks': 'Периодический опрос',
+    'Server push (SSE)': 'Обновления от сервера (SSE)',
+    'Update batching delay': 'Задержка объединения обновлений',
+    'Combine arriving changes before reading data. A longer delay reduces requests during bursts; it also delays visible updates.':
+        'Объединять поступающие изменения перед чтением данных. Большая задержка уменьшает число запросов при серии изменений, но откладывает обновление интерфейса.',
+    '100 ms': '100 мс',
+    '200 ms': '200 мс',
+    '500 ms': '500 мс',
+    '1000 ms': '1000 мс',
+    'Server updates': 'Обновления с сервера',
+    'Interval for the shared request, including the connection check and presence heartbeat.':
+        'Интервал общего запроса, включая проверку соединения и отметку присутствия.',
+    'Every 5 seconds': 'Каждые 5 секунд',
+    'Every 10 seconds': 'Каждые 10 секунд',
+    'Every 30 seconds': 'Каждые 30 секунд',
+    'Every 60 seconds': 'Каждые 60 секунд',
+    'Check ZIP snapshots on this TACTIC sObject at startup and once a day.':
+        'Проверять ZIP-снапшоты этого sObject TACTIC при запуске и раз в сутки.',
+    'Update sObject search key': 'Ключ поиска sObject обновлений',
+    'Leave empty to disable automatic checks. Publish release ZIPs as snapshots of this object.':
+        'Оставьте пустым, чтобы отключить автоматические проверки. Публикуйте ZIP-релизы как снапшоты этого объекта.',
+    'Application window': 'Окно приложения',
+    'Choose what happens when the main window is closed.':
+        'Выберите, что происходит при закрытии главного окна.',
+    'Close to system tray': 'Сворачивать в системный трей',
+    'Keep TACTIC Handler running in the system tray when the main window close button is pressed. Disable this to exit completely.':
+        'Оставлять TACTIC Handler запущенным в системном трее при нажатии кнопки закрытия главного окна. Отключите этот параметр для полного выхода.',
+    'DCC connections': 'Подключения DCC',
+    'Control the local server used by DCC clients.':
+        'Настройте локальный сервер для подключения DCC-клиентов.',
+    'Start Handler Server automatically':
+        'Автоматически запускать Handler Server',
+    'Launch the local DCC server when TACTIC Handler starts. Disable this if you only use the standalone app; manual start remains available. Takes effect next launch.':
+        'Запускать локальный сервер DCC при старте TACTIC Handler. Если используете только самостоятельное приложение, отключите автозапуск: вручную сервер по-прежнему можно запустить. Вступит в силу при следующем запуске.',
+    'Choose which background updates appear as pop-up notifications.':
+        'Выберите, какие фоновые обновления показывать во всплывающих уведомлениях.',
+    'Activity feed notifications': 'Уведомления ленты активности',
+    'Show a bottom-right notification when another user creates a new activity event. This setting applies immediately.':
+        'Показывать уведомление справа внизу, когда другой пользователь создаёт новое событие активности. Настройка применяется сразу.',
+    'Message notifications': 'Уведомления о сообщениях',
+    'Show a bottom-right notification for new messages when their conversation is not open. This setting applies immediately.':
+        'Показывать уведомление справа внизу о новых сообщениях, если их диалог не открыт. Настройка применяется сразу.',
+    'Background workers': 'Фоновые потоки',
+    'Limit parallel server requests and local background work.':
+        'Ограничьте параллельные запросы к серверу и локальные фоновые операции.',
+    'TACTIC request threads': 'Потоки запросов TACTIC',
+    'Maximum simultaneous XMLRPC requests. Repository Sync sends this many different chunks at once.':
+        'Максимальное число одновременных XMLRPC-запросов. Repository Sync отправляет столько разных чанков одновременно.',
+    'Local worker threads': 'Локальные рабочие потоки',
+    'Maximum simultaneous local background operations. This does not change the Repository Sync download limit.':
+        'Максимальное число одновременных локальных фоновых операций. Лимит загрузок Repository Sync от этого не меняется.',
+    Diagnostics: 'Диагностика',
+    'Choose which event types are written to the diagnostic log.':
+        'Выберите типы событий, которые будут записываться в журнал диагностики.',
+    'Configuration location': 'Расположение конфигурации',
+    'Location used by the shared TACTIC Handler configuration API.':
+        'Расположение, используемое общим API конфигурации TACTIC Handler.',
+    'Active configuration root': 'Активная корневая папка конфигурации',
+    'This path is managed by the application environment and is shown here for diagnostics.':
+        'Этот путь управляется окружением приложения и показан здесь для диагностики.',
+    'Workspace cache': 'Кэш рабочего пространства',
+    'Control saved Search Tab layout separately from cached server records.':
+        'Управляйте сохранённой компоновкой вкладок поиска отдельно от кэшированных записей сервера.',
+    'Cache process tabs': 'Кэшировать вкладки процессов',
+    'Restore search process tabs from the persistent cache instead of rebuilding every tab during startup.':
+        'Восстанавливать вкладки процессов поиска из постоянного кэша вместо повторного построения при каждом запуске.',
+    'Clear tabs cache': 'Очистить кэш вкладок',
+    'Discard cached search tabs and rebuild them from current project data on the next load.':
+        'Удалить кэшированные вкладки поиска и при следующей загрузке построить их заново из актуальных данных проекта.',
+    'Cached server data': 'Кэширование данных сервера',
+    'Choose which unchanged TACTIC data may be restored locally. Refresh actions always bypass these caches.':
+        'Выберите, какие неизменённые данные TACTIC можно восстанавливать локально. Команды обновления всегда обходят кэш.',
+    'Projects and reference data': 'Проекты и справочные данные',
+    'Projects, Search Types, pipelines, processes, statuses, users, groups and tags.':
+        'Проекты, Search Types, пайплайны, процессы, статусы, пользователи, группы и теги.',
+    'Search results and sObjects': 'Результаты поиска и sObjects',
+    'Ordered search pages and unchanged object fields used by Search Tabs.':
+        'Упорядоченные страницы поиска и неизменённые поля объектов во вкладках поиска.',
+    'Snapshots and files': 'Снапшоты и файлы',
+    'Snapshot and file metadata. Repository files remain managed by Repository Sync.':
+        'Метаданные снапшотов и файлов. Файлы репозитория по-прежнему обслуживает Repository Sync.',
+    relations: 'Связи',
+    'Children and relations': 'Дочерние объекты и связи',
+    'Expanded child branches and linked-object membership.':
+        'Развёрнутые дочерние ветви и состав связанных объектов.',
+    'Task Manager scopes, pages and task metadata.':
+        'Области Task Manager, страницы и метаданные задач.',
+    notes: 'Заметки',
+    'Object and process note histories with attachment metadata.':
+        'История заметок объектов и процессов с метаданными вложений.',
+    Messages: 'Сообщения',
+    'A bounded set of recent conversation histories and attachment metadata.':
+        'Ограниченный набор недавних историй разговоров и метаданных вложений.',
+    'Activity Feed': 'Лента активности',
+    'Recent activity pages and complete calendar day counts.':
+        'Страницы недавней активности и полные счётчики событий календаря.',
+    'Work hours': 'Рабочие часы',
+    'Timesheet and report query results for previously opened ranges.':
+        'Результаты табеля и отчётов для ранее открытых диапазонов.',
+    'Cache maintenance': 'Обслуживание кэша',
+    'Clearing raises the cache generation first, so an older background request cannot restore cleared data.':
+        'При очистке сначала повышается поколение кэша, поэтому старый фоновый запрос не сможет вернуть удалённые данные.',
+    'Clear all cached server data': 'Очистить все кэшированные данные сервера',
+    'Search tabs will keep their layout, but server records will be loaded again when needed.':
+        'Вкладки поиска сохранят компоновку, но записи сервера при необходимости загрузятся заново.',
+    'Choose the interface style, color mode, palettes, and semantic icon set.':
+        'Выберите стиль интерфейса, цветовой режим, палитры и набор семантических иконок.',
+    'Dark color mode': 'Тёмный цветовой режим',
+    'Use dark surfaces and the dark palette assigned to the selected interface style.':
+        'Использовать тёмные поверхности и тёмную палитру, назначенную выбранному стилю интерфейса.',
+    'Interface style': 'Стиль интерфейса',
+    'Light mode palette': 'Палитра светлого режима',
+    'Base surface and accent used when the application is in light mode.':
+        'Основной цвет поверхностей и акцент для светлого режима приложения.',
+    'Dark mode palette': 'Палитра тёмного режима',
+    'Base surface and accent used when the application is in dark mode.':
+        'Основной цвет поверхностей и акцент для тёмного режима приложения.',
+    'Icon set': 'Набор иконок',
+    'Click animations': 'Анимации при нажатии',
+    'Animate press feedback, ripples, switches, and disclosure controls.':
+        'Анимировать отклик на нажатие, волны, переключатели и элементы раскрытия.',
+    'Hover animations': 'Анимации при наведении',
+    'Animate pointer hover feedback while keeping the same hover states available instantly when disabled.':
+        'Анимировать отклик при наведении указателя. Если отключено, те же состояния наведения показываются мгновенно.',
+    'Fades and transitions': 'Появления и переходы',
+    'Animate appearing content, view transitions, expansion, and other interface fades.':
+        'Анимировать появление содержимого, переходы между видами, раскрытие и другие плавные изменения интерфейса.',
+    'Menu and popup animations': 'Анимации меню и попапов',
+    'Animate opening and closing menus, dropdowns, popups, and tooltips. Disable for instant appearance and dismissal.':
+        'Анимировать открытие и закрытие меню, выпадающих списков, попапов и подсказок. Отключите для мгновенного появления и закрытия.',
+    Language: 'Язык',
+    'Choose the language used by the application interface.':
+        'Выберите язык интерфейса приложения.',
+    'Interface language': 'Язык интерфейса',
+    'Changes application labels and help text while project-defined names remain unchanged.':
+        'Изменяет подписи интерфейса и справку, не переводя названия, заданные в проекте.',
+    Rendering: 'Рендеринг интерфейса',
+    'Choose how Qt Quick draws and presents the interface. Changes take effect after restarting TACTIC Handler.':
+        'Выберите способ отрисовки и вывода интерфейса Qt Quick. Изменения применятся после перезапуска TACTIC Handler.',
+    'Graphics backend': 'Графический API',
+    'Automatic (recommended)': 'Автоматически (рекомендуется)',
+    OpenGL: 'OpenGL',
+    'Direct3D 11': 'Direct3D 11',
+    'Direct3D 12': 'Direct3D 12',
+    Vulkan: 'Vulkan',
+    Software: 'Программный',
+    'Task workspace defaults': 'Настройки рабочего пространства задач',
+    'Initial task surface, presentation, ordering and grouping.':
+        'Начальный раздел задач, представление, сортировка и группировка.',
+    'Initial task surface': 'Начальный раздел задач',
+    'Open Quick Tasks or the detailed Task Browser first.':
+        'Сначала открывать быстрые задачи или подробный Task Browser.',
+    'Quick Tasks': 'Быстрые задачи',
+    'Task Browser': 'Браузер задач',
+    'Quick Tasks presentation': 'Представление быстрых задач',
+    'Show editable process cards or a compact task list.':
+        'Показывать редактируемые карточки процессов или компактный список задач.',
+    'Compact list': 'Компактный список',
+    'Initial view': 'Начальный вид',
+    'View opened first when Task Browser has no saved local state.':
+        'Вид, открываемый первым, если у Task Browser нет сохранённого локального состояния.',
+    list: 'Список',
+    Gantt: 'Гантт',
+    'Initial sorting': 'Начальная сортировка',
+    'Default order used before the user applies a table or column sort.':
+        'Порядок по умолчанию до применения пользовательской сортировки таблицы или колонки.',
+    Deadline: 'Срок',
+    'Recently changed': 'Недавно изменённые',
+    Assignee: 'Исполнитель',
+    'Parent object': 'Родительский объект',
+    Milestone: 'Этап',
+    Supervisor: 'Руководитель',
+    'Initial grouping': 'Начальная группировка',
+    'Default group structure used when Task Browser is opened.':
+        'Структура групп по умолчанию при открытии Task Browser.',
+    'By Process': 'По процессу',
+    'By Status': 'По статусу',
+    'By Assignee': 'По исполнителю',
+    'By Parent Object': 'По родительскому объекту',
+    'By Project': 'По проекту',
+    'By Search Type': 'По типу поиска',
+    'No Groups': 'Без группировки',
+    'Task Inspector expanded': 'Инспектор задачи развёрнут',
+    'Open Task Inspector in its expanded state when no saved dock state exists.':
+        'Открывать Task Inspector развёрнутым, если сохранённое состояние дока отсутствует.',
+    'Task table columns': 'Колонки таблицы задач',
+    'Choose visible columns, their width and display order. Object remains visible.':
+        'Настройте видимые колонки, их ширину и порядок. Колонка объекта остаётся видимой.',
+    'Search results': 'Результаты поиска',
+    'Choose how result items are loaded and initially presented.':
+        'Выберите, как загружаются и изначально отображаются найденные объекты.',
+    'Preview delivery': 'Доставка превью',
+    'Built-in processes': 'Встроенные процессы',
+    'Include TACTIC built-in processes together with project-defined processes in result items.':
+        'Показывать встроенные процессы TACTIC вместе с процессами, настроенными в проекте.',
+    'Result limit': 'Лимит результатов',
+    'Maximum number of sObjects requested for one search result page.':
+        'Максимальное количество sObject, запрашиваемых для одной страницы результатов поиска.',
+    'Loading mode': 'Режим загрузки',
+    'Use explicit result pages or load the next page when scrolling reaches the end.':
+        'Использовать отдельные страницы результатов или загружать следующую страницу при прокрутке до конца.',
+    Pages: 'Страницы',
+    Continuous: 'Непрерывный',
+    'Default result view': 'Вид результатов по умолчанию',
+    'Initial presentation used when a search tab has no saved view state.':
+        'Начальный вид для вкладки поиска, у которой ещё нет сохранённого состояния отображения.',
+    'Item interactions': 'Действия с элементами',
+    'Define the actions performed by double-click gestures on result items.':
+        'Настройте действия, выполняемые двойным щелчком по найденным объектам.',
+    'Double-click to save': 'Двойной щелчок для сохранения',
+    'A regular double-click downloads or saves the selected snapshot using the configured checkout behaviour.':
+        'Обычный двойной щелчок загружает или сохраняет выбранный снапшот согласно настройкам check-out.',
+    'Shift + double-click to open': 'Shift + двойной щелчок для открытия',
+    'Holding Shift while double-clicking opens the selected file in its associated application.':
+        'Двойной щелчок с зажатым Shift открывает выбранный файл в связанном приложении.',
+    'Versions and descriptions': 'Версии и описания',
+    'Control version placement and the amount of descriptive text shown on result items.':
+        'Настройте размещение версий и объём текста описания в результатах.',
+    'Separate versions': 'Отделять версии',
+    'Display snapshot versions in a dedicated area instead of mixing them with the main item content.':
+        'Показывать версии снапшота в отдельной области, не смешивая их с основным содержимым элемента.',
+    'Versions position': 'Расположение версий',
+    'Choose where the separate version area appears relative to the result item.':
+        'Выберите расположение отдельной области версий относительно элемента результата.',
+    Right: 'Справа',
+    Bottom: 'Снизу',
+    'Description length': 'Длина описания',
+    'Limit long sObject descriptions in results. Disable the switch to show the complete text.':
+        'Ограничивать длинные описания sObject в результатах. Выключите параметр, чтобы показывать текст полностью.',
+    'Snapshot Browser defaults': 'Настройки Браузера снапшотов',
+    'Choose the initial content and layout used by Snapshot Browser.':
+        'Выберите начальное содержимое и компоновку Браузера снапшотов.',
+    'Show every snapshot': 'Показывать все снапшоты',
+    'Include snapshots from every process instead of only the selected process.':
+        'Показывать снапшоты всех процессов, а не только выбранного.',
+    'Show more metadata': 'Показывать больше метаданных',
+    'Expand the additional snapshot metadata by default.':
+        'По умолчанию раскрывать дополнительные метаданные снапшота.',
+    'Initial content': 'Начальное содержимое',
+    'Show preview and files together, preview only, or files only.':
+        'Показывать превью и файлы вместе, только превью или только файлы.',
+    'Preview and files': 'Превью и файлы',
+    'Preview only': 'Только превью',
+    'Files only': 'Только файлы',
+    'Preview scaling': 'Масштабирование превью',
+    'Fit shows the whole image; Fill covers all available space and crops the edges.':
+        '«Вписать» показывает изображение целиком; «Заполнить» занимает всю доступную область и обрезает края.',
+    Fit: 'Вписать',
+    Fill: 'Заполнить',
+    'Initial orientation': 'Начальная ориентация',
+    'Arrange preview and file content side by side or from top to bottom.':
+        'Расположить превью и файлы рядом или сверху вниз.',
+    Horizontal: 'Горизонтально',
+    Vertical: 'Вертикально',
+    'File transfer': 'Передача файлов',
+    'Choose how files move between TACTIC and the workstation.':
+        'Выберите способ передачи файлов между TACTIC и рабочей станцией.',
+    'Check-in method': 'Метод Check-in',
+    Preallocate: 'Предварительное размещение',
+    'In-Place': 'На месте',
+    Move: 'Перемещать',
+    Upload: 'Загружать',
+    'Check-out method': 'Метод Check-out',
+    HTTP: 'HTTP',
+    'Snapshot creation': 'Создание снапшотов',
+    'Defaults applied while preparing new snapshots and DCC output files.':
+        'Параметры по умолчанию для подготовки новых снапшотов и выходных файлов DCC.',
+    'Update versionless snapshot': 'Обновить versionless-снапшот',
+    'Refresh the versionless snapshot whenever a new numbered version is checked in.':
+        'Обновлять безверсионный снапшот при каждом check-in новой нумерованной версии.',
+    'Local versionless files': 'Локальные файлы versionless',
+    'Copy is the default. Links point to the numbered version, including previews. Symbolic links on Windows need Developer Mode or privileges; hard links need the same volume. Versionless-only check-ins use copies. Remote server aliases follow its own configuration.':
+        'По умолчанию — копия. Ссылки ведут на номерную версию, включая превью. Для символьных ссылок в Windows нужен режим разработчика или права; для жёстких — один том. Чекин только versionless использует копии. Алиасы удалённого сервера определяются его конфигурацией.',
+    'Symbolic link': 'Символьная ссылка',
+    'Hard link': 'Жёсткая ссылка',
+    'Generate previews': 'Создавать превью',
+    'Create supported thumbnail and preview files as part of the check-in preparation.':
+        'Создавать поддерживаемые миниатюры и превью при подготовке check-in.',
+    'Clean completed Commit Queue items':
+        'Очищать завершённые элементы Commit Queue',
+    'Remove successful operations from Commit Queue automatically.':
+        'Автоматически удалять успешные операции из Commit Queue.',
+    'Confirm saving': 'Подтверждать сохранение',
+    'Ask for confirmation before saving a prepared check-in operation.':
+        'Запрашивать подтверждение перед сохранением подготовленной операции check-in.',
+    'Confirm revision saving': 'Подтверждать сохранение ревизии',
+    'Ask separately before saving a revision instead of a new version.':
+        'Отдельно запрашивать подтверждение при сохранении ревизии вместо новой версии.',
+    'Sequence padding': 'Разрядность последовательности',
+    'Enable a fixed number of digits when sequence frame numbers are generated.':
+        'Использовать фиксированное количество цифр при формировании номеров кадров последовательности.',
+    'Repository synchronization': 'Синхронизация репозитория',
+    'Control repository discovery, validation, and completed transfer cleanup.':
+        'Настройте поиск файлов репозитория, проверку и очистку завершённых передач.',
+    'Verify files with MD5': 'Проверять файлы по MD5',
+    'Compare checksums to detect changed local files. Enable only when stronger validation is worth the additional CPU work.':
+        'Сравнивать контрольные суммы для поиска изменённых локальных файлов. Включайте, только если усиленная проверка оправдывает дополнительную нагрузку на процессор.',
+    'Clean completed downloads': 'Очищать завершённые загрузки',
+    'Remove completed Repository Sync rows automatically after each successful download batch.':
+        'Автоматически удалять завершённые строки Repository Sync после каждой успешной партии загрузок.',
+    'Discovery mode': 'Режим обнаружения',
+    'Full scope discovers every file before downloading; partial scope overlaps discovery and transfer in chunks.':
+        'Полный охват находит все файлы до загрузки; частичный охват совмещает обнаружение и передачу порциями.',
+    'Full scope': 'Полный список',
+    'Partial scope': 'Потоковая подготовка',
+    'Partial scope chunk size': 'Объектов в одном чанке',
+    'Number of repository records discovered per chunk while partial scope mode is active.':
+        'Количество записей репозитория в одной порции при частичном охвате.',
+    'Drop Plate completion': 'Завершение Drop Plate',
+    'Choose what happens to Drop Plate state after a successful check-in.':
+        'Выберите, что произойдёт с состоянием Drop Plate после успешного check-in.',
+    'Share Drop Plate across tabs': 'Общий Drop Plate для вкладок',
+    'Use one Drop Plate selection for every compatible search tab.':
+        'Использовать один набор Drop Plate для всех совместимых вкладок поиска.',
+    'Uncheck submitted files': 'Снимать отметку с отправленных файлов',
+    'Keep submitted files in Drop Plate but clear their checked state after check-in.':
+        'Оставлять отправленные файлы в Drop Plate, но снимать их отметку после check-in.',
+    'Clear submitted files': 'Удалять отправленные файлы',
+    'Remove successfully submitted files from Drop Plate after check-in.':
+        'Удалять успешно отправленные файлы из Drop Plate после check-in.',
+    'File matching and naming': 'Сопоставление и именование файлов',
+    'Define how dropped directories, sequences, UDIM sets, and snapshot filenames are recognized.':
+        'Настройте распознавание добавленных папок, последовательностей, наборов UDIM и имён файлов снапшотов.',
+    'Group selected files': 'Группировать выбранные файлы',
+    'Combine the selected files into one snapshot instead of preparing a snapshot for each file.':
+        'Объединять выбранные файлы в один снапшот вместо подготовки отдельного снапшота для каждого файла.',
+    'Keep original filename': 'Сохранять исходное имя файла',
+    'Preserve source filenames instead of applying the active naming template.':
+        'Сохранять исходные имена файлов вместо применения активного шаблона именования.',
+    'Include subfolders': 'Включать подпапки',
+    'Scan nested folders when a directory is added to Drop Plate.':
+        'Сканировать вложенные папки при добавлении каталога в Drop Plate.',
+    'Allow a single UDIM or UV tile': 'Разрешать одиночный тайл UDIM или UV',
+    'Recognize one matching tile as a valid UDIM or UV set instead of requiring multiple tiles.':
+        'Считать один подходящий тайл корректным набором UDIM или UV, не требуя несколько тайлов.',
+    'Allow a single-frame sequence':
+        'Разрешать последовательность из одного кадра',
+    'Recognize one numbered file as a sequence when its padding matches the configured rules.':
+        'Считать один нумерованный файл последовательностью, если его padding соответствует правилам.',
+    'Minimum frame padding': 'Минимальная разрядность кадров',
+    'Smallest number of frame digits accepted by automatic sequence detection.':
+        'Минимальное количество цифр номера кадра для автоматического распознавания последовательности.',
+    'Matching templates': 'Шаблоны сопоставления',
+    'Edit the templates used to associate dropped files with check-in contexts.':
+        'Редактировать шаблоны сопоставления добавленных файлов с контекстами check-in.',
+    'The browser uses the server that hosts this application.':
+        'Браузер подключён к серверу, на котором работает это приложение.',
+    'Current account': 'Текущая учётная запись',
+    API: 'API',
+    'General application messages.': 'Общие сообщения приложения.',
+    'Informational application events.': 'Информационные события приложения.',
+    'Recoverable issues and warnings.': 'Исправимые проблемы и предупреждения.',
+    'Missing files and resources.': 'Отсутствующие файлы и ресурсы.',
+    'Unhandled exceptions.': 'Необработанные исключения.',
+    'Failed requests and application errors.':
+        'Неудачные запросы и ошибки приложения.',
+    'Critical application failures.': 'Критические сбои приложения.',
+    'Successful API calls, including arguments, results and duration.':
+        'Успешные вызовы API, включая аргументы, результаты и время выполнения.',
+    'Browser preferences': 'Настройки браузера',
+    'Additional browser features remain available alongside the Handler layout.':
+        'Дополнительные возможности браузера доступны рядом с настройками ТХ.',
+    'Color mode': 'Цветовой режим',
+    'Choose light or dark surfaces, or follow the system preference.':
+        'Выберите светлые или тёмные поверхности либо следуйте настройке системы.',
+    'Object notes': 'Заметки объекта',
+    'Open object and process notes in the Task Inspector, or use a separate notes-only window.':
+        'Открывать заметки объекта и процесса в таск-инспекторе или в отдельном окне только для заметок.',
+    'Task Inspector': 'Инспектор задачи',
+    'Standalone notes': 'Отдельное окно заметок',
+    'Clear cache': 'Очистить кэш',
+    Error: 'Ошибки',
+    'Move column up': 'Переместить колонку вверх',
+    'Move column down': 'Переместить колонку вниз',
+    'No Category': 'Без категории',
+    'Available projects': 'Доступные проекты',
+    Templates: 'Шаблоны',
+    'Built-in': 'Встроенный',
+    'Activate selected project': 'Активировать выбранный проект',
+    'Edit selected project': 'Редактировать выбранный проект',
+    'Deactivate current project': 'Деактивировать текущий проект',
+    'Create template archive': 'Создать архив шаблона',
+    'Create new project': 'Создать новый проект',
+    'Refresh projects': 'Обновить проекты',
+    'No active project': 'Нет активного проекта',
+    'Project image': 'Изображение проекта',
+    'Choose a large image; the repository web representation is used automatically when available.':
+        'Выберите крупное изображение; при наличии автоматически используется его web-представление из репозитория.',
+    'Project details': 'Сведения о проекте',
+    'Category and type describe how the project is organized; the project code is permanent.':
+        'Категория и тип описывают организацию проекта; код проекта является постоянным.',
+    'Permanent TACTIC identifier. It cannot be changed here.':
+        'Постоянный идентификатор TACTIC. Здесь его изменить нельзя.',
+    'Human-readable project title shown throughout the application.':
+        'Понятное пользователю название проекта, отображаемое во всём приложении.',
+    Category: 'Категория',
+    'Groups related projects in the chooser.':
+        'Объединяет связанные проекты в окне выбора.',
+    Type: 'Тип',
+    'Project classification stored by TACTIC.':
+        'Классификация проекта, хранящаяся в TACTIC.',
+    'Explain the purpose of the project for people browsing the workspace.':
+        'Опишите назначение проекта для пользователей рабочего пространства.',
+    Lifecycle: 'Жизненный цикл',
+    'Archived projects stay on the server but are hidden by default. Templates are available for creating new projects.':
+        'Архивные проекты остаются на сервере, но по умолчанию скрыты. Шаблоны доступны для создания новых проектов.',
+    'Archive project': 'Архивировать проект',
+    'Hide this project from the default active-project list without deleting it.':
+        'Скрыть проект из списка активных по умолчанию, не удаляя его.',
+    'Use as template': 'Использовать как шаблон',
+    'Mark this project as a source template for future projects.':
+        'Пометить проект как исходный шаблон для будущих проектов.',
+    'Edit project': 'Редактирование проекта',
+    'Project help': 'Справка по проектам',
+    'Discard changes?': 'Отменить изменения?',
+    'Choose a name and a unique code for the project.':
+        'Укажите название и уникальный код проекта.',
+    'Preview Image': 'Изображение',
+    'Optional image used to identify the project. TACTIC uploads it and creates its preview during project creation.':
+        'Необязательное изображение проекта. TACTIC загружает его и создаёт превью при создании проекта.',
+    Template: 'Шаблон',
+    'Copy the template configuration, or create an empty project. Templates and themes are loaded from your TACTIC server.':
+        'Скопируйте конфигурацию шаблона или создайте пустой проект. Шаблоны и темы загружаются с вашего сервера TACTIC.',
+    Review: 'Проверка',
+    'Check the details before creating your project.':
+        'Проверьте данные перед созданием проекта.',
+    'Project title': 'Название проекта',
+    'The title can contain spaces and special characters, up to 100 characters.':
+        'Название может содержать пробелы и специальные символы, до 100 символов.',
+    'Use letters, numbers and underscores, up to 30 characters. The code cannot start with a number and must be unique, including retired projects.':
+        'До 30 латинских букв, цифр и подчёркиваний. Код не может начинаться с цифры и должен быть уникальным, включая архивные проекты.',
+    'Project description': 'Описание проекта',
+    'Prefix for new Search Types: studio gives studio/shot, for example. Leave empty to use the project code. Does not rename the project. The sthpw and prod namespaces are reserved.':
+        'Префикс новых Search Type: например, studio → studio/shot. Если поле пустое, используется код проекта. Не меняет имя проекта. sthpw и prod зарезервированы.',
+    'Use this project as a template': 'Использовать проект как шаблон',
+    'Main project': 'Главный проект',
+    'An empty project can become the default project at the TACTIC root URL. TACTIC may need a restart for this to take effect.':
+        'Пустой проект можно сделать главным для корневого URL TACTIC. Для применения может потребоваться перезапуск TACTIC.',
+    'Copy from template': 'Копировать из шаблона',
+    'Manage templates': 'Управление шаблонами',
+    'Refresh templates': 'Обновить шаблоны',
+    'Empty project settings': 'Настройки пустого проекта',
+    Theme: 'Тема',
+    'A project theme installs server widget configuration. It does not change your personal interface appearance.':
+        'Тема проекта устанавливает серверную конфигурацию виджетов и не изменяет ваше личное оформление интерфейса.',
+    'Project summary': 'Сводка проекта',
+    'Create project': 'Создать проект',
+    'Project creation help': 'Справка по созданию проекта',
+    'No theme': 'Без темы',
+    Yes: 'Да',
+    No: 'Нет',
+    'The creation result is unknown. Refresh the catalog before trying again.':
+        'Результат создания неизвестен. Обновите каталог перед следующей попыткой.',
+    'Loading project templates…': 'Загрузка шаблонов проектов…',
+    'Working…': 'Выполняется…',
+    'Discard this project draft?': 'Отменить этот черновик проекта?',
+    'Retry opening project': 'Повторить открытие проекта',
+    'Install template archive': 'Установить архив шаблона',
+    upload: 'Добавить файлы',
+    'No installed template packages.': 'Нет установленных пакетов шаблонов.',
+    'Remove template {code}? Existing projects are not removed.':
+        'Удалить шаблон {code}? Существующие проекты не удаляются.',
+    'Download archive': 'Скачать архив',
+    'Path status': 'Состояние пути',
+    'Manage server presets': 'Управление пресетами сервера',
+    'Test connection': 'Проверить подключение',
+    'Additional settings': 'Дополнительные настройки',
+    '{visible} of {total} projects shown':
+        'Показано проектов: {visible} из {total}',
+    'A template supplies its own namespace and configuration. Main-project, namespace, theme and template flags apply only to an empty project.':
+        'Шаблон задаёт собственное пространство имён и конфигурацию. Настройки главного проекта, пространства имён, темы и признака шаблона применяются только к пустому проекту.',
+    'Maya Scene': 'Сцена Maya',
+    'Scene integration and Maya defaults': 'Интеграция сцены и настройки Maya',
+    'Maya scene environment': 'Окружение сцены Maya',
+    'Scene workspace and the preferred Maya file format.':
+        'Рабочее пространство сцены и предпочитаемый формат Maya.',
+    'Current work directory': 'Текущая рабочая папка',
+    'Workspace directory supplied by the Maya integration.':
+        'Рабочая папка, которую сообщила Maya.',
+    'Maya saving format': 'Формат сохранения Maya',
+    'Default format used to prepare a scene for check-in.':
+        'Формат сцены по умолчанию при подготовке к отправке.',
+    'Maya ASCII (.ma)': 'Maya ASCII (.ma)',
+    'Maya Binary (.mb)': 'Maya Binary (.mb)',
+    'Create Maya directories': 'Создавать папки Maya',
+    'Prepare the standard Maya project folder structure.':
+        'Подготовить стандартную структуру папок проекта Maya.',
+    'Create playblast': 'Создавать playblast',
+    'Prepare a playblast image when the workflow supports it.':
+        'Подготовить плейбласт, если сценарий это поддерживает.',
+    'Window behavior': 'Поведение окна',
+    'Choose which application receives focus after Maya actions.':
+        'Выберите, какое приложение получит фокус после действий Maya.',
+    'Return focus after opening a scene':
+        'Возвращать фокус после открытия сцены',
+    'Bring Maya forward after opening, importing, or referencing.':
+        'Вывести Maya на передний план после открытия, импорта или референса.',
+    'Return focus after saving a scene':
+        'Возвращать фокус после сохранения сцены',
+    'Bring Maya forward after saving or preparing a check-in.':
+        'Вывести Maya на передний план после сохранения или подготовки к отправке.',
+    'Uses the stable OpenGL backend on Windows and the native Qt default on other systems.':
+        'В Windows используется стабильный OpenGL, а в других системах — нативный графический API Qt по умолчанию.',
+    'GPU rendering without the Windows DXGI/MPO presentation path that can cause full-display flicker.':
+        'GPU-отрисовка без пути вывода Windows DXGI/MPO, который может вызывать моргание всего экрана.',
+    'Native Windows backend. On some MPO or HDR configurations it can make the whole display flicker during UI updates.':
+        'Нативный графический API Windows. В некоторых конфигурациях MPO или HDR он может вызывать моргание всего экрана при обновлении интерфейса.',
+    'Modern native Windows backend. Requires compatible graphics drivers.':
+        'Современный нативный графический API Windows. Требует совместимых графических драйверов.',
+    'Cross-platform GPU backend. Requires a working Vulkan driver.':
+        'Кроссплатформенный графический API с поддержкой GPU. Требует рабочего драйвера Vulkan.',
+    'CPU rendering for troubleshooting. It avoids graphics-driver issues but is noticeably slower.':
+        'Программная отрисовка на CPU для диагностики. Обходит проблемы графических драйверов, но работает заметно медленнее.',
+    'Locked by TACTIC TEAM Mode in the active server preset.':
+        'Заблокировано режимом TACTIC TEAM в активном серверном пресете.',
+    'Load preview files through the TACTIC HTTP endpoint instead of relying only on repository access.':
+        'Загружать превью через HTTP-адрес TACTIC, а не полагаться только на прямой доступ к репозиторию.',
+    'Choose whether new files are preallocated, kept in place, copied, moved, or uploaded.':
+        'Выберите, будут ли новые файлы предварительно размещены, оставлены на месте, скопированы, перемещены или загружены.',
+    'Use direct local repository access or download files through the TACTIC HTTP endpoint.':
+        'Использовать прямой доступ к локальному репозиторию или загружать файлы через HTTP TACTIC.',
+    'Material Design 3': 'Material Design 3',
+    'Current TACTIC-Handler appearance': 'Оформление в стиле TACTIC Handler',
+    'Material Design 5 (preview)': 'Material Design 5 (экспериментальная)',
+    'Experimental project theme, not an official specification':
+        'Экспериментальная тема проекта, не официальная спецификация',
+    'Fluent Design': 'Fluent Design',
+    'Compact Windows-oriented surfaces and motion':
+        'Компактные поверхности и анимация в стиле Windows',
+    Automatic: 'Автоматически',
+    'Material-first icons with safe fallbacks':
+        'Сначала Material Design, затем надёжные запасные иконки',
+    'Font Awesome Solid': 'Font Awesome Solid',
+    'Bold, filled application icons':
+        'Контрастные закрашенные иконки приложения',
+    'Font Awesome Outline': 'Font Awesome Outline',
+    'Lighter outlined icons where available':
+        'Более лёгкие контурные иконки, где они доступны',
+    'Material Design Icons': 'Material Design Icons',
+    'Material Design icon vocabulary': 'Набор иконок Material Design',
+    'Fluent Regular': 'Fluent Regular',
+    'Modern outlined Fluent System icons':
+        'Современные контурные иконки Fluent System',
+    'Fluent Filled': 'Fluent Filled',
+    'Modern filled Fluent System icons':
+        'Современные закрашенные иконки Fluent System',
+    Steel: 'Стальной',
+    Silver: 'Серебристый',
+    Ash: 'Пепельный',
+    Graphite: 'Графитовый',
+    Charcoal: 'Угольный',
+    Blue: 'Синий',
+    Azure: 'Лазурный',
+    Cyan: 'Циан',
+    Teal: 'Бирюзовый',
+    Emerald: 'Изумрудный',
+    Green: 'Зелёный',
+    Lime: 'Лаймовый',
+    Amber: 'Янтарный',
+    Orange: 'Оранжевый',
+    Coral: 'Коралловый',
+    Red: 'Красный',
+    Rose: 'Розовый',
+    Violet: 'Фиолетовый',
+    Indigo: 'Индиго',
+    'Testing…': 'Проверка…',
+    'Clearing…': 'Очистка…',
+    'Continue editing': 'Продолжить редактирование',
+    'Clear tabs cache': 'Очистить кэш вкладок',
+    'Save changes before closing Configuration?':
+        'Сохранить изменения перед закрытием конфигурации?',
+    'Object, process and version branches will collapse. Search tabs, filters and dock layouts remain unchanged.':
+        'Ветки объектов, процессов и версий свернутся. Вкладки поиска, фильтры и леяуты доков сохранятся.',
+    'The selected preview is not a readable image':
+        'Выбранное превью не удалось прочитать как изображение'
 };
 
 export function translate(text, language, values) {

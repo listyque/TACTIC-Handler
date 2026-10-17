@@ -215,7 +215,7 @@ Window {
             root.contentView.dispatch({
                 type: "close"
             });
-        else if (root.kind === "user_profile" && root.contentView && !root.contentView.requestClose())
+        else if (["user_profile", "project_wizard", "project_editor"].includes(root.kind) && root.contentView && !root.contentView.requestClose())
             return;
         else if (root.kind === "schema_search_type")
             administrationController.schemaTypeEditor.discard();

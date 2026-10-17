@@ -1,335 +1,64 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/projects/catalog.ui.mjs" as UI
+
 Item {
     id: root
     required property var theme
-    objectName: "root"
-    readonly property bool compactLayout: width < 900
-    readonly property bool iconOnlyActions: compactLayout
-    property string selectedCode: ""
-    property string selectedTitle: ""
-    property string selectedStatus: ""
-    property bool selectedBuiltin: false
-
+    property var selected: ({})
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    readonly property var model: ({
+            selected,
+            currentCode: appController.current_project_code,
+            currentTitle: appController.current_project_title,
+            canManage: true,
+            counts: {
+                retired: projectModel.retiredCount,
+                templates: projectModel.templateCount,
+                builtins: projectModel.builtinCount
+            },
+            totalCount: projectModel.totalCount,
+            visibleCount: projectModel.visibleCount,
+            busy: projectCreationController.busy,
+            error: projectCreationController.error,
+            filters: {
+                retired: projectModel.showRetired,
+                templates: projectModel.showTemplates,
+                builtins: projectModel.showBuiltins
+            }
+        })
     Component.onCompleted: appController.refresh_projects()
-
-    RowLayout {
+    function dispatch(action) {
+        if (action.type === "select")
+            selected = action.record;
+        else if (action.type === "filter") {
+            if (action.field === "retired")
+                projectModel.setShowRetired(action.value);
+            else if (action.field === "templates")
+                projectModel.setShowTemplates(action.value);
+            else if (action.field === "builtins")
+                projectModel.setShowBuiltins(action.value);
+        } else if (action.type === "activate")
+            appController.select_project(action.code);
+        else if (action.type === "deactivate")
+            appController.deactivate_project();
+        else if (action.type === "edit")
+            appController.edit_project(action.code);
+        else if (action.type === "archive")
+            projectCreationController.export_project(action.code);
+        else if (action.type === "create")
+            windowModel.show_window("project_wizard");
+        else if (action.type === "refresh")
+            appController.refresh_projects();
+    }
+    Frame.FrameView {
         anchors.fill: parent
-        objectName: "projectPageLayout"
-        anchors.margins: 20
-        spacing: 14
-
-        ConfigurationSection {
-            objectName: "projectCatalogSection"
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            Layout.fillHeight: true
-            Layout.maximumWidth: root.compactLayout
-                ? Math.max(0, root.width - 40) : 16777215
-            theme: root.theme
-            fillContentHeight: true
-            title: qsTr("Available projects")
-            description: qsTr("Select a project to make it active in the workspace.")
-            iconName: "project-diagram"
-
-            Controls.ProjectFilterToggles {
-                Layout.minimumWidth: 0
-                Layout.fillWidth: true
-                theme: root.theme
-                model: projectModel
-                showSummary: true
-            }
-
-            ColumnLayout {
-                Layout.minimumWidth: 0
-                visible: root.compactLayout
-                Layout.fillWidth: true
-                spacing: 12
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-
-                    Label {
-                        Layout.fillWidth: true
-                        text: root.selectedTitle
-                            || qsTr("Select a project")
-                        color: root.selectedTitle.length
-                            ? root.theme.primaryText
-                            : root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.body
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        visible: root.selectedCode.length > 0
-                        text: root.selectedCode
-                            + (root.selectedStatus.length
-                                ? " · " + root.selectedStatus
-                                : "")
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.label
-                        elide: Text.ElideRight
-                    }
-                }
-                RowLayout {
-                    objectName: "projectCompactActions"
-                    Layout.fillWidth: true
-                    spacing: 8
-                    Item {
-                        Layout.fillWidth: true
-                    }
-
-                Controls.Button {
-                    theme: root.theme
-                    text: root.iconOnlyActions
-                        ? "" : qsTr("Activate")
-                    toolTip: qsTr("Activate selected project")
-                    icon.name: "arrow_forward"
-                    enabled: root.selectedCode.length > 0
-                    onClicked: appController.select_project(
-                        root.selectedCode)
-                }
-                Controls.Button {
-                    theme: root.theme
-                    tonal: true
-                    text: root.iconOnlyActions
-                        ? "" : qsTr("Edit")
-                    toolTip: qsTr("Edit selected project")
-                    icon.name: "edit"
-                    enabled: root.selectedCode.length > 0
-                        && !root.selectedBuiltin
-                    onClicked: appController.edit_project(
-                        root.selectedCode)
-                }
-                Controls.Button {
-                    objectName: "deactivateProjectCompactButton"
-                    theme: root.theme
-                    text: root.iconOnlyActions ? "" : qsTr("Deactivate")
-                    toolTip: qsTr("Deactivate current project")
-                    icon.name: "close"
-                    enabled: appController.current_project_code.length > 0
-                    onClicked: appController.deactivate_project()
-                }
-                Controls.Button {
-                    objectName: "exportProjectTemplateCompactButton"
-                    theme: root.theme
-                    text: root.iconOnlyActions ? "" : qsTr("Template archive")
-                    toolTip: qsTr("Create template archive from selected project")
-                    icon.name: "inventory-2"
-                    enabled: root.selectedCode.length > 0 && !root.selectedBuiltin
-                        && !projectCreationController.busy
-                    onClicked: projectCreationController.export_project(root.selectedCode)
-                }
-                Controls.Button {
-                    theme: root.theme
-                    tonal: true
-                    text: root.iconOnlyActions
-                        ? "" : qsTr("New project")
-                    toolTip: qsTr("Create new project")
-                    icon.name: "plus-box"
-                    onClicked:
-                        windowModel.show_window("project_wizard")
-                }
-                }
-            }
-
-            Label {
-                Layout.fillWidth: true
-                visible: projectCreationController.busy || projectCreationController.error.length > 0
-                text: projectCreationController.error || qsTr("Creating template archive...")
-                color: projectCreationController.error.length ? root.theme.error : root.theme.secondaryText
-                wrapMode: Text.WordWrap
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-            }
-            ListView {
-                id: projectList
-                objectName: "configurationProjectList"
-                Layout.minimumWidth: 0
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.topMargin: 12
-                clip: true
-                spacing: 4
-                model: projectModel
-                delegate: Controls.ProjectCard {
-                    id: projectRow
-                    required property var projectDetails
-                    details: projectDetails || ({})
-                    selected: root.selectedCode === details.code
-                    width: projectList.width
-                    theme: root.theme
-                    compact: true
-                    onClicked: {
-                        root.selectedCode =
-                            details.code || ""
-                        root.selectedTitle =
-                            details.title || ""
-                        root.selectedStatus =
-                            details.status || ""
-                        root.selectedBuiltin =
-                            Boolean(details.isBuiltin)
-                    }
-                    onDoubleClicked: {
-                        root.selectedCode =
-                            details.code || ""
-                        appController.select_project(
-                            details.code || "")
-                    }
-                }
-                ScrollBar.vertical: Controls.ScrollBar {
-                    theme: root.theme
-                    flickableTarget: projectList
-                }
-            }
-        }
-
-        ConfigurationSection {
-            visible: !root.compactLayout
-            Layout.minimumWidth: 280
-            Layout.preferredWidth: Math.min(
-                360, Math.max(280, parent.width * .34))
-            Layout.fillHeight: true
-            theme: root.theme
-            title: qsTr("Workspace project")
-            fillContentHeight: true
-            description: qsTr("Project selection is shared with the main project chooser.")
-            iconName: "workspaces"
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 6
-                Label {
-                    text: qsTr("CURRENT")
-                    color: root.theme.secondaryText
-                    font.pointSize: Controls.Typography.caption
-                    font.weight: Font.DemiBold
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: appController.current_project_title
-                        || qsTr("No active project")
-                    color: root.theme.primaryText
-                    font.pixelSize: 13
-                    font.weight: Font.DemiBold
-                    wrapMode: Text.WordWrap
-                }
-            }
-
-            Rectangle {
-                objectName: "projectSelectedSummary"
-                Layout.fillWidth: true
-                Layout.preferredHeight: 92
-                radius: 12
-                color: root.theme.surfaceContainerHigh
-                border.width: 1
-                border.color: root.theme.outlineVariant
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 4
-                    Label {
-                        text: root.selectedCode.length
-                            ? qsTr("SELECTED PROJECT")
-                            : qsTr("SELECT A PROJECT")
-                        color: root.theme.secondaryText
-                        font.pointSize: Controls.Typography.caption
-                        font.weight: Font.DemiBold
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: root.selectedTitle
-                            || qsTr("Choose an item from the list")
-                        color: root.selectedTitle.length
-                            ? root.theme.primaryText
-                            : root.theme.disabledText
-                        font.pointSize: Controls.Typography.bodyLarge
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: root.selectedCode
-                            + (root.selectedStatus.length
-                                ? " · " + root.selectedStatus : "")
-                        color: root.theme.secondaryText
-                        font.pointSize: Controls.Typography.label
-                        elide: Text.ElideRight
-                    }
-                }
-            }
-
-            ColumnLayout {
-                objectName: "projectWorkspaceActions"
-                Layout.fillWidth: true
-                Layout.topMargin: 12
-                spacing: 8
-
-                Controls.Button {
-                    objectName: "activateSelectedProjectButton"
-                    theme: root.theme
-                    highlighted: true
-                    Layout.fillWidth: true
-                    enabled: root.selectedCode.length > 0
-                    text: qsTr("Activate selected project")
-                    icon.name: "arrow_forward"
-                    onClicked:
-                        appController.select_project(root.selectedCode)
-                }
-
-                Controls.Button {
-                    objectName: "editSelectedProjectButton"
-                    theme: root.theme
-                    tonal: true
-                    Layout.fillWidth: true
-                    enabled: root.selectedCode.length > 0
-                        && !root.selectedBuiltin
-                    text: qsTr("Edit selected project")
-                    icon.name: "edit"
-                    onClicked:
-                        appController.edit_project(root.selectedCode)
-                }
-                Controls.Button {
-                    objectName: "deactivateProjectButton"
-                    theme: root.theme
-                    Layout.fillWidth: true
-                    text: qsTr("Deactivate current project")
-                    icon.name: "close"
-                    enabled: appController.current_project_code.length > 0
-                    onClicked: appController.deactivate_project()
-                }
-                Controls.Button {
-                    objectName: "exportProjectTemplateButton"
-                    theme: root.theme
-                    Layout.fillWidth: true
-                    text: qsTr("Create template archive")
-                    toolTip: qsTr("Create template archive from selected project")
-                    icon.name: "inventory-2"
-                    enabled: root.selectedCode.length > 0 && !root.selectedBuiltin
-                        && !projectCreationController.busy
-                    onClicked: projectCreationController.export_project(root.selectedCode)
-                }
-                Controls.Button {
-                    objectName: "createProjectButton"
-                    theme: root.theme
-                    tonal: true
-                    Layout.fillWidth: true
-                    text: qsTr("Create new project")
-                    icon.name: "plus-box"
-                    onClicked: windowModel.show_window("project_wizard")
-                }
-            }
-
-            Item {
-                Layout.fillHeight: true
-            }
-        }
+        theme: root.theme
+        scene: UI.describe(root.model, width, height, root.language)
+        models: ({
+                projects: projectModel
+            })
+        describeRow: (list, record) => UI.row(root.model, record, list.width - 16, root.language)
+        onEvent: action => root.dispatch(action)
     }
 }

@@ -11,6 +11,8 @@ Neither product imports the other checkout at runtime.
 | `core` | Node contract, theme roles, metrics, typography, motion | Plain JavaScript only |
 | `controls` | Reusable controls, graph geometry and input, code toolbar | Core; no feature modules |
 | `shell` | Window/dock/workspace composition | Core and controls |
+| `features/configuration` | Configuration shell, explained settings, native/web repository and server fields | Core and controls |
+| `features/projects` | Project catalogue, four-step creation, modal editor and templates | Core, controls and configuration settings/shell |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
 | `features/support/diagnostics` | Debug sessions, event details, measurements and selection | Core and controls |

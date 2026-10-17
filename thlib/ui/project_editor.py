@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot
 
 class ProjectEditorController(QObject):
     stateChanged = Signal()
+    sessionStarted = Signal()
     saved = Signal(str)
 
     def __init__(
@@ -33,6 +34,7 @@ class ProjectEditorController(QObject):
         self._archived = False
         self._template = False
         self._worker = None
+        self._original_values = self._editor_values()
 
     @Slot()
     def begin_session(self) -> None:
@@ -61,7 +63,17 @@ class ProjectEditorController(QObject):
         self._template = bool(project.is_template())
         self._busy = False
         self._error = ""
+        self._original_values = self._editor_values()
+        self.sessionStarted.emit()
         self.stateChanged.emit()
+
+    def _editor_values(self) -> tuple:
+        return (self._title, self._category, self._project_type, self._description,
+                self._archived, self._template, self._preview_path)
+
+    @Property(bool, notify=stateChanged)
+    def dirty(self) -> bool:
+        return self._editor_values() != self._original_values
 
     @Slot(str)
     def set_title(self, value: str) -> None:

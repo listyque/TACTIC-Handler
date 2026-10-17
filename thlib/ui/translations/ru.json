@@ -4814,5 +4814,9 @@
   "Expand item": "Развернуть элемент",
   "No records yet": "Записей пока нет",
   "Invalid value": "Некорректное значение",
-  "Unsupported file type": "Неподдерживаемый тип файла"
+  "Unsupported file type": "Неподдерживаемый тип файла",
+  "Path status": "Состояние пути",
+  "Manage server presets": "Управление пресетами сервера",
+  "Test connection": "Проверить подключение",
+  "Additional settings": "Дополнительные настройки"
 }

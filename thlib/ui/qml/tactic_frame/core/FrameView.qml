@@ -474,6 +474,7 @@ Item {
                             enabled: false
                         }
                         onClicked: root.send(wrapper.node.action)
+                        onDoubleClicked: root.send(wrapper.node.doubleAction)
                     }
                 }
                 Component {

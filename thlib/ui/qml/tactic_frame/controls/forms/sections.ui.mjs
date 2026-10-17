@@ -4,10 +4,25 @@ import { translate } from '../../core/strings.mjs';
 import { fieldProperties } from './fields.mjs';
 
 function captionHeight(text, width) {
-    // Reserve complete caption lines in both engines; painting stays native.
-    return text
-        ? Math.max(15, Math.ceil((text.length * 6) / Math.max(1, width)) * 15)
-        : 0;
+    if (!text) return 0;
+    // shortcut: Segoe UI EN/RU word estimates; use font advances for arbitrary fonts/scripts.
+    const available = Math.max(1, width);
+    let lines = 0;
+    for (const paragraph of text.split('\n')) {
+        let used = 0;
+        lines++;
+        for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+            const advance = word.length * 7;
+            if (used && used + 4 + advance > available) {
+                lines++;
+                used = 0;
+            }
+            const wraps = Math.max(1, Math.ceil(advance / available));
+            lines += wraps - 1;
+            used = (used ? used + 4 : 0) + advance - (wraps - 1) * available;
+        }
+    }
+    return lines * 15;
 }
 
 function choices(field, properties, width, controlHeight) {
@@ -76,7 +91,9 @@ export function sections(fields, width, language, enabled, style) {
             nodes.push(
                 label(heading.id, rect(1, contentY, width - 2, 20), title, {
                     fontRole: 'bodyLarge',
-                    weight: 600
+                    weight: 600,
+                    role: 'heading',
+                    level: 3
                 })
             );
             contentY += 28;
@@ -137,7 +154,10 @@ export function sections(fields, width, language, enabled, style) {
                 continue;
             }
 
-            const controlWidth = Math.max(1, Math.min(280, width - 48));
+            const controlWidth = Math.max(
+                1,
+                Math.min(field.controlWidth || 280, width - 48)
+            );
             const stacked = rowWidth - controlWidth - 20 < 210;
             const textWidth = stacked ? rowWidth : rowWidth - controlWidth - 20;
             const description = translate(field.description || '', language);
@@ -196,9 +216,11 @@ export function sections(fields, width, language, enabled, style) {
                                         icon: 'chevron-down',
                                         iconOnly: true,
                                         enabled:
-                                            enabled && field.value > field.min,
+                                            properties.enabled &&
+                                            field.value > field.min,
                                         action: {
                                             type: 'step',
+                                            field: field.field,
                                             value: -field.step
                                         }
                                     }
@@ -234,9 +256,11 @@ export function sections(fields, width, language, enabled, style) {
                                         icon: 'chevron-up',
                                         iconOnly: true,
                                         enabled:
-                                            enabled && field.value < field.max,
+                                            properties.enabled &&
+                                            field.value < field.max,
                                         action: {
                                             type: 'step',
+                                            field: field.field,
                                             value: field.step
                                         }
                                     }

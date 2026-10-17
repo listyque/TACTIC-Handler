@@ -213,14 +213,22 @@ class ConfigurationController(QObject):
             return self._server_values()
         if page_id == "checkin_preferences":
             return self._checkin_values()
-        if page_id == "global_preferences" and self._global_values:
-            return dict(self._global_values())
-        if page_id == "appearance" and self._appearance_values:
-            return dict(self._appearance_values())
-        if page_id == "tasks_preferences" and self._task_values:
-            return dict(self._task_values())
-        if page_id == "cache" and self._cache_values:
-            return dict(self._cache_values())
+        if page_id == "global_preferences":
+            values = dict(self._global_values() if self._global_values else {})
+            values.setdefault("debugLogLevels", ["ERROR", "CRITICAL"])
+            return self._normalize_global(values)
+        if page_id == "appearance":
+            return self._normalize_appearance(dict(
+                self._appearance_values() if self._appearance_values else {}
+            ))
+        if page_id == "tasks_preferences":
+            return self._normalize_tasks(dict(
+                self._task_values() if self._task_values else {}
+            ))
+        if page_id == "cache":
+            return self._normalize_cache(dict(
+                self._cache_values() if self._cache_values else {}
+            ))
         if page_id in self._dcc_pages:
             return read_dcc_preferences(
                 self._dcc_pages[page_id]["application"]
@@ -527,6 +535,10 @@ class ConfigurationController(QObject):
     def dirty(self) -> bool:
         return bool(self._dirty_pages)
 
+    @Property("QVariantList", notify=dirtyChanged)
+    def dirty_pages(self) -> list[str]:
+        return sorted(self._dirty_pages)
+
     @Property(bool, notify=dirtyChanged)
     def current_page_dirty(self) -> bool:
         return self._current_page in self._dirty_pages
@@ -589,6 +601,14 @@ class ConfigurationController(QObject):
     @Slot(str, result="QVariantMap")
     def page_schema(self, page_id: str) -> dict:
         return dict(self._dcc_pages.get(str(page_id or "")) or {})
+
+    @Slot()
+    def refresh_server_presets(self) -> None:
+        if "server" not in self._dirty_pages:
+            values = self._server_values()
+            self._original_values["server"] = dict(values)
+            self._pending_values["server"] = dict(values)
+        self.pageReset.emit("server")
 
     @Slot(str, result="QVariantMap")
     def server_preset_values(self, preset_name: str) -> dict:

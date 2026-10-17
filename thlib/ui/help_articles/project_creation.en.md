@@ -62,3 +62,7 @@ an inset corner gap, including while resizing.
   those steps without creating a second project.
   If TACTIC reports a creation failure, inspect the server error and refresh the catalog before
   trying again: native creation commands can commit some changes before failing.
+
+## Draft and template safety
+
+The four shared steps retain their draft when moving Back. A changed draft requires confirmation before closing; busy operations cannot be closed. After an unknown creation result, refresh the catalogue before another attempt. If the code already exists, retry only opening the project. Select a template in the manager before Download archive or Delete; deletion opens a separate blocking confirmation. Installing ZIP archives and choosing images use the client's own file picker.

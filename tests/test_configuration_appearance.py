@@ -165,10 +165,13 @@ Window {
         self.assertIsNotNone(window, "\n".join(e.toString() for e in component.errors()))
         try:
             self.assertTrue(QTest.qWaitForWindowExposed(window))
-            popup = window.findChild(QObject, "popupAnimationsSwitch")
+            def find(name):
+                return next((item for item in visual_items(window.contentItem()) if item.objectName() == name),None)
+
+            popup = find("setting_popupAnimations")
             self.assertIsNotNone(popup)
-            self.assertIsNotNone(window.findChild(QObject, "renderBackendCombo"))
-            self.assertEqual(window.findChildren(QObject, "closeToTraySwitch"), [])
+            self.assertIsNotNone(find("setting_renderBackend"))
+            self.assertIsNone(find("setting_closeToTray"))
             popup.setProperty("checked", False)
             popup.toggled.emit()
             self.assertTrue(self.config.dirty)
@@ -181,17 +184,15 @@ Window {
                 self.app.processEvents()
                 self.assertEqual(self.config.current_page, page)
                 if page == "global_preferences":
-                    self.assertIsNone(window.findChild(QObject, "popupAnimationsSwitch"))
-                    self.assertIsNone(window.findChild(QObject, "renderBackendCombo"))
+                    self.assertIsNone(find("setting_popupAnimations"))
+                    self.assertIsNone(find("setting_renderBackend"))
                     self.assertIsNotNone(
-                        window.findChild(QObject, "serverThreadsSpinBox")
+                        find("setting_serverThreads")
                     )
                     self.assertIsNotNone(
-                        window.findChild(QObject, "localThreadsSpinBox")
+                        find("setting_localThreads")
                     )
-                    activity_switch = window.findChild(
-                        QQuickItem, "activityFeedNotificationsSwitch"
-                    )
+                    activity_switch = find("setting_activityNotifications")
                     self.assertIsNotNone(activity_switch)
                     self.assertTrue(activity_switch.property("checked"))
                     point = activity_switch.mapToScene(QPointF(
@@ -204,9 +205,7 @@ Window {
                     self.assertFalse(
                         self.activity_notifications.notificationsEnabled
                     )
-                    message_switch = window.findChild(
-                        QQuickItem, "messageNotificationsSwitch"
-                    )
+                    message_switch = find("setting_messageNotifications")
                     self.assertIsNotNone(message_switch)
                     self.assertTrue(message_switch.property("checked"))
                     point = message_switch.mapToScene(QPointF(
@@ -220,9 +219,9 @@ Window {
                         self.message_notifications.notificationsEnabled
                     )
                 else:
-                    popup = window.findChild(QObject, "popupAnimationsSwitch")
+                    popup = find("setting_popupAnimations")
                     self.assertFalse(popup.property("checked"))
-                    apply = window.findChild(QQuickItem, "configurationApply")
+                    apply = find("configurationApply")
                     point = apply.mapToScene(QPointF(apply.width() / 2, apply.height() / 2))
                     QTest.mouseClick(window, Qt.LeftButton, pos=point.toPoint())
                     self.assertFalse(self.controller.popup_animations_enabled)

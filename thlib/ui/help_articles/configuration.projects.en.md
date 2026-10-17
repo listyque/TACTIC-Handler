@@ -28,3 +28,7 @@ reload for that context. **Edit selected project** opens the project editor and 
 built-in projects. **Create new project** opens the four-step TACTIC project creation wizard.
 
 Selecting a card is harmless; the project changes only after activation or a double-click.
+
+## Project editor
+
+Edit selected project opens a modal editor with an immutable code, title, category, type, description, archived/template flags and image selection. Closing a changed form offers Keep editing or Discard changes. Save uses the existing native command and image owner. Stream retains additional status/palette fields; unsupported custom inputs block Save explicitly. Archiving uses the native retire operation and its history, not a direct status update. Activation remains a separate immediate workspace operation.

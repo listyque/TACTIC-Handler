@@ -47,7 +47,10 @@ GridLayout {
             text: root.statusText
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.body
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: Foundation.textStyles.body
+            lineHeightMode: Text.FixedHeight
+            lineHeight: Foundation.lineHeights.body
             wrapMode: Text.WordWrap
         }
         Label {
@@ -56,7 +59,10 @@ GridLayout {
             text: root.description
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.label
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: Foundation.textStyles.secondary
+            lineHeightMode: Text.FixedHeight
+            lineHeight: Foundation.lineHeights.secondary
             wrapMode: Text.WordWrap
         }
         Controls.Button {

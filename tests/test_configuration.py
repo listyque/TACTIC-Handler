@@ -400,7 +400,9 @@ class ConfigurationTests(unittest.TestCase):
         checkin_page = (QML / "CheckinOptionsPage.qml").read_text(
             encoding="utf-8"
         )
-        self.assertIn("root.schema.sections", dcc_page)
+        self.assertIn("Configuration.SettingsPage", dcc_page)
+        adapter = (QML / "features/configuration/SettingsPage.qml").read_text(encoding="utf-8")
+        self.assertIn("UI.dccFields", adapter)
         self.assertNotIn("create_maya_dirs", checkin_page)
         self.assertNotIn("create_playblast", checkin_page)
 
@@ -734,32 +736,17 @@ class ConfigurationTests(unittest.TestCase):
         self.assertTrue(independent_popup_preference["popupAnimations"])
 
     def test_appearance_exposes_independent_animation_controls(self):
-        source = (
-            QML / "ConfigurationAppearancePage.qml"
-        ).read_text(encoding="utf-8")
-
-        for key, title in (
-            ("clickAnimations", "Click animations"),
-            ("hoverAnimations", "Hover animations"),
-            ("fadeAnimations", "Fades and transitions"),
-            ("popupAnimations", "Menu and popup animations"),
-        ):
-            self.assertIn(f'"{key}": {key}.checked', source)
-            self.assertIn(f'id: {key}', source)
-            self.assertIn(f'title: qsTr("{title}")', source)
+        source = (QML / "tactic_frame/features/configuration/settings.fields.mjs").read_text(encoding="utf-8")
+        for key, title in (("clickAnimations", "Click animations"), ("hoverAnimations", "Hover animations"), ("fadeAnimations", "Fades and transitions"), ("popupAnimations", "Menu and popup animations")):
+            self.assertIn("field: '" + key + "'", source)
+            self.assertIn("title: '" + title + "'", source)
 
     def test_appearance_exposes_render_backend_picker(self):
-        source = (
-            QML / "ConfigurationAppearancePage.qml"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn('"renderBackend": renderBackend.currentValue', source)
-        self.assertIn('title: qsTr("Graphics backend")', source)
-        for backend in (
-            "automatic", "opengl", "d3d11", "d3d12", "vulkan",
-            "software",
-        ):
-            self.assertIn(f'"value": "{backend}"', source)
+        source = (QML / "tactic_frame/features/configuration/settings.fields.mjs").read_text(encoding="utf-8")
+        self.assertIn("field: 'renderBackend'", source)
+        self.assertIn("title: 'Graphics backend'", source)
+        for backend in ("automatic", "opengl", "d3d11", "d3d12", "vulkan", "software"):
+            self.assertIn("value: '" + backend + "'", source)
 
     def test_cache_page_normalizes_every_server_data_domain(self):
         values = ConfigurationController._normalize_cache({
@@ -820,78 +807,25 @@ class ConfigurationTests(unittest.TestCase):
         chooser = (QML / "ProjectChooser.qml").read_text(
             encoding="utf-8"
         )
-        self.assertIn("Controls.ProjectCard {", configuration)
+        self.assertIn("UI.row", configuration)
+        self.assertIn("UI.describe", configuration)
         self.assertIn("Controls.ProjectCard {", chooser)
         self.assertIn('appController.edit_project(', configuration)
 
     def test_configuration_uses_shared_explained_setting_rows(self):
-        section = (QML / "ConfigurationSection.qml").read_text(
-            encoding="utf-8"
-        )
-        row = (QML / "controls" / "SettingsRow.qml").read_text(
-            encoding="utf-8"
-        )
-        checkin = (QML / "CheckinOptionsPage.qml").read_text(
-            encoding="utf-8"
-        )
-        configuration_files = [
-            QML / "ConfigurationPage.qml",
-            QML / "ConfigurationServerPage.qml",
-            QML / "ConfigurationRepositoryPage.qml",
-            QML / "ConfigurationProjectPage.qml",
-            QML / "ConfigurationGlobalPreferencesPage.qml",
-            QML / "ConfigurationTaskPreferencesPage.qml",
-            QML / "ConfigurationCachePage.qml",
-            QML / "ConfigurationDccPage.qml",
-            QML / "DccSettingField.qml",
-            QML / "ConfigurationAppearancePage.qml",
-        ]
-        configuration = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in configuration_files
-        )
-
-        configuration_view = (QML / "ConfigurationView.qml").read_text(
-            encoding="utf-8"
-        )
-        global_preferences = (
-            QML / "ConfigurationGlobalPreferencesPage.qml"
-        ).read_text(encoding="utf-8")
-        cache_preferences = (
-            QML / "ConfigurationCachePage.qml"
-        ).read_text(encoding="utf-8")
-        for source in (configuration_view, configuration, checkin):
-            self.assertEqual(
-                source.count("ScrollBar.vertical: Controls.ScrollBar"),
-                source.count("flickableTarget:"),
-            )
-
-        self.assertIn('color: "transparent"', section)
-        self.assertIn("property bool fillContentHeight", section)
-        self.assertIn("property string description", row)
-        self.assertIn("default property alias controlData", row)
-        self.assertGreaterEqual(checkin.count("Controls.SettingsRow {"), 25)
-        self.assertIn('title: qsTr("Repository synchronization")', checkin)
-        self.assertGreaterEqual(configuration.count("Controls.SettingsRow {"), 15)
-        self.assertIn('"closeToTray": closeToTray.checked', global_preferences)
-        self.assertIn('"serverThreads": serverThreads.value', global_preferences)
-        self.assertIn('"localThreads": localThreads.value', global_preferences)
-        self.assertIn('title: qsTr("Close to system tray")', global_preferences)
-        self.assertIn(
-            'objectName: "activityFeedNotificationsSwitch"',
-            global_preferences,
-        )
-        self.assertIn(
-            "activityFeedController.set_notifications_enabled(",
-            global_preferences,
-        )
-        self.assertNotIn("cacheProcessTabs", global_preferences)
-        self.assertIn(
-            'title: qsTr("Cache process tabs")', cache_preferences
-        )
-        self.assertIn(
-            'title: qsTr("Clear tabs cache")', cache_preferences
-        )
+        adapter = (QML / "features/configuration/SettingsPage.qml").read_text(encoding="utf-8")
+        fields = (QML / "tactic_frame/features/configuration/settings.fields.mjs").read_text(encoding="utf-8")
+        sections = (QML / "tactic_frame/controls/forms/sections.ui.mjs").read_text(encoding="utf-8")
+        self.assertIn("UI.fieldsFor", adapter)
+        self.assertIn("configurationController.update_page", adapter)
+        self.assertIn("activityFeedController.set_notifications_enabled", adapter)
+        self.assertIn("messagesController.set_notifications_enabled", adapter)
+        for title in ("Repository synchronization", "Close to system tray", "Cache process tabs", "Clear tabs cache"):
+            self.assertIn("title: '" + title + "'", fields)
+        self.assertIn("field.description", sections)
+        self.assertIn("captionHeight", sections)
+        for name in ("ConfigurationAppearancePage", "ConfigurationCachePage", "ConfigurationGlobalPreferencesPage", "ConfigurationTaskPreferencesPage", "CheckinOptionsPage", "ConfigurationServerPage", "ConfigurationDccPage"):
+            self.assertIn("Configuration.SettingsPage", (QML / (name + ".qml")).read_text(encoding="utf-8"))
 
 if __name__ == "__main__":
     unittest.main()

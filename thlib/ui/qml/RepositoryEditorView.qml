@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/configuration/repository.ui.mjs" as UI
 
 Item {
     id: root
@@ -9,357 +11,72 @@ Item {
     property string windowId: ""
     property int selectedRow: 0
     property int modelRevision: 0
-
+    property bool editing: false
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    readonly property var record: {
+        modelRevision;
+        return repositoryEditorModel.get(selectedRow);
+    }
+    readonly property var model: ({
+            native: true,
+            style: theme.style,
+            record,
+            selected: record.alias || "",
+            busy: repositoryEditorController.busy,
+            dirty: repositoryEditorController.dirty,
+            notice: repositoryEditorController.message,
+            teamLocal: repositoryEditorController.team_local_repository,
+            editing
+        })
     Component.onCompleted: repositoryEditorController.begin_edit()
     Connections {
         target: repositoryEditorModel
-        function onDataChanged() { root.modelRevision += 1 }
-        function onContentReplaced() { root.modelRevision += 1 }
+        function onDataChanged() {
+            root.modelRevision++;
+        }
+        function onContentReplaced() {
+            root.modelRevision++;
+        }
     }
-
-    Rectangle {
+    function dispatch(action) {
+        if (action.type === "field")
+            repositoryEditorModel.set_value(selectedRow, action.field, action.value);
+        else if (action.type === "select") {
+            for (let index = 0; index < repositoryEditorModel.count(); index++)
+                if (repositoryEditorModel.get(index).alias === action.alias)
+                    selectedRow = index;
+            editing = true;
+        } else if (action.type === "add") {
+            repositoryEditorController.add_custom_repository();
+            selectedRow = repositoryEditorModel.count() - 1;
+            editing = true;
+        } else if (action.type === "remove") {
+            repositoryEditorController.remove_custom_repository(selectedRow);
+            selectedRow = Math.max(0, Math.min(selectedRow, repositoryEditorModel.count() - 1));
+        } else if (action.type === "reset")
+            repositoryEditorController.cancel();
+        else if (action.type === "check")
+            repositoryEditorController.check_paths();
+        else if (action.type === "sync")
+            teamRepositoryDialog.open();
+        else if (action.type === "save") {
+            if (repositoryEditorController.save() && repositoryEditorController.team_local_repository)
+                teamRepositoryDialog.open();
+        } else if (action.type === "close" && !repositoryEditorController.busy)
+            windowModel.close_window("repository_editor");
+        else if (action.type === "back")
+            editing = false;
+    }
+    Frame.FrameView {
         anchors.fill: parent
-        color: root.theme.panelDeep
+        theme: root.theme
+        scene: UI.editor(root.model, width, height, root.language)
+        models: ({
+                repositories: repositoryEditorModel
+            })
+        describeRow: (list, record) => UI.row(root.model, record, list.width - 16)
+        onEvent: action => root.dispatch(action)
     }
-
-    RowLayout {
-        anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
-
-        Rectangle {
-            Layout.preferredWidth: Math.min(220, root.width * 0.34)
-            Layout.fillHeight: true
-            radius: 12
-            color: root.theme.panelRaised
-            border.color: root.theme.border
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 6
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("REPOSITORIES")
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.body
-                        font.weight: Font.DemiBold
-                        leftPadding: 8
-                        topPadding: 6
-                        bottomPadding: 4
-                    }
-                    Controls.CompactIconButton {
-                        theme: root.theme
-                        iconName: "add"
-                        round: false
-                        toolTip: qsTr("Add custom repository")
-                        onClicked: {
-                            repositoryEditorController.add_custom_repository()
-                            root.selectedRow = repositoryEditorModel.count() - 1
-                        }
-                    }
-                }
-                ListView {
-                    id: repositoryList
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    spacing: 4
-                    model: repositoryEditorModel
-                    ScrollBar.vertical: Controls.ScrollBar {
-                        theme: root.theme
-                        flickableTarget: repositoryList
-                    }
-                    delegate: Rectangle {
-                        required property int index
-                        required property string title
-                        required property string code
-                        required property bool active
-                        width: repositoryList.width
-                        height: 54
-                        radius: 10
-                        color: root.selectedRow === index
-                            ? root.theme.selected : mouse.containsMouse
-                                ? root.theme.rowHover : "transparent"
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
-                            spacing: 9
-                            Rectangle {
-                            implicitWidth: 8
-                            implicitHeight: 8
-                                radius: 4
-                                color: active ? root.theme.accent
-                                    : root.theme.secondaryText
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 1
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: title
-                                    elide: Text.ElideRight
-                                    color: root.theme.primaryText
-                                    font.family: root.theme.fontFamily
-                                    font.pointSize: Controls.Typography.bodyLarge
-                                    font.weight: Font.DemiBold
-                                }
-                                Label {
-                                    text: code
-                                    color: root.theme.secondaryText
-                                    font.family: root.theme.fontFamily
-                                    font.pointSize: Controls.Typography.label
-                                }
-                            }
-                        }
-                        MouseArea {
-                            id: mouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.selectedRow = index
-                        }
-                    }
-                }
-            }
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            Layout.fillHeight: true
-            radius: 12
-            color: root.theme.workspace
-            border.color: root.theme.border
-
-            Loader {
-                anchors.fill: parent
-                anchors.margins: 16
-                sourceComponent: editorComponent
-            }
-        }
-    }
-
-    Component {
-        id: editorComponent
-        Item {
-            property var record: {
-                root.modelRevision
-                return repositoryEditorModel.get(root.selectedRow)
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: 12
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 10
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
-                        Label {
-                            text: record.title || qsTr("Repository")
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 17
-                            font.weight: Font.DemiBold
-                        }
-                        Label {
-                            text: qsTr("Paths are stored in the active server preset")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                        }
-                    }
-                    Controls.CheckBox {
-                        theme: root.theme
-                        text: qsTr("Enabled")
-                        checked: Boolean(record.active)
-                        onToggled: repositoryEditorModel.set_value(
-                            root.selectedRow, "active", checked
-                        )
-                    }
-                    Controls.CheckBox {
-                        theme: root.theme
-                        text: qsTr("Default")
-                        enabled: Boolean(record.active)
-                            && Boolean(record.defaultEligible)
-                        checked: Boolean(record.isDefault)
-                        onToggled: repositoryEditorModel.set_value(
-                            root.selectedRow, "isDefault", checked
-                        )
-                    }
-                    Controls.CompactIconButton {
-                        visible: Boolean(record.custom)
-                        theme: root.theme
-                        iconName: "delete"
-                        round: false
-                        toolTip: qsTr("Remove custom repository")
-                        onClicked: {
-                            repositoryEditorController.remove_custom_repository(
-                                root.selectedRow
-                            )
-                            root.selectedRow = Math.max(
-                                0,
-                                Math.min(
-                                    root.selectedRow,
-                                    repositoryEditorModel.count() - 1
-                                )
-                            )
-                        }
-                    }
-                }
-
-                Controls.TextField {
-                    theme: root.theme
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("Display name")
-                    text: record.title || ""
-                    onTextEdited: repositoryEditorModel.set_value(
-                        root.selectedRow, "title", text
-                    )
-                }
-                Controls.TextField {
-                    theme: root.theme
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("Windows path")
-                    text: record.windowsPath || ""
-                    onTextEdited: repositoryEditorModel.set_value(
-                        root.selectedRow, "windowsPath", text
-                    )
-                }
-                Controls.TextField {
-                    theme: root.theme
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("Linux path")
-                    text: record.linuxPath || ""
-                    onTextEdited: repositoryEditorModel.set_value(
-                        root.selectedRow, "linuxPath", text
-                    )
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: mappingColumn.implicitHeight + 24
-                    radius: 10
-                    color: root.theme.panelRaised
-                    border.color: root.theme.border
-                    ColumnLayout {
-                        id: mappingColumn
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.margins: 12
-                        spacing: 4
-                        Label {
-                            text: qsTr("PROJECT MAPPING")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.label
-                            font.weight: Font.DemiBold
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: record.projectMapping || qsTr("No mappings")
-                            wrapMode: Text.WordWrap
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-                    Controls.MaterialIcon {
-                        name: record.status === "available"
-                            ? "check_circle" : record.status === "unavailable"
-                                ? "error" : "info"
-                        size: 17
-                        color: record.status === "available"
-                            ? root.theme.green : record.status === "unavailable"
-                                ? root.theme.red : root.theme.secondaryText
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: record.statusText || qsTr("Not checked")
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.body
-                    }
-                    Controls.Button {
-                        theme: root.theme
-                        text: repositoryEditorController.busy
-                            ? qsTr("CHECKING…") : qsTr("CHECK PATHS")
-                        enabled: !repositoryEditorController.busy
-                        onClicked: repositoryEditorController.check_paths()
-                    }
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    visible: text.length > 0
-                    text: repositoryEditorController.message
-                    color: text.indexOf("saved") >= 0
-                        ? root.theme.green : root.theme.red
-                    wrapMode: Text.WordWrap
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.body
-                }
-                Item { Layout.fillHeight: true }
-                Item {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.maximumWidth: parent.width
-                    implicitHeight: footerButtons.implicitHeight
-                    Row {
-                        id: footerButtons
-                        anchors.right: parent.right
-                        spacing: 8
-                        Controls.Button {
-                            theme: root.theme
-                            text: qsTr("CANCEL")
-                            visible: repositoryEditorController.dirty
-                            enabled: repositoryEditorController.dirty
-                            onClicked: repositoryEditorController.cancel()
-                        }
-                        Controls.Button {
-                            objectName: "teamRepositorySyncButton"
-                            theme: root.theme
-                            text: qsTr("Sync")
-                            toolTip: qsTr("Sync TACTIC repository path")
-                            visible: repositoryEditorController.team_local_repository
-                                && !repositoryEditorController.dirty
-                            enabled: !repositoryEditorController.busy
-                            onClicked: teamRepositoryDialog.open()
-                        }
-                        Controls.Button {
-                            theme: root.theme
-                            text: qsTr("SAVE")
-                            highlighted: true
-                            visible: repositoryEditorController.dirty
-                            enabled: repositoryEditorController.dirty
-                                && !repositoryEditorController.busy
-                            onClicked: {
-                                if (repositoryEditorController.save()
-                                        && repositoryEditorController.team_local_repository)
-                                    teamRepositoryDialog.open()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     Controls.Dialog {
         id: teamRepositoryDialog
         objectName: "teamRepositorySyncDialog"
@@ -371,13 +88,8 @@ Item {
         onAccepted: repositoryEditorController.sync_team_repository_path()
 
         contentItem: Label {
-            width: teamRepositoryDialog.width
-                - teamRepositoryDialog.leftPadding
-                - teamRepositoryDialog.rightPadding
-            text: qsTr("TACTIC's server-wide repository path will be set to:")
-                + "\n" + repositoryEditorController.current_code
-                + " → " + repositoryEditorController.current_path
-                + "\n\n" + qsTr("This affects every TACTIC client. Confirm only if the server can access this folder.")
+            width: teamRepositoryDialog.width - teamRepositoryDialog.leftPadding - teamRepositoryDialog.rightPadding
+            text: qsTr("TACTIC's server-wide repository path will be set to:") + "\n" + repositoryEditorController.current_code + " → " + repositoryEditorController.current_path + "\n\n" + qsTr("This affects every TACTIC client. Confirm only if the server can access this folder.")
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
             font.pointSize: Controls.Typography.body

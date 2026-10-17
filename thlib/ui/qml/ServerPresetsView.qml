@@ -68,7 +68,7 @@ Item {
             pushValues();
             if (serverPresetsController.save()) {
                 values = ({});
-                configurationController.begin_session();
+                configurationController.refresh_server_presets();
                 windowModel.close_window("server_presets");
             }
         } else if (action.type === "help")

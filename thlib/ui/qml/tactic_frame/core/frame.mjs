@@ -197,6 +197,7 @@ export function validateScene(scene, models, views) {
                 throw Error('Invalid Frame bounds: ' + value.id + '.' + key);
         for (const key of [
             'action',
+            'doubleAction',
             'activateAction',
             'commitAction',
             'dropAction',
