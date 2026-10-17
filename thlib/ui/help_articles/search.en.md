@@ -377,3 +377,13 @@ Dock positions, splits, stacks and the active panel are restored from the existi
 Stream shows one panel at a time on a phone. Returning to desktop preserves its dock arrangement; returning to phone restores the chosen phone panel and staged edits, even when that dock is hidden on desktop. Handler keeps its native desktop layout.
 
 Signing out or an expired session suspends background reads. A late reply from the previous login cannot restore its identity, permissions or workspace after another user signs in. A delayed sign-out reply cannot close the newer session. Unsaved edits still use the existing save/discard guards; signing out is not a way to persist a draft.
+
+## Search dock and result controls
+
+Open **Advanced Search** from the filter menu beside the Search tabs. It is a dock: move, stack, float or hide it through the ordinary panel controls. **Apply filters** updates the current tab and leaves the dock open. The first WHERE card stays editable; its plus adds a condition. Use the arrows to change condition order, and disable a card to compare results without deleting it. Value suggestions keep typing focus; Up/Down chooses a suggestion, Enter accepts it, and Escape dismisses the list.
+
+Each search tab keeps its own draft. Closing and reopening the dock retains that draft during the session. Preset Save/Update/Rename/Duplicate/Delete use the existing server catalog. If the reply to a save is lost, refresh the catalog and check the saved entry before trying again; the editor blocks a duplicate write while its result is unknown.
+
+**Group items → Task status by process** groups objects by the chosen process's task status, including separate No status and No task groups. Process/status names remain server data. **Sort by column** uses the actual Search Type columns. Page number, page size and Pages/Continuous are available from the result footer.
+
+A single card click selects; double click or its Open action enters its contents. Long lists and card grids render only visible entries, preserving loaded data, expansion and selection. On a focused result, Home/End and Up/Down move through the collection, including offscreen entries. Phone navigation retains its explicit Back/Open controls.

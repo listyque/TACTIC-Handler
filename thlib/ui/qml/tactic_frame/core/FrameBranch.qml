@@ -12,7 +12,7 @@ Loader {
     property var describeRow: null
     property var describeCell: null
     property bool interactive: true
-    signal event(var action)
+    signal event(var action, var source)
     function loadedView(): var {
         return root.item;
     }
@@ -40,8 +40,8 @@ Loader {
     })
     Connections {
         target: root.item
-        function onEvent(action) {
-            root.event(action);
+        function onEvent(action, source) {
+            root.event(action, source);
         }
     }
 }

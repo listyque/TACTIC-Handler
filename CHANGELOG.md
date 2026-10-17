@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.110 - 2026-10-17
+
+- Move search conditions/suggestions, presets, tag/quick-filter headers and editor parts, process visibility, menus, paging and result-card geometry to independent Frame search descriptions. Keep existing query, revision, ACL, mutation and native operation owners; use an Advanced Search dock in both products.
+- Preserve per-tab drafts and stable preset commands, normalize/reorder the first condition, reconcile unknown writes and group by actual task status. Bound browser collection delegates; remove empty native metadata/preview allocations without raising render budgets. Add real Qt/browser workflows, source-checked original/current comparisons and EN/RU Help.
+
 ## 0.6.0.109 - 2026-10-17
 
 - Move Configuration navigation and all preference pages, repository summary/editor, project catalogue, four-step creation, project editing and template manager to independent Tactic Frame configuration/projects modules. Keep existing persistence, native local/DCC/preset capabilities and operation owners; declare browser XML/web-path additions explicitly.

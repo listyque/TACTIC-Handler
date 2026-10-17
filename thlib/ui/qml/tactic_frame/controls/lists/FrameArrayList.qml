@@ -23,7 +23,7 @@ Flickable {
             nodes: []
         })
     readonly property int count: records.length
-    signal event(var action)
+    signal event(var action, var source)
 
     // Frame metadata is dynamic; a plain QQuickItem does not declare it.
     function frameKey(item: var): var {
@@ -128,7 +128,7 @@ Flickable {
         describeRow: root.describeRow
         describeCell: root.describeCell
         interactive: root.interactiveContent
-        onEvent: action => root.event(action)
+        onEvent: (action, source) => root.event(action, source)
     }
     ScrollBar.vertical: Controls.ScrollBar {
         objectName: root.node.scrollbarId || ""

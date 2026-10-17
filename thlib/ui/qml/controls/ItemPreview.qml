@@ -171,19 +171,22 @@ Item {
     Loader {
         anchors.centerIn: parent
         anchors.alignWhenCentered: false
-        active: root.active && !root.pending && sourceImage.status !== Image.Ready && root.fallbackText.length === 0
-        sourceComponent: Controls.MaterialIcon {
+        active: root.active && (root.pending || sourceImage.status !== Image.Ready)
+        sourceComponent: root.pending ? pendingComponent : root.fallbackText.length ? textComponent : iconComponent
+    }
+    Component {
+        id: iconComponent
+        Controls.MaterialIcon {
             name: root.fallbackIcon
             size: root.previewSize > 40 ? 22 : 16
             color: root.fallbackColor
         }
     }
-    Loader {
-        anchors.centerIn: parent
-        anchors.alignWhenCentered: false
-        active: root.active && !root.pending && sourceImage.status !== Image.Ready && root.fallbackText.length > 0
-        sourceComponent: Text {
+    Component {
+        id: textComponent
+        Text {
             text: root.fallbackText
+            verticalAlignment: Text.AlignVCenter
             color: root.fallbackColor
             font.family: root.theme.fontFamily
             font.hintingPreference: Font.PreferVerticalHinting
@@ -191,14 +194,12 @@ Item {
             font.weight: Font.DemiBold
         }
     }
-    Loader {
-        anchors.centerIn: parent
-        anchors.alignWhenCentered: false
-        width: Math.min(24, root.width * 0.45)
-        height: width
-        active: root.active && root.pending
-        sourceComponent: Controls.BusyIndicator {
+    Component {
+        id: pendingComponent
+        Controls.BusyIndicator {
             uiTheme: root.theme
+            implicitWidth: Math.min(24, root.width * 0.45)
+            implicitHeight: implicitWidth
             running: true
         }
     }

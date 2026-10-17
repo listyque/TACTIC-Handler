@@ -505,10 +505,7 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn('error: 400', sizing)
 
     def test_quick_filter_editor_uses_owned_modal_window_host(self):
-        windows = {
-            window.window_id: window
-            for window in FloatingWindowModel._defaults()
-        }
+        windows = {window.window_id: window for window in FloatingWindowModel._defaults()}
         editor_window = windows["quick_filter_editor"]
         self.assertEqual(editor_window.kind, "quick_filter_editor")
         self.assertTrue(editor_window.blocking)
@@ -521,18 +518,12 @@ class UiStructureTests(unittest.TestCase):
             FloatingWindowModel._context_required_windows,
         )
 
-        search = (QML / "SearchWorkspaceView.qml").read_text(
-            encoding="utf-8"
-        )
-        content = (QML / "QuickFilterEditorView.qml").read_text(
-            encoding="utf-8"
-        )
+        search = (QML / "SearchWorkspaceView.qml").read_text(encoding="utf-8")
+        content = (QML / "QuickFilterEditorView.qml").read_text(encoding="utf-8")
         host = (QML / "shell/windows/FloatingWindow.qml").read_text(encoding="utf-8")
         sizing = (QML / "tactic_frame/shell/window.sizing.mjs").read_text(encoding="utf-8")
 
-        self.assertIn(
-            'windowModel.show_window("quick_filter_editor")', search
-        )
+        self.assertIn('windowModel.show_window("quick_filter_editor")', search)
         self.assertNotIn("QuickFilterEditorDialog", search)
         self.assertFalse((QML / "QuickFilterEditorDialog.qml").exists())
         self.assertIn("Item {", content)
@@ -542,9 +533,10 @@ class UiStructureTests(unittest.TestCase):
         # including a reopen which does not reconstruct the retained QML.
         self.assertNotIn("quickFilterEditorController.begin_session()", host)
         self.assertNotIn("quickFilterEditorController.discard()", host)
-        self.assertNotIn("Component.onCompleted:", content)
-        self.assertIn('quick_filter_editor: 620', sizing)
-        self.assertIn('quick_filter_editor: 520', sizing)
+        self.assertIn("scene: UI.footer(root.frameModel", content)
+        self.assertNotIn("quickFilterEditorController.begin_session()", content)
+        self.assertIn("quick_filter_editor: 620", sizing)
+        self.assertIn("quick_filter_editor: 520", sizing)
 
     def test_script_editor_reuses_workspace_tabs_and_semantic_icons(self):
         script_editor = (QML / "ScriptEditorView.qml").read_text(
@@ -703,89 +695,80 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn("sidebarEditorController.previewSurfaces", source)
 
     def test_saved_searches_and_process_visibility_are_separate_tools(self):
-        windows = {
-            window.window_id: window
-            for window in FloatingWindowModel._defaults()
-        }
+        windows = {window.window_id: window for window in FloatingWindowModel._defaults()}
         self.assertNotIn("filter_editor", windows)
         self.assertEqual(
-            FloatingWindowModel._content_source(
-                windows["process_filter_editor"]
-            ),
+            FloatingWindowModel._content_source(windows["process_filter_editor"]),
             "ProcessFilterEditorView.qml",
         )
         self.assertFalse((QML / "FilterEditorView.qml").exists())
-        advanced_search = (QML / "AdvancedSearchView.qml").read_text(
-            encoding="utf-8"
-        )
+        advanced_search = (QML / "AdvancedSearchView.qml").read_text(encoding="utf-8")
         self.assertIn("filterPresetModel", advanced_search)
         preset_bar = (QML / "SearchPresetBar.qml").read_text(encoding="utf-8")
         self.assertIn("SearchPresetBar {", advanced_search)
         self.assertIn("save_current_search_as", preset_bar)
         self.assertIn("copy_selected_search_link", preset_bar)
-        self.assertIn("detach_generated_search_filter", advanced_search)
+        condition = (QML / "features/search/ConditionRow.qml").read_text(encoding="utf-8")
+        self.assertIn("detach_generated_search_filter", condition)
 
     def test_process_filter_window_keeps_legacy_compact_density(self):
-        source = (QML / "ProcessFilterEditorView.qml").read_text(
+        source = (QML / "ProcessFilterEditorView.qml").read_text(encoding="utf-8")
+        sync_source = (QML / "RepositorySyncEditorView.qml").read_text(encoding="utf-8")
+        tree_source = (QML / "controls" / "ProcessSelectionTree.qml").read_text(
             encoding="utf-8"
         )
-        sync_source = (QML / "RepositorySyncEditorView.qml").read_text(
+        ui = (QML / "tactic_frame/features/search/visibility.ui.mjs").read_text(
             encoding="utf-8"
         )
-        tree_source = (
-            QML / "controls" / "ProcessSelectionTree.qml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("Layout.preferredHeight: 42", source)
+        self.assertIn("scene: UI.header(", source)
+        self.assertIn("contentHeight: 42", ui)
         self.assertIn("Controls.ProcessSelectionTree", source)
         self.assertIn("Controls.ProcessSelectionTree", sync_source)
         self.assertNotIn("Controls.SmoothListView", source)
         self.assertNotIn("Controls.SmoothListView", sync_source)
-        self.assertIn("columns: root.width < 720 ? 1 : 2", tree_source)
-        self.assertIn("Layout.columnSpan: toggleGrid.columns", tree_source)
+        self.assertIn("columns = width < 720 ? 1 : 2", ui)
+        self.assertIn("scene: UI.togglers(", tree_source)
         self.assertNotIn("compact: root.compact", source)
         self.assertIn("height: rowVisible ? 30 : 0", tree_source)
-        self.assertIn("root.theme.surfaceContainerHigh", tree_source)
+        self.assertIn("surfaceContainerHigh", ui)
         self.assertIn("Qt.ShiftModifier", tree_source)
-        self.assertIn('qsTr("Show Togglers")', tree_source)
+        self.assertIn("'Show Togglers'", ui)
         self.assertIn('qsTr(" (child)")', tree_source)
         self.assertIn('qsTr(" (builtin)")', tree_source)
-        self.assertNotIn('showTreeIcons', tree_source)
-        self.assertNotIn('showTreeIcons', sync_source)
-        self.assertIn('"process-marker"', tree_source)
+        self.assertNotIn("showTreeIcons", tree_source)
+        self.assertNotIn("showTreeIcons", sync_source)
+        self.assertIn("'process-marker'", ui)
         self.assertIn('forceSolid: treeRow.kind === "process"', tree_source)
-        self.assertIn(
-            'anchors.leftMargin: 5 + treeRow.depth * 18', tree_source
-        )
-        self.assertIn("Layout.preferredHeight: 48", source)
-        self.assertIn('qsTr("Pipeline for:")', source)
+        self.assertIn("x = 5 + (record.depth || 0) * 18", ui)
+        self.assertIn("scene: UI.footer(", source)
+        self.assertIn("contentHeight: compact ? top : 48", ui)
+        self.assertIn("translate('Pipeline for:'", ui)
 
         window = next(
-            item for item in FloatingWindowModel._defaults()
+            item
+            for item in FloatingWindowModel._defaults()
             if item.window_id == "process_filter_editor"
         )
-        self.assertEqual((window.width, window.height), (.26, .50))
+        self.assertEqual((window.width, window.height), (0.26, 0.50))
 
         sizing = (QML / "tactic_frame/shell/window.sizing.mjs").read_text(encoding="utf-8")
-        self.assertEqual(sizing.count('process_filter_editor: 440'), 1)
-        self.assertEqual(sizing.count('process_filter_editor: 360'), 1)
+        self.assertEqual(sizing.count("process_filter_editor: 440"), 1)
+        self.assertEqual(sizing.count("process_filter_editor: 360"), 1)
 
     def test_result_tools_and_saved_search_picker_live_with_search_tabs(self):
-        source = (QML / "SearchWorkspaceView.qml").read_text(
+        source = (QML / "SearchWorkspaceView.qml").read_text(encoding="utf-8")
+        header = source[source.index("id: searchHeader") : source.index("id: searchTabs")]
+        tabs = source[source.index("id: searchTabs") : source.index("id: resultsToolbar")]
+        self.assertIn("scene: Header.describe(", header)
+        header_ui = (QML / "tactic_frame/features/search/header.ui.mjs").read_text(
             encoding="utf-8"
         )
-        header = source[
-            source.index("id: searchHeader"):source.index("id: searchTabs")
-        ]
-        tabs = source[
-            source.index("id: searchTabs"):source.index("id: resultsToolbar")
-        ]
-        self.assertLess(
-            header.index("id: searchRefresh"),
-            header.index("id: searchField"),
-        )
+        self.assertIn("const left = compact ? 8 : 80", header_ui)
+        self.assertIn("rect(38, 5, 38, 38)", header_ui)
         self.assertNotIn("id: searchRefresh", tabs)
         for control in (
-            "id: resultSortButton", "id: resultGroupButton",
+            "id: resultSortButton",
+            "id: resultGroupButton",
             "id: resultsViewButton",
         ):
             self.assertNotIn(control, header)
@@ -795,23 +778,25 @@ class UiStructureTests(unittest.TestCase):
         menus = (QML / "SearchResultMenus.qml").read_text(encoding="utf-8")
         self.assertIn("SearchResultMenus {", source)
         self.assertIn("resultFilterMenuActions()", menus)
-        self.assertIn('command": "preset:" + row', menus)
+        menu_ui = (QML / "tactic_frame/features/search/menus.ui.mjs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("command: 'preset:' + preset.view", menu_ui)
+        self.assertIn("UI.filterActions(", menus)
 
         view_button = tabs[
-            tabs.index("id: resultsViewButton"):
-            tabs.index("id: searchTabActionsOverflowButton")
+            tabs.index("id: resultsViewButton") : tabs.index(
+                "id: searchTabActionsOverflowButton"
+            )
         ]
-        self.assertIn(
-            "root.resultViewIcon(", view_button
-        )
+        self.assertIn("root.resultViewIcon(", view_button)
         self.assertNotIn("root.compactRows", view_button)
         for control in (
-            "id: resultSortButton", "id: resultGroupButton",
+            "id: resultSortButton",
+            "id: resultGroupButton",
             "id: resultsViewButton",
         ):
-            control_block = tabs[
-                tabs.index(control):tabs.index(control) + 420
-            ]
+            control_block = tabs[tabs.index(control) : tabs.index(control) + 420]
             self.assertIn(
                 "visible: !root.compactTabActions",
                 control_block,
@@ -819,13 +804,9 @@ class UiStructureTests(unittest.TestCase):
         overflow_index = tabs.index("id: searchTabActionsOverflowButton")
         history_index = tabs.index("id: tabHistoryControl")
         self.assertLess(overflow_index, history_index)
-        self.assertGreater(
-            history_index, tabs.index("id: resultsViewButton")
-        )
+        self.assertGreater(history_index, tabs.index("id: resultsViewButton"))
         overflow_block = tabs[overflow_index:history_index]
-        self.assertIn(
-            "visible: root.compactTabActions", overflow_block
-        )
+        self.assertIn("visible: root.compactTabActions", overflow_block)
         self.assertIn(
             "readonly property bool compactTabActions: width < 720",
             source,
@@ -833,23 +814,18 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn('if (mode === "tiles")', source)
         self.assertIn('return "dashboard"', source)
         self.assertIn("id: searchTabActionsMenu", source)
-        self.assertIn(
-            "resultsViewMenu.openBelow(", source
-        )
+        self.assertIn("resultsViewMenu.openBelow(", source)
         result_actions = source[
-            source.index("id: searchTabActionsMenu"):
-            source.index("id: resultsViewMenu")
+            source.index("id: searchTabActionsMenu") : source.index("id: resultsViewMenu")
         ]
         self.assertIn('"children": resultsViewMenu.actions', result_actions)
         self.assertNotIn('"title": "Refresh current results"', result_actions)
 
         tag_block = header[
-            header.index("id: tagCloudButton"):
-            header.index("id: quickFilterButton")
+            header.index("id: tagCloudButton") : header.index("id: quickFilterButton")
         ]
         quick_filter_block = header[
-            header.index("id: quickFilterButton"):
-            header.index("id: searchGear")
+            header.index("id: quickFilterButton") : header.index("id: searchGear")
         ]
         self.assertIn("visible: !root.compactTabActions", tag_block)
         self.assertIn("visible: true", quick_filter_block)
@@ -876,75 +852,58 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn("scrollBarReserve", scrollable)
 
     def test_search_filter_popups_expose_contextual_reset_actions(self):
-        quick_popup = (QML / "SearchQuickFilterPopup.qml").read_text(
+        quick = (QML / "SearchQuickFilterPopup.qml").read_text(encoding="utf-8")
+        tags = (QML / "TagCloudPopup.qml").read_text(encoding="utf-8")
+        ui = (QML / "tactic_frame/features/search/popups.ui.mjs").read_text(
             encoding="utf-8"
         )
-        tag_popup = (QML / "TagCloudPopup.qml").read_text(encoding="utf-8")
-
-        self.assertIn('objectName: "resetSearchQuickFiltersButton"', quick_popup)
-        self.assertIn(
-            "root.controller.active_quick_filter_count > 0", quick_popup
-        )
-        self.assertIn(
-            "onClicked: root.controller.clear_quick_filters()", quick_popup
-        )
-        self.assertIn(
-            'objectName: "restoreStandardQuickFiltersButton"', quick_popup
-        )
-        self.assertIn(
-            "root.controller.reset_quick_filters_to_standard()", quick_popup
-        )
-        self.assertIn('objectName: "resetSearchTagsButton"', tag_popup)
-        self.assertIn("root.controller.active_tag_count > 0", tag_popup)
-        self.assertIn(
-            'onClicked: root.controller.toggle_tag("")', tag_popup
-        )
+        self.assertIn("UI.quickHeader(", quick)
+        self.assertIn("UI.tagHeader(", tags)
+        self.assertIn("root.controller.active_quick_filter_count", quick)
+        self.assertIn("root.controller.clear_quick_filters()", quick)
+        self.assertIn("root.controller.reset_quick_filters_to_standard()", quick)
+        self.assertIn("root.controller.active_tag_count", tags)
+        self.assertIn('root.controller.toggle_tag("")', tags)
+        for name in (
+            "resetSearchQuickFiltersButton",
+            "restoreStandardQuickFiltersButton",
+            "resetSearchTagsButton",
+        ):
+            self.assertIn(name, ui)
 
     def test_quick_filter_popups_share_the_bounded_surface(self):
-        search_popup = (QML / "SearchQuickFilterPopup.qml").read_text(
-            encoding="utf-8"
-        )
-        task_popup = (QML / "TaskQuickFilterPopup.qml").read_text(
-            encoding="utf-8"
-        )
+        search_popup = (QML / "SearchQuickFilterPopup.qml").read_text(encoding="utf-8")
+        task_popup = (QML / "TaskQuickFilterPopup.qml").read_text(encoding="utf-8")
 
+        self.assertIn("preferredSurfaceWidth: UI.popup.width", search_popup)
+        self.assertIn("maximumSurfaceHeight: UI.popup.maximumHeight", search_popup)
+        ui = (QML / "tactic_frame/features/search/popups.ui.mjs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("width: 440", ui)
+        self.assertIn("maximumHeight: 400", ui)
+        self.assertIn("preferredSurfaceWidth: 440", task_popup)
+        self.assertIn("maximumSurfaceHeight: 400", task_popup)
         for source in (search_popup, task_popup):
-            self.assertIn("preferredSurfaceWidth: 440", source)
-            self.assertIn("maximumSurfaceHeight: 400", source)
             self.assertNotIn("contentItem: Flickable", source)
 
     def test_narrow_paginated_search_footer_keeps_primary_actions_inside(self):
-        source = (QML / "SearchWorkspaceView.qml").read_text(
+        source = (QML / "SearchWorkspaceView.qml").read_text(encoding="utf-8")
+        footer = source[
+            source.index("id: resultsToolbar") : source.index("id: resultsArea")
+        ]
+        ui = (QML / "tactic_frame/features/search/footer.ui.mjs").read_text(
             encoding="utf-8"
         )
-        footer = source[
-            source.index("id: resultsToolbar"):
-            source.index("id: resultsArea")
-        ]
-
-        self.assertIn("property bool narrow: width < 520", footer)
-        self.assertIn("property bool ultraNarrow: width < 340", footer)
-        self.assertIn(
-            "spacing: resultsToolbar.narrow ? 4 : 8", footer
-        )
-        self.assertRegex(footer, r"text: resultsToolbar\.narrow\s*\? String\(appController\.result_count\)")
-        self.assertIn('objectName: "searchCreateItemButton"', footer)
-        self.assertIn("Layout.maximumWidth: 40", footer)
-        self.assertIn(
-            "Layout.maximumWidth: resultsToolbar.compact ? 40 : 160",
-            footer,
-        )
-        page_size = footer[
-            footer.index("id: pageSizeButton"):
-            footer.index("id: loadModeButton")
-        ]
-        self.assertIn("pageSizeContent.implicitWidth + 23", page_size)
-        self.assertIn(
-            "Layout.minimumWidth: Layout.preferredWidth", page_size
-        )
-        self.assertIn("id: pageSizeLabel", page_size)
-        self.assertIn("Layout.minimumWidth: implicitWidth", page_size)
-        self.assertIn("Layout.minimumWidth: 16", page_size)
+        self.assertIn("scene: Footer.describe(", footer)
+        self.assertIn("compact = width < 1200", ui)
+        self.assertIn("narrow = width < 520", ui)
+        self.assertIn("'searchCreateItemButton'", ui)
+        self.assertIn("compact ? 36 : 124", ui)
+        self.assertIn("'searchPageSize'", ui)
+        self.assertIn("if (pages && !compact)", ui)
+        self.assertIn("'searchLoadingMode'", ui)
+        self.assertIn("'searchPagePicker'", ui)
 
     def test_sidebar_editor_and_drawer_share_the_same_tree_row(self):
         drawer_source = (QML / "NavigationDrawer.qml").read_text(
@@ -1274,9 +1233,7 @@ class UiStructureTests(unittest.TestCase):
         self.assertNotIn("showMessage(", tray)
 
     def test_search_chrome_keeps_search_above_tabs(self):
-        source = (QML / "SearchWorkspaceView.qml").read_text(
-            encoding="utf-8"
-        )
+        source = (QML / "SearchWorkspaceView.qml").read_text(encoding="utf-8")
         header_index = source.index("id: searchHeader")
         shelf_index = source.index("id: scriptShelfLoader", header_index)
         tabs_index = source.index("id: searchTabs", shelf_index)
@@ -1292,7 +1249,7 @@ class UiStructureTests(unittest.TestCase):
         tabs = source[tabs_index:results_index]
         self.assertIn("anchors.top: parent.top", header)
         self.assertIn(
-            "height: root.theme.dockWorkspaceHeaderHeight / 2",
+            "height: Header.height",
             header,
         )
         self.assertIn(
@@ -1312,15 +1269,17 @@ class UiStructureTests(unittest.TestCase):
             tabs.index("id: addSearchTabButton"),
             tabs.index("id: searchTabsView"),
         )
-        toolbar = source[max(0, toolbar_index - 80):results_index]
+        toolbar = source[max(0, toolbar_index - 80) : results_index]
         self.assertIn(
             "Controls.DockWorkspaceFooter {",
             toolbar,
         )
-        footer_control = (
-            QML / "controls" / "DockWorkspaceFooter.qml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("readonly property real cornerRadius: frameSurface.radius", footer_control)
+        footer_control = (QML / "controls" / "DockWorkspaceFooter.qml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "readonly property real cornerRadius: frameSurface.radius", footer_control
+        )
         self.assertIn("Surface.footer(", footer_control)
         self.assertIn("radius: cornerRadius", footer_control)
 

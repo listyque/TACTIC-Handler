@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 import time
 import unittest
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Material")
@@ -80,6 +81,27 @@ def visual_items(item: QQuickItem):
     for child in item.childItems():
         yield child
         yield from visual_items(child)
+
+
+def visual_control(popup, name):
+    return next(
+        (
+            item
+            for item in visual_items(
+                popup
+                if isinstance(popup, QQuickItem)
+                else popup.property("contentItem")
+            )
+            if item.objectName() == name
+        ),
+        None,
+    )
+
+
+class _FixtureLocale(QObject):
+    @Property(str, constant=True)
+    def current_language(self):
+        return "ru" if QCoreApplication.translate("Fixture", "ALL") == "ВСЕ" else "en"
 
 
 class _PopupFrameProbe(QObject):
@@ -238,10 +260,13 @@ class ProcessMenuLatencyTests(unittest.TestCase):
         editor = QuickFilterEditorController(self.controller, users)
         shelf_host = _ShelfHost(shelf)
         state = self.controller.workspace_state
+        locale = _FixtureLocale(engine)
         bindings = {
+            "localizationController": locale,
             **self.icon_bindings,
             "appController": self.controller, "workspaceState": state,
             "workspaceTabsModel": state.tabs_model,
+            "filterColumnModel": state.filter_column_model,
             "workspaceResultSurfacesModel": state.result_surfaces_model,
             "searchSuggestionModel": state.search_suggestion_model,
             "versionsModel": self.controller.versions_model,
@@ -502,14 +527,13 @@ class ProcessMenuLatencyTests(unittest.TestCase):
         for width in (430, 560, 900):
             with self.subTest(width=width), self.scene(
                     width=width, animated=False) as (_window, view):
-                refresh = view.findChild(QQuickItem, "searchRefreshButton")
-                field = view.findChild(QQuickItem, "searchField")
+                refresh = visual_control(view, "searchRefreshButton")
+                field = visual_control(view, "searchField")
                 refresh_position = refresh.mapToItem(view, QPointF())
                 field_position = field.mapToItem(view, QPointF())
-                self.assertGreaterEqual(refresh_position.x(), 38)
-                self.assertLessEqual(
-                    refresh_position.x() + refresh.width(), field_position.x(),
-                )
+                if refresh.isVisible():
+                    self.assertGreaterEqual(refresh_position.x(), 38)
+                    self.assertLessEqual(refresh_position.x() + refresh.width(), field_position.x())
                 if width < 720:
                     self.assertFalse(refresh.isVisible())
                     self.assertGreaterEqual(field.width(), 230)
@@ -539,10 +563,8 @@ class ProcessMenuLatencyTests(unittest.TestCase):
                 "scriptShelfButton", "searchTagButton",
                 "searchWorkspaceHelpButton",
             ):
-                self.assertFalse(view.findChild(QQuickItem, name).isVisible())
-            self.assertTrue(view.findChild(
-                QQuickItem, "searchQuickFilterButton"
-            ).isVisible())
+                self.assertFalse(visual_control(view, name).isVisible())
+            self.assertTrue(visual_control(view, "searchQuickFilterButton").isVisible())
             active_tab = next((
                 item for item in visual_items(view)
                 if item.objectName() == "searchTabDelegate_assets"
@@ -553,7 +575,7 @@ class ProcessMenuLatencyTests(unittest.TestCase):
                 QQuickItem, "searchTabsOverflowButton"
             ).isVisible())
 
-            button = view.findChild(QQuickItem, "searchHeaderOverflowButton")
+            button = visual_control(view, "searchHeaderOverflowButton")
             point = button.mapToScene(QPointF(
                 button.width() / 2, button.height() / 2,
             )).toPoint()
@@ -582,6 +604,56 @@ class ProcessMenuLatencyTests(unittest.TestCase):
             QTest.mouseClick(panels.window(), Qt.LeftButton, Qt.NoModifier, point)
             frame(window)
             self.assertEqual(requested.count(), 1)
+
+    def test_sort_column_uses_shared_editor_and_original_sort_owner(self):
+        tab = self.controller._current_tab()
+        tab.stype = SimpleNamespace(get_columns_info=lambda: {"name": {}, "code": {}})
+        self.controller.workspace_state.filter_column_model.replace(
+            [{"value": "name", "label": "Name"}, {"value": "code", "label": "Code"}]
+        )
+        with (
+            patch.object(self.controller, "_configure_result_organization"),
+            patch.object(self.controller, "_save_search_cache"),
+            patch.object(self.controller, "_load_tab") as loaded,
+            self.scene(animated=False) as (window, view),
+        ):
+            button = view.findChild(QQuickItem, "searchResultSortButton")
+
+            def click(item):
+                point = item.mapToScene(
+                    QPointF(item.width() / 2, item.height() / 2)
+                ).toPoint()
+                QTest.mouseClick(item.window(), Qt.LeftButton, Qt.NoModifier, point)
+                frame(window)
+
+            click(button)
+            menu = view.findChild(QObject, "searchResultSortMenu")
+            target = next(
+                item
+                for item in visual_items(menu.property("contentItem"))
+                if item.objectName() == "actionMenuPrimaryTarget"
+                and item.parentItem().property("modelData").toVariant().get("command")
+                == "column"
+            )
+            click(target)
+            popup = view.findChild(QObject, "searchSortColumnPopup")
+            self.assertTrue(popup.property("opened"))
+            self.assertFalse(menu.property("opened"))
+            column = visual_control(popup, "searchSortColumn")
+            column.forceActiveFocus()
+            QTest.keyClick(column.window(), Qt.Key_Down)
+            frame(window)
+            click(visual_control(popup, "searchSortDirection"))
+            click(visual_control(popup, "searchSortApply"))
+            self.assertEqual(tab.sort_mode, "column:code:desc")
+            self.assertEqual(loaded.call_count, 1)
+            self.assertFalse(popup.property("opened"))
+            click(button)
+            self.assertTrue(
+                menu.property("opened"),
+                "The original toolbar opens on the first click after applying",
+            )
+            self.close_menu(menu)
 
     def test_narrow_tab_filters_open_from_result_actions(self):
         with self.scene(width=430, animated=False) as (window, view):
@@ -731,7 +803,7 @@ class ProcessMenuLatencyTests(unittest.TestCase):
             self.assertEqual(
                 [item.property("text") for item in visual_items(content)
                  if item.objectName() == "actionMenuTitleLabel"],
-                ["Messages", "Publish", "Rig"],
+                ["Notes", "Publish", "Rig"],
             )
 
     def test_first_repo_sync_menu_updates_when_presets_arrive(self):

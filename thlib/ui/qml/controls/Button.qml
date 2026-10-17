@@ -15,6 +15,7 @@ Basic.Button {
     property bool tonal: false
     property bool compact: false
     property bool segmented: false
+    property real iconSize: 0
     property string toolTip: ""
     property bool lastActivationWasTouch: false
     property double lastActivationAt: -1000
@@ -66,7 +67,7 @@ Basic.Button {
                 id: buttonIcon
                 visible: control.icon.name.length > 0
                 name: control.icon.name
-                size: control.segmented ? Foundation.controls.button.segmentedIconSize : control.compact ? Foundation.controls.button.compactIconSize : Foundation.controls.button.iconSize
+                size: control.iconSize > 0 ? control.iconSize : control.segmented ? Foundation.controls.button.segmentedIconSize : control.compact ? Foundation.controls.button.compactIconSize : Foundation.controls.button.iconSize
                 color: control.contentColor
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.alignWhenCentered: false

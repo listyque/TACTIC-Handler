@@ -172,7 +172,7 @@ Rectangle {
     }
 
     function currentTableViewTitle() {
-        const views = columnsController.tableViews || []
+        const views = columnsController ? columnsController.tableViews || [] : []
         for (let index = 0; index < views.length; ++index) {
             if (
                 Boolean(views[index].current)

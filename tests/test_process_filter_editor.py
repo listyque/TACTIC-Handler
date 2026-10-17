@@ -85,19 +85,40 @@ class ProcessFilterEditorControllerTests(unittest.TestCase):
         self.assertIn("child", kinds)
         self.assertIn("pipeline", kinds)
         self.assertIn("process", kinds)
-        self.assertEqual(kinds.count("builtin"), 9)
+        self.assertEqual(kinds.count("builtin"), 6)
         self.assertEqual(kinds, [
             "builtin", "builtin", "builtin",
             "pipeline", "process", "child",
             "builtin", "builtin", "builtin",
             "pipeline", "process", "child",
-            "builtin", "builtin", "builtin",
-            "pipeline", "process",
         ])
+        repeated = controller.model._records[-1]
+        self.assertEqual((repeated["kind"], repeated["key"], repeated["hasChildren"]),
+                         ("child", "demo/shot", False))
+        from thlib.ui.process_selection import build_process_selection_tree
+        context = controller._context()
+        legacy = build_process_selection_tree(context["stype"], context["project"])
+        self.assertEqual(sum(row["kind"] == "builtin" for row in legacy), 9)
         self.assertTrue(all(
             record["dataKey"].endswith((":{b}", ":{pp}", ":{pr}", ":{s}"))
             for record in controller.model._records
         ))
+
+    @patch("thlib.environment.env_read_config", return_value={})
+    def test_repeated_visibility_keys_change_together(self, _read):
+        controller, _applied = self.make_controller()
+        controller.begin_session()
+        rows = [
+            index
+            for index, row in enumerate(controller.model._records)
+            if row["kind"] == "child" and row["key"] == "demo/shot"
+        ]
+        self.assertEqual(len(rows), 2)
+        controller.set_checked(rows[0], False)
+        self.assertTrue(
+            all(not controller.model._records[index]["checked"] for index in rows)
+        )
+        self.assertEqual(controller._ignore_dict()["children"], ["demo/shot"])
 
     @patch("thlib.environment.env_read_config", return_value={})
     def test_shift_expansion_changes_the_complete_branch(self, _read):

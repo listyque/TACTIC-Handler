@@ -43,7 +43,7 @@ class SearchTextQmlTests(unittest.TestCase):
             for column in ("title", "code", "keywords", "description")
         ])
         with workspace.scene(animated=False) as (window, view):
-            search_input = view.findChild(QQuickItem, "tacticSearchInput")
+            search_input = menus.visual_control(view, "tacticSearchInput")
             self.assertIsNotNone(search_input)
             search_input.forceActiveFocus()
             for character in "needle":

@@ -6,6 +6,8 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
+from tests import test_process_menu_latency as process_menus
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
@@ -131,7 +133,7 @@ class RetainedUiTests(TestCase):
         ) = self._show_search_workspace()
         frame(window, controller.quick_filters_changed.emit)
         groups.assert_not_called()
-        button = view.findChild(QQuickItem, "searchQuickFilterButton")
+        button = process_menus.visual_control(view, "searchQuickFilterButton")
         self._click(window, button)
         self.assertGreater(groups.call_count, 0)
         popup = view.findChild(QObject, "searchQuickFilterPopup")

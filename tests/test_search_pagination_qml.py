@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Material")
 if os.name == "nt":
     os.environ.setdefault(
         "QT_QPA_FONTDIR", str(Path(os.environ["WINDIR"]) / "Fonts"),

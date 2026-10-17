@@ -95,8 +95,9 @@ class TagCloudQmlTests(unittest.TestCase):
 
     def click(self, item):
         point = item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint()
-        QTest.mouseClick(item.window(), Qt.LeftButton, Qt.NoModifier, point)
-        self.settle(item.window())
+        owner = item.window()
+        QTest.mouseClick(owner, Qt.LeftButton, Qt.NoModifier, point)
+        self.settle(owner)
 
     def wheel(self, view, angle):
         position = view.mapToScene(QPointF(view.width() / 2, view.height() / 2))
@@ -114,8 +115,8 @@ class TagCloudQmlTests(unittest.TestCase):
 
     def tag_action(self, view):
         if view.width() >= 720:
-            return view.findChild(QQuickItem, "searchTagButton")
-        self.click(view.findChild(QQuickItem, "searchHeaderOverflowButton"))
+            return menus.visual_control(view, "searchTagButton")
+        self.click(menus.visual_control(view, "searchHeaderOverflowButton"))
         menu = view.findChild(QObject, "searchHeaderOverflowMenu")
         if not menu.property("opened"):
             self.assertTrue(QSignalSpy(menu.opened).wait(1000))
@@ -188,7 +189,7 @@ class TagCloudQmlTests(unittest.TestCase):
         for width in (360, 1400):
             with self.subTest(width=width), self.workspace.scene(width, animated=False) as (window, view):
                 popup, _sample = self.measure_open(window, view)
-                field = popup.findChild(QQuickItem, "tagCloudSearchField")
+                field = menus.visual_control(popup, "tagCloudSearchField")
                 self.assertIsNotNone(field)
                 height = popup.property("height")
                 with patch.object(self.controller, "apply_search_filters"):
@@ -211,7 +212,7 @@ class TagCloudQmlTests(unittest.TestCase):
                     apply.assert_called_once()
                 self.assertTrue(self.visible_chips(popup)[1].property("checked"))
                 with patch.object(self.controller, "apply_search_filters") as apply:
-                    self.click(popup.findChild(QQuickItem, "clearTagSearchButton"))
+                    self.click(menus.visual_control(popup, "clearTagSearchButton"))
                     apply.assert_not_called()
                 self.assertEqual(field.property("text"), "")
                 self.assertEqual(set(self.controller._current_tab().selected_tags),
@@ -229,7 +230,7 @@ class TagCloudQmlTests(unittest.TestCase):
     def test_search_empty_state_and_filtered_keyboard_and_touch_navigation(self):
         with self.workspace.scene(animated=False) as (window, view):
             popup, _sample = self.measure_open(window, view)
-            field = popup.findChild(QQuickItem, "tagCloudSearchField")
+            field = menus.visual_control(popup, "tagCloudSearchField")
             self.assertTrue(field.hasActiveFocus())
             owner = self.live_window(field.window())
             height = popup.property("height")
@@ -280,13 +281,13 @@ class TagCloudQmlTests(unittest.TestCase):
     def test_search_survives_catalog_refresh_and_resets_on_reopen(self):
         with self.workspace.scene(animated=False) as (window, view):
             popup, _sample = self.measure_open(window, view)
-            field = popup.findChild(QQuickItem, "tagCloudSearchField")
+            field = menus.visual_control(popup, "tagCloudSearchField")
             for character in "water":
                 QTest.keyClick(self.live_window(field.window()), character)
             self.settle(field.window())
             pool = _DeferredPool()
             with patch.object(env_inst, "server_pool", pool):
-                self.click(popup.findChild(QQuickItem, "reloadSearchTagsButton"))
+                self.click(menus.visual_control(popup, "reloadSearchTagsButton"))
             self.set_catalog(20)
             self.controller._tag_cloud_result((self.records, pool.worker.metadata))
             self.settle(field.window())
@@ -334,7 +335,7 @@ class TagCloudQmlTests(unittest.TestCase):
             })
             self.assertEqual(tag_list.property("contentHeight"), height)
             with patch.object(self.controller, "apply_search_filters"):
-                self.click(popup.findChild(QQuickItem, "resetSearchTagsButton"))
+                self.click(menus.visual_control(popup, "resetSearchTagsButton"))
             self.assertFalse(self.controller._current_tab().selected_tags)
             self.workspace.close_menu(popup)
 
@@ -392,7 +393,7 @@ class TagCloudQmlTests(unittest.TestCase):
             popup_window = popup.property("contentItem").window()
             pool = _DeferredPool()
             with patch.object(env_inst, "server_pool", pool):
-                self.click(popup.findChild(QQuickItem, "reloadSearchTagsButton"))
+                self.click(menus.visual_control(popup, "reloadSearchTagsButton"))
             self.assertTrue(pool.worker.started)
             self.assertTrue(self.controller.tag_cloud_loading)
             self.assertTrue(self.visible_chips(popup))
@@ -419,7 +420,7 @@ class TagCloudQmlTests(unittest.TestCase):
             tag_list = popup.findChild(QQuickItem, "scrollablePopupViewport")
             bar = popup.findChild(QQuickItem, "scrollablePopupScrollBar")
             content = popup.property("contentItem")
-            field = popup.findChild(QQuickItem, "tagCloudSearchField")
+            field = menus.visual_control(popup, "tagCloudSearchField")
             self.assertEqual(field.property("placeholderText"), "Поиск тегов")
             point = field.mapToItem(tag_list, QPointF())
             self.assertGreaterEqual(point.x(), 0)

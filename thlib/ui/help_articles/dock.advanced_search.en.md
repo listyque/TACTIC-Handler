@@ -17,7 +17,7 @@ Always confirm the displayed Search Type before applying or saving rules.
 ## Filter structure
 
 Each enabled row contains a field or expression, operator and value. Rows are joined with **AND** or
-**OR** and can form nested groups. Disable a row to test the query without deleting it.
+**OR** in the existing flat condition editor. Disable a row to test the query without deleting it.
 
 | Element | Purpose |
 | --- | --- |
@@ -25,7 +25,7 @@ Each enabled row contains a field or expression, operator and value. Rows are jo
 | Operator | Equality, comparison, range, membership, text or empty-state test supported by the field. |
 | Value | Literal value, catalog choice, date or expression input. |
 | AND / OR | Requires both branches or accepts either branch. |
-| Group | Controls evaluation order for a multilayer query. |
+| Move up/down | Changes condition order and preserves values. |
 | Apply | Sends the built filter to the active Search tab. |
 | Reset | Returns the editor to its initial rules without changing server data. |
 
@@ -55,7 +55,7 @@ search link reopens the stored custom search rather than a copy of the current r
 1. Verify the active Search Type and tab.
 2. Add the narrowest direct field rules first.
 3. Add relations or expressions only where direct fields cannot describe the condition.
-4. Group AND/OR branches explicitly and temporarily disable rows to verify them.
+4. Check AND/OR order and temporarily disable rows to verify them.
 5. Apply and inspect the result count.
 6. Save a preset only after the combined text, tag, Quick Filter and custom state is correct.
 
@@ -65,3 +65,15 @@ search link reopens the stored custom search rather than a copy of the current r
 - A field removed from server configuration must be replaced; the UI does not reinterpret its name.
 - Applying an empty filter clears only the Advanced Search layer.
 - A server error preserves the current draft so it can be corrected or retried.
+
+## Advanced Search and Quick Filter ownership
+
+Quick Filters appear as managed cards in Advanced Search. **Edit as custom filter** keeps the executable condition and detaches it from its Quick Filter chips. Process, assignee and status facets refer to the same related task. Removing a managed card removes that part of the quick selection when applied. Expressions entered in this search editor are read-only; the general Script Editor/API permission contract above is unchanged.
+
+**Filter Processes** changes which process, built-in and child branches are visible. Cancel keeps the previous visibility. Save applies the draft, and Save and close also hides the editor. This changes presentation without re-running the object query. Repeated schema links share a logical setting; the togglers and Ctrl/Shift selection work across the tree. Tag search and its clear/reload actions retain the selected tags in the current search tab.
+
+## Dock lifetime and legacy groups
+
+Applying keeps this dock open. Closing it retains the current tab draft during the session. The first WHERE row has an Add action; value suggestions support arrows, Enter and Escape. Save replies with an unknown result must be reconciled through Refresh saved searches before another write.
+
+The current editor represents flat condition cards. Legacy nested saved-search groups that it cannot represent are reported explicitly; they are not silently flattened.

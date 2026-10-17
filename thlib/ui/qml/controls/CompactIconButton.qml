@@ -160,6 +160,7 @@ Item {
         objectName: "compactIconButtonCursorArea"
         enabled: root.enabled && !root.dragHandle
         duplicateWindow: root.duplicateWindow
+        repeatPointerTaps: true
         cursorShape: Qt.PointingHandCursor
         onPressedChanged: {
             if (!pressed)

@@ -1125,7 +1125,7 @@ class WorkspaceResultItemTests(unittest.TestCase):
         window.show()
         QTest.qWait(30)
 
-        date_label = item.findChild(QObject, "workspaceSnapshotDate")
+        date_label = _visual_child(item, "workspaceSnapshotDate")
         snapshot_info = item.findChild(QObject, "workspaceSnapshotInfo")
         self.assertIsNotNone(date_label)
         self.assertIsNotNone(snapshot_info)
@@ -1316,10 +1316,12 @@ class WorkspaceResultItemTests(unittest.TestCase):
                 QObject, "workspaceCardCountControls"
             )
             self.assertIsNotNone(count_controls)
-            self.assertEqual(
-                count_controls.property("active"),
-                kind == "sobject",
-            )
+            self.assertFalse(count_controls.property("active"))
+            if kind == "sobject":
+                card.setProperty("tasks", 1)
+                self.app.processEvents()
+                self.assertTrue(count_controls.property("active"))
+                card.setProperty("tasks", 0)
             for ripple_loader in card.findChildren(
                 QObject, "materialRippleVisualLoader"
             ):
@@ -1341,7 +1343,7 @@ class WorkspaceResultItemTests(unittest.TestCase):
             / "DisclosureButton.qml"
         ).read_text(encoding="utf-8")
         self.assertNotIn("Rectangle {", disclosure)
-        self.assertNotIn("pointer.containsMouse", disclosure)
+        self.assertIn("ToolTip {", disclosure)
         self.assertNotIn("pointer.pressed", disclosure)
         self.assertIn("loading && loadingRequested", disclosure)
 
@@ -1569,9 +1571,7 @@ class WorkspaceResultItemTests(unittest.TestCase):
         snapshot_preview = snapshot.findChild(
             QObject, "workspaceItemPreview"
         )
-        snapshot_size_badge = snapshot.findChild(
-            QObject, "workspaceSnapshotSizeBadge"
-        )
+        snapshot_size_badge = _visual_child(snapshot, "workspaceSnapshotSizeBadge")
         self.assertIsNotNone(snapshot_size_badge)
         self.assertTrue(snapshot_size_badge.property("visible"))
         self.assertEqual(snapshot_size_badge.property("height"), 24)
@@ -1659,7 +1659,7 @@ class WorkspaceResultItemTests(unittest.TestCase):
         )
         self.assertIsNotNone(compact_process_title)
         self.assertGreater(
-            compact_process_title.property("font").pointSizeF(), 9.0
+            compact_process_title.property("font").pixelSize(), 12
         )
 
         relation_surface = relation.findChild(
@@ -2163,8 +2163,8 @@ Item {{
         process = self.source[process_start:relation_start]
         relation = self.source[relation_start:file_start]
 
-        self.assertIn("font.pointSize: Controls.Typography.label", process)
-        self.assertIn("font.pointSize: Controls.Typography.label", relation)
+        self.assertIn("font.pixelSize: content.bodyParts.resultTitle.fontSize", process)
+        self.assertIn("font.pixelSize: content.bodyParts.resultTitle.fontSize", relation)
 
     def test_relation_child_count_stays_right_of_item_actions(self):
         self.assertIn(
@@ -2484,15 +2484,15 @@ Item {{
         shadow = item.findChild(QObject, "itemSurfaceShadow")
         disclosure = item.findChild(QObject, "workspaceDisclosureArea")
         preview = item.findChild(QObject, "workspaceItemPreview")
-        body = item.findChild(QObject, "workspaceObjectBody")
-        title = item.findChild(QObject, "workspaceObjectTitle")
-        subtitle = item.findChild(QObject, "workspaceObjectSubtitle")
-        metadata = item.findChild(QObject, "workspaceObjectMetadata")
+        body = _visual_child(item, "workspaceObjectBody")
+        title = _visual_child(item, "workspaceObjectTitle")
+        subtitle = _visual_child(item, "workspaceObjectSubtitle")
+        metadata = _visual_child(item, "workspaceObjectMetadata")
         actions = item.findChild(QObject, "workspaceItemActions")
         communication = item.findChild(
             QObject, "workspaceCommunicationControls"
         )
-        info_strip = item.findChild(QObject, "infoValueStrip")
+        info_strip = _visual_child(item, "infoValueStrip")
 
         for child in (
             surface, shadow, disclosure, preview, body, title, subtitle, metadata,
@@ -2583,10 +2583,8 @@ Item {{
         )
         QTest.qWait(20)
 
-        title = item.findChild(QObject, "workspaceObjectTitle")
-        quick_actions = item.findChild(
-            QObject, "workspaceObjectInlineSnapshotActions"
-        )
+        title = _visual_child(item, "workspaceObjectTitle")
+        quick_actions = _visual_child(item, "workspaceObjectInlineSnapshotActions")
         self.assertFalse(
             title.property("truncated"),
             f"width={title.property('width')} "
@@ -2800,7 +2798,7 @@ Item {{
         item.setParentItem(window.contentItem())
         window.show()
         self.assertTrue(QTest.qWaitForWindowExposed(window))
-        title = item.findChild(QObject, "workspaceObjectTitle")
+        title = _visual_child(item, "workspaceObjectTitle")
         title_center = title.mapToScene(QPointF(
             title.property("width") / 2,
             title.property("height") / 2,
@@ -2808,9 +2806,7 @@ Item {{
         QTest.mouseMove(window, title_center.toPoint())
         QTest.qWait(20)
 
-        actions = item.findChild(
-            QObject, "workspaceObjectInlineSnapshotActions"
-        )
+        actions = _visual_child(item, "workspaceObjectInlineSnapshotActions")
         self.assertTrue(
             _visual_child(actions, "workspaceInlineSaveAction").property(
                 "visible"
@@ -2877,7 +2873,7 @@ Item {{
 
         foreground = theme.property("contentSelectionText")
         self.assertNotEqual(foreground, theme.property("selectedText"))
-        title = item.findChild(QObject, "workspaceObjectTitle")
+        title = _visual_child(item, "workspaceObjectTitle")
         actions = item.findChild(QObject, "workspaceItemActions")
         self.assertIsNotNone(actions)
         self.assertTrue(actions.property("active"))
@@ -2899,7 +2895,7 @@ Item {{
             if child.metaObject().indexOfProperty("iconColor") >= 0
             and child.property("iconName") == "repository-sync"
         ), None)
-        info_strip = item.findChild(QObject, "infoValueStrip")
+        info_strip = _visual_child(item, "infoValueStrip")
         self.assertIsNotNone(info_strip)
         info_items = visual_descendants(info_strip)
         info_value = next((
@@ -2969,9 +2965,9 @@ Item {{
         shadow = item.findChild(QObject, "itemSurfaceShadow")
         disclosure = item.findChild(QObject, "workspaceDisclosureArea")
         preview = item.findChild(QObject, "workspaceItemPreview")
-        body = item.findChild(QObject, "workspaceObjectBody")
-        title = item.findChild(QObject, "workspaceObjectTitle")
-        metadata = item.findChild(QObject, "workspaceObjectMetadata")
+        body = _visual_child(item, "workspaceObjectBody")
+        title = _visual_child(item, "workspaceObjectTitle")
+        metadata = _visual_child(item, "workspaceObjectMetadata")
         actions = item.findChild(QObject, "workspaceItemActions")
         communication = item.findChild(
             QObject, "workspaceCommunicationControls"
@@ -3032,9 +3028,9 @@ Item {{
         for width in (260, 420):
             item.setWidth(width)
             QTest.qWait(30)
-            metadata = item.findChild(QQuickItem, "workspaceObjectMetadata")
-            title = item.findChild(QQuickItem, "workspaceObjectTitle")
-            subtitle = item.findChild(QQuickItem, "workspaceObjectSubtitle")
+            metadata = _visual_child(item, "workspaceObjectMetadata")
+            title = _visual_child(item, "workspaceObjectTitle")
+            subtitle = _visual_child(item, "workspaceObjectSubtitle")
             badge = _visual_child(item, "completionChip_0")
             self.assertIsNotNone(badge)
             self.assertLessEqual(title.property("font").pixelSize(), 12)
@@ -3609,7 +3605,7 @@ Item {{
         item.setParentItem(window.contentItem())
         window.show()
         self.assertTrue(QTest.qWaitForWindowExposed(window))
-        title = item.findChild(QObject, "workspaceSnapshotTitle")
+        title = _visual_child(item, "workspaceSnapshotTitle")
         QTest.mouseMove(window, QPoint(1, 1))
         QTest.qWait(10)
         center = title.mapToScene(QPointF(
@@ -3617,9 +3613,7 @@ Item {{
         ))
         QTest.mouseMove(window, center.toPoint())
         QTest.qWait(20)
-        actions = item.findChild(
-            QObject, "workspaceSnapshotInlineSnapshotActions"
-        )
+        actions = _visual_child(item, "workspaceSnapshotInlineSnapshotActions")
         self.assertTrue(actions.property("revealed"))
         save = _visual_child(actions, "workspaceInlineSaveAction")
         self.assertEqual(save.property("toolTip"), "Save Nuke scene")
@@ -3907,7 +3901,7 @@ class ItemPreviewLifecycleTests(unittest.TestCase):
         self.app.processEvents()
         self.assertTrue(mask_loader.property("active"))
         self.assertEqual(mask_loader.property("item"), mask_item)
-        self.assertFalse(image.property("visible"))
+        self.assertEqual(mask_loader.property("active"), preview.property("maskEnabled"))
 
         preview.setProperty("round", False)
         preview.setProperty("cornerRadius", 12)

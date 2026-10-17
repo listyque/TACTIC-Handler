@@ -1,4 +1,6 @@
 import QtQuick
+import "../tactic_frame" as Frame
+import "../tactic_frame/features/search/visibility.ui.mjs" as UI
 import QtQuick.Controls
 import QtQuick.Layouts
 import "." as Controls
@@ -9,6 +11,7 @@ Rectangle {
     required property var theme
     required property var treeModel
     required property var treeController
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     property bool validContext: true
     property bool showVersionChooser: false
     property bool togglersExpanded: false
@@ -23,13 +26,14 @@ Rectangle {
     clip: true
 
     ColumnLayout {
+        visible: root.validContext
         anchors.fill: parent
         anchors.margins: 4
         spacing: 4
 
         Controls.SmoothListView {
-            theme: root.theme
             id: treeView
+            theme: root.theme
             objectName: root.treeObjectName
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -52,210 +56,156 @@ Rectangle {
                 required property bool hasChildren
 
                 objectName: root.rowObjectName
-                width: treeView.width
+                width: Math.max(0, treeView.width - treeScrollBar.reservedExtent - 4)
                 height: rowVisible ? 30 : 0
                 visible: height > 0
                 clip: true
 
-                readonly property string displayTitle:
-                    treeRow.kind === "child"
-                        ? treeRow.title + qsTr(" (child)")
-                        : treeRow.kind === "builtin"
-                            ? treeRow.title + qsTr(" (builtin)")
-                            : treeRow.title
-                readonly property bool showKindIcon:
-                    treeRow.kind === "child" || treeRow.kind === "process"
+                readonly property string displayTitle: treeRow.kind === "child" ? treeRow.title + qsTr(" (child)") : treeRow.kind === "builtin" ? treeRow.title + qsTr(" (builtin)") : treeRow.title
+                readonly property bool showKindIcon: treeRow.kind === "child" || treeRow.kind === "process"
 
-                Rectangle {
+                readonly property var scene: UI.row({
+                    title: title,
+                    kind: kind,
+                    depth: depth,
+                    checkable: checkable,
+                    checked: checked,
+                    expanded: expanded,
+                    selected: selected,
+                    accent: accent,
+                    hasChildren: hasChildren
+                }, index, width, root.language)
+                readonly property var parts: {
+                    const result = {};
+                    for (const node of scene.nodes)
+                        result[node.id] = node;
+                    return result;
+                }
+                Controls.ItemSurface {
                     anchors.fill: parent
-                    color: treeRow.selected
-                        ? root.theme.contentSelection
-                        : rowMouse.containsMouse
-                            ? root.theme.rowHover
-                            : treeRow.index % 2
-                                ? root.theme.surfaceContainerHigh
-                                : root.theme.surfaceContainerLow
-                    border.width: treeRow.selected ? 1 : 0
-                    border.color: root.theme.contentAccent
-
+                    theme: root.theme
+                    selected: treeRow.selected
+                    hovered: rowMouse.containsMouse
+                    normalColor: root.theme[treeRow.parts.processVisibilitySelect.normalColor]
+                    selectedColor: root.theme.contentSelection
+                    railVisible: false
+                    separatorVisible: false
+                    cornerRadius: 0
                     MouseArea {
                         id: rowMouse
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: mouse => root.treeController.select_row(
-                            treeRow.index,
-                            Boolean(mouse.modifiers & Qt.ControlModifier)
-                        )
+                        onClicked: mouse => root.treeController.select_row(treeRow.index, Boolean(mouse.modifiers & Qt.ControlModifier))
                     }
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 5 + treeRow.depth * 18
-                        anchors.rightMargin: 6
-                        spacing: 3
-
-                        Controls.CompactIconButton {
-                            Layout.preferredWidth: 20
-                            Layout.preferredHeight: 20
-                            theme: root.theme
-                            visible: treeRow.hasChildren
-                            iconName: treeRow.expanded
-                                ? "keyboard-arrow-down"
-                                : "keyboard-arrow-right"
-                            iconSize: 13
-                            toolTip: treeRow.expanded
-                                ? qsTr("Collapse") : qsTr("Expand")
-                            onClickedWithModifiers: modifiers =>
-                                root.treeController.toggle_expanded(
-                                    treeRow.index,
-                                    Boolean(modifiers & Qt.ShiftModifier)
-                                )
-                        }
-                        Item {
-                            Layout.preferredWidth: 20
-                            Layout.preferredHeight: 20
-                            visible: !treeRow.hasChildren
-                        }
-                        Controls.CheckBox {
-                            Layout.preferredWidth: 28
-                            Layout.preferredHeight: 24
-                            theme: root.theme
-                            compact: true
-                            visible: treeRow.checkable
-                            checked: treeRow.checked
-                            onToggled: root.treeController.set_checked(
-                                treeRow.index, checked
-                            )
-                        }
-                        Item {
-                            Layout.preferredWidth: 28
-                            Layout.preferredHeight: 24
-                            visible: !treeRow.checkable
-                        }
-                        Controls.MaterialIcon {
-                            objectName: "processSelectionIcon_" + treeRow.kind
-                            visible: treeRow.showKindIcon
-                            Layout.preferredWidth: visible ? 16 : 0
-                            Layout.preferredHeight: 16
-                            Layout.leftMargin: visible ? 4 : 0
-                            name: treeRow.kind === "child"
-                                ? "view-sequential"
-                                : "process-marker"
-                            forceSolid: treeRow.kind === "process"
-                            size: treeRow.kind === "process" ? 12 : 16
-                            color: treeRow.accent.length
-                                ? treeRow.accent : root.theme.secondaryText
-                        }
-                        Label {
-                            objectName: "processSelectionTitle_" + treeRow.kind
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            Layout.leftMargin: 4
-                            text: treeRow.displayTitle
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Typography.body
-                            elide: Text.ElideRight
-                        }
-                    }
+                }
+                Controls.CompactIconButton {
+                    readonly property var node: treeRow.parts.processVisibilityExpand
+                    visible: !!node
+                    x: node ? node.x : 0
+                    y: node ? node.y : 0
+                    width: node ? node.width : 0
+                    height: node ? node.height : 0
+                    theme: root.theme
+                    iconName: node ? node.icon : ""
+                    iconSize: node ? node.iconSize : 13
+                    toolTip: node ? node.text : ""
+                    onClickedWithModifiers: modifiers => root.treeController.toggle_expanded(treeRow.index, Boolean(modifiers & Qt.ShiftModifier))
+                }
+                Controls.CheckBox {
+                    readonly property var node: treeRow.parts.processVisibilityCheck
+                    visible: !!node
+                    x: node ? node.x : 0
+                    y: node ? node.y : 0
+                    width: node ? node.width : 0
+                    height: node ? node.height : 0
+                    theme: root.theme
+                    compact: true
+                    checked: treeRow.checked
+                    Accessible.name: node ? node.label : ""
+                    onToggled: root.treeController.set_checked(treeRow.index, checked)
+                }
+                Controls.MaterialIcon {
+                    objectName: "processSelectionIcon_" + treeRow.kind
+                    readonly property var node: treeRow.parts.processVisibilityKind
+                    visible: !!node
+                    x: node ? node.x : 0
+                    y: node ? node.y : 0
+                    name: node ? node.icon : ""
+                    size: node ? node.width : 16
+                    forceSolid: treeRow.kind === "process"
+                    color: treeRow.accent.length ? treeRow.accent : root.theme.secondaryText
+                }
+                Label {
+                    objectName: "processSelectionTitle_" + treeRow.kind
+                    readonly property var node: treeRow.parts[objectName]
+                    x: node.x
+                    y: node.y
+                    width: node.width
+                    height: node.height
+                    text: node.text
+                    color: root.theme.primaryText
+                    font.family: root.theme.fontFamily
+                    font.pixelSize: node.fontSize
+                    textFormat: Text.PlainText
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
                 }
             }
 
             ScrollBar.vertical: Controls.ScrollBar {
+                id: treeScrollBar
                 theme: root.theme
                 flickableTarget: treeView
             }
         }
 
-        GridLayout {
-            id: toggleGrid
+        Frame.FrameView {
             Layout.fillWidth: true
-            visible: root.togglersExpanded
-            columns: root.width < 720 ? 1 : 2
-            columnSpacing: 4
-            rowSpacing: 4
-
-            Controls.Button {
-                Layout.fillWidth: true
-                theme: root.theme
-                text: qsTr("Toggle All")
-                icon.name: "checkbox-multiple-marked-outline"
-                flat: true
-                onClicked: root.treeController.toggle_kind("all")
+            Layout.preferredHeight: scene.contentHeight
+            theme: root.theme
+            scene: UI.togglers({
+                expanded: root.togglersExpanded,
+                versionChooser: root.showVersionChooser
+            }, width, root.language)
+            views: ({
+                    fullSync: syncComponent
+                })
+            onEvent: action => {
+                if (action.type === "togglers")
+                    root.togglersExpanded = !root.togglersExpanded;
+                else if (action.type === "toggleKind")
+                    root.treeController.toggle_kind(action.value);
             }
-            Controls.Button {
-                Layout.fillWidth: true
-                theme: root.theme
-                text: qsTr("Toggle Process")
-                icon.name: "checkbox-blank-circle"
-                flat: true
-                onClicked: root.treeController.toggle_kind("process")
-            }
-            Controls.Button {
-                Layout.fillWidth: true
-                theme: root.theme
-                text: qsTr("Toggle Builtin Processes")
-                icon.name: "checkbox-blank-circle"
-                flat: true
-                onClicked: root.treeController.toggle_kind("builtin")
-            }
-            Controls.Button {
-                Layout.fillWidth: true
-                theme: root.theme
-                text: qsTr("Toggle Children")
-                icon.name: "view-sequential"
-                flat: true
-                onClicked: root.treeController.toggle_kind("child")
-            }
-
+        }
+        Component {
+            id: syncComponent
             Controls.SegmentedButton {
-                Layout.columnSpan: toggleGrid.columns
-                Layout.fillWidth: true
+                width: parent.width
                 visible: root.showVersionChooser
                 theme: root.theme
                 segmentWidth: 145
                 minimumSegmentWidth: 105
-                currentValue: root.showVersionChooser
-                    && root.treeController.fullSync
-                    ? "full" : "versionless"
+                currentValue: root.showVersionChooser && root.treeController.fullSync ? "full" : "versionless"
                 model: [
-                    { label: "Versionless Sync", value: "versionless" },
-                    { label: "Full Sync", value: "full" }
+                    {
+                        label: "Versionless Sync",
+                        value: "versionless"
+                    },
+                    {
+                        label: "Full Sync",
+                        value: "full"
+                    }
                 ]
-                onActivated: value =>
-                    root.treeController.set_full_sync(value === "full")
+                onActivated: value => root.treeController.set_full_sync(value === "full")
             }
-        }
-
-        Controls.Button {
-            Layout.fillWidth: true
-            theme: root.theme
-            text: root.togglersExpanded
-                ? qsTr("Hide Togglers") : qsTr("Show Togglers")
-            icon.name: root.togglersExpanded
-                ? "expand-more" : "expand-less"
-            flat: true
-            onClicked: root.togglersExpanded = !root.togglersExpanded
         }
     }
 
-    Column {
-        anchors.centerIn: parent
+    Frame.FrameView {
+        anchors.fill: parent
+        theme: root.theme
         visible: !root.validContext
-        spacing: 6
-
-        Controls.MaterialIcon {
-            anchors.horizontalCenter: parent.horizontalCenter
-            name: "account-tree"
-            size: 26
-            color: root.theme.disabledText
-        }
-        Label {
-            text: root.emptyText
-            color: root.theme.secondaryText
-            font.family: root.theme.fontFamily
-            font.pointSize: Typography.body
-        }
+        scene: UI.empty(root.emptyText, width, height, root.language)
     }
 }

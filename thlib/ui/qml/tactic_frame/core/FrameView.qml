@@ -18,7 +18,7 @@ Item {
     property var describeRow: null
     property var describeCell: null
     property bool interactive: true
-    signal event(var action)
+    signal event(var action, var source)
     property bool ready: false
     property var effectiveTheme: theme
     onThemeChanged: if (theme)
@@ -54,18 +54,19 @@ Item {
             parent.contentY = Math.max(parent.originY, Math.min(parent.originY + Math.max(0, parent.contentHeight - parent.height), nearest));
         }
     }
-    function send(action, value) {
+    function send(action, value, source) {
         if (!action || !interactive)
             return;
         root.event(Object.assign({}, action, value === undefined ? {} : {
             value: value
-        }));
+        }), source || null);
     }
     function keyboard(key, definition) {
         const keys = {};
         keys[Qt.Key_Return] = "Enter";
         keys[Qt.Key_Enter] = "Enter";
         keys[Qt.Key_F2] = "F2";
+        keys[Qt.Key_Backtab] = "Backtab";
         keys[Qt.Key_Left] = "ArrowLeft";
         keys[Qt.Key_Up] = "ArrowUp";
         keys[Qt.Key_Down] = "ArrowDown";
@@ -320,7 +321,7 @@ Item {
                             describeRow: root.describeRow
                             describeCell: root.describeCell
                             interactive: root.interactive
-                            onEvent: action => root.event(action)
+                            onEvent: (action, source) => root.event(action, source)
                         }
                         function focusControl(name) {
                             return boxContent.focusControl(name);
@@ -364,7 +365,7 @@ Item {
                         theme: root.effectiveTheme
                         node: wrapper.node
                         controller: root.models[wrapper.node.service || "sourceEditor"]
-                        onEvent: action => root.event(action)
+                        onEvent: action => root.event(action, null)
                     }
                 }
                 Component {
@@ -389,7 +390,7 @@ Item {
                     FrameGraphBranch {
                         theme: root.effectiveTheme
                         node: wrapper.node
-                        onEvent: action => root.event(action)
+                        onEvent: action => root.event(action, null)
                     }
                 }
                 Component {
@@ -405,6 +406,7 @@ Item {
                 Component {
                     id: buttonBrick
                     Controls.Button {
+                        id: buttonControl
                         objectName: wrapper.node.id
                         theme: root.effectiveTheme
                         text: wrapper.node.text
@@ -414,8 +416,10 @@ Item {
                         tonal: !!wrapper.node.tonal
                         compact: !!wrapper.node.iconOnly
                         icon.name: wrapper.node.icon || ""
+                        iconSize: wrapper.node.iconSize || 0
                         toolTip: wrapper.node.text
                         font: root.controlFont(wrapper.node)
+                        Accessible.name: wrapper.node.label || wrapper.node.text
                         Accessible.role: wrapper.node.radio ? Accessible.RadioButton : Accessible.Button
                         Accessible.checkable: !!wrapper.node.radio
                         Accessible.checked: !!wrapper.node.selected
@@ -431,7 +435,8 @@ Item {
                             else
                                 event.accepted = false;
                         }
-                        onClicked: root.send(wrapper.node.action)
+                        onPressed: root.send(wrapper.node.pressAction, undefined, buttonControl)
+                        onClicked: root.send(wrapper.node.action, undefined, buttonControl)
                     }
                 }
                 Component {
@@ -462,7 +467,7 @@ Item {
                             selectedColor: root.color(wrapper.node.selectedColor)
                             railVisible: !!wrapper.node.rail
                             separatorVisible: false
-                            cornerRadius: 10
+                            cornerRadius: wrapper.node.radius === undefined ? 10 : wrapper.node.radius
                             inset: 0
                         }
                         contentItem: FrameBranch {
@@ -572,8 +577,14 @@ Item {
                         maximumLength: wrapper.node.maxLength || 32767
                         Accessible.name: wrapper.node.label || ""
                         font: root.controlFont(wrapper.node)
-                        onActiveFocusChanged: if (activeFocus)
-                            root.reveal(this)
+                        onActiveFocusChanged: if (activeFocus) {
+                            root.reveal(this);
+                            if (wrapper.node.selectOnFocus)
+                                Qt.callLater(function () {
+                                    if (fieldControl.activeFocus)
+                                        fieldControl.selectAll();
+                                });
+                        }
                         onEditingFinished: root.send(wrapper.node.commitAction, text)
                         onTextEdited: root.send(wrapper.node.action, text)
                     }
@@ -816,7 +827,7 @@ Item {
                         node: wrapper.node
                         sourceModel: root.models[wrapper.node.source]
                         describeCell: root.describeCell
-                        onEvent: action => root.event(action)
+                        onEvent: action => root.event(action, null)
                     }
                 }
                 Component {
@@ -830,7 +841,7 @@ Item {
                         describeRow: root.describeRow
                         describeCell: root.describeCell
                         interactiveContent: root.interactive
-                        onEvent: action => root.event(action)
+                        onEvent: (action, source) => root.event(action, source)
                     }
                 }
                 Component {
@@ -879,7 +890,7 @@ Item {
                                     nodes: []
                                 })
                             interactive: root.interactive
-                            onEvent: action => root.event(action)
+                            onEvent: (action, source) => root.event(action, source)
                         }
                         ScrollBar.vertical: Controls.ScrollBar {
                             objectName: wrapper.node.scrollbarId || ""
@@ -912,7 +923,7 @@ Item {
                             describeRow: root.describeRow
                             describeCell: root.describeCell
                             interactive: root.interactive
-                            onEvent: action => root.event(action)
+                            onEvent: (action, source) => root.event(action, source)
                         }
                         ScrollBar.horizontal: Controls.ScrollBar {
                             theme: root.effectiveTheme

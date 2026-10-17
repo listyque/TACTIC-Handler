@@ -58,6 +58,10 @@ class QuickFilterEditorQmlTests(unittest.TestCase):
             self.app.installTranslator(translator)
             self.addCleanup(self.app.removeTranslator, translator)
         self.engine = QQmlEngine()
+        locale_component = QQmlComponent(self.engine)
+        locale_component.setData(('import QtQuick\nQtObject {property string current_language: "'+('ru' if russian else 'en')+'"}').encode(), QUrl())
+        self.fixture_locale = locale_component.create()
+        self.engine.rootContext().setContextProperty("localizationController", self.fixture_locale)
         self.engine.addImportPath(str(QML))
         self.warnings = []
         self.engine.warnings.connect(
@@ -154,7 +158,7 @@ ApplicationWindow {
         self.assertEqual(self.window.modality(), Qt.WindowModal)
         self.assertEqual(self.item("saveQuickFilterDefaultsButton").property("text"),
                          "Save as defaults on server")
-        self.assertEqual(self.item("saveQuickFilterEditorButton").property("text"), "SAVE")
+        self.assertEqual(self.item("saveQuickFilterEditorButton").property("text"), "Save for this tab")
         self.assertTrue(self.item("saveQuickFilterEditorButton").isEnabled())
         self.click("useCurrentQuickFiltersAsStandardButton")
         self.assertEqual(self.controller.standardSelectionCount, 1)
@@ -330,7 +334,7 @@ ApplicationWindow {
         self.controller._loaded[self.key] = configuration
         self.controller.begin_session()
         self.scene(russian=True)
-        self.assertEqual(self.item("saveQuickFilterEditorButton").property("text"), "СОХРАНИТЬ")
+        self.assertEqual(self.item("saveQuickFilterEditorButton").property("text"), "Сохранить для этой вкладки")
         self.assertFalse(self.item("saveQuickFilterDefaultsButton").isVisible())
         self.click("showHiddenQuickFilters")
         self.assertEqual([option["key"] for option in self.controller.groups[0]["options"]], ["props"])

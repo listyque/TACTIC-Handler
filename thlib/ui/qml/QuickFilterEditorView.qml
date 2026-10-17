@@ -1,4 +1,6 @@
 import QtQuick
+import "tactic_frame" as Frame
+import "tactic_frame/features/search/editors.ui.mjs" as UI
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
@@ -13,6 +15,55 @@ Item {
     property var controller: quickFilterEditorController
     property var windows: windowModel
     objectName: "quickFilterEditorView"
+    property bool showHidden: false
+    property real selectedChipHeight: 0
+    property var selectionFlowView
+    function updateChipHeight() {
+        const next = selectionFlowView ? selectionFlowView.implicitHeight : 0;
+        if (selectedChipHeight !== next)
+            selectedChipHeight = next;
+    }
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    readonly property var selectedChips: {
+        const chips = [];
+        const groups = controller.standardSelections;
+        for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+            const group = groups[groupIndex];
+            for (let optionIndex = 0; optionIndex < group.options.length; optionIndex++)
+                chips.push(Object.assign({}, group.options[optionIndex], {
+                    groupKey: group.key,
+                    groupTitle: group.title
+                }));
+        }
+        return chips;
+    }
+    readonly property var frameModel: ({
+            busy: controller.busy,
+            count: controller.standardSelectionCount,
+            canEdit: controller.canEdit,
+            canSaveDefaults: controller.canSaveDefaults,
+            canCopy: controller.canSaveDefaults,
+            chipHeight: selectedChipHeight,
+            showHidden: showHidden
+        })
+    function command(action) {
+        if (action.type === "showHidden")
+            showHidden = action.value;
+        else if (action.type === "copy")
+            controller.use_current_as_standard();
+        else if (action.type === "clear")
+            controller.clear_standard();
+        else if (action.type === "save")
+            controller.save();
+        else if (action.type === "defaults")
+            controller.save_defaults();
+        else if (action.type === "close")
+            windows.close_window(windowId);
+        else if (action.type === "group")
+            controller.set_group_enabled(action.index, action.value);
+        else if (action.type === "move")
+            controller.move_group(action.index, action.delta);
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -21,8 +72,8 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 12
+        anchors.margins: UI.editor.inset
+        spacing: UI.editor.gap
 
         Label {
             Layout.fillWidth: true
@@ -58,7 +109,7 @@ Item {
                 id: editorContent
                 objectName: "quickFilterEditorContent"
                 width: Math.max(0, editorFlickable.width - editorScrollBar.reservedExtent - 8)
-                spacing: 12
+                spacing: UI.editor.gap
 
                 Label {
                     objectName: "quickFilterEditorLoading"
@@ -70,77 +121,15 @@ Item {
                     font.pointSize: Controls.Typography.body
                     wrapMode: Text.Wrap
                 }
-                Label {
+                Frame.FrameView {
                     Layout.fillWidth: true
-                    text: qsTr("Selected filters")
-                    color: root.theme.primaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.body
-                    font.weight: Font.DemiBold
-                    wrapMode: Text.Wrap
-                }
-                Label {
-                    Layout.fillWidth: true
-                    visible: root.controller.standardSelectionCount === 0
-                    text: qsTr("No filters selected")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.body
-                    wrapMode: Text.Wrap
-                }
-                Repeater {
-                    model: root.controller.standardSelections
-
-                    delegate: Flow {
-                        id: selectionGroup
-                        required property var modelData
-                        Layout.fillWidth: true
-                        spacing: 7
-
-                        Repeater {
-                            model: selectionGroup.modelData.options
-
-                            delegate: QuickFilterChip {
-                                required property var modelData
-                                objectName: "removeStandardFilter:" + selectionGroup.modelData.key + ":" + modelData.key
-                                theme: root.theme
-                                text: String(selectionGroup.modelData.title) + ": " + modelData.title
-                                maximumChipWidth: selectionGroup.width
-                                iconName: "close"
-                                checked: true
-                                subtle: true
-                                enabled: root.controller.canEdit && !root.controller.busy
-                                Accessible.name: qsTr("Remove filter") + ": " + text
-                                onClicked: root.controller.remove_standard_selection(
-                                    selectionGroup.modelData.key, modelData.key
-                                )
-                            }
-                        }
-                    }
-                }
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Controls.Button {
-                        objectName: "useCurrentQuickFiltersAsStandardButton"
-                        theme: root.theme
-                        visible: root.controller.canSaveDefaults
-                        text: qsTr("Copy selection from current tab")
-                        icon.name: "bookmark"
-                        tonal: true
-                        enabled: root.controller.canEdit && !root.controller.busy
-                        onClicked: root.controller.use_current_as_standard()
-                    }
-                    Controls.Button {
-                        theme: root.theme
-                        text: qsTr("Clear selected filters")
-                        icon.name: "filter_alt_off"
-                        enabled: root.controller.canEdit
-                            && root.controller.standardSelectionCount > 0
-                            && !root.controller.busy
-                        onClicked: root.controller.clear_standard()
-                    }
+                    Layout.preferredHeight: scene.contentHeight
+                    theme: root.theme
+                    scene: UI.selection(root.frameModel, width, root.language)
+                    views: ({
+                            chips: selectionComponent
+                        })
+                    onEvent: action => root.command(action)
                 }
 
                 Rectangle {
@@ -148,28 +137,17 @@ Item {
                     implicitHeight: 1
                     color: root.theme.outlineVariant
                 }
-                Label {
+                Frame.FrameView {
                     Layout.fillWidth: true
-                    text: qsTr("Available filters")
-                    color: root.theme.primaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.body
-                    font.weight: Font.DemiBold
-                    wrapMode: Text.Wrap
-                }
-                Controls.CheckBox {
-                    id: showHidden
-                    objectName: "showHiddenQuickFilters"
+                    Layout.preferredHeight: scene.contentHeight
                     theme: root.theme
-                    text: qsTr("Show hidden filters")
-                    Layout.fillWidth: true
+                    scene: UI.available(root.frameModel, width, root.language)
+                    onEvent: action => root.command(action)
                 }
-
                 Label {
                     objectName: "quickFilterEditorEmpty"
                     Layout.fillWidth: true
-                    visible: !root.controller.busy && root.controller.groups.length === 0
-                        && root.controller.error.length === 0
+                    visible: !root.controller.busy && root.controller.groups.length === 0 && root.controller.error.length === 0
                     text: qsTr("No filters available")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
@@ -187,39 +165,20 @@ Item {
                         objectName: "quickFilterGroup:" + modelData.key
                         Layout.fillWidth: true
                         spacing: 6
-                        visible: Boolean(modelData.enabled) || showHidden.checked
+                        visible: Boolean(modelData.enabled) || root.showHidden
 
-                        RowLayout {
+                        Frame.FrameView {
                             Layout.fillWidth: true
-                            spacing: 8
-
-                            Controls.CheckBox {
-                                objectName: "quickFilterGroupToggle:" + groupSection.modelData.key
-                                theme: root.theme
-                                Layout.fillWidth: true
-                                text: String(groupSection.modelData.title)
-                                checked: Boolean(groupSection.modelData.enabled)
-                                enabled: root.controller.canEdit && !root.controller.busy
-                                onToggled: root.controller.set_group_enabled(groupSection.index, checked)
-                            }
-                            Controls.CompactIconButton {
-                                theme: root.theme
-                                iconName: "arrow_upward"
-                                toolTip: qsTr("Move up")
-                                enabled: root.controller.canEdit && groupSection.index > 0
-                                    && !root.controller.busy
-                                onClicked: root.controller.move_group(groupSection.index, -1)
-                            }
-                            Controls.CompactIconButton {
-                                theme: root.theme
-                                iconName: "arrow_downward"
-                                toolTip: qsTr("Move down")
-                                enabled: root.controller.canEdit && groupSection.index
-                                    < root.controller.groups.length - 1 && !root.controller.busy
-                                onClicked: root.controller.move_group(groupSection.index, 1)
-                            }
+                            Layout.preferredHeight: scene.contentHeight
+                            theme: root.theme
+                            scene: UI.group(Object.assign({}, groupSection.modelData, {
+                                index: groupSection.index,
+                                total: root.controller.groups.length,
+                                busy: root.controller.busy,
+                                canEdit: root.controller.canEdit
+                            }), width, root.language)
+                            onEvent: action => root.command(action)
                         }
-
                         Flow {
                             id: optionFlow
                             Layout.fillWidth: true
@@ -240,9 +199,7 @@ Item {
                                     subtle: true
                                     checked: Boolean(modelData.selected)
                                     enabled: root.controller.canEdit && !root.controller.busy
-                                    onClicked: root.controller.set_option_selected(
-                                        groupSection.modelData.key, modelData.key, !checked
-                                    )
+                                    onClicked: root.controller.set_option_selected(groupSection.modelData.key, modelData.key, !checked)
                                 }
                             }
                         }
@@ -258,36 +215,38 @@ Item {
             }
         }
 
-        Flow {
+        Frame.FrameView {
             Layout.fillWidth: true
-            layoutDirection: Qt.RightToLeft
-            spacing: 8
-
-            Controls.Button {
-                objectName: "saveQuickFilterEditorButton"
-                theme: root.theme
-                text: qsTr("SAVE")
-                icon.name: "save"
-                highlighted: true
-                enabled: root.controller.canEdit && !root.controller.busy
-                onClicked: root.controller.save()
+            Layout.preferredHeight: scene.contentHeight
+            theme: root.theme
+            scene: UI.footer(root.frameModel, width, root.language)
+            onEvent: action => root.command(action)
+        }
+    }
+    Component {
+        id: selectionComponent
+        Flow {
+            width: parent.width
+            spacing: UI.editor.optionGap
+            onImplicitHeightChanged: Qt.callLater(root.updateChipHeight)
+            Component.onCompleted: {
+                root.selectionFlowView = this;
+                Qt.callLater(root.updateChipHeight);
             }
-            Controls.Button {
-                objectName: "saveQuickFilterDefaultsButton"
-                theme: root.theme
-                visible: root.controller.canSaveDefaults
-                text: qsTr("Save as defaults on server")
-                icon.name: "cloud_upload"
-                enabled: root.controller.canEdit && !root.controller.busy
-                onClicked: root.controller.save_defaults()
-            }
-            Controls.Button {
-                objectName: "cancelQuickFilterEditorButton"
-                theme: root.theme
-                text: qsTr("CANCEL")
-                enabled: !root.controller.busy
-                onClicked: {
-                    root.windows.close_window(root.windowId)
+            Repeater {
+                model: root.selectedChips
+                delegate: QuickFilterChip {
+                    required property var modelData
+                    objectName: "removeStandardFilter:" + modelData.groupKey + ":" + modelData.key
+                    theme: root.theme
+                    text: String(modelData.groupTitle) + ": " + modelData.title
+                    maximumChipWidth: parent.width
+                    iconName: "close"
+                    checked: true
+                    subtle: true
+                    enabled: root.controller.canEdit && !root.controller.busy
+                    Accessible.name: qsTr("Remove filter") + ": " + text
+                    onClicked: root.controller.remove_standard_selection(modelData.groupKey, modelData.key)
                 }
             }
         }

@@ -121,8 +121,9 @@ class QuickFilterPopupQmlTests(unittest.TestCase):
 
     def click(self, item):
         point = item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint()
-        QTest.mouseClick(item.window(), Qt.LeftButton, Qt.NoModifier, point)
-        self.settle(item.window())
+        owner = item.window()
+        QTest.mouseClick(owner, Qt.LeftButton, Qt.NoModifier, point)
+        self.settle(owner)
 
     def wheel(self, viewport, angle):
         position = viewport.mapToScene(QPointF(viewport.width() / 2, viewport.height() / 2))
@@ -142,7 +143,7 @@ class QuickFilterPopupQmlTests(unittest.TestCase):
         editor = qmlContext(view).contextProperty("quickFilterEditorController")
         editor._context_key = ("demo", "demo/asset", "demo/asset")
         editor._loaded[editor._context_key] = {}
-        button = view.findChild(QQuickItem, "searchQuickFilterButton")
+        button = menus.visual_control(view, "searchQuickFilterButton")
         button.findChild(QObject, "compactIconButtonCursorArea").setProperty("lastActivationAt", -1000.)
         popup = view.findChild(QObject, "searchQuickFilterPopup")
         popup.setProperty("sameSourceToggleWindow", -1)
@@ -227,7 +228,7 @@ class QuickFilterPopupQmlTests(unittest.TestCase):
             self.assertTrue(chip.property("checked"))
             self.assertEqual(viewport.property("contentHeight"), extent)
             with patch.object(self.controller, "_load_tab") as query:
-                self.click(popup.findChild(QQuickItem, "resetSearchQuickFiltersButton"))
+                self.click(menus.visual_control(popup, "resetSearchQuickFiltersButton"))
                 query.assert_called_once()
             self.assertFalse(tab.quick_filters)
             self.assertFalse(chip.property("checked"))
@@ -255,7 +256,7 @@ class QuickFilterPopupQmlTests(unittest.TestCase):
             editor = qmlContext(view).contextProperty("quickFilterEditorController")
             with patch.object(editor, "save") as save:
                 popup, _sample = self.measure_open(window, view)
-                self.assertEqual(popup.findChild(QQuickItem, "editQuickFiltersButton").property("text"), "Edit")
+                self.assertEqual(menus.visual_control(popup, "editQuickFiltersButton").property("text"), "Edit")
                 self.assertIsNone(popup.findChild(QQuickItem, "personalQuickFilterScope"))
                 for text in ("2 Minutes", "(No Storyboard)"):
                     chip = next(item for item in self.visible_chips(popup) if item.property("text") == text)
@@ -382,13 +383,13 @@ class QuickFilterPopupQmlTests(unittest.TestCase):
                 bar = popup.findChild(QQuickItem, "scrollablePopupScrollBar")
                 self.assertIsNone(popup.findChild(QQuickItem, "personalQuickFilterExplanation"))
                 for name in ("editQuickFiltersButton",):
-                    item = popup.findChild(QQuickItem, name)
+                    item = menus.visual_control(popup, name)
                     self.assertTrue(item.isVisible())
                     point = item.mapToItem(viewport, QPointF())
                     self.assertGreaterEqual(point.x(), 0)
                     self.assertLessEqual(point.x() + item.width(), viewport.width() - bar.width())
                     self.assertLessEqual(point.y() + item.height(), viewport.height())
-                button = popup.findChild(QQuickItem, "editQuickFiltersButton")
+                button = menus.visual_control(popup, "editQuickFiltersButton")
                 self.assertEqual(button.property("text"), "Редактировать")
                 if width == 360:
                     screenshot = os.environ.get("QUICK_FILTER_POPUP_SCREENSHOT")

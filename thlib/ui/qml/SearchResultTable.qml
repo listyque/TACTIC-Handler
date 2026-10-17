@@ -167,13 +167,13 @@ Item {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: 8
-        active: Number(root.columnsController.dirtyTaskCount || 0) > 0
+        active: Number(root.columnsController ? root.columnsController.dirtyTaskCount || 0 : 0) > 0
         visible: active
         sourceComponent: RowLayout {
         spacing: 8
 
         Label {
-            text: Number(root.columnsController.dirtyTaskCount || 0) + qsTr(" unsaved")
+            text: Number(root.columnsController ? root.columnsController.dirtyTaskCount || 0 : 0) + qsTr(" unsaved")
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
             font.pointSize: Controls.Typography.label

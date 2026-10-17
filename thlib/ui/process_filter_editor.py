@@ -78,6 +78,7 @@ class ProcessFilterEditorController(QObject):
             stype,
             project,
             checked_kinds=frozenset({"builtin", "process", "child"}),
+            unique_types=True,
         )
 
     def _read_settings(self, context: dict) -> dict:
@@ -145,6 +146,11 @@ class ProcessFilterEditorController(QObject):
             if record.get("selected") and record.get("checkable")
         ]
         rows = selected_rows if source.get("selected") and len(selected_rows) > 1 else [row]
+        identities = {(self.model._records[index].get("kind"),
+                       self.model._records[index].get("key"),
+                       self.model._records[index].get("group")) for index in rows}
+        rows = [index for index, record in enumerate(self.model._records)
+                if (record.get("kind"), record.get("key"), record.get("group")) in identities]
         changed = self.model.set_role_for_rows(rows, "checked", bool(checked))
         if changed:
             self.stateChanged.emit()
@@ -220,6 +226,10 @@ class ProcessFilterEditorController(QObject):
                 ignore["processes"][record.get("group")].append(
                     record.get("key")
                 )
+        ignore["children"] = list(dict.fromkeys(ignore["children"]))
+        ignore["builtins"] = list(dict.fromkeys(ignore["builtins"]))
+        ignore["processes"] = {key: list(dict.fromkeys(values))
+                               for key, values in ignore["processes"].items()}
         if not any((
             ignore["children"], ignore["builtins"],
             any(ignore["processes"].values()),

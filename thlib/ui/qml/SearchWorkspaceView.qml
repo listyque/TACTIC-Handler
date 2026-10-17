@@ -1,4 +1,8 @@
 import QtQuick
+import "tactic_frame" as Frame
+import "tactic_frame/features/search/footer.ui.mjs" as Footer
+import "tactic_frame/features/search/header.ui.mjs" as Header
+import "tactic_frame/features/search/menus.ui.mjs" as SearchMenus
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
@@ -8,9 +12,13 @@ import "tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
 Item {
     id: root
     required property var theme
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     required property string pageTitle
     property var columnsController: typeof columnsEditorController !== "undefined" ? columnsEditorController : null
     property var shelfController: sidebarEditorController.scriptShelf
+    property var searchInput
+    property var quickFilterAnchor
+    property var headerMoreAnchor
     property bool shelfOpen: false
     signal requestDockMenu(var sourceItem)
     readonly property bool presentationActive: parent ? parent.visible : visible
@@ -111,7 +119,7 @@ Item {
         id: searchHeader
         anchors.top: parent.top
         width: parent.width
-        height: root.theme.dockWorkspaceHeaderHeight / 2
+        height: Header.height
         radius: Math.max(0, root.theme.surfaceRadius - 1)
         color: root.theme.panelDeep
         antialiasing: true
@@ -122,187 +130,164 @@ Item {
             height: parent.radius
             color: parent.color
         }
-        RefreshIconButton {
-            id: searchRefresh
-            objectName: "searchRefreshButton"
-            anchors.left: parent.left
-            anchors.leftMargin: 38
-            anchors.verticalCenter: parent.verticalCenter
-            width: visible ? 38 : 0
-            height: 38
-            visible: !root.compactTabActions
+        Frame.FrameView {
+            anchors.fill: parent
             theme: root.theme
-            toolTip: qsTr("Refresh current results")
-            onClicked: appController.refresh_current()
-        }
-        TacticSearchField {
-            id: searchField
-            objectName: "searchField"
-            anchors.left: searchRefresh.right
-            anchors.right: scriptShelfButton.left
-            anchors.top: parent.top
-            anchors.leftMargin: 4
-            anchors.rightMargin: 8
-            anchors.topMargin: 5
-            height: 38
-            theme: root.theme
-            suggestionModel: searchSuggestionModel
-            controller: appController
-            openSuggestionsInNewTab: true
-            placeholderText: {
-                var scope = root.pageTitle.split("/")[0].trim();
-                return scope.length > 0 ? qsTr("Search ") + qsTr(scope).toLowerCase() : qsTr("Search");
+            scene: Header.describe({
+                compact: root.compactTabActions,
+                shelf: Boolean(root.shelfController),
+                shelfOpen: root.shelfOpen
+            }, width, root.language)
+            views: ({
+                    field: fieldComponent,
+                    tags: tagsComponent,
+                    quick: quickComponent,
+                    panels: panelsComponent
+                })
+            onEvent: action => {
+                if (action.type === "refresh")
+                    appController.refresh_current();
+                else if (action.type === "help")
+                    windowModel.open_help("search");
+                else if (action.type === "shelf") {
+                    root.shelfOpen = !root.shelfOpen;
+                    quickFilterPopup.close();
+                    tagCloudPopup.close();
+                }
             }
         }
-        Controls.CompactIconButton {
-            id: scriptShelfButton
-            objectName: "scriptShelfButton"
-            anchors.right: tagCloudButton.left
-            anchors.rightMargin: visible ? 3 : 0
-            anchors.verticalCenter: parent.verticalCenter
-            width: visible ? 38 : 0
-            height: 38
-            visible: !root.compactTabActions && Boolean(root.shelfController)
-            theme: root.theme
-            iconName: "code"
-            iconColor: root.shelfOpen ? root.theme.action : root.theme.primaryText
-            backgroundColor: root.shelfOpen ? root.theme.secondaryContainer : "transparent"
-            round: true
-            toolTip: qsTr("Script shelf")
-            onClicked: {
-                root.shelfOpen = !root.shelfOpen;
-                quickFilterPopup.close();
-                tagCloudPopup.close();
+        Component {
+            id: fieldComponent
+            TacticSearchField {
+                id: searchField
+                objectName: "searchField"
+                height: parent.height
+                anchors.fill: parent
+                Component.onCompleted: root.searchInput = this
+                theme: root.theme
+                suggestionModel: searchSuggestionModel
+                controller: appController
+                openSuggestionsInNewTab: true
+                placeholderText: {
+                    var scope = root.pageTitle.split("/")[0].trim();
+                    return scope.length > 0 ? qsTr("Search ") + qsTr(scope).toLowerCase() : qsTr("Search");
+                }
             }
         }
-        Controls.CompactIconButton {
-            id: tagCloudButton
-            objectName: "searchTagButton"
-            anchors.right: quickFilterButton.left
-            anchors.rightMargin: visible ? 3 : 0
-            anchors.verticalCenter: parent.verticalCenter
-            width: visible ? 38 : 0
-            height: 38
-            visible: !root.compactTabActions
-            theme: root.theme
-            iconName: "tags"
-            iconColor: tagCloudPopup.opened || appController.active_tag_count > 0 ? root.theme.action : root.theme.primaryText
-            backgroundColor: tagCloudPopup.opened ? root.theme.secondaryContainer : "transparent"
-            round: true
-            toolTip: qsTr("Tags")
-            onPressed: tagCloudPopup.sourceWasOpen = tagCloudPopup.opened
-            onClicked: {
-                const opening = !tagCloudPopup.sourceWasOpen && !tagCloudPopup.opened;
-                quickFilterPopup.close();
-                if (opening)
-                    appController.request_tag_cloud(false);
-                tagCloudPopup.toggleBelow(tagCloudButton);
-            }
+        Component {
+            id: tagsComponent
+            Controls.CompactIconButton {
+                id: tagCloudButton
+                objectName: "searchTagButton"
+                width: parent.width
+                height: parent.height
+                visible: !root.compactTabActions
+                theme: root.theme
+                iconName: "tags"
+                iconColor: tagCloudPopup.opened || appController.active_tag_count > 0 ? root.theme.action : root.theme.primaryText
+                backgroundColor: tagCloudPopup.opened ? root.theme.secondaryContainer : "transparent"
+                round: true
+                toolTip: qsTr("Tags")
+                onPressed: tagCloudPopup.sourceWasOpen = tagCloudPopup.opened
+                onClicked: {
+                    const opening = !tagCloudPopup.sourceWasOpen && !tagCloudPopup.opened;
+                    quickFilterPopup.close();
+                    if (opening)
+                        appController.request_tag_cloud(false);
+                    tagCloudPopup.toggleBelow(tagCloudButton);
+                }
 
-            Rectangle {
-                visible: appController.active_tag_count > 0
-                anchors.right: parent.right
-                anchors.top: parent.top
-                width: Math.max(16, tagFilterCount.implicitWidth + 8)
-                height: 16
-                radius: 8
-                color: root.theme.action
-                border.width: 2
-                border.color: root.theme.panelDeep
-                Label {
-                    id: tagFilterCount
-                    anchors.centerIn: parent
-                    text: appController.active_tag_count
-                    color: root.theme.selectedText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.caption
-                    font.weight: Font.Bold
+                Rectangle {
+                    visible: appController.active_tag_count > 0
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    width: Math.max(16, tagFilterCount.implicitWidth + 8)
+                    height: 16
+                    radius: 8
+                    color: root.theme.action
+                    border.width: 2
+                    border.color: root.theme.panelDeep
+                    Label {
+                        id: tagFilterCount
+                        anchors.centerIn: parent
+                        text: appController.active_tag_count
+                        color: root.theme.selectedText
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Controls.Typography.caption
+                        font.weight: Font.Bold
+                    }
                 }
             }
         }
-        Controls.CompactIconButton {
-            id: quickFilterButton
-            objectName: "searchQuickFilterButton"
-            anchors.right: searchHelp.left
-            anchors.rightMargin: 3
-            anchors.verticalCenter: parent.verticalCenter
-            width: visible ? 38 : 0
-            height: 38
-            visible: true
-            enabled: true
-            theme: root.theme
-            iconName: "filter"
-            iconColor: quickFilterPopup.opened || appController.active_quick_filter_count > 0 ? root.theme.action : root.theme.primaryText
-            backgroundColor: quickFilterPopup.opened ? root.theme.secondaryContainer : "transparent"
-            round: true
-            toolTip: qsTr("Quick filters")
-            onPressed: quickFilterPopup.sourceWasOpen = quickFilterPopup.opened
-            onClicked: {
-                const opening = !quickFilterPopup.sourceWasOpen && !quickFilterPopup.opened;
-                tagCloudPopup.close();
-                if (opening)
-                    appController.request_quick_filter_data(false);
-                quickFilterPopup.toggleBelow(quickFilterButton);
-            }
+        Component {
+            id: quickComponent
+            Controls.CompactIconButton {
+                id: quickFilterButton
+                objectName: "searchQuickFilterButton"
+                width: parent.width
+                height: parent.height
+                visible: true
+                enabled: true
+                theme: root.theme
+                iconName: "filter"
+                iconColor: quickFilterPopup.opened || appController.active_quick_filter_count > 0 ? root.theme.action : root.theme.primaryText
+                backgroundColor: quickFilterPopup.opened ? root.theme.secondaryContainer : "transparent"
+                round: true
+                toolTip: qsTr("Quick filters")
+                onPressed: quickFilterPopup.sourceWasOpen = quickFilterPopup.opened
+                Component.onCompleted: root.quickFilterAnchor = this
+                onClicked: {
+                    const opening = !quickFilterPopup.sourceWasOpen && !quickFilterPopup.opened;
+                    tagCloudPopup.close();
+                    if (opening)
+                        appController.request_quick_filter_data(false);
+                    quickFilterPopup.toggleBelow(quickFilterButton);
+                }
 
-            Rectangle {
-                visible: appController.active_quick_filter_count > 0
-                anchors.right: parent.right
-                anchors.top: parent.top
-                width: Math.max(16, quickFilterCount.implicitWidth + 8)
-                height: 16
-                radius: 8
-                color: root.theme.action
-                border.width: 2
-                border.color: root.theme.panelDeep
-                Label {
-                    id: quickFilterCount
-                    anchors.centerIn: parent
-                    text: appController.active_quick_filter_count
-                    color: root.theme.selectedText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.caption
-                    font.weight: Font.Bold
+                Rectangle {
+                    visible: appController.active_quick_filter_count > 0
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    width: Math.max(16, quickFilterCount.implicitWidth + 8)
+                    height: 16
+                    radius: 8
+                    color: root.theme.action
+                    border.width: 2
+                    border.color: root.theme.panelDeep
+                    Label {
+                        id: quickFilterCount
+                        anchors.centerIn: parent
+                        text: appController.active_quick_filter_count
+                        color: root.theme.selectedText
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Controls.Typography.caption
+                        font.weight: Font.Bold
+                    }
                 }
             }
         }
-        Controls.CompactIconButton {
-            id: searchHelp
-            objectName: "searchWorkspaceHelpButton"
-            anchors.right: searchGear.left
-            anchors.rightMargin: visible ? 3 : 0
-            anchors.verticalCenter: parent.verticalCenter
-            width: visible ? 38 : 0
-            height: 38
-            visible: !root.compactTabActions
-            theme: root.theme
-            iconName: "help"
-            round: true
-            toolTip: qsTr("Help")
-            Accessible.name: toolTip
-            onClicked: windowModel.open_help("search")
-        }
-        Controls.CompactIconButton {
-            id: searchGear
-            objectName: "searchHeaderOverflowButton"
-            anchors.right: parent.right
-            anchors.rightMargin: 7
-            anchors.verticalCenter: parent.verticalCenter
-            width: 38
-            height: 38
-            theme: root.theme
-            iconName: "more-vert"
-            round: true
-            toolTip: root.compactTabActions ? qsTr("More search actions") : qsTr("Workspace panels")
-            onPressed: searchHeaderOverflowMenu.sourceWasOpen = searchHeaderOverflowMenu.opened
-            onClicked: {
-                if (!root.compactTabActions) {
-                    root.requestDockMenu(searchGear);
-                    return;
+        Component {
+            id: panelsComponent
+            Controls.CompactIconButton {
+                id: searchGear
+                objectName: "searchHeaderOverflowButton"
+                width: parent.width
+                height: parent.height
+                theme: root.theme
+                iconName: "more-vert"
+                round: true
+                toolTip: root.compactTabActions ? qsTr("More search actions") : qsTr("Workspace panels")
+                Component.onCompleted: root.headerMoreAnchor = this
+                onPressed: searchHeaderOverflowMenu.sourceWasOpen = searchHeaderOverflowMenu.opened
+                onClicked: {
+                    if (!root.compactTabActions) {
+                        root.requestDockMenu(root.headerMoreAnchor);
+                        return;
+                    }
+                    quickFilterPopup.close();
+                    tagCloudPopup.close();
+                    searchHeaderOverflowMenu.toggleBelow(searchGear);
                 }
-                quickFilterPopup.close();
-                tagCloudPopup.close();
-                searchHeaderOverflowMenu.toggleBelow(searchGear);
             }
         }
     }
@@ -351,11 +336,11 @@ Item {
             } else if (command === "tags") {
                 quickFilterPopup.close();
                 appController.request_tag_cloud(false);
-                tagCloudPopup.openBelow(searchGear);
+                tagCloudPopup.openBelow(root.headerMoreAnchor);
             } else if (command === "help")
                 windowModel.open_help("search");
             else if (command === "panels")
-                root.requestDockMenu(searchGear);
+                root.requestDockMenu(root.headerMoreAnchor);
         }
     }
     SearchQuickFilterPopup {
@@ -365,7 +350,7 @@ Item {
         controller: appController
         editorController: quickFilterEditorController
         onEditRequested: windowModel.show_window("quick_filter_editor")
-        onAssigneesRequested: assigneeFilterPopup.openBelow(quickFilterButton)
+        onAssigneesRequested: assigneeFilterPopup.openBelow(root.quickFilterAnchor)
     }
     SearchAssigneeFilterPopup {
         id: assigneeFilterPopup
@@ -417,7 +402,7 @@ Item {
                 toolTip: qsTr("Add new search tab")
                 onClicked: {
                     workspaceState.add_search_tab();
-                    searchField.beginSearchInput();
+                    root.searchInput.beginSearchInput();
                 }
             }
             Controls.CompactIconButton {
@@ -687,6 +672,7 @@ Item {
 
             Controls.CompactIconButton {
                 id: resultSortButton
+                objectName: "searchResultSortButton"
                 visible: !root.compactTabActions
                 Layout.preferredWidth: visible ? 40 : 0
                 Layout.preferredHeight: 40
@@ -820,328 +806,54 @@ Item {
         width: parent.width
         z: 4
 
-        RowLayout {
+        property var frameModel: ({
+                mode: appController.loading_mode,
+                busy: appController.search_state === "loading",
+                page: appController.current_page,
+                pageCount: appController.page_count,
+                pageSize: appController.page_size,
+                pageNumbers: appController.page_numbers,
+                hasNext: appController.current_page < appController.page_count,
+                count: appController.result_count,
+                total: appController.result_count,
+                range: appController.first_result + "–" + appController.last_result,
+                localSync: true,
+                canCreate: true
+            })
+        TextMetrics {
+            id: footerCountMetrics
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.family: root.theme.fontFamily
+            font.pixelSize: 14
+            text: Footer.countText(resultsToolbar.frameModel, resultsToolbar.width, root.language)
+        }
+        Frame.FrameView {
             anchors.fill: parent
-            anchors.leftMargin: resultsToolbar.narrow ? 8 : 12
-            anchors.rightMargin: resultsToolbar.narrow ? 6 : 8
-            spacing: resultsToolbar.narrow ? 4 : 8
-
-            Label {
-                visible: !resultsToolbar.compact
-                text: qsTr("Showing")
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pixelSize: 14
-                font.weight: Font.DemiBold
-            }
-            Rectangle {
-                visible: !resultsToolbar.ultraNarrow
-                Layout.preferredHeight: 24
-                Layout.preferredWidth: showingValue.implicitWidth + 16
-                Layout.minimumWidth: Layout.preferredWidth
-                Layout.maximumWidth: Layout.preferredWidth
-                radius: 12
-                color: root.theme.rowHover
-                Label {
-                    id: showingValue
-                    anchors.centerIn: parent
-                    text: resultsToolbar.narrow ? String(appController.result_count) : appController.loading_mode === "pages" ? appController.first_result + "–" + appController.last_result + qsTr(" of ") + appController.result_count : appController.result_count + qsTr(" results")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.bodyLarge
-                    font.weight: Font.Medium
-                }
-            }
-
-            Item {
-                Layout.fillWidth: true
-            }
-
-            Controls.CompactIconButton {
-                visible: appController.loading_mode === "pages"
-                enabled: appController.current_page > 1 && appController.search_state !== "loading"
-                Layout.preferredWidth: 36
-                Layout.minimumWidth: 36
-                Layout.maximumWidth: 36
-                Layout.preferredHeight: 36
-                theme: root.theme
-                iconName: "chevron_right"
-                rotation: 180
-                round: true
-                toolTip: qsTr("Previous page")
-                onClicked: appController.previous_page()
-            }
-            Row {
-                visible: appController.loading_mode === "pages" && !resultsToolbar.compact
-                spacing: 2
-                Repeater {
-                    model: appController.page_numbers
-                    delegate: Item {
-                        required property var modelData
-                        width: 34
-                        height: 36
-                        Rectangle {
-                            id: bottomPageButton
-                            anchors.centerIn: parent
-                            width: 32
-                            height: 32
-                            radius: 16
-                            color: Number(modelData) === appController.current_page ? root.theme.action : bottomPageMouse.containsMouse ? root.theme.rowHover : "transparent"
-                            Label {
-                                anchors.centerIn: parent
-                                text: modelData
-                                color: Number(modelData) === appController.current_page ? root.theme.selectedText : root.theme.primaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.bodyLarge
-                                font.weight: Font.DemiBold
-                            }
-                            Controls.MaterialRipple {
-                                id: bottomPageRipple
-                                theme: root.theme
-                                shapeRadius: 16
-                                color: root.theme.rippleStrong
-                            }
-                        }
-                        MouseArea {
-                            id: bottomPageMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            enabled: appController.search_state !== "loading"
-                            cursorShape: Qt.PointingHandCursor
-                            onPressed: mouse => bottomPageRipple.burst(mouse.x - bottomPageButton.x, mouse.y - bottomPageButton.y)
-                            onClicked: appController.go_to_page(Number(modelData))
-                        }
-                    }
-                }
-            }
-            Label {
-                visible: appController.loading_mode === "pages" && resultsToolbar.compact
-                Layout.minimumWidth: implicitWidth
-                text: appController.current_page + " / " + appController.page_count
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.bodyLarge
-                font.weight: Font.Medium
-            }
-            Controls.CompactIconButton {
-                visible: appController.loading_mode === "pages"
-                enabled: appController.current_page < appController.page_count && appController.search_state !== "loading"
-                Layout.preferredWidth: 36
-                Layout.minimumWidth: 36
-                Layout.maximumWidth: 36
-                Layout.preferredHeight: 36
-                theme: root.theme
-                iconName: "chevron_right"
-                round: true
-                toolTip: qsTr("Next page")
-                onClicked: appController.next_page()
-            }
-            Item {
-                id: pageSizeButton
-                visible: appController.loading_mode === "pages" && !resultsToolbar.compact
-                implicitWidth: Math.max(106, pageSizeContent.implicitWidth + 23)
-                Layout.preferredWidth: visible ? implicitWidth : 0
-                Layout.minimumWidth: Layout.preferredWidth
-                Layout.maximumWidth: Layout.preferredWidth
-                Layout.preferredHeight: 40
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 20
-                    color: "transparent"
-                    border.width: 1
-                    border.color: pageSizeMenu.opened ? root.theme.action : root.theme.outline
-                    Behavior on border.color {
-                        ColorAnimation {
-                            duration: theme.clickMotionFast
-                        }
-                    }
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: parent.radius
-                        color: root.theme.primaryText
-                        opacity: pageSizeMouse.pressed ? 0.12 : pageSizeMouse.containsMouse ? 0.08 : 0
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: pageSizeMouse.pressed ? theme.clickMotionFast : pageSizeMouse.containsMouse ? theme.hoverMotionFast : theme.hoverMotionMedium
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-                RowLayout {
-                    id: pageSizeContent
-                    anchors.fill: parent
-                    anchors.leftMargin: 13
-                    anchors.rightMargin: 10
-                    spacing: 7
-                    Label {
-                        id: pageSizeLabel
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: implicitWidth
-                        text: appController.page_size + qsTr(" / page")
-                        color: root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.bodyLarge
-                        font.weight: Font.Medium
-                    }
-                    Controls.MaterialIcon {
-                        name: "keyboard_arrow_down"
-                        size: 16
-                        Layout.preferredWidth: 16
-                        Layout.minimumWidth: 16
-                        Layout.maximumWidth: 16
-                        color: root.theme.secondaryText
-                        rotation: pageSizeMenu.opened ? 180 : 0
-                        Behavior on rotation {
-                            NumberAnimation {
-                                duration: theme.clickMotionMedium
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-                Controls.MaterialRipple {
-                    id: pageSizeRipple
-                    theme: root.theme
-                    shapeRadius: 20
-                    color: root.theme.ripple
-                }
-                MouseArea {
-                    id: pageSizeMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onPressed: mouse => {
-                        pageSizeMenu.sourceWasOpen = pageSizeMenu.opened;
-                        pageSizeRipple.burst(mouse.x, mouse.y);
-                    }
-                    onClicked: pageSizeMenu.toggleBelow(pageSizeButton)
-                }
-            }
-
-            Item {
-                id: loadModeButton
-                Layout.preferredWidth: resultsToolbar.compact ? 40 : 164
-                Layout.minimumWidth: resultsToolbar.compact ? 40 : 164
-                Layout.maximumWidth: resultsToolbar.compact ? 40 : 164
-                Layout.preferredHeight: 40
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 20
-                    color: "transparent"
-                    border.width: 1
-                    border.color: loadModeMenu.opened ? root.theme.action : root.theme.outline
-                    Behavior on border.color {
-                        ColorAnimation {
-                            duration: theme.clickMotionFast
-                        }
-                    }
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: parent.radius
-                        color: root.theme.primaryText
-                        opacity: loadModeMouse.pressed ? 0.12 : loadModeMouse.containsMouse ? 0.08 : 0
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: loadModeMouse.pressed ? theme.clickMotionFast : loadModeMouse.containsMouse ? theme.hoverMotionFast : theme.hoverMotionMedium
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: resultsToolbar.compact ? 0 : 14
-                    anchors.rightMargin: resultsToolbar.compact ? 0 : 14
-                    spacing: resultsToolbar.compact ? 0 : 14
-                    Controls.MaterialIcon {
-                        Layout.fillWidth: resultsToolbar.compact
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        name: appController.loading_mode === "pages" ? "view_kanban" : "layers"
-                        size: 18
-                        color: loadModeMenu.opened ? root.theme.action : root.theme.secondaryText
-                    }
-                    Label {
-                        visible: !resultsToolbar.compact
-                        Layout.fillWidth: true
-                        text: appController.loading_mode === "pages" ? qsTr("Pages") : qsTr("Continuous")
-                        color: root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pixelSize: 12
-                        font.weight: Font.Medium
-                    }
-                    Controls.MaterialIcon {
-                        visible: !resultsToolbar.compact
-                        name: "keyboard_arrow_down"
-                        size: 18
-                        color: root.theme.secondaryText
-                        rotation: loadModeMenu.opened ? 180 : 0
-                        Behavior on rotation {
-                            NumberAnimation {
-                                duration: theme.clickMotionMedium
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-                Controls.MaterialRipple {
-                    id: loadModeRipple
-                    theme: root.theme
-                    shapeRadius: 20
-                    color: root.theme.ripple
-                }
-                MouseArea {
-                    id: loadModeMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onPressed: mouse => {
-                        loadModeMenu.sourceWasOpen = loadModeMenu.opened;
-                        loadModeRipple.burst(mouse.x, mouse.y);
-                    }
-                    onClicked: loadModeMenu.toggleBelow(loadModeButton)
-                    Controls.ToolTip {
-                        theme: root.theme
-                        visible: resultsToolbar.compact && loadModeMouse.containsMouse && !root.theme.suppressToolTips
-                        delay: 450
-                        text: appController.loading_mode === "pages" ? qsTr("Pages") : qsTr("Continuous")
-                    }
-                }
-            }
-
-            Rectangle {
-                visible: !resultsToolbar.narrow
-                Layout.preferredWidth: 1
-                Layout.preferredHeight: 24
-                color: root.theme.separator
-            }
-
-            Controls.CompactIconButton {
-                Layout.preferredWidth: 40
-                Layout.minimumWidth: 40
-                Layout.maximumWidth: 40
-                Layout.preferredHeight: 40
-                theme: root.theme
-                iconName: "repository-sync"
-                round: true
-                toolTip: qsTr("Sync current Search Type")
-                onClicked: appController.open_search_type_repository_sync()
-            }
-
-            Controls.FilledActionButton {
-                objectName: "searchCreateItemButton"
-                Layout.preferredWidth: resultsToolbar.compact ? 40 : implicitWidth
-                Layout.minimumWidth: resultsToolbar.compact ? 40 : 0
-                Layout.maximumWidth: resultsToolbar.compact ? 40 : 160
-                Layout.preferredHeight: 40
-                theme: root.theme
-                compact: resultsToolbar.compact
-                iconName: "add"
-                text: qsTr("New item")
-                toolTip: resultsToolbar.compact ? qsTr("New item") : ""
-                onClicked: appController.open_window("add_sobject")
+            theme: root.theme
+            scene: Footer.describe(Object.assign({}, resultsToolbar.frameModel, {
+                countWidth: footerCountMetrics.advanceWidth
+            }), width, height, root.language)
+            onEvent: (action, source) => {
+                const menu = action.menu === "size" ? pageSizeMenu : action.menu === "mode" ? loadModeMenu : pagePicker;
+                if (action.type === "press")
+                    menu.sourceWasOpen = menu.opened;
+                else if (action.type === "size")
+                    pageSizeMenu.toggleBelow(source);
+                else if (action.type === "mode")
+                    loadModeMenu.toggleBelow(source);
+                else if (action.type === "pagePicker") {
+                    pagePicker.pageDraft = String(appController.current_page);
+                    pagePicker.toggleBelowItem(source, true, 6);
+                } else if (action.type === "page")
+                    appController.go_to_page(action.value);
+                else if (action.type === "previous")
+                    appController.previous_page();
+                else if (action.type === "next")
+                    appController.next_page();
+                else if (action.type === "sync")
+                    appController.open_search_type_repository_sync();
+                else if (action.type === "create")
+                    appController.open_window("add_sobject");
             }
         }
         Rectangle {
@@ -1310,6 +1022,7 @@ Item {
         application: appController
         filterController: filterEditorController
         presets: filterPresetModel
+        columnsModel: typeof filterColumnModel === "undefined" ? null : filterColumnModel
         onProcessFilterRequested: appController.open_window("process_filter_editor")
         onSearchEditorRequested: dockModel.show_panel("advanced_search")
     }
@@ -1332,12 +1045,12 @@ Item {
             {
                 "title": "Sort items",
                 "icon": "sort-items",
-                "children": appController.result_sort_actions
+                "children": resultMenus.sortActions
             },
             {
                 "title": "Group items",
                 "icon": "group-items",
-                "children": appController.result_group_actions
+                "children": resultMenus.groupActions
             },
             {
                 "title": "Change search results view",
@@ -1348,8 +1061,8 @@ Item {
         onTriggered: function (command) {
             if (command === "filters")
                 resultMenus.openFilters(searchTabActionsOverflowButton);
-            else if (appController.result_sort_actions.some(action => action.command === command))
-                appController.set_result_sort_mode(command);
+            else if (resultMenus.sortActions.some(action => action.command === command))
+                resultMenus.sortCommand(command, searchTabActionsOverflowButton);
             else if (appController.result_group_actions.some(action => action.command === command))
                 appController.set_result_group_mode(command);
             else if (resultsViewMenu.actions.some(action => action.command === command))
@@ -1360,44 +1073,7 @@ Item {
         id: resultsViewMenu
         parent: Overlay.overlay
         theme: root.theme
-        actions: [
-            {
-                "title": "Continuous tree",
-                "icon": "list-alt",
-                "command": "continious",
-                "checked": appController.results_view_mode === "continious"
-            },
-            {
-                "title": "Cards",
-                "icon": "dashboard",
-                "command": "tiles",
-                "checked": appController.results_view_mode === "tiles"
-            },
-            {
-                "title": "Table",
-                "icon": "table",
-                "command": "table",
-                "checked": appController.results_view_mode === "table"
-            },
-            {
-                "title": "Compact rows",
-                "icon": "view-list",
-                "command": "compact",
-                "checked": appController.results_view_mode === "compact"
-            },
-            {
-                "title": "Versions on the right",
-                "icon": "columns",
-                "command": "splitted_vertical",
-                "checked": appController.results_view_mode === "splitted_vertical"
-            },
-            {
-                "title": "Versions at the bottom",
-                "icon": "align-justify",
-                "command": "splitted_horizontal",
-                "checked": appController.results_view_mode === "splitted_horizontal"
-            }
-        ]
+        actions: SearchMenus.viewActions(appController.results_view_mode, appController.search_state === "loading")
         onTriggered: function (command) {
             appController.set_results_view_mode(command);
         }
@@ -1406,65 +1082,42 @@ Item {
         id: loadModeMenu
         parent: Overlay.overlay
         theme: root.theme
-        actions: [
-            {
-                "title": "Result loading",
-                "header": true
-            },
-            {
-                "title": "Pages",
-                "icon": "view_kanban",
-                "command": "pages",
-                "checked": appController.loading_mode === "pages"
-            },
-            {
-                "title": "Continuous",
-                "icon": "layers",
-                "command": "infinite",
-                "checked": appController.loading_mode === "infinite"
-            }
-        ]
+        actions: Footer.menu("mode", resultsToolbar.frameModel)
         onTriggered: command => appController.set_loading_mode(command)
     }
     ActionMenu {
         id: pageSizeMenu
         parent: Overlay.overlay
         theme: root.theme
-        actions: [
-            {
-                "title": "Items per page",
-                "header": true
-            },
-            {
-                "title": "20 items",
-                "icon": "list",
-                "command": "page_size:20",
-                "checked": appController.page_size === 20
-            },
-            {
-                "title": "25 items",
-                "icon": "list",
-                "command": "page_size:25",
-                "checked": appController.page_size === 25
-            },
-            {
-                "title": "50 items",
-                "icon": "list",
-                "command": "page_size:50",
-                "checked": appController.page_size === 50
-            },
-            {
-                "title": "100 items",
-                "icon": "list",
-                "command": "page_size:100",
-                "checked": appController.page_size === 100
+        actions: Footer.menu("size", resultsToolbar.frameModel)
+        onTriggered: command => appController.set_page_size(Number(command))
+    }
+    Controls.ScrollablePopup {
+        id: pagePicker
+        theme: root.theme
+        parent: Overlay.overlay
+        preferredSurfaceWidth: 224
+        minimumSurfaceWidth: 200
+        property string pageDraft: ""
+        Frame.FrameView {
+            width: 200
+            height: 80
+            theme: root.theme
+            scene: Footer.pagePicker(pagePicker.pageDraft, width, root.language)
+            onEvent: action => {
+                if (action.type === "pageDraft")
+                    pagePicker.pageDraft = action.value;
+                else if (action.type === "go" && /^\d+$/.test(pagePicker.pageDraft)) {
+                    const page = Number(pagePicker.pageDraft);
+                    if (page > 0 && page <= appController.page_count) {
+                        appController.go_to_page(page);
+                        pagePicker.close();
+                    }
+                }
             }
-        ]
-        onTriggered: command => {
-            if (command.indexOf("page_size:") === 0)
-                appController.set_page_size(Number(command.slice(10)));
         }
     }
+
     ActionMenu {
         id: tabOverflowMenu
         objectName: "searchTabsOverflowMenu"

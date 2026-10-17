@@ -5,7 +5,7 @@ from pathlib import Path
 from time import perf_counter
 import unittest
 
-from PySide6.QtCore import QCoreApplication, QEvent, QUrl, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QPointF, QUrl, Qt
 from PySide6.QtGui import QInputMethodEvent
 from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
 from PySide6.QtTest import QTest
@@ -38,6 +38,16 @@ ApplicationWindow {
     id: window
     visible: true; width: 640; height: 360
     property var rows: []
+    property var lastSource: null
+    property string lastCommand: ""
+    function showAction() {
+        view.describeRow = function(list, record) {
+            return {nodes:[Contract.node('Box','probeBox',Contract.rect(0,0,80,40), {
+                children:[Contract.button('probeButton',Contract.rect(0,0,76,36), 'Probe', '', {type:'probe'}, true)]
+            })]};
+        };
+        populate(1);
+    }
     TH.Theme { id: palette; dark: true }
     function populate(count) {
         const next=[];
@@ -60,7 +70,11 @@ ApplicationWindow {
                 text:record.text, action:{type:'edit',id:record.id}
             })]};
         }
-        onEvent: action=>window.edit(action)
+        onEvent: (action, source) => {
+            window.lastSource = source;
+            window.lastCommand = action.type;
+            if (action.type === 'edit') window.edit(action);
+        }
     }
 }
 """.replace("QML", QML.as_uri())
@@ -169,6 +183,17 @@ ApplicationWindow {
         self.assertEqual(
             self.evaluate("rows.find(row => row.id === '0').text"), "Draft 0Ж"
         )
+        self.assertEqual(self.warnings, [])
+
+    def test_nested_list_button_preserves_the_actual_event_source(self):
+        self.evaluate("showAction()")
+        frame(self.window)
+        button = self.item("probeButton")
+        point = button.mapToScene(QPointF(button.width() / 2, button.height() / 2))
+        QTest.mouseClick(self.window, Qt.LeftButton, Qt.NoModifier, point.toPoint())
+        frame(self.window)
+        self.assertEqual(self.window.property("lastCommand"), "probe")
+        self.assertEqual(self.window.property("lastSource"), button)
         self.assertEqual(self.warnings, [])
 
     def test_control_names_are_not_limited_to_css_identifiers(self):

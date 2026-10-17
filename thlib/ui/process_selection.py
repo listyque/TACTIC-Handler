@@ -174,6 +174,7 @@ def build_process_selection_tree(
         project=None,
         *,
         checked_kinds: frozenset[str] = frozenset(),
+        unique_types: bool = False,
 ) -> list[dict]:
     """Build the recursive tree used by Repository Sync.
 
@@ -190,6 +191,7 @@ def build_process_selection_tree(
             project = getattr(stype, "project", None)
     project_stypes = getattr(project, "stypes", None) or {}
     records: list[dict] = []
+    expanded_types: set[str] = set()
 
     def checked(kind: str) -> bool:
         return kind in checked_kinds
@@ -201,6 +203,9 @@ def build_process_selection_tree(
             ancestors: tuple[str, ...],
     ) -> None:
         stype_code = _stype_code(current)
+        if unique_types and stype_code in expanded_types:
+            return
+        expanded_types.add(stype_code)
         for builtin in ("publish", "attachment", "icon"):
             records.append(_record(
                 f"{parent_id or 'root'}:builtin:{builtin}",

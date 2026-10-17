@@ -1,7 +1,6 @@
 import QtQuick
 import "tactic_frame/controls/menus/action.ui.mjs" as MenuRow
 import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
 
 Controls.Menu {
@@ -117,7 +116,8 @@ Controls.Menu {
             Qt.callLater(clampToViewport);
     }
     onClosed: {
-        lastClosedAt = Date.now();
+        // Only an outside press needs protection from the tail of the same input.
+        lastClosedAt = root.pendingCommand ? 0 : Date.now();
         submenuHover.stop();
         hoveredAction = null;
         pendingSubmenuRow = null;

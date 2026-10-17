@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import "tactic_frame/features/search/card.ui.mjs" as Card
 import QtQuick.Controls
 import "controls" as Controls
 
@@ -28,122 +29,75 @@ Item {
     property bool processCountMenuVisible: false
     property string processCountMenuNodeId: ""
 
-    readonly property string effectiveViewMode: current
-        ? controller.results_view_mode : viewMode
-    readonly property real effectiveSplitterRatio: current
-        ? controller.results_splitter_ratio : splitterRatio
-    readonly property real listContentY: tableViewport.visible
-        ? tableViewport.contentY : initialResultPresentation.retainedContentY
+    readonly property string effectiveViewMode: current ? controller.results_view_mode : viewMode
+    readonly property real effectiveSplitterRatio: current ? controller.results_splitter_ratio : splitterRatio
+    readonly property real listContentY: tableViewport.visible ? tableViewport.contentY : initialResultPresentation.retainedContentY
     readonly property real tileContentY: initialTilePresentation.retainedContentY
-    readonly property int resultCount: tableViewport.visible
-        ? tableViewport.count : results.count
-    readonly property real resultWidth: tableViewport.visible
-        ? tableViewport.width : results.width
-    readonly property real resultHeight: tableViewport.visible
-        ? tableViewport.height : results.height
+    readonly property int resultCount: tableViewport.visible ? tableViewport.count : results.count
+    readonly property real resultWidth: tableViewport.visible ? tableViewport.width : results.width
+    readonly property real resultHeight: tableViewport.visible ? tableViewport.height : results.height
 
-    signal actionMenuRequested(
-        string nodeId,
-        var actions,
-        var anchorItem,
-        real localX,
-        real localY,
-        bool below
-    )
-    signal processCountMenuRequested(
-        string nodeId,
-        string panel,
-        var anchorItem
-    )
-    signal interactionStarted()
+    signal actionMenuRequested(string nodeId, var actions, var anchorItem, real localX, real localY, bool below)
+    signal processCountMenuRequested(string nodeId, string panel, var anchorItem)
+    signal interactionStarted
 
     visible: current
 
-    function restoreContentY(
-        listContentY,
-        tileContentY,
-        listValid,
-        tileValid
-    ) {
-        initialResultPresentation.restoreContentY(
-            listContentY, listValid
-        )
-        tableViewport.restoreContentY(listContentY, listValid)
-        initialTilePresentation.restoreContentY(
-            tileContentY, tileValid
-        )
+    function restoreContentY(listContentY, tileContentY, listValid, tileValid) {
+        initialResultPresentation.restoreContentY(listContentY, listValid);
+        tableViewport.restoreContentY(listContentY, listValid);
+        initialTilePresentation.restoreContentY(tileContentY, tileValid);
     }
 
     function revealNode(nodeId) {
         if (!root.current || !nodeId)
-            return
-        const row = root.resultModel.row_for_node(nodeId)
+            return;
+        const row = root.resultModel.row_for_node(nodeId);
         if (row < 0)
-            return
-        Qt.callLater(function() {
+            return;
+        Qt.callLater(function () {
             if (!root.current)
-                return
+                return;
             if (tileViewport.visible)
-                resultTiles.positionViewAtIndex(row, GridView.Contain)
+                resultTiles.positionViewAtIndex(row, GridView.Contain);
             else if (tableViewport.visible)
-                tableViewport.positionViewAtIndex(row)
+                tableViewport.positionViewAtIndex(row);
             else
-                results.positionViewAtIndex(row, ListView.Contain)
-        })
+                results.positionViewAtIndex(row, ListView.Contain);
+        });
     }
 
     function handleOutsidePress(sourceItem, x, y) {
-        const card = resultTiles.expandedCard
+        const card = resultTiles.expandedCard;
         if (!card)
-            return
-        const cardPoint = card.mapFromItem(sourceItem, x, y)
-        if (
-            cardPoint.x < 0 || cardPoint.y < 0
-            || cardPoint.x > card.width || cardPoint.y > card.height
-        )
-            controller.clear_result_selection()
+            return;
+        const cardPoint = card.mapFromItem(sourceItem, x, y);
+        if (cardPoint.x < 0 || cardPoint.y < 0 || cardPoint.x > card.width || cardPoint.y > card.height)
+            controller.clear_result_selection();
     }
 
     ListView {
         id: results
         objectName: "searchResultsListView"
 
-        readonly property bool interactionMoving:
-            moving || flicking || wheelScroll.running
+        readonly property bool interactionMoving: moving || flicking || wheelScroll.running
         property real wheelTargetY: contentY
         property alias treeRevealGeneration: treeExpansionMotion.generation
         property alias treeRevealFirstRow: treeExpansionMotion.firstRow
         property alias treeRevealLastRow: treeExpansionMotion.lastRow
         property alias treeRevealActive: treeExpansionMotion.active
-        property alias treeCollapseGeneration:
-            treeExpansionMotion.collapseGeneration
-        property alias treeCollapseFirstRow:
-            treeExpansionMotion.collapseFirstRow
-        property alias treeCollapseLastRow:
-            treeExpansionMotion.collapseLastRow
-        property alias treeCollapseActive:
-            treeExpansionMotion.collapseActive
-        property alias treeCollapseOwnerId:
-            treeExpansionMotion.collapseOwnerId
+        property alias treeCollapseGeneration: treeExpansionMotion.collapseGeneration
+        property alias treeCollapseFirstRow: treeExpansionMotion.collapseFirstRow
+        property alias treeCollapseLastRow: treeExpansionMotion.collapseLastRow
+        property alias treeCollapseActive: treeExpansionMotion.collapseActive
+        property alias treeCollapseOwnerId: treeExpansionMotion.collapseOwnerId
 
         x: 8
         y: 8
-        width: root.splitRight
-            ? Math.max(220, Math.round(
-                (root.width - root.dividerThickness)
-                    * root.effectiveSplitterRatio
-            )) - 12 : Math.max(0, root.width - 16)
-        height: root.splitBottom
-            ? Math.max(150, Math.round(
-                (root.height - root.dividerThickness)
-                    * root.effectiveSplitterRatio
-            )) - 12 : Math.max(0, root.height - 16)
+        width: root.splitRight ? Math.max(220, Math.round((root.width - root.dividerThickness) * root.effectiveSplitterRatio)) - 12 : Math.max(0, root.width - 16)
+        height: root.splitBottom ? Math.max(150, Math.round((root.height - root.dividerThickness) * root.effectiveSplitterRatio)) - 12 : Math.max(0, root.height - 16)
         opacity: initialResultPresentation.ready ? 1 : 0
-        visible: root.current
-            && (root.compactRows || (
-                root.effectiveViewMode !== "tiles"
-                && root.effectiveViewMode !== "table"
-            ))
+        visible: root.current && (root.compactRows || (root.effectiveViewMode !== "tiles" && root.effectiveViewMode !== "table"))
         clip: true
         spacing: 3
         model: root.resultModel
@@ -156,71 +110,52 @@ Item {
         cacheBuffer: 280
         reuseItems: true
 
-        function toggleResultNodePreservingScroll(
-            nodeId, recursive, expanding
-        ) {
-            treeExpansionMotion.toggle(nodeId, recursive, expanding)
+        function toggleResultNodePreservingScroll(nodeId, recursive, expanding) {
+            treeExpansionMotion.toggle(nodeId, recursive, expanding);
         }
 
         function treeStaggerDelay(row, firstRow) {
-            return treeExpansionMotion.staggerDelay(row, firstRow)
+            return treeExpansionMotion.staggerDelay(row, firstRow);
         }
 
         function cancelWheelScroll() {
-            wheelScroll.stop()
-            wheelTargetY = contentY
+            wheelScroll.stop();
+            wheelTargetY = contentY;
         }
 
         function requestMoreFromScroll() {
-            if (
-                !root.current || !atYEnd
-                || controller.card_can_go_back
-                || !controller.has_more
-                || controller.loading_mode !== "infinite"
-            )
-                return
+            if (!root.current || !atYEnd || controller.card_can_go_back || !controller.has_more || controller.loading_mode !== "infinite")
+                return;
             if (!resultsScrollBar.takePaginationPermit(false))
-                return
-            controller.load_more()
+                return;
+            controller.load_more();
         }
 
         function scrollWithWheel(pixelDelta, angleDelta) {
-            const rawDelta = pixelDelta !== 0
-                ? pixelDelta * 1.65
-                : (angleDelta / 120) * 148
+            const rawDelta = pixelDelta !== 0 ? pixelDelta * 1.65 : (angleDelta / 120) * 148;
             if (rawDelta === 0)
-                return
-            resultsScrollBar.armPagination()
-            const minimumY = originY
-            const maximumY = Math.max(
-                minimumY,
-                minimumY + contentHeight - height
-            )
-            const baseY = wheelScroll.running
-                ? wheelTargetY : contentY
-            wheelTargetY = Math.max(
-                minimumY,
-                Math.min(maximumY, baseY - rawDelta)
-            )
-            wheelScroll.stop()
-            wheelScroll.to = wheelTargetY
-            wheelScroll.start()
+                return;
+            resultsScrollBar.armPagination();
+            const minimumY = originY;
+            const maximumY = Math.max(minimumY, minimumY + contentHeight - height);
+            const baseY = wheelScroll.running ? wheelTargetY : contentY;
+            wheelTargetY = Math.max(minimumY, Math.min(maximumY, baseY - rawDelta));
+            wheelScroll.stop();
+            wheelScroll.to = wheelTargetY;
+            wheelScroll.start();
         }
 
         onInteractionMovingChanged: {
             if (interactionMoving)
-                root.interactionStarted()
+                root.interactionStarted();
         }
         onFlickStarted: cancelWheelScroll()
         onContentYChanged: requestMoreFromScroll()
 
-        Keys.onPressed: function(event) {
-            if (
-                event.key === Qt.Key_A
-                && (event.modifiers & Qt.ControlModifier)
-            ) {
-                controller.select_all_result_siblings()
-                event.accepted = true
+        Keys.onPressed: function (event) {
+            if (event.key === Qt.Key_A && (event.modifiers & Qt.ControlModifier)) {
+                controller.select_all_result_siblings();
+                event.accepted = true;
             }
         }
 
@@ -235,13 +170,10 @@ Item {
         WheelHandler {
             target: null
             blocking: true
-            onWheel: function(event) {
-                results.scrollWithWheel(
-                    event.pixelDelta.y,
-                    event.angleDelta.y
-                )
-                results.requestMoreFromScroll()
-                event.accepted = true
+            onWheel: function (event) {
+                results.scrollWithWheel(event.pixelDelta.y, event.angleDelta.y);
+                results.requestMoreFromScroll();
+                event.accepted = true;
             }
         }
 
@@ -251,14 +183,14 @@ Item {
             enabled: root.presentationActive && results.visible
             view: results
             model: root.resultModel
-            ownerRowForId: function(nodeId) {
-                return root.resultModel.row_for_node(nodeId)
+            ownerRowForId: function (nodeId) {
+                return root.resultModel.row_for_node(nodeId);
             }
-            descendantEndRowForId: function(nodeId) {
-                return root.resultModel.descendant_end_row(nodeId)
+            descendantEndRowForId: function (nodeId) {
+                return root.resultModel.descendant_end_row(nodeId);
             }
-            toggleNode: function(nodeId, recursive) {
-                controller.toggle_result_node_recursive(nodeId, recursive)
+            toggleNode: function (nodeId, recursive) {
+                controller.toggle_result_node_recursive(nodeId, recursive);
             }
         }
 
@@ -268,43 +200,16 @@ Item {
             presentationActive: root.presentationActive && results.visible
             compactMode: root.compactRows
             hideVersionSnapshots: root.splitView
-            externalMenuVisible: root.current && (
-                root.itemActionMenuVisible
-                && root.itemActionMenuNodeId === nodeId
-            ) || root.current && (
-                root.processCountMenuVisible
-                && root.processCountMenuNodeId === nodeId
-            )
-            selected: root.current
-                && controller.selected_result_node_ids.indexOf(nodeId) >= 0
-            onActionMenuRequested: function(
-                selectedNodeId, menuActions, anchorItem,
-                localX, localY, below
-            ) {
-                root.actionMenuRequested(
-                    selectedNodeId,
-                    menuActions,
-                    anchorItem,
-                    localX,
-                    localY,
-                    below
-                )
+            externalMenuVisible: root.current && (root.itemActionMenuVisible && root.itemActionMenuNodeId === nodeId) || root.current && (root.processCountMenuVisible && root.processCountMenuNodeId === nodeId)
+            selected: root.current && controller.selected_result_node_ids.indexOf(nodeId) >= 0
+            onActionMenuRequested: function (selectedNodeId, menuActions, anchorItem, localX, localY, below) {
+                root.actionMenuRequested(selectedNodeId, menuActions, anchorItem, localX, localY, below);
             }
-            onSelectedRequested: function(
-                selectedId, selectedKey, selectedType,
-                modifiers, preserveSelection
-            ) {
-                controller.select_result_node(
-                    selectedId, selectedKey, selectedType,
-                    modifiers, preserveSelection
-                )
+            onSelectedRequested: function (selectedId, selectedKey, selectedType, modifiers, preserveSelection) {
+                controller.select_result_node(selectedId, selectedKey, selectedType, modifiers, preserveSelection);
             }
-            onProcessCountMenuRequested: function(
-                selectedNodeId, panel, anchorItem
-            ) {
-                root.processCountMenuRequested(
-                    selectedNodeId, panel, anchorItem
-                )
+            onProcessCountMenuRequested: function (selectedNodeId, panel, anchorItem) {
+                root.processCountMenuRequested(selectedNodeId, panel, anchorItem);
             }
         }
 
@@ -325,37 +230,22 @@ Item {
     SearchResultTable {
         id: tableViewport
         anchors.fill: parent
-        visible: root.current && !root.compactRows
-            && root.effectiveViewMode === "table"
+        visible: root.current && !root.compactRows && root.effectiveViewMode === "table"
         theme: root.theme
         controller: root.controller
         columnsController: root.columnsController
         userModel: root.userModel
         resultModel: root.resultModel
         presentationActive: root.presentationActive && visible
-        onActionMenuRequested: function(
-            selectedNodeId, menuActions, anchorItem,
-            localX, localY, below
-        ) {
-            root.actionMenuRequested(
-                selectedNodeId,
-                menuActions,
-                anchorItem,
-                localX,
-                localY,
-                below
-            )
+        onActionMenuRequested: function (selectedNodeId, menuActions, anchorItem, localX, localY, below) {
+            root.actionMenuRequested(selectedNodeId, menuActions, anchorItem, localX, localY, below);
         }
-        onProcessCountMenuRequested: function(
-            selectedNodeId, panel, anchorItem
-        ) {
-            root.processCountMenuRequested(
-                selectedNodeId, panel, anchorItem
-            )
+        onProcessCountMenuRequested: function (selectedNodeId, panel, anchorItem) {
+            root.processCountMenuRequested(selectedNodeId, panel, anchorItem);
         }
         onVisibleChanged: {
             if (visible)
-                root.interactionStarted()
+                root.interactionStarted();
         }
     }
 
@@ -367,8 +257,7 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.topMargin: root.cardNavigationHeight
-        visible: root.current
-            && !root.compactRows && root.effectiveViewMode === "tiles"
+        visible: root.current && !root.compactRows && root.effectiveViewMode === "tiles"
         clip: true
     }
 
@@ -378,8 +267,7 @@ Item {
 
         property real wheelTargetY: contentY
         property var expandedCard: null
-        readonly property bool interactionMoving:
-            moving || flicking || tileWheelScroll.running
+        readonly property bool interactionMoving: moving || flicking || tileWheelScroll.running
 
         parent: tileViewport
         anchors.fill: parent
@@ -400,48 +288,36 @@ Item {
         maximumFlickVelocity: 4800
 
         function cancelWheelScroll() {
-            tileWheelScroll.stop()
-            wheelTargetY = contentY
+            tileWheelScroll.stop();
+            wheelTargetY = contentY;
         }
 
         function requestMoreFromScroll() {
-            if (
-                !root.current || !atYEnd
-                || controller.card_can_go_back
-                || !controller.has_more
-                || controller.loading_mode !== "infinite"
-            )
-                return
+            if (!root.current || !atYEnd || controller.card_can_go_back || !controller.has_more || controller.loading_mode !== "infinite")
+                return;
             if (!resultTilesScrollBar.takePaginationPermit(false))
-                return
-            controller.load_more()
+                return;
+            controller.load_more();
         }
 
         function scrollWithWheel(pixelDelta, angleDelta) {
-            const delta = pixelDelta !== 0
-                ? pixelDelta * 1.65
-                : (angleDelta / 120) * 148
+            const delta = pixelDelta !== 0 ? pixelDelta * 1.65 : (angleDelta / 120) * 148;
             if (delta === 0)
-                return
-            resultTilesScrollBar.armPagination()
-            const minimumY = originY
-            const maximumY = Math.max(
-                minimumY, minimumY + contentHeight - height
-            )
-            const baseY = tileWheelScroll.running
-                ? wheelTargetY : contentY
-            wheelTargetY = Math.max(
-                minimumY, Math.min(maximumY, baseY - delta)
-            )
-            tileWheelScroll.stop()
-            tileWheelScroll.to = wheelTargetY
-            tileWheelScroll.start()
+                return;
+            resultTilesScrollBar.armPagination();
+            const minimumY = originY;
+            const maximumY = Math.max(minimumY, minimumY + contentHeight - height);
+            const baseY = tileWheelScroll.running ? wheelTargetY : contentY;
+            wheelTargetY = Math.max(minimumY, Math.min(maximumY, baseY - delta));
+            tileWheelScroll.stop();
+            tileWheelScroll.to = wheelTargetY;
+            tileWheelScroll.start();
         }
 
         onFlickStarted: cancelWheelScroll()
         onInteractionMovingChanged: {
             if (interactionMoving)
-                root.interactionStarted()
+                root.interactionStarted();
         }
         onContentYChanged: requestMoreFromScroll()
 
@@ -456,13 +332,10 @@ Item {
         WheelHandler {
             target: null
             blocking: true
-            onWheel: function(event) {
-                resultTiles.scrollWithWheel(
-                    event.pixelDelta.y,
-                    event.angleDelta.y
-                )
-                resultTiles.requestMoreFromScroll()
-                event.accepted = true
+            onWheel: function (event) {
+                resultTiles.scrollWithWheel(event.pixelDelta.y, event.angleDelta.y);
+                resultTiles.requestMoreFromScroll();
+                event.accepted = true;
             }
         }
 
@@ -470,27 +343,15 @@ Item {
             anchors.fill: parent
             acceptedButtons: Qt.LeftButton
             // Reject card presses before grabbing, so their own controls receive them.
-            onPressed: function(mouse) {
-                const viewPoint = Qt.point(mouse.x, mouse.y)
-                const contentPoint = Qt.point(
-                    viewPoint.x + resultTiles.contentX,
-                    viewPoint.y + resultTiles.contentY
-                )
-                const itemIndex = resultTiles.indexAt(
-                    contentPoint.x, contentPoint.y
-                )
-                const item = itemIndex >= 0
-                    ? resultTiles.itemAtIndex(itemIndex) : null
+            onPressed: function (mouse) {
+                const viewPoint = Qt.point(mouse.x, mouse.y);
+                const contentPoint = Qt.point(viewPoint.x + resultTiles.contentX, viewPoint.y + resultTiles.contentY);
+                const itemIndex = resultTiles.indexAt(contentPoint.x, contentPoint.y);
+                const item = itemIndex >= 0 ? resultTiles.itemAtIndex(itemIndex) : null;
                 if (!item)
-                    return
-                const localPoint = item.mapFromItem(
-                    resultTiles, viewPoint.x, viewPoint.y
-                )
-                mouse.accepted = (
-                    localPoint.x < 0 || localPoint.y < 0
-                    || localPoint.x > item.width
-                    || localPoint.y > item.height
-                )
+                    return;
+                const localPoint = item.mapFromItem(resultTiles, viewPoint.x, viewPoint.y);
+                mouse.accepted = (localPoint.x < 0 || localPoint.y < 0 || localPoint.x > item.width || localPoint.y > item.height);
             }
             onClicked: controller.clear_result_selection()
         }
@@ -499,50 +360,29 @@ Item {
             controller: root.controller
             presentationActive: root.presentationActive && resultTiles.visible
             width: resultTiles.cellWidth - 18
-            height: (
-                nodeType === "process" || nodeType === "relation"
-                    ? 160 : resultTiles.cellHeight - 14
-            )
+            height: Card.tileHeight({
+                kind: nodeType === "sobject" ? "object" : nodeType,
+                compact: controller.card_compact_level
+            })
             z: 1
             theme: root.theme
-            externalMenuVisible: root.current && (
-                root.itemActionMenuVisible
-                && root.itemActionMenuNodeId === nodeId
-            ) || root.current && (
-                root.processCountMenuVisible
-                && root.processCountMenuNodeId === nodeId
-            )
-            selected: root.current
-                && controller.selected_result_node_ids.indexOf(nodeId) >= 0
-            onActionMenuRequested: function(
-                selectedNodeId, menuActions, anchorItem,
-                localX, localY, below
-            ) {
-                root.actionMenuRequested(
-                    selectedNodeId,
-                    menuActions,
-                    anchorItem,
-                    localX,
-                    localY,
-                    below
-                )
+            externalMenuVisible: root.current && (root.itemActionMenuVisible && root.itemActionMenuNodeId === nodeId) || root.current && (root.processCountMenuVisible && root.processCountMenuNodeId === nodeId)
+            selected: root.current && controller.selected_result_node_ids.indexOf(nodeId) >= 0
+            onActionMenuRequested: function (selectedNodeId, menuActions, anchorItem, localX, localY, below) {
+                root.actionMenuRequested(selectedNodeId, menuActions, anchorItem, localX, localY, below);
             }
-            onProcessCountMenuRequested: function(
-                selectedNodeId, panel, anchorItem
-            ) {
-                root.processCountMenuRequested(
-                    selectedNodeId, panel, anchorItem
-                )
+            onProcessCountMenuRequested: function (selectedNodeId, panel, anchorItem) {
+                root.processCountMenuRequested(selectedNodeId, panel, anchorItem);
             }
             onExpandedChanged: {
                 if (expanded)
-                    resultTiles.expandedCard = this
+                    resultTiles.expandedCard = this;
                 else if (resultTiles.expandedCard === this)
-                    resultTiles.expandedCard = null
+                    resultTiles.expandedCard = null;
             }
             Component.onDestruction: {
                 if (resultTiles.expandedCard === this)
-                    resultTiles.expandedCard = null
+                    resultTiles.expandedCard = null;
             }
         }
 

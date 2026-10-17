@@ -27,6 +27,7 @@ from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
 from ..search_contract import (
     default_name_record,
+    normalize_records,
     filters_from_records,
     records_from_filters,
     set_primary_name,
@@ -122,6 +123,25 @@ class AdvancedSearchMixin:
                 "isDefault": is_default,
             })
         self.workspace_state.filter_model.replace(records)
+
+    @Slot(int, int)
+    def move_search_filter(self, row: int, delta: int) -> None:
+        model = self.workspace_state.filter_model
+        records = list(model._records)
+        target = row + delta
+        if (
+            delta not in (-1, 1)
+            or not 0 <= row < len(records)
+            or not 0 <= target < len(records)
+        ):
+            return
+        if records[row].get("generatedFilterKind") or records[target].get(
+            "generatedFilterKind"
+        ):
+            return
+        records.insert(target, records.pop(row))
+        self.clear_advanced_filter_suggestions()
+        model.replace(normalize_records(records))
 
     @Slot()
     def clear_search_filters(self) -> None:

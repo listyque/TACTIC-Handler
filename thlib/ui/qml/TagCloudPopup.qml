@@ -1,7 +1,8 @@
 import "tactic_frame/controls/lists/chips.mjs" as Chips
 import QtQuick
+import "tactic_frame" as Frame
+import "tactic_frame/features/search/popups.ui.mjs" as UI
 import QtQuick.Controls
-import QtQuick.Layouts
 import QtQuick.Window
 import "controls" as Controls
 
@@ -10,7 +11,8 @@ Controls.ScrollablePopup {
 
     required property var controller
     property var records: []
-    property alias searchText: tagSearch.text
+    property string searchText: ""
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     readonly property string searchQuery: searchText.trim().toLowerCase()
     property var filteredRecords: []
     property var rows: []
@@ -100,8 +102,8 @@ Controls.ScrollablePopup {
         updateFilteredRecords(changed);
     }
 
-    preferredSurfaceWidth: 440
-    minimumSurfaceWidth: 280
+    preferredSurfaceWidth: UI.popup.width
+    minimumSurfaceWidth: UI.popup.minimumWidth
     fixedSurfaceHeight: root.theme.controlHeight * 8
     contentSpacing: 0
     // The selector is immediately usable; do not inherit Material's 220 ms
@@ -110,11 +112,11 @@ Controls.ScrollablePopup {
     exit: null
 
     onAboutToShow: {
-        tagSearch.clear();
+        root.searchText = "";
         updateCatalog();
         rowCapacity = neededRows;
     }
-    onOpened: tagSearch.forceActiveFocus(Qt.PopupFocusReason)
+    onOpened: tagHeader.focusControl("tagCloudSearchField")
     onSearchQueryChanged: {
         if (!visible)
             return;
@@ -150,73 +152,28 @@ Controls.ScrollablePopup {
         width: root.rowWidth
         spacing: 10
 
-        RowLayout {
-            id: header
+        Frame.FrameView {
+            id: tagHeader
             width: parent.width
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("TAGS")
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.bodyLarge
-                font.weight: Font.DemiBold
-            }
-            Controls.BusyIndicator {
-                uiTheme: root.theme
-                Layout.preferredWidth: 24
-                Layout.preferredHeight: 24
-                running: root.visible && root.controller.tag_cloud_loading
-                visible: running
-            }
-            Controls.CompactIconButton {
-                objectName: "resetSearchTagsButton"
-                visible: root.controller.active_tag_count > 0
-                theme: root.theme
-                iconName: "close"
-                iconSize: 14
-                toolTip: qsTr("Clear tags")
-                onClicked: root.controller.toggle_tag("")
-            }
-            RefreshIconButton {
-                objectName: "reloadSearchTagsButton"
-                theme: root.theme
-                toolTip: qsTr("Reload tags")
-                enabled: !root.controller.tag_cloud_loading
-                onClicked: root.controller.request_tag_cloud(true)
-            }
-        }
-
-        RowLayout {
-            width: parent.width
-            spacing: 7
-
-            Controls.MaterialIcon {
-                name: "search"
-                size: 18
-                color: root.theme.secondaryText
-            }
-            Controls.TextField {
-                id: tagSearch
-                objectName: "tagCloudSearchField"
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                theme: root.theme
-                placeholderText: qsTr("Search tags")
-                Accessible.name: placeholderText
-                Keys.onDownPressed: event => {
-                    event.accepted = root.focusTag(0);
-                }
-            }
-            Controls.CompactIconButton {
-                objectName: "clearTagSearchButton"
-                theme: root.theme
-                iconName: "close"
-                iconSize: 14
-                visible: tagSearch.text.length > 0
-                toolTip: qsTr("Clear search")
-                onClicked: {
-                    tagSearch.clear();
-                    tagSearch.forceActiveFocus(Qt.OtherFocusReason);
+            height: UI.tagHeaderHeight
+            theme: root.theme
+            scene: UI.tagHeader({
+                busy: root.controller.tag_cloud_loading,
+                selected: root.controller.active_tag_count,
+                search: root.searchText
+            }, width, root.language)
+            onEvent: action => {
+                if (action.type === "search")
+                    root.searchText = action.value;
+                else if (action.type === "reload")
+                    root.controller.request_tag_cloud(true);
+                else if (action.type === "clearTags")
+                    root.controller.toggle_tag("");
+                else if (action.type === "firstTag")
+                    root.focusTag(0);
+                else if (action.type === "clearSearch") {
+                    root.searchText = "";
+                    tagHeader.focusControl("tagCloudSearchField");
                 }
             }
         }

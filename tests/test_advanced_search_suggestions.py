@@ -49,6 +49,27 @@ class AdvancedSearchSuggestionsTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = gui_test_application()
 
+    def test_reorder_preserves_values_and_normalizes_the_first_card(self):
+        controller = _Controller()
+        model = controller.workspace_state.filter_model
+        model.replace(
+            [
+                {"column": "name", "value": "One", "operator": "begin", "isDefault": True},
+                {"column": "code", "value": "TWO", "operator": "or", "isDefault": False},
+            ]
+        )
+        controller.move_search_filter(1, -1)
+        self.assertEqual([row["value"] for row in model._records], ["TWO", "One"])
+        self.assertEqual([row["isDefault"] for row in model._records], [True, False])
+        self.assertEqual([row["operator"] for row in model._records], ["begin", "and"])
+        before = [dict(row) for row in model._records]
+        controller.move_search_filter(0, -1)
+        self.assertEqual(model._records, before)
+        model._records[1]["generatedFilterKind"] = "quick_filters"
+        controller.move_search_filter(0, 1)
+        self.assertEqual(model._records[0]["value"], "TWO")
+        controller.deleteLater()
+
     def test_list_response_is_one_payload_and_can_be_accepted(self):
         for records in ([], [
             {"name": "Chair", "description": "first\nline"},
