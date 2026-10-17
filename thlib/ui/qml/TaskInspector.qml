@@ -2,6 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "features/objects" as Objects
+import "tactic_frame/features/objects/inspector.ui.mjs" as UI
 
 Rectangle {
     id: root
@@ -13,8 +16,7 @@ Rectangle {
     property var related: controller.relatedTasks
     readonly property bool isProgress: processRecord().type === "progress"
     readonly property bool hasTask: String(task.code || "").length > 0
-    readonly property int processRow: task.processRow === undefined
-        || task.processRow === null ? -1 : Number(task.processRow)
+    readonly property int processRow: task.processRow === undefined || task.processRow === null ? -1 : Number(task.processRow)
     readonly property bool expanded: controller.taskExpanded
     signal editRequested(string taskCode)
 
@@ -24,79 +26,81 @@ Rectangle {
     clip: true
 
     function objectInitials() {
-        const words = String(objectInfo.title || "")
-            .trim().split(/\s+|_+/).filter(Boolean)
+        const words = String(objectInfo.title || "").trim().split(/\s+|_+/).filter(Boolean);
         if (!words.length)
-            return ""
-        return words.slice(0, 2).map(function(word) {
-            return word.charAt(0).toUpperCase()
-        }).join("")
+            return "";
+        return words.slice(0, 2).map(function (word) {
+            return word.charAt(0).toUpperCase();
+        }).join("");
     }
 
     function choiceIndex(values, selected) {
-        const source = values || []
+        const source = values || [];
         for (let index = 0; index < source.length; ++index) {
             if (String(source[index].value || "") === String(selected || ""))
-                return index
+                return index;
         }
-        return -1
+        return -1;
     }
 
     function processRecord() {
-        const processes = controller.processChoices || []
+        const processes = controller.processChoices || [];
         for (let index = 0; index < processes.length; ++index) {
             if (String(processes[index].value || "") === controller.process)
-                return processes[index]
+                return processes[index];
         }
-        return {}
+        return {};
     }
 
     function taskTitle() {
-        const context = String(task.context || "").trim()
+        const context = String(task.context || "").trim();
         if (context && context !== controller.process)
-            return context
-        return controller.processLabel + qsTr(" task")
+            return context;
+        return controller.processLabel + qsTr(" task");
     }
 
     function processMenuActions() {
-        const actions = [{"header": true, "title": "Process and note context"}]
-        const processes = controller.processChoices
+        const actions = [
+            {
+                "header": true,
+                "title": "Process and note context"
+            }
+        ];
+        const processes = controller.processChoices;
         for (let i = 0; i < processes.length; ++i) {
-            const process = processes[i]
-            const noteCount = Number(process.count || 0)
-            const processType = String(process.type || "")
-            const typeLabel = processType === "built-in"
-                ? qsTr("Built-in") : processType
-            const noteLabel = String(noteCount)
-                + qsTr(noteCount === 1 ? " note" : " notes")
-            const progressLabel = String(Number(process.approved || 0))
-                + " / " + String(Number(process.total || 0))
+            const process = processes[i];
+            const noteCount = Number(process.count || 0);
+            const processType = String(process.type || "");
+            const typeLabel = processType === "built-in" ? qsTr("Built-in") : processType;
+            const noteLabel = String(noteCount) + qsTr(noteCount === 1 ? " note" : " notes");
+            const progressLabel = String(Number(process.approved || 0)) + " / " + String(Number(process.total || 0));
             actions.push({
                 // Process labels are project data. Never translate them.
                 "title": String(process.label || process.value || ""),
                 "translate": false,
-                "status": processType === "progress"
-                    ? qsTr("Related tasks") + " · " + progressLabel
-                    : typeLabel.length
-                    ? typeLabel + " · " + noteLabel : noteLabel,
+                "status": processType === "progress" ? qsTr("Related tasks") + " · " + progressLabel : typeLabel.length ? typeLabel + " · " + noteLabel : noteLabel,
                 "statusTranslate": false,
                 "icon": processType === "progress" ? "donut-small" : "",
                 "accent": process.color || root.theme.action,
                 "command": "process:" + process.value,
                 "checked": process.value === controller.process
-            })
+            });
         }
-        return actions
+        return actions;
     }
 
     function taskMenuActions() {
-        const actions = [{"header": true, "title": "Tasks for this process"}]
-        const choices = controller.taskChoices
+        const actions = [
+            {
+                "header": true,
+                "title": "Tasks for this process"
+            }
+        ];
+        const choices = controller.taskChoices;
         for (let i = 0; i < choices.length; ++i) {
-            const choice = choices[i]
+            const choice = choices[i];
             actions.push({
-                "title": choice.primaryBranch
-                    ? choice.label + " · " + qsTr("Main") : choice.label,
+                "title": choice.primaryBranch ? choice.label + " · " + qsTr("Main") : choice.label,
                 "status": choice.status,
                 "translate": false,
                 "statusTranslate": false,
@@ -108,9 +112,9 @@ Rectangle {
                 "badgeCount": Number(choice.noteCount || 0),
                 "showZeroBadge": true,
                 "checked": choice.selected === true
-            })
+            });
         }
-        return actions
+        return actions;
     }
 
     GridLayout {
@@ -124,387 +128,70 @@ Rectangle {
         rowSpacing: 5
         columnSpacing: 0
 
-        Rectangle {
+        Objects.ObjectInspectorQuick {
             id: taskSurface
-            objectName: "taskInspectorTaskSurface"
+            objectName: "taskInspectorTaskSurfaceHost"
             Layout.row: 2
             Layout.column: 0
             visible: root.expanded && !root.isProgress
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 148 : 0
-            radius: root.theme.itemRadius
-            color: root.theme.panelDeep
-            border.width: 1
-            border.color: root.theme.outlineVariant
-            clip: true
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 8
-                anchors.topMargin: 7
-                anchors.bottomMargin: 7
-                spacing: 6
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 28
-                    spacing: 7
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 1
-                        Label {
-                            objectName: "taskInspectorTaskTitle"
-                            Layout.fillWidth: true
-                            text: root.processRow >= 0
-                                ? root.taskTitle()
-                                : qsTr("No task for ")
-                                    + root.controller.processLabel
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.bodyLarge
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
-                        }
-                        Label {
-                            visible: root.expanded && root.processRow >= 0
-                                && String(root.task.assignedDisplay || "").length > 0
-                            Layout.fillWidth: true
-                            text: root.task.assignedDisplay
-                                || qsTr("Not assigned")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            elide: Text.ElideRight
-                        }
-                    }
-
-                    Controls.CompactIconButton {
-                        objectName: "taskInspectorEditButton"
-                        visible: root.hasTask
-                        theme: root.theme
-                        iconName: "edit"
-                        toolTip: qsTr("Edit task in full editor")
-                        onClicked: root.editRequested(String(root.task.code || ""))
-                    }
-                    Controls.CompactIconButton {
-                        objectName: "taskInspectorFullCreateButton"
-                        visible: root.processRow >= 0
-                        theme: root.theme
-                        iconName: "add"
-                        toolTip: qsTr("Create another task in full editor")
-                        enabled: !root.controller.busy
-                        onClicked: root.controller.create_task_for_process()
-                    }
-                    Controls.CompactIconButton {
-                        objectName: "taskInspectorDiscardButton"
-                        visible: root.processRow >= 0
-                            && root.task.dirty === true
-                        theme: root.theme
-                        iconName: "undo"
-                        toolTip: qsTr("Discard task changes")
-                        enabled: !tasksController.busy
-                        onClicked: tasksController.discard_process_changes(
-                            root.processRow
-                        )
-                    }
-                    Controls.CompactIconButton {
-                        objectName: "taskInspectorSaveButton"
-                        visible: root.processRow >= 0
-                            && (!root.hasTask || root.task.dirty === true)
-                        theme: root.theme
-                        iconName: "save"
-                        iconColor: root.theme.action
-                        toolTip: root.hasTask
-                            ? qsTr("Save task changes") : qsTr("Save new task")
-                        enabled: !tasksController.busy
-                            && String(root.task.validationError || "").length === 0
-                        onClicked: tasksController.save_process_changes(
-                            root.processRow
-                        )
-                    }
-                }
-
-                GridLayout {
-                    visible: root.expanded && root.processRow >= 0
-                    Layout.fillWidth: true
-                    columns: width < 430 ? 2 : 4
-                    columnSpacing: 7
-                    rowSpacing: 7
-
-                    Controls.ComboBox {
-                        objectName: "taskInspectorStatusField"
-                        theme: root.theme
-                        actionField: true
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.theme.compactControlHeight
-                        model: root.task.statusChoices || []
-                        textRole: "label"
-                        valueRole: "value"
-                        colorRole: "color"
-                        translateDisplayText: false
-                        currentIndex: root.choiceIndex(
-                            root.task.statusChoices, root.task.status
-                        )
-                        displayText: currentIndex >= 0
-                            ? currentText : root.task.status
-                                || qsTr("Select status")
-                        enabled: !tasksController.busy
-                        onActivated: tasksController.set_process_draft(
-                            root.processRow, "status", currentValue
-                        )
-                    }
-
-                    UserComboBox {
-                        objectName: "taskInspectorAssigneeField"
-                        theme: root.theme
-                        actionField: true
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.theme.compactControlHeight
-                        userModel: userListModel
-                        model: root.task.userChoices || []
-                        textRole: "label"
-                        valueRole: "value"
-                        currentIndex: root.choiceIndex(
-                            root.task.userChoices, root.task.assigned
-                        )
-                        displayText: currentIndex >= 0
-                            ? currentText : root.task.assignedDisplay
-                        enabled: !tasksController.busy
-                        onActivated: tasksController.set_process_draft(
-                            root.processRow, "assigned", currentValue
-                        )
-                    }
-
-                    Controls.DateField {
-                        theme: root.theme
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.theme.compactControlHeight
-                        placeholderText: qsTr("Start date and time")
-                        includeTime: true
-                        text: String(root.task.start || "")
-                        enabled: !tasksController.busy
-                        errorState: String(root.task.validationError || "")
-                            .indexOf("Start") >= 0
-                        onAccepted: value => tasksController.set_process_draft(
-                            root.processRow, "start", value
-                        )
-                        onEditingFinished: {
-                            if (text !== String(root.task.start || ""))
-                                tasksController.set_process_draft(
-                                    root.processRow, "start", text
-                                )
-                        }
-                    }
-
-                    Controls.DateField {
-                        theme: root.theme
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.theme.compactControlHeight
-                        placeholderText: qsTr("End date and time")
-                        includeTime: true
-                        text: String(root.task.end || "")
-                        enabled: !tasksController.busy
-                        errorState: String(root.task.validationError || "")
-                            .indexOf("End") >= 0
-                            || String(root.task.validationError || "")
-                                .indexOf("Deadline") >= 0
-                        onAccepted: value => tasksController.set_process_draft(
-                            root.processRow, "end", value
-                        )
-                        onEditingFinished: {
-                            if (text !== String(root.task.end || ""))
-                                tasksController.set_process_draft(
-                                    root.processRow, "end", text
-                                )
-                        }
-                    }
-                }
-
-                RowLayout {
-                    visible: root.expanded && root.processRow >= 0
-                    Layout.fillWidth: true
-                    spacing: 7
-
-                    Label {
-                        text: qsTr("PROGRESS")
-                        color: tasksController.progressSupported
-                            ? root.theme.secondaryText
-                            : root.theme.disabledText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.caption
-                        font.weight: Font.DemiBold
-                    }
-                    Controls.Slider {
-                        id: progressSlider
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 24
-                        theme: root.theme
-                        from: 0
-                        to: 100
-                        stepSize: 5
-                        snapMode: Slider.SnapAlways
-                        value: Math.max(0, Math.min(100, Number(
-                            root.task.progressInput !== undefined
-                                ? root.task.progressInput
-                                : root.task.progress || 0
-                        )))
-                        enabled: tasksController.progressSupported
-                            && !tasksController.busy
-                        onPressedChanged: {
-                            if (!pressed && enabled
-                                    && Math.round(value)
-                                        !== Number(root.task.progress || 0)) {
-                                tasksController.set_process_draft(
-                                    root.processRow, "progress",
-                                    String(Math.round(value))
-                                )
-                            }
-                        }
-                    }
-                    Label {
-                        Layout.preferredWidth: 34
-                        text: Math.round(progressSlider.value) + "%"
-                        color: progressSlider.enabled
-                            ? root.theme.primaryText
-                            : root.theme.disabledText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.label
-                        font.weight: Font.DemiBold
-                        horizontalAlignment: Text.AlignRight
-                    }
-                }
-
-                Label {
-                    visible: root.expanded && root.processRow >= 0
-                        && String(root.task.validationError || "").length > 0
-                    Layout.fillWidth: true
-                    text: String(root.task.validationError || "")
-                    color: root.theme.error
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.caption
-                    elide: Text.ElideRight
-                }
+            Layout.preferredHeight: visible ? scene.height : 0
+            theme: root.theme
+            model: ({
+                    hasTask: root.hasTask,
+                    canCreate: root.processRow >= 0,
+                    canEdit: root.processRow >= 0,
+                    title: root.processRow >= 0 ? root.taskTitle() : "",
+                    processLabel: root.controller.processLabel,
+                    assignedLabel: root.task.assignedDisplay,
+                    dirty: root.task.dirty === true,
+                    busy: tasksController.busy,
+                    status: root.task.status,
+                    statuses: root.task.statusChoices,
+                    assigned: root.task.assigned,
+                    users: (root.task.userChoices || []).map(choice => Object.assign({}, userListModel.lookup('login', choice.value), choice)),
+                    start: root.task.start,
+                    end: root.task.end,
+                    progress: root.task.progress,
+                    validationError: root.task.validationError,
+                    progressEditable: tasksController.progressSupported
+                })
+            onEvent: event => {
+                if (event.type === "edit")
+                    root.editRequested(String(root.task.code || ""));
+                else if (event.type === "create")
+                    root.controller.create_task_for_process();
+                else if (event.type === "discard")
+                    tasksController.discard_process_changes(root.processRow);
+                else if (event.type === "save")
+                    tasksController.save_process_changes(root.processRow);
+                else if (event.type === "change")
+                    tasksController.set_process_draft(root.processRow, event.field, event.value);
             }
         }
-
-        Rectangle {
-            objectName: "taskInspectorRelatedTasks"
+        Frame.FrameView {
             Layout.row: 2
             Layout.column: 0
             visible: root.expanded && root.isProgress
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 148 : 0
-            radius: root.theme.itemRadius
-            color: root.theme.panelDeep
-            border.width: 1
-            border.color: root.theme.outlineVariant
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 5
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Controls.MaterialIcon {
-                        name: "donut-small"
-                        size: 17
-                        color: root.processRecord().color || root.theme.action
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("Related object tasks")
-                        color: root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.label
-                        font.weight: Font.DemiBold
-                    }
-                    Controls.StatusChip {
-                        theme: root.theme
-                        dense: true
-                        iconName: "donut-small"
-                        text: String(Number(root.processRecord().approved || 0))
-                            + " / " + String(Number(root.processRecord().total || 0))
-                        accentColor: root.processRecord().color || root.theme.action
-                    }
-                }
-
-                Label {
-                    objectName: "taskInspectorRelatedEmpty"
-                    visible: root.related.state !== "ready"
-                        || !(root.related.items || []).length
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    verticalAlignment: Text.AlignVCenter
-                    wrapMode: Text.WordWrap
-                    text: root.related.state === "loading"
-                        ? qsTr("Loading related tasks…")
-                        : root.related.state === "unrelated"
-                        ? qsTr("No schema relationship to ")
-                            + String(root.related.searchType || "")
-                        : root.related.state === "missingType"
-                        ? qsTr("Search Type is unavailable: ")
-                            + String(root.related.searchType || "")
-                        : root.related.state === "unconfigured"
-                        ? qsTr("No related Search Type configured for this progress")
-                        : root.related.state === "error"
-                        ? qsTr("Could not load related tasks. Refresh to retry.")
-                        : Number(root.related.objectCount || 0) === 0
-                        ? qsTr("No related objects")
-                        : qsTr("No tasks on related objects")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.caption
-                }
-
-                ListView {
-                    id: relatedTaskList
-                    objectName: "taskInspectorRelatedTaskList"
-                    visible: root.related.state === "ready"
-                        && (root.related.items || []).length > 0
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    model: root.related.items || []
-                    spacing: 3
-                    boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: Controls.ScrollBar {
-                        objectName: "taskInspectorRelatedScrollbar"
-                        theme: root.theme
-                        flickableTarget: relatedTaskList
-                    }
-                    delegate: RowLayout {
-                        required property var modelData
-                        width: relatedTaskList.width - 16
-                        height: 28
-                        spacing: 6
-                        Label {
-                            Layout.fillWidth: true
-                            text: modelData.parentTitle + " · " + modelData.process
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            elide: Text.ElideRight
-                        }
-                        Label {
-                            text: modelData.assigned || ""
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            elide: Text.ElideRight
-                        }
-                        Controls.StatusChip {
-                            theme: root.theme
-                            dense: true
-                            text: modelData.status || qsTr("No status")
-                            accentColor: root.processRecord().color
-                                || root.theme.action
-                        }
-                    }
-                }
-            }
+            Layout.preferredHeight: visible ? scene.height : 0
+            theme: root.theme
+            scene: UI.related({
+                state: root.related.state,
+                count: (root.related.items || []).length,
+                objectCount: root.related.objectCount,
+                searchType: root.related.searchType,
+                approved: root.processRecord().approved,
+                total: root.processRecord().total,
+                accent: root.processRecord().color
+            }, width, typeof localizationController === "undefined" ? "en" : localizationController.current_language)
+            models: ({
+                    items: (root.related.items || []).map((record, index) => Object.assign({}, record, {
+                            key: String(record.searchKey || index),
+                            accent: root.processRecord().color
+                        }))
+                })
+            describeRow: (list, record) => UI.relatedRow(record, list.width - 16, typeof localizationController === "undefined" ? "en" : localizationController.current_language)
         }
 
         WorkHoursSummary {
@@ -519,167 +206,37 @@ Rectangle {
             compact: !root.expanded
         }
 
-        Rectangle {
+        Frame.FrameView {
             id: contextHeader
             Layout.row: 0
             Layout.column: 0
             Layout.fillWidth: true
-            Layout.preferredHeight: 46
-            Layout.minimumHeight: 46
-            Layout.maximumHeight: 46
-            radius: root.theme.itemRadius
-            color: root.theme.surfaceContainerHigh
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 7
-                anchors.rightMargin: 6
-                spacing: 7
-
-                Controls.CompactIconButton {
-                    Layout.preferredWidth: 24
-                    Layout.preferredHeight: 24
-                    Layout.alignment: Qt.AlignVCenter
-                    theme: root.theme
-                    iconName: root.expanded ? "expand_more" : "chevron-right"
-                    iconSize: 13
-                    toolTip: root.expanded
-                        ? qsTr("Collapse Task Inspector")
-                        : qsTr("Expand Task Inspector")
-                    onClicked: root.controller.toggle_task_expanded()
-                }
-
-                Controls.ItemPreview {
-                    Layout.preferredWidth: 32
-                    Layout.preferredHeight: 32
-                    theme: root.theme
-                    source: root.objectInfo.previewUrl || ""
-                    fallbackIcon: "inventory_2"
-                    fallbackText: root.objectInitials()
-                    previewSize: 32
-                    round: true
-                    outlined: true
-                    accent: root.theme.action
-                    animateAppearance: false
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-                    Label {
-                        id: objectTitle
-                        Layout.fillWidth: true
-                        text: root.objectInfo.title || qsTr("Selected object")
-                        color: objectTitleMouse.containsMouse
-                            ? root.theme.action : root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.label
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                        MouseArea {
-                            id: objectTitleMouse
-                            anchors.fill: parent
-                            enabled: String(root.objectInfo.searchKey || "").length > 0
-                            hoverEnabled: true
-                            cursorShape: enabled
-                                ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: root.controller.open_skey_preview(
-                                String(root.objectInfo.searchKey || "")
-                            )
-                        }
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: root.objectInfo.type || "sObject"
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.caption
-                        elide: Text.ElideRight
-                    }
-                }
-
-                Rectangle {
-                    id: processPicker
-                    Layout.preferredWidth: Math.max(
-                        112, Math.min(166, root.width * 0.34)
-                    )
-                    Layout.preferredHeight: root.theme.compactControlHeight
-                    Layout.alignment: Qt.AlignVCenter
-                    radius: root.theme.fieldRadius
-                    color: processPickerMouse.containsMouse
-                        ? root.theme.rowHover : root.theme.panelDeep
-                    border.width: 1
-                    border.color: processMenu.opened
-                        ? root.theme.action : root.theme.outlineVariant
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 10
-                        anchors.rightMargin: 8
-                        spacing: 7
-                        Controls.MaterialIcon {
-                            visible: root.isProgress
-                            name: "donut-small"
-                            size: 15
-                            color: root.processRecord().color || root.theme.action
-                        }
-                        Rectangle {
-                            visible: !root.isProgress
-                            Layout.preferredWidth: 8
-                            Layout.preferredHeight: 8
-                            radius: 4
-                            color: root.processRecord().color || root.theme.action
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: root.controller.processLabel
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.label
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
-                        }
-                        Controls.MaterialIcon {
-                            name: processMenu.opened
-                                ? "expand_less" : "expand_more"
-                            size: 15
-                            color: root.theme.secondaryText
-                        }
-                    }
-                    MouseArea {
-                        id: processPickerMouse
-                        anchors.fill: parent
-                        enabled: root.controller.hasTarget && !root.controller.busy
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onPressed: processMenu.sourceWasOpen = processMenu.opened
-                        onClicked: processMenu.toggleBelow(processPicker)
-                    }
-                }
-
-                Controls.CompactIconButton {
-                    id: taskSwitchButton
-                    objectName: "taskInspectorTaskSwitchButton"
-                    visible: root.hasTask
-                        && root.controller.taskChoices.length > 1
-                    Layout.preferredWidth: 28
-                    Layout.preferredHeight: 28
-                    Layout.alignment: Qt.AlignVCenter
-                    theme: root.theme
-                    iconName: "swap_horiz"
-                    iconColor: taskMenu.opened
-                        ? root.theme.action : root.theme.primaryText
-                    toolTip: qsTr("Switch task for this process")
-                    onPressed: taskMenu.sourceWasOpen = taskMenu.opened
-                    onClicked: taskMenu.toggleBelow(taskSwitchButton)
-                }
-
-                RefreshIconButton {
-                    theme: root.theme
-                    toolTip: qsTr("Refresh notes and task")
-                    enabled: root.controller.hasTarget && !root.controller.busy
-                    onClicked: root.controller.refresh()
-                }
+            Layout.preferredHeight: scene.height
+            theme: root.theme
+            scene: UI.context({
+                title: root.objectInfo.title,
+                typeTitle: root.objectInfo.type,
+                previewUrl: root.objectInfo.previewUrl,
+                initials: root.objectInitials(),
+                expanded: root.expanded,
+                taskCount: root.controller.taskChoices.length,
+                process: root.controller.process,
+                processLabel: root.controller.processLabel,
+                processColor: root.processRecord().color,
+                isProgress: root.isProgress,
+                busy: root.controller.busy
+            }, width, typeof localizationController === "undefined" ? "en" : localizationController.current_language)
+            onEvent: (event, source) => {
+                if (event.type === "toggle")
+                    root.controller.toggle_task_expanded();
+                else if (event.type === "preview")
+                    root.controller.open_skey_preview(String(root.objectInfo.searchKey || ""));
+                else if (event.type === "process-menu")
+                    processMenu.toggleBelow(source);
+                else if (event.type === "task-menu")
+                    taskMenu.toggleBelow(source);
+                else if (event.type === "refresh")
+                    root.controller.refresh();
             }
         }
     }
@@ -692,7 +249,7 @@ Rectangle {
         actions: root.processMenuActions()
         onTriggered: command => {
             if (command.indexOf("process:") === 0)
-                root.controller.set_process(command.slice(8))
+                root.controller.set_process(command.slice(8));
         }
     }
 
@@ -704,7 +261,7 @@ Rectangle {
         actions: root.taskMenuActions()
         onTriggered: command => {
             if (command.indexOf("task:") === 0)
-                root.controller.select_task(command.slice(5))
+                root.controller.select_task(command.slice(5));
         }
     }
 }

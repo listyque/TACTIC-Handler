@@ -5,7 +5,9 @@ import json
 import traceback
 import uuid
 
-from PySide6.QtCore import QObject, Property, QTimer, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import (
+    QCoreApplication, QObject, Property, QTimer, Qt, QUrl, Signal, Slot,
+)
 
 from thlib.environment import env_read_config, env_server, env_write_config
 from .composer_drafts import ComposerDrafts
@@ -64,6 +66,9 @@ class CommunicationController(QObject):
         self._preview_files = {}
         self._busy = False
         self._loading = False
+        self._mutation_pending = False
+        self._mutation_request_id = ""
+        self._uncertain = False
         self._error = ""
         self._request_id = ""
         self._process_count_request_id = ""
@@ -170,8 +175,12 @@ class CommunicationController(QObject):
             )
 
     @Property(bool, notify=stateChanged)
+    def uncertain(self):
+        return self._uncertain
+
+    @Property(bool, notify=stateChanged)
     def busy(self):
-        return self._busy or bool(self.attachments and self.attachments.busy)
+        return self._busy or self._mutation_pending or bool(self.attachments and self.attachments.busy)
 
     @Property(bool, notify=stateChanged)
     def loading(self):
@@ -1125,6 +1134,9 @@ class CommunicationController(QObject):
 
     @Slot()
     def reload(self):
+        if self._busy:
+            return
+        self._uncertain = False
         self._refresh_process_counts(
             self._workspace._selected_sobject, bypass_cache=True
         )
@@ -1717,6 +1729,8 @@ class CommunicationController(QObject):
 
     @Slot(str, result=bool)
     def send(self, body):
+        if self._uncertain:
+            return
         if self._busy:
             return False
         body = str(body or "").strip()
@@ -1790,14 +1804,23 @@ class CommunicationController(QObject):
         self._run(operation, clear_composer=True)
 
     @Slot(int, str, result=bool)
-    def edit(self, row, body):
-        if self._busy or not 0 <= row < len(self._workspace.note_model._records):
+    @Slot(int, str, str, result=bool)
+    def edit(self, row, body, expected_key=""):
+        if (
+            self._busy or self._mutation_pending or self._uncertain
+            or not 0 <= row < len(self._workspace.note_model._records)
+        ):
             return False
         body = str(body or "")
         if not body.strip():
             self._set_error("A note cannot be empty.")
             return False
         record = self._workspace.note_model._records[row]
+        if expected_key and record.get("searchKey") != expected_key:
+            self._set_error(QCoreApplication.translate(
+                "CommunicationController", "The note context changed. Reopen the note before saving."
+            ))
+            return False
         if not self.can_change_note(row):
             return False
         if body == str(record.get("body") or ""):
@@ -1837,10 +1860,19 @@ class CommunicationController(QObject):
         return True
 
     @Slot(int)
-    def remove(self, row):
-        if self._busy or not 0 <= row < len(self._workspace.note_model._records):
+    @Slot(int, str)
+    def remove(self, row, expected_key=""):
+        if (
+            self._busy or self._mutation_pending or self._uncertain
+            or not 0 <= row < len(self._workspace.note_model._records)
+        ):
             return
         record = self._workspace.note_model._records[row]
+        if expected_key and record.get("searchKey") != expected_key:
+            self._set_error(QCoreApplication.translate(
+                "CommunicationController", "The note context changed. Reopen the note before saving."
+            ))
+            return False
         if not self.can_change_note(row):
             return
         note = self._notes.get(record.get("searchKey"))
@@ -1946,8 +1978,12 @@ class CommunicationController(QObject):
             self.stateChanged.emit()
 
     def _run(self, callback, clear_composer=False):
+        if self._uncertain or self._mutation_pending:
+            return
+        self._mutation_pending = True
         from thlib.environment import env_inst
         request_id = uuid.uuid4().hex
+        self._mutation_request_id = request_id
         self._request_id = request_id
         self._busy = True
         self._clear_composer_after_mutation = bool(clear_composer)
@@ -1956,16 +1992,19 @@ class CommunicationController(QObject):
         worker = env_inst.server_pool.add_task(callback)
         self._worker = worker
         worker.result.connect(
-            lambda _result: self._mutation_ready(),
+            lambda _result: self._mutation_ready(request_id),
             Qt.ConnectionType.QueuedConnection,
         )
         worker.error.connect(
-            lambda error: self._failed(request_id, error),
+            lambda error: self._failed(request_id, error, mutation=True),
             Qt.ConnectionType.QueuedConnection,
         )
         worker.start()
 
-    def _mutation_ready(self):
+    def _mutation_ready(self, request_id=None):
+        if request_id and request_id != self._mutation_request_id:
+            return
+        self._mutation_pending = False
         clear_composer = self._clear_composer_after_mutation
         self._clear_composer_after_mutation = False
         if clear_composer:
@@ -1975,12 +2014,14 @@ class CommunicationController(QObject):
             sent_context = self._pending_draft_context
             self._pending_draft_context = ""
             self._composer.clear(sent_context)
-        self._busy = False
-        self._worker = None
+        if not self._loading:
+            self._busy = False
+            self._worker = None
         self.stateChanged.emit()
         if clear_composer:
             self.noteSent.emit()
-        self.reload()
+        if not self._loading:
+            self.reload()
 
     @Slot(str)
     def open_link(self, value):
@@ -1993,21 +2034,34 @@ class CommunicationController(QObject):
             from PySide6.QtGui import QDesktopServices
             QDesktopServices.openUrl(QUrl(value))
 
-    def _failed(self, request_id, error):
-        if request_id and request_id != self._request_id:
+    def _failed(self, request_id, error, mutation=False):
+        expected_id = (
+            self._mutation_request_id if mutation else self._request_id
+        )
+        if request_id and request_id != expected_id:
             return
         payload = error[0] if isinstance(error, tuple) and error else error
         stacktrace = ""
         if isinstance(payload, dict):
             stacktrace = str(payload.get("stacktrace") or "")
             payload = payload.get("exception") or payload.get("message")
+        if mutation:
+            from xmlrpc.client import Fault
+            self._uncertain = not isinstance(payload, Fault)
+            self._mutation_pending = False
+            if self._uncertain:
+                payload = str(payload or "Communication request failed") + "\n" + QCoreApplication.translate(
+                    "CommunicationController",
+                    "The result is unknown. Refresh and check the note before trying again.",
+                )
         self._set_error(payload or "Communication request failed")
         debug_log = getattr(self._application, "debug_log", None)
         if debug_log:
             debug_log.raise_error(
                 payload, stacktrace=stacktrace, group="communication"
             )
-        self._finish()
+        if not (mutation and self._loading and request_id != self._request_id):
+            self._finish()
 
     def _finish(self):
         self._busy = False

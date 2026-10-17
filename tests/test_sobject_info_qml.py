@@ -19,6 +19,16 @@ ROOT = Path(__file__).resolve().parents[1]
 QML = ROOT / "thlib" / "ui" / "qml"
 
 
+def visual_item(root, name):
+    pending = [root]
+    while pending:
+        item = pending.pop()
+        if item.objectName() == name:
+            return item
+        pending.extend(item.childItems())
+    return None
+
+
 def _activity_record(index: int) -> dict:
     return {
         "searchKey": "",
@@ -94,6 +104,12 @@ class _SObjectInfoController(QObject):
             "searchKey": "skey://dolly3d/assets?code=ASSETS00283",
             "accent": "#ef5350",
         }
+
+    @Property("QVariantMap", notify=changed)
+    def presentation(self):
+        names = {"notes": "note_model", "children": "child_model"}
+        return dict(summary=self.summary, metrics=self.metrics, busy=self.busy,
+                    **{key: getattr(self, name).records() for key, name in names.items()})
 
     @Property("QVariantMap", notify=changed)
     def metrics(self):
@@ -197,6 +213,8 @@ class SObjectInfoQmlTests(unittest.TestCase):
             "timestampFull", "process", "taskCode", "taskTitle",
             "isTaskNote",
         ), note_records or [])
+        controller.note_model = note_model
+        controller.child_model = child_model
         engine.rootContext().setContextProperty(
             "sobjectInfoController", controller
         )
@@ -242,7 +260,7 @@ class SObjectInfoQmlTests(unittest.TestCase):
                 view.findChild(QQuickItem, "sobjectTasksPageHost")
             )
             self.assertIsNone(
-                view.findChild(QObject, "sobjectNoteRepeater")
+                view.findChild(QObject, "sobjectNotesPage")
             )
             self.assertIsNone(
                 view.findChild(QQuickItem, "sobjectChildrenPage")
@@ -252,7 +270,7 @@ class SObjectInfoQmlTests(unittest.TestCase):
             tabs.setProperty("currentIndex", 1)
             self.app.processEvents()
             self.assertIsNotNone(
-                view.findChild(QObject, "sobjectNoteRepeater")
+                view.findChild(QObject, "sobjectNotesPage")
             )
 
             tabs.setProperty("currentIndex", 2)
@@ -261,7 +279,7 @@ class SObjectInfoQmlTests(unittest.TestCase):
                 view.findChild(QQuickItem, "sobjectChildrenPage")
             )
             self.assertIsNotNone(
-                view.findChild(QObject, "sobjectNoteRepeater")
+                view.findChild(QObject, "sobjectNotesPage")
             )
         finally:
             view.deleteLater()
@@ -298,15 +316,8 @@ class SObjectInfoQmlTests(unittest.TestCase):
         window.show()
         try:
             QTest.qWait(100)
-            repeater = view.findChild(QObject, "sobjectNoteRepeater")
-            self.assertIsNotNone(repeater)
-            context = QQmlEngine.contextForObject(repeater)
-            row, undefined = QQmlExpression(
-                context, repeater, "itemAt(0)"
-            ).evaluate()
-            self.assertFalse(undefined)
+            row = visual_item(view, "objectReportRow_note_0")
             self.assertIsNotNone(row)
-            self.assertEqual(row.objectName(), "sobjectNoteRow0")
             point = row.mapToScene(
                 QPointF(row.width() / 2, row.height() / 2)
             ).toPoint()
@@ -336,29 +347,12 @@ class SObjectInfoQmlTests(unittest.TestCase):
         window.show()
         try:
             QTest.qWait(100)
-            empty_state = view.findChild(
-                QQuickItem, "sobjectChildrenEmptyState"
-            )
+            empty_state = visual_item(view, "objectChildrenEmpty")
             self.assertIsNotNone(empty_state)
-            message = empty_state.findChild(QQuickItem, "emptyStateMessage")
-            page = view.findChild(QQuickItem, "sobjectChildrenPage")
-            panel = view.findChild(QQuickItem, "sobjectChildrenListPanel")
-            rows = view.findChild(QQuickItem, "sobjectChildrenRows")
-            self.assertIsNotNone(message)
+            message = empty_state
+            self.assertEqual(message.property("text"), "No related children")
             self.assertTrue(empty_state.isVisible())
-            self.assertGreaterEqual(empty_state.width(), 900, {
-                "view": view.width(),
-                "page": page.width(),
-                "panel": panel.width(),
-                "rowsParent": rows.parent().width(),
-                "rows": rows.width(),
-                "empty": empty_state.width(),
-                "emptyImplicit": empty_state.implicitWidth(),
-                "maximumContentWidth": empty_state.property(
-                    "maximumContentWidth"
-                ),
-                "message": message.width(),
-            })
+            self.assertGreaterEqual(empty_state.width(), 900)
             self.assertGreaterEqual(message.width(), 240)
             self.assertLessEqual(message.property("lineCount"), 2)
 
@@ -407,15 +401,12 @@ class SObjectInfoQmlTests(unittest.TestCase):
         window.show()
         try:
             QTest.qWait(100)
-            repeater = view.findChild(QObject, "sobjectChildrenRepeater")
-            empty_state = view.findChild(
-                QQuickItem, "sobjectChildrenEmptyState"
-            )
-            rows = view.findChild(QQuickItem, "sobjectChildrenRows")
-            self.assertIsNotNone(repeater)
-            self.assertEqual(repeater.property("count"), 1)
-            self.assertFalse(empty_state.isVisible())
-            self.assertGreaterEqual(rows.implicitHeight(), 68)
+            row = visual_item(view, "objectReportRow_child_0")
+            self.assertIsNotNone(row)
+            self.assertGreaterEqual(row.height(), 68)
+            self.assertIsNone(visual_item(view, "objectChildrenEmpty"))
+            title = visual_item(row, "objectReportRowTitle")
+            self.assertEqual(title.property("text"), "Shot 010")
         finally:
             window.close()
             view.setParentItem(None)
@@ -552,22 +543,12 @@ class SObjectInfoQmlTests(unittest.TestCase):
             pages = view.findChild(QQuickItem, "sobjectInfoReportPages")
             self.assertIsNotNone(tabs)
             self.assertIsNotNone(pages)
-            self.assertFalse(tabs.property("iconOnly"))
-            section_model = tabs.property("model")
-            if hasattr(section_model, "toVariant"):
-                section_model = section_model.toVariant()
-            self.assertEqual(
-                [section["value"] for section in section_model],
-                ["tasks", "notes", "children", "snapshots", "activity"],
-            )
-            self.assertEqual(
-                [section["icon"] for section in section_model],
-                [
-                    "task", "notes", "account-tree", "snapshot",
-                    "activity-feed",
-                ],
-            )
-            self.assertTrue(all(section["label"] for section in section_model))
+            scene = tabs.property("scene").toVariant()
+            self.assertEqual([node["action"]["value"] for node in scene["nodes"]],
+                             ["tasks", "notes", "children", "snapshots", "activity"])
+            self.assertEqual([node["icon"] for node in scene["nodes"]],
+                             ["task", "notes", "account-tree", "snapshot", "activity-feed"])
+            self.assertTrue(all(node["text"] and not node["iconOnly"] for node in scene["nodes"]))
             self.assertGreaterEqual(tabs.width(), 680)
 
             report_scroll = view.findChild(

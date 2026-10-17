@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+
 from pathlib import Path
 import tempfile
 import unittest
@@ -289,7 +291,7 @@ class WatchFoldersTests(unittest.TestCase):
         LifecycleMixin._show_watch_folders(harness)
 
         self.assertEqual(events, ["reload", "watch_folders"])
-        menu = (ROOT / "thlib" / "ui" / "menu_schema.py").read_text(
+        menu = (ROOT / "thlib/ui/qml/tactic_frame/shell/main.menus.json").read_text(
             encoding="utf-8"
         )
         self.assertIn("show_watch_folders", menu)
@@ -387,17 +389,15 @@ class WatchFoldersTests(unittest.TestCase):
         self.assertNotIn("WatchFolderEditorDialog", main)
         self.assertIn("WatchFolderDeleteDialog", manager)
         self.assertNotIn("id: repositoryDialog", manager)
-        self.assertIn('text: qsTr("Relative Watch Path:")', dialog)
+        self.assertIn('UI.describe', dialog)
+        scene = (ROOT / 'thlib/ui/qml/tactic_frame/features/objects/watch.ui.mjs').read_text(encoding='utf-8')
+        self.assertIn('Relative Watch Path:', scene)
     def test_application_wires_watch_events_to_commit_queue(self):
-        source = (ROOT / "thlib/ui/application.py").read_text(encoding="utf-8")
-        block_start = source.index(
-            "watch_folders_controller = WatchFoldersController("
-        )
-        block = source[block_start:block_start + 260]
-        self.assertIn("checkin_out_controller", block)
-        self.assertIn("commit_queue_controller", block)
-        self.assertNotIn("matching_templates_controller", block)
-        self.assertNotIn("drop_plate_controller", block)
+        source = (ROOT / "thlib/ui/application_composition.py").read_text(encoding="utf-8")
+        calls = [node for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "WatchFoldersController"]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual([node.id for node in calls[0].args], ["controller", "checkin_out", "commit_queue"])
+
 
 
     def test_watch_control_is_persistent_and_green_when_enabled(self):
@@ -480,11 +480,11 @@ class WatchFoldersTests(unittest.TestCase):
         self.assertIn("modal: true", delete)
         self.assertIn("dim: true", delete)
         self.assertIn("focus: true", delete)
-        self.assertIn("ItemSurface {", editor)
-        self.assertIn("normalColor: root.theme.row", editor)
+        self.assertIn("Frame.FrameView", editor)
+        self.assertIn("UI.repositoryRow", editor)
         self.assertNotIn('name: "folder_special"', editor)
-        self.assertIn('icon.name: "delete"', editor)
-        self.assertIn("destructive: true", editor)
+        scene = (ROOT / 'thlib/ui/qml/tactic_frame/features/objects/watch.ui.mjs').read_text(encoding='utf-8')
+        self.assertIn("destructive: true", scene)
         self.assertIn('icon.name: "delete"', delete)
         self.assertIn('text: qsTr("Delete")', delete)
         self.assertNotIn('text: qsTr("Keep")', delete)

@@ -59,3 +59,20 @@ and identity rules.
 - **Different local file** is not overwritten silently; review the synchronization choice.
 - **No preview** can be valid for a snapshot containing only non-previewable files.
 - If selection changes during loading, the stale preview or file response is ignored.
+
+## Shared snapshot surfaces
+
+The toolbar, options, summary, splitter and file columns share one description.
+Select a process/snapshot in the object report to open its actual files. Browser
+preview uses authorized URLs/derivatives and Download. Watch-folder editing stays
+native: the browser explains the missing desktop capability rather than claiming
+to watch a local directory. Selection and native file identity remain with the
+existing Snapshot Browser and repository adapters.
+
+## Presentation examples
+
+Examples use test data and show the panel content. The surrounding window or dock keeps its normal behavior.
+
+![Snapshot Browser toolbar](media/frame-objects-toolbar-both-en.png)
+
+![Snapshot summary](media/frame-objects-summary-normal-en.png)

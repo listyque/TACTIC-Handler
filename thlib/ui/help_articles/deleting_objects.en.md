@@ -25,3 +25,16 @@ technical log codes.
 - The selected root objects are always deleted.
 - Deletion is permanent, runs outside the UI thread, and refreshes the originating results or
   Snapshot Browser when complete.
+
+## Review before deletion
+
+Expand each dependency group to inspect actual records, not just totals. Change
+the checked groups, then Delete. A read error offers Retry without submitting
+anything. A lost deletion reply disables another Delete: close, refresh and
+inspect the remaining objects before making another deletion request.
+
+## Presentation examples
+
+Examples use test data and show the panel content. The surrounding window or dock keeps its normal behavior.
+
+![Selected dependencies](media/frame-objects-delete-groups-en.png)

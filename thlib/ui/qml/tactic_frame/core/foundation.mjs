@@ -27,6 +27,7 @@ export const lineHeights = Object.freeze({
     title: 22,
     heading: 23,
     display: 24,
+    statistic: 28,
     hero: 32
 });
 
@@ -42,6 +43,7 @@ export const textStyles = Object.freeze({
     title: 16,
     heading: 17,
     display: 18,
+    statistic: 21,
     hero: 24
 });
 
@@ -510,6 +512,7 @@ export const cssRoles = {
     yellow: '--yellow',
     cyan: '--cyan',
     violet: '--violet',
+    tertiary: '--tertiary',
     surfaceContainerLow: '--surface',
     surfaceContainer: '--surface-container',
     surfaceContainerHigh: '--surface-high',

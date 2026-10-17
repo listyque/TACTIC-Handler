@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.112 - 2026-10-17
+
+- Share object description, configured forms/batch tools, report sections, dependency deletion, five-step duplication, two-list linking and snapshot/watch presentation with Stream through independent Frame copies. Retain native controls, file/DCC adapters, existing query/ACL/revision and mutation owners.
+- Share Inspector context/quick/task/hour fragments and complete note body/attachment layout plus modeless edit and modal delete content. Preserve per-context drafts, exact task/project navigation and measured rich text/file heights; keep failed note edits open and prevent another write after a lost reply.
+- Add original/current QML/Vue comparisons across themes, languages and narrow/wide widths, real Qt/browser input, protected report projections and object-operation workflows, source-fresh evidence tooling and EN/RU Help. Full Task Manager/Messaging remain separate batches; B07 legacy-widget gaps remain open.
+
 ## 0.6.0.111 - 2026-10-17
 
 - Share Table View geometry/paint, column/view menus, typed inline editor composition and task-cell rules with Stream. Retain native ListView, search sessions, existing XML revision, edit and task mutation owners; ship an independent Frame copy.

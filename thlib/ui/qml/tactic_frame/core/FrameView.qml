@@ -254,7 +254,7 @@ Item {
                     case "Icon":
                         return iconBrick;
                     case "Button":
-                        return buttonBrick;
+                        return wrapper.node.iconAction ? iconActionBrick : buttonBrick;
                     case "Action":
                         return actionBrick;
                     case "CheckBox":
@@ -265,6 +265,10 @@ Item {
                         return areaBrick;
                     case "SummaryChip":
                         return summaryChipBrick;
+                    case "Segmented":
+                        return segmentedBrick;
+                    case "StatusChip":
+                        return statusChipBrick;
                     case "Preview":
                         return previewBrick;
                     case "List":
@@ -306,7 +310,7 @@ Item {
                         color: root.color(wrapper.node.background)
                         border.width: wrapper.node.border ? wrapper.node.borderWidth || 1 : 0
                         border.color: root.color(wrapper.node.border)
-                        radius: wrapper.node.radius === undefined ? root.effectiveTheme.surfaceRadius : wrapper.node.radius
+                        radius: wrapper.node.radiusRole ? root.effectiveTheme[wrapper.node.radiusRole] : wrapper.node.radius === undefined ? root.effectiveTheme.surfaceRadius : wrapper.node.radius
                         bottomRightRadius: wrapper.node.bottomRightRadius === undefined ? radius : wrapper.node.bottomRightRadius
                         clip: true
                         FrameBranch {
@@ -353,10 +357,10 @@ Item {
                         }
                         font: root.controlFont(wrapper.node)
                         verticalAlignment: Text.AlignVCenter
-                        horizontalAlignment: wrapper.node.align === "center" ? Text.AlignHCenter : Text.AlignLeft
+                        horizontalAlignment: wrapper.node.align === "center" ? Text.AlignHCenter : wrapper.node.align === "right" ? Text.AlignRight : Text.AlignLeft
                         wrapMode: wrapper.node.wrap ? Text.WordWrap : Text.NoWrap
                         maximumLineCount: wrapper.node.maxLines || 2147483647
-                        elide: wrapper.node.elide === false ? Text.ElideNone : wrapper.node.maxLines ? Text.ElideRight : wrapper.node.wrap ? Text.ElideNone : Text.ElideRight
+                        elide: wrapper.node.elide === false ? Text.ElideNone : wrapper.node.elideMiddle ? Text.ElideMiddle : wrapper.node.maxLines ? Text.ElideRight : wrapper.node.wrap ? Text.ElideNone : Text.ElideRight
                     }
                 }
                 Component {
@@ -382,7 +386,11 @@ Item {
                     id: viewBrick
                     Loader {
                         objectName: wrapper.node.id
-                        sourceComponent: root.views[wrapper.node.view] || null
+                        sourceComponent: root.views[wrapper.node.view] ? (root.views[wrapper.node.view].component || root.views[wrapper.node.view]) : null
+                        onLoaded: {
+                            if (root.views[wrapper.node.view] && root.views[wrapper.node.view].nodeProps)
+                                item.frameNode = Qt.binding(() => wrapper.node);
+                        }
                     }
                 }
                 Component {
@@ -401,6 +409,37 @@ Item {
                         size: wrapper.node.width
                         color: root.color(wrapper.node.color)
                         Accessible.name: wrapper.node.text
+                    }
+                }
+                Component {
+                    id: iconActionBrick
+                    Controls.CompactIconButton {
+                        id: iconActionControl
+                        objectName: wrapper.node.id
+                        theme: root.effectiveTheme
+                        iconName: wrapper.node.icon || ""
+                        iconSize: wrapper.node.iconSize || 17
+                        iconColor: root.color(wrapper.node.iconColor || "primaryText")
+                        toolTip: wrapper.node.text
+                        enabled: !!wrapper.node.enabled
+                        Accessible.name: wrapper.node.label || wrapper.node.text
+                        round: !!wrapper.node.round
+                        onPressed: root.send(wrapper.node.pressAction, undefined, iconActionControl)
+                        onClicked: root.send(wrapper.node.action, undefined, iconActionControl)
+                    }
+                }
+                Component {
+                    id: segmentedBrick
+                    Controls.SegmentedButton {
+                        objectName: wrapper.node.id
+                        theme: root.effectiveTheme
+                        model: wrapper.node.options || []
+                        currentValue: wrapper.node.value || ""
+                        segmentObjectNamePrefix: wrapper.node.id + "_"
+                        iconOnly: !!wrapper.node.iconOnly
+                        enabled: !!wrapper.node.enabled
+                        Accessible.name: wrapper.node.label || ""
+                        onActivated: value => root.send(wrapper.node.action, value)
                     }
                 }
                 Component {
@@ -427,7 +466,7 @@ Item {
                         checkable: radio
                         checked: !!wrapper.node.selected
                         segmented: radio
-                        focusPolicy: radio && !checked ? Qt.ClickFocus : Qt.StrongFocus
+                        focusPolicy: wrapper.node.retainFocus ? Qt.TabFocus : radio && !checked ? Qt.ClickFocus : Qt.StrongFocus
                         Keys.priority: Keys.BeforeItem
                         Keys.onPressed: event => {
                             if (root.keyboard(event.key, wrapper.node))
@@ -478,7 +517,7 @@ Item {
                             interactive: false
                             enabled: false
                         }
-                        onClicked: root.send(wrapper.node.action)
+                        onClicked: root.send(wrapper.node.action, undefined, actionControl)
                         onDoubleClicked: root.send(wrapper.node.doubleAction)
                     }
                 }
@@ -499,7 +538,7 @@ Item {
                         leftPadding: 0
                         rightPadding: 0
                         indicatorOffset: wrapper.node.indicatorX || 0
-                        Accessible.name: text || wrapper.node.label || ""
+                        Accessible.name: wrapper.node.label || text || ""
                         Accessible.description: wrapper.node.description || ""
                         Accessible.ignored: !root.interactive
                         Keys.onLeftPressed: event => {
@@ -651,6 +690,20 @@ Item {
                             policy: wrapper.node.wrap === false ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
                             flickableTarget: area.contentItem
                         }
+                    }
+                }
+                Component {
+                    id: statusChipBrick
+                    Controls.StatusChip {
+                        objectName: wrapper.node.id
+                        theme: root.effectiveTheme
+                        text: wrapper.node.text
+                        iconName: wrapper.node.icon || ""
+                        accentColor: root.color(wrapper.node.accent || "secondaryText")
+                        dense: !!wrapper.node.dense
+                        interactive: !!wrapper.node.action
+                        enabled: !!wrapper.node.enabled
+                        onClicked: root.send(wrapper.node.action)
                     }
                 }
                 Component {

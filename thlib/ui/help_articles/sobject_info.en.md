@@ -51,3 +51,19 @@ not depend on an already expanded search tree.
   unchanged.
 - Activity opens the current project object, task, note, or snapshot context and never redirects to
   a technical sthpw search.
+
+## Shared report and exact context
+
+Open **Details** on an object. Tasks, Notes and Children use the same sections
+and controls in Handler and Stream. A task opens that exact task in Inspector
+and Task Manager; a note opens its process/context and focuses the entry.
+Opening the same ready Inspector target preserves its draft without reloading.
+Publications keep their source project. Expand a process to inspect snapshots
+and files; empty, loading and error states remain visible. Cost data is absent
+unless the server grants the relevant access.
+
+## Presentation examples
+
+Examples use test data and show the panel content. The surrounding window or dock keeps its normal behavior.
+
+![Object report header](media/frame-objects-report-header-en.png)

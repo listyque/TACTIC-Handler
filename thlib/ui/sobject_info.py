@@ -137,6 +137,13 @@ class SObjectInfoController(QObject):
         return dict(self._summary)
 
     @Property("QVariantMap", notify=stateChanged)
+    def presentation(self) -> dict:
+        """Existing report models projected for the portable presentation only."""
+        names = ("task_statuses", "task_processes", "tasks", "participants", "notes", "children", "child_types")
+        return dict(summary=self.summary, metrics=self.metrics, busy=self.busy,
+                    **{name: getattr(self, name).records() for name in names})
+
+    @Property("QVariantMap", notify=stateChanged)
     def metrics(self) -> dict:
         return dict(self._metrics)
 

@@ -1,6 +1,7 @@
 // Semantic names and fallback policy from the native Handler icon catalog.
 const semanticAliases = {
     more: 'more-vert',
+    'arrow-back': 'arrow-left',
     connection: 'lan-connect',
     activity: 'system-activity',
     queue: 'commit-queue',

@@ -32,3 +32,19 @@ Status and process colors and task assignees follow the selected object's workfl
 - Password editing never reveals the current value; leave it empty to keep the existing password.
 - Unsupported custom server widgets remain visible and read-only instead of writing an incorrect
   fallback value.
+
+## Shared object form example
+
+Open **Create** for Assets, enter a name and description, and save. **Multiple**
+keeps an individual preview for each object; `Robot {n:03}` generates Robot 001,
+Robot 002, etc. Review every preview before Create. Handler keeps its configured
+batch adapters. Browser Multiple currently supports ordinary database fields;
+custom actions, uploads and instance creation explain why individual forms are
+required. Cancel does not write. A failed response keeps the draft; an unknown
+write result blocks resubmission until you close, refresh and check the records.
+
+## Presentation examples
+
+Examples use test data and show the panel content. The surrounding window or dock keeps its normal behavior.
+
+![Batch creation panel](media/frame-objects-editor-tools-batch-en.png)

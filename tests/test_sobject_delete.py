@@ -133,6 +133,20 @@ class _CapturingPool:
 
 
 class SObjectDeleteTests(unittest.TestCase):
+    def test_lost_deletion_reply_blocks_another_write_and_retry(self):
+        controller=SObjectDeleteController(_Application())
+        controller._sources=[_SObject("prod/asset?code=A","A")]
+        controller._operation_failed(controller._generation,ConnectionError("Reply lost"),"delete")
+        self.assertTrue(controller.presentation["uncertain"])
+        with patch.object(controller,"begin") as begin,patch.object(controller,"_confirm_delete_now") as write:
+            controller.retry()
+            controller.confirm_delete()
+            begin.assert_not_called()
+            write.assert_not_called()
+        from xmlrpc.client import Fault
+        controller._operation_failed(controller._generation,Fault(409,"Conflict"),"delete")
+        self.assertFalse(controller.presentation["uncertain"])
+
     def test_creator_and_one_hour_boundary(self):
         now = datetime(2026, 9, 22, 12, tzinfo=timezone.utc)
         source = _SObject("prod/asset?code=ASSET001", "Asset")

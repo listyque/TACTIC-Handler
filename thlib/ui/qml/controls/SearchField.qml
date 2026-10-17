@@ -28,13 +28,19 @@ Controls.TextField {
         if (root.suggestionsPopup)
             root.suggestionsPopup.close();
     }
+    function suggestionCount() {
+        const rows = root.suggestions;
+        if (!rows)
+            return 0;
+        return Array.isArray(rows) ? rows.length : typeof rows.count === "function" ? rows.count() : rows.count || 0;
+    }
     function positionSuggestions() {
         const popup = root.suggestionsPopup;
         const owner = root.Window.window;
         if (!popup || !owner)
             return;
         const point = root.mapToItem(owner.contentItem, 0, 0);
-        const desired = root.errorText.length ? 50 : popup.count * Foundation.controls.search.rowHeight + Foundation.controls.search.popupPadding * 2;
+        const desired = root.errorText.length ? 50 : root.suggestionCount() * Foundation.controls.search.rowHeight + Foundation.controls.search.popupPadding * 2;
         const below = Math.max(0, owner.height - point.y - root.height - 10);
         const above = Math.max(0, point.y - 10);
         const up = below < Math.min(desired, 180) && above > below;
@@ -46,7 +52,7 @@ Controls.TextField {
         const popup = root.suggestionsPopup;
         if (!popup)
             return;
-        if (!root.enabled || root.readOnly || !root.activeFocus || (!popup.count && !root.errorText.length)) {
+        if (!root.enabled || root.readOnly || !root.activeFocus || (!root.suggestionCount() && !root.errorText.length)) {
             hideSuggestions();
             return;
         }

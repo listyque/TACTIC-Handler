@@ -27,3 +27,16 @@ their attached files are discovered and copied through their native TACTIC relat
   anything.
 - Analysis, preference persistence, and creation run without making the rest of the application
   modal or blocking the UI thread.
+
+## Conflict and uncertain result
+
+Review all five steps and Duplicate. Reanalysis after a known conflict retains
+compatible field values and relationship/content choices. If the server reply
+is lost, this wizard cannot repeat the write. Close it, refresh the source/search
+and check whether the duplicate already exists before starting another wizard.
+
+## Presentation examples
+
+Examples use test data and show the panel content. The surrounding window or dock keeps its normal behavior.
+
+![Snapshots step](media/frame-objects-duplicate-2-en.png)

@@ -818,38 +818,16 @@ class SObjectInfoControllerTests(unittest.TestCase):
             / "thlib" / "ui" / "qml" / "ActivityEventCard.qml"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("model: sobjectNoteModel", source)
-        self.assertIn("model: sobjectChildModel", source)
+        self.assertIn("model: sobjectInfoController.presentation", source)
         self.assertIn("snapshotProcessModel: sobjectSnapshotProcessModel", source)
-        self.assertIn("model: root.snapshotProcessModel", snapshot_tree_source)
-        self.assertIn("id: snapshotProcessRepeater", snapshot_tree_source)
-        self.assertIn(
-            "visible: snapshotProcessRepeater.count === 0",
-            snapshot_tree_source,
-        )
-        self.assertIn("property bool expanded: false", snapshot_tree_source)
-        self.assertNotIn("headerCollapsed", source)
-        self.assertNotIn("component ReportPageScroll: Flickable", source)
+        self.assertIn("snapshotProcessModel.get(index)", snapshot_tree_source)
+        self.assertIn("UI.describe", snapshot_tree_source)
         self.assertIn("component ReportPageHost: Item", source)
         self.assertIn("flickableTarget: reportScroll", source)
-        self.assertIn("Math.max(0, reportPages.width)", source)
         self.assertIn('objectName: "sobjectInfoReportScroll"', source)
-        self.assertIn(
-            'objectName: "sobjectInfoPresentationHeader"', source
-        )
-        self.assertIn("Controls.SegmentedButton", source)
-        self.assertIn("model: root.reportSections", source)
-        self.assertIn('"icon": "task"', source)
-        self.assertIn('"icon": "notes"', source)
-        self.assertIn('"icon": "account-tree"', source)
-        self.assertIn('"icon": "snapshot"', source)
-        self.assertIn('"icon": "activity-feed"', source)
-        self.assertNotIn(
-            "onCurrentIndexChanged: reportScroll.contentY = 0", source
-        )
-        self.assertIn("readonly property color objectAccent", source)
-        self.assertIn("accent: root.objectAccent", source)
-        self.assertIn("expandedHeaderContent.implicitHeight + 28", source)
+        self.assertIn('objectName: "sobjectInfoPresentationHeader"', source)
+        self.assertIn("UI.tabs", source)
+        self.assertNotIn("onCurrentIndexChanged: reportScroll.contentY = 0", source)
         self.assertIn("columns: eventBubble.width >= 520 ? 2 : 1", activity_card_source)
         self.assertIn("readonly property real bubbleExtent", activity_card_source)
         self.assertIn(
@@ -860,25 +838,15 @@ class SObjectInfoControllerTests(unittest.TestCase):
         self.assertNotIn("syncHeaderToScroll", source)
         self.assertNotIn("Collapse object header", source)
         self.assertNotIn("Expand object header", source)
-        self.assertIn("active: processRow.expanded", snapshot_tree_source)
+        self.assertIn("UI.describe", snapshot_tree_source)
         self.assertNotIn("model: sobjectSnapshotModel", source)
         self.assertNotIn("model: sobjectFileModel", source)
-        self.assertIn("model: sobjectParticipantModel", source)
-        for repeater in (
-            "participantRepeater", "taskRepeater", "noteRepeater",
-            "childRepeater", "activityRepeater",
-        ):
-            self.assertIn(f"visible: {repeater}.count === 0", source)
         self.assertNotIn("Model.count() === 0", source)
-        self.assertIn('qsTr("PEOPLE AND WORK HOURS")', source)
-        self.assertIn("participantRow.hours.toFixed(1)", source)
-        self.assertIn("open_participant(participantRow.login)", source)
-        self.assertNotIn('qsTr("OBJECT DETAILS")', source)
-        self.assertEqual(source.count("value: root.summary.project"), 1)
-        self.assertEqual(source.count("value: root.summary.pipeline"), 1)
-        self.assertEqual(source.count("value: root.summary.code"), 1)
-        self.assertIn("open_task(taskRow.taskCode, taskRow.process)", source)
-        self.assertIn("open_snapshot(snapshotRow.modelIndex)", snapshot_tree_source)
+        portable = (Path(__file__).resolve().parents[1] / "thlib/ui/qml/tactic_frame/features/objects/report.ui.mjs").read_text(encoding="utf-8")
+        self.assertIn("PEOPLE AND WORK HOURS", portable)
+        self.assertIn("open_participant(action.key)", source)
+        self.assertIn("open_task(action.taskCode, action.process)", source)
+        self.assertIn("open_snapshot(action.index)", snapshot_tree_source)
         self.assertNotIn("open_search_key(taskRow.searchKey)", source)
         self.assertNotIn("open_search_key(snapshotRow.searchKey)", source)
 

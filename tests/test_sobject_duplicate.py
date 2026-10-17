@@ -231,6 +231,54 @@ class SObjectDuplicateControllerTests(unittest.TestCase):
         self.assertTrue(pool.workers[1].started)
         self.assertTrue(controller.busy)
 
+    def test_unknown_duplicate_reply_cannot_be_retried(self):
+        pool = _Pool()
+        with patch("thlib.ui.sobject_duplicate.env_read_config", return_value={}), patch.object(env_inst, "server_pool", pool):
+            controller = SObjectDuplicateController(_Application())
+            controller.begin(_Source())
+            pool.workers[0].resolve(_analysis_payload())
+            controller.duplicate()
+            pool.workers[1].reject(ConnectionError("Reply lost"))
+            self.assertTrue(controller.presentation["uncertain"])
+            controller.duplicate()
+            controller.retry()
+            self.assertEqual(len(pool.workers), 2)
+
+    def test_known_failure_reanalysis_preserves_fields_and_choices(self):
+        from xmlrpc.client import Fault
+        pool = _Pool()
+        with patch("thlib.ui.sobject_duplicate.env_read_config", return_value={}), patch.object(env_inst, "server_pool", pool):
+            controller = SObjectDuplicateController(_Application())
+            controller.begin(_Source())
+            pool.workers[0].resolve(_analysis_payload())
+            controller.fields.setValue(0, "Retained copy")
+            controller.set_relation_mode(0, "none")
+            controller.duplicate()
+            pool.workers[1].reject(Fault(409, "Revision changed"))
+            self.assertFalse(controller.presentation["uncertain"])
+            controller.retry()
+            pool.workers[2].resolve(_analysis_payload())
+            self.assertEqual(controller.fields.values()["name"], "Retained copy")
+            self.assertEqual(controller.relations.get(0)["mode"], "none")
+
+    def test_reanalysis_draft_does_not_follow_another_source(self):
+        from xmlrpc.client import Fault
+        pool = _Pool()
+        with patch("thlib.ui.sobject_duplicate.env_read_config", return_value={}), patch.object(env_inst, "server_pool", pool):
+            controller = SObjectDuplicateController(_Application())
+            controller.begin(_Source())
+            pool.workers[0].resolve(_analysis_payload())
+            controller.fields.setValue(0, "Copy of the first object")
+            controller.duplicate()
+            pool.workers[1].reject(Fault(409, "Revision changed"))
+            controller.retry()
+            other = _Source()
+            other.get_search_key = lambda: "prod/asset?project=demo&code=ASSET002"
+            controller.begin(other)
+            pool.workers[2].resolve(_analysis_payload())
+            pool.workers[3].resolve(_analysis_payload())
+            self.assertEqual(controller.fields.values()["name"], "Asset 001")
+
     def test_controller_analyzes_async_and_builds_explicit_copy_payload(self):
         profile = {
             "demo|prod/asset": {
@@ -896,154 +944,51 @@ class SObjectDuplicateQmlTests(unittest.TestCase):
         )
 
     def test_wizard_renders_narrow_and_wide_and_switches_pages(self):
+        from tests.test_sidebar_editor_qml import SidebarEditorQmlTests
+        from PySide6.QtCore import QPointF, Qt
+        from tests.profile_ui_responsiveness import frame
         for width in (560, 900):
             with self.subTest(width=width):
-                (
-                    engine, theme_component, component, theme, controller,
-                    window_model, view, window, warnings,
-                ) = (
-                    self._create(width)
-                )
-                self.assertIsNotNone(
-                    view.findChild(QObject, "duplicateSObjectHeader")
-                )
-                self.assertIsNotNone(
-                    view.findChild(QObject, "duplicateFieldsPage")
-                )
-                confirm = view.findChild(
-                    QObject, "duplicateConfirmButton"
-                )
-                self.assertIsNotNone(confirm)
-                self.assertTrue(confirm.property("visible"))
-                self.assertTrue(confirm.property("enabled"))
-                footer = view.findChild(
-                    QObject, "duplicateSObjectFooter"
-                )
-                self.assertIsNotNone(footer)
-                footer_divider = view.findChild(
-                    QObject, "dockWorkspaceFooterDivider"
-                )
-                self.assertIsNotNone(footer_divider)
-                self.assertFalse(footer_divider.property("visible"))
-                field_repeater = view.findChild(
-                    QObject, "duplicateFieldRepeater"
-                )
-                field_card, undefined = QQmlExpression(
-                    QQmlEngine.contextForObject(field_repeater),
-                    field_repeater,
-                    "itemAt(0)",
-                ).evaluate()
-                self.assertFalse(undefined)
-                self.assertIsNotNone(field_card)
-                self.assertEqual(
-                    field_card.property("objectName"),
-                    "duplicateFieldItem_name",
-                )
-                description_card, undefined = QQmlExpression(
-                    QQmlEngine.contextForObject(field_repeater),
-                    field_repeater,
-                    "itemAt(1)",
-                ).evaluate()
-                self.assertFalse(undefined)
-                self.assertIsNotNone(description_card.findChild(
-                    QObject,
-                    "sobjectMultilineVerticalScrollBar_description",
-                ))
-                if width >= 700:
-                    self.assertAlmostEqual(
-                        field_card.property("width"),
-                        description_card.property("width"),
-                        delta=2,
-                    )
-                controller.set_step(1)
-                QTest.qWait(20)
-                self.assertLessEqual(
-                    confirm.property("x") + confirm.property("width"),
-                    confirm.parent().property("width") + 1,
-                )
-                relations_page = view.findChild(
-                    QObject, "duplicateRelationsPage"
-                )
-                self.assertIsNotNone(relations_page)
-                relation_repeater = view.findChild(
-                    QObject, "duplicateRelationRepeater"
-                )
-                relation_card, undefined = QQmlExpression(
-                    QQmlEngine.contextForObject(relation_repeater),
-                    relation_repeater,
-                    "itemAt(0)",
-                ).evaluate()
-                self.assertFalse(undefined)
-                self.assertIsNotNone(relation_card)
-                relation_mode = relation_card.findChild(
-                    QObject, "duplicateRelationMode_0"
-                )
-                self.assertIsNotNone(relation_mode)
-                self.assertGreater(
-                    relation_mode.property("width"),
-                    relation_card.property("width") * 0.9,
-                )
-                controller.set_step(2)
-                QTest.qWait(20)
-                self.assertIsNotNone(
-                    view.findChild(QObject, "duplicateSnapshotsPage")
-                )
-                process_repeater = view.findChild(
-                    QObject, "duplicateProcessRepeater"
-                )
-                process_card, undefined = QQmlExpression(
-                    QQmlEngine.contextForObject(process_repeater),
-                    process_repeater,
-                    "itemAt(0)",
-                ).evaluate()
-                self.assertFalse(undefined)
-                self.assertIsNotNone(process_card)
-                snapshot_choice = process_card.findChild(
-                    QObject, "duplicateSnapshots_0"
-                )
-                self.assertIsNotNone(snapshot_choice)
-                self.assertTrue(snapshot_choice.property("visible"))
-                controller.set_step(3)
-                QTest.qWait(20)
-                self.assertIsNotNone(
-                    view.findChild(QObject, "duplicateTasksMessagesPage")
-                )
-                task_choice = process_card.findChild(
-                    QObject, "duplicateTasks_0"
-                )
-                self.assertIsNotNone(task_choice)
-                self.assertTrue(task_choice.property("visible"))
-                controller.set_step(4)
-                QTest.qWait(20)
-                self.assertIsNotNone(
-                    view.findChild(QObject, "duplicateReviewPage")
-                )
-                self.assertTrue(confirm.property("visible"))
-                loading_overlay = view.findChild(
-                    QObject, "duplicateLoadingOverlay"
-                )
-                self.assertIsNotNone(loading_overlay)
-                controller._duplicating = True
-                controller.stateChanged.emit()
-                QTest.qWait(20)
-                self.assertTrue(loading_overlay.property("visible"))
-                self.assertFalse(loading_overlay.property("cancellable"))
-                loading_message = str(
-                    loading_overlay.property("message") or ""
-                )
-                self.assertTrue(
-                    "server" in loading_message.casefold()
-                    or "сервер" in loading_message.casefold()
-                )
-                controller._duplicating = False
-                controller.stateChanged.emit()
-                self.assertEqual(warnings, [])
-                window.close()
-                window.deleteLater()
-                view.deleteLater()
-                theme.deleteLater()
-                controller.deleteLater()
-                engine.deleteLater()
+                engine, theme_component, component, theme, controller, window_model, view, window, warnings = self._create(width)
+                def item(name):
+                    return next(child for child in SidebarEditorQmlTests.descendants(window.contentItem()) if child.objectName() == name and child.isVisible())
+                def click(name):
+                    control = item(name)
+                    point = control.mapToScene(QPointF(control.width()/2, control.height()/2))
+                    QTest.mouseClick(window, Qt.LeftButton, pos=point.toPoint())
+                    frame(window)
+                try:
+                    self.assertTrue(item("duplicate_duplicate").property("enabled"))
+                    self.assertGreater(item("duplicateFieldItem_name").width(), 200)
+                    click("duplicateStep_1")
+                    self.assertEqual(controller.step, 1)
+                    self.assertGreater(item("duplicateRelation_0").width(), width * .8)
+                    choice = controller.relations.get(0)["options"][-1]["value"]
+                    click("duplicateRelationMode_0_" + str(len(controller.relations.get(0)["options"])-1))
+                    self.assertEqual(controller.relations.get(0)["mode"], choice)
+                    click("duplicateStep_2")
+                    self.assertTrue(item("duplicateChoice_0_copySnapshots").property("visible"))
+                    click("duplicateStep_3")
+                    before = controller.processes.get(0)["copyTasks"]
+                    click("duplicateChoice_0_copyTasks")
+                    self.assertEqual(controller.processes.get(0)["copyTasks"], not before)
+                    click("duplicateStep_4")
+                    self.assertTrue(item("duplicateReview").property("visible"))
+                    controller._duplicating = True
+                    controller.stateChanged.emit()
+                    frame(window)
+                    self.assertFalse(item("duplicate_duplicate").property("enabled"))
+                    self.assertFalse(item("duplicate_cancel").property("enabled"))
+                    self.assertTrue(item("duplicateLoadingOverlay").property("visible"))
+                    self.assertEqual(warnings, [])
+                finally:
+                    window.close()
+                    view.setParentItem(None)
+                    view.deleteLater()
+                    window.deleteLater()
+                    theme.deleteLater()
+                    controller.deleteLater()
+                    engine.deleteLater()
 
 
 if __name__ == "__main__":

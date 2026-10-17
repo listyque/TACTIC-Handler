@@ -51,6 +51,8 @@ class _WindowModel:
 
 
 class _CommandsHarness(CommandsMixin):
+    can_manage_tools = True
+
     def __init__(self):
         self.debug_log = None
         self.window_model = _WindowModel()
@@ -129,6 +131,19 @@ class SObjectEditorLifecycleTests(unittest.TestCase):
             controller.begin_session()
 
         self.assertEqual(pool.add_task.call_args.args[2]["project"], "demo")
+
+    def test_lost_save_reply_blocks_resubmission(self):
+        controller = SObjectEditorController(lambda: {})
+        controller._request_id = 7
+        controller._edit_widget = Mock()
+        controller._save_failed(7, {"exception": ConnectionError("Lost reply")})
+        self.assertTrue(controller.presentation["uncertain"])
+        controller.submit()
+        controller._edit_widget.commit.assert_not_called()
+        from xmlrpc.client import Fault
+        controller._save_failed(7, {"exception": Fault(409, "Revision changed")})
+        self.assertFalse(controller.presentation["uncertain"])
+        self.assertIn("Revision changed", controller.error)
 
     def test_create_context_reuses_search_key_navigation(self):
         controller = _CommandsHarness()
@@ -1061,8 +1076,13 @@ class SObjectEditorQmlTests(unittest.TestCase):
             self.assertEqual(options.property("count"), 2)
         finally:
             window.close()
+            editor.setParentItem(None)
             editor.deleteLater()
+            window.deleteLater()
+            from PySide6.QtCore import QCoreApplication, QEvent
+            QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
             engine.deleteLater()
+            QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
 
     def test_real_form_reflows_without_moving_footer_or_clipping_fields(self):
         engine = QQmlEngine()
@@ -1131,8 +1151,8 @@ class SObjectEditorQmlTests(unittest.TestCase):
         window.show()
         self.app.processEvents()
 
-        footer = editor.findChild(QObject, "sobjectEditorFooter")
-        repeater = editor.findChild(QObject, "sobjectEditorFieldRepeater")
+        footer = self._visual_child(editor, "sobjectEditorFooter")
+        repeater = self._visual_child(editor, "sobjectEditorFieldRepeater")
         qml_context = QQmlEngine.contextForObject(repeater)
         name_frame, name_undefined = QQmlExpression(
             qml_context, repeater, "itemAt(0).children[0]"
@@ -1163,11 +1183,11 @@ class SObjectEditorQmlTests(unittest.TestCase):
         self.assertFalse(due_item_undefined)
         self.assertFalse(pipeline_item_undefined)
         self.assertIsNotNone(footer)
-        create_mode = editor.findChild(QObject, "sobjectCreateMode")
-        refresh_button = editor.findChild(QObject, "sobjectEditorRefresh")
+        create_mode = self._visual_child(editor, "sobjectCreateMode_batch")
+        refresh_button = self._visual_child(editor, "sobjectEditorRefresh")
         self.assertIsNotNone(create_mode)
         self.assertIsNotNone(refresh_button)
-        self.assertGreaterEqual(create_mode.property("width"), 230)
+        self.assertGreaterEqual(create_mode.property("width"), 110)
         create_mode_center = create_mode.mapToItem(
             editor, QPointF(0, create_mode.property("height") / 2)
         ).y()
@@ -1179,7 +1199,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
             child.objectName() for child in editor.findChildren(QObject)
             if child.objectName()
         ]
-        count_label = editor.findChild(QObject, "sobjectEditorFieldCount")
+        count_label = self._visual_child(editor, "sobjectEditorFieldCount")
         self.assertIsNotNone(
             name_frame,
             (
@@ -1242,8 +1262,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
             footer.property("height"),
             theme.property("dockWorkspaceFooterHeight"),
         )
-        self.assertEqual(footer.property("bottomLeftRadius"), 0)
-        self.assertEqual(footer.property("bottomRightRadius"), 0)
+
         editor.setProperty("width", 520)
         window.resize(520, 680)
         self.app.processEvents()
@@ -1266,10 +1285,8 @@ class SObjectEditorQmlTests(unittest.TestCase):
             footer.property("height"),
             theme.property("dockWorkspaceFooterHeight"),
         )
-        form_scroll = editor.findChild(QObject, "sobjectEditorFormScroll")
-        form_scroll_bar = editor.findChild(
-            QObject, "sobjectEditorFormVerticalScrollBar"
-        )
+        form_scroll = self._visual_child(editor, "sobjectEditorFormScroll")
+        form_scroll_bar = self._visual_child(editor, "sobjectEditorFormVerticalScrollBar")
         self.assertIsNotNone(form_scroll)
         self.assertIsNotNone(form_scroll_bar)
         editor.setProperty("height", 300)
@@ -1292,8 +1309,9 @@ class SObjectEditorQmlTests(unittest.TestCase):
             form_scroll.property("height"),
         )
         controller.set_batch_enabled(True)
-        batch_count = editor.findChild(QObject, "sobjectBatchCount")
+        batch_count = self._visual_child(editor, "sobjectBatchCount")
         self.assertIsNotNone(batch_count)
+        batch_count = batch_count.property("item")
         count_expression = QQmlExpression(
             QQmlEngine.contextForObject(batch_count),
             batch_count,
@@ -1305,7 +1323,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
         self.assertEqual(controller.batchCount, 11)
         controller.set_batch_count(3)
         self.app.processEvents()
-        batch_setup = editor.findChild(QObject, "sobjectBatchSetup")
+        batch_setup = self._visual_child(editor, "sobjectBatchSetup")
         self.assertIsNotNone(batch_setup)
         self.assertTrue(batch_setup.property("visible"))
         current_name_item, undefined = QQmlExpression(
@@ -1318,15 +1336,9 @@ class SObjectEditorQmlTests(unittest.TestCase):
         self.assertIsNotNone(name_editor)
         name_editor.forceActiveFocus()
         name_editor.setProperty("cursorPosition", 2)
-        padded_button = editor.findChild(
-            QObject, "sobjectBatchInsertPaddedNumber"
-        )
-        self.assertIsNotNone(editor.findChild(
-            QObject, "sobjectBatchInsertTwoDigitNumber"
-        ))
-        four_digit_button = editor.findChild(
-            QObject, "sobjectBatchInsertFourDigitNumber"
-        )
+        padded_button = self._visual_child(editor, "sobjectBatchToken_2")
+        self.assertIsNotNone(self._visual_child(editor, "sobjectBatchToken_1"))
+        four_digit_button = self._visual_child(editor, "sobjectBatchToken_3")
         self.assertIsNotNone(four_digit_button)
         four_digit_right = four_digit_button.mapToItem(
             batch_setup, QPointF(four_digit_button.width(), 0)
@@ -1362,7 +1374,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
         self.assertIsNotNone(description_editor)
         description_editor.forceActiveFocus()
         description_editor.setProperty("cursorPosition", 0)
-        number_button = editor.findChild(QObject, "sobjectBatchInsertNumber")
+        number_button = self._visual_child(editor, "sobjectBatchToken_0")
         number_expression = QQmlExpression(
             QQmlEngine.contextForObject(number_button),
             number_button,
@@ -1376,10 +1388,10 @@ class SObjectEditorQmlTests(unittest.TestCase):
         )
         controller.preview_batch()
         self.app.processEvents()
-        batch_navigator = editor.findChild(QObject, "sobjectBatchNavigator")
+        batch_navigator = self._visual_child(editor, "sobjectBatchNavigator")
         self.assertIsNotNone(batch_navigator)
         self.assertTrue(batch_navigator.property("visible"))
-        self.assertFalse(batch_setup.property("visible"))
+        self.assertIsNone(self._visual_child(editor,"sobjectBatchSetup"))
         current_description_item, undefined = QQmlExpression(
             qml_context, repeater, "itemAt(1)"
         ).evaluate()
@@ -1391,7 +1403,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
         multiline_editor.forceActiveFocus()
         multiline_editor.setProperty("text", "manual description")
         self.app.processEvents()
-        next_button = editor.findChild(QObject, "sobjectBatchNext")
+        next_button = self._visual_child(editor, "sobjectBatchNext")
         next_expression = QQmlExpression(
             QQmlEngine.contextForObject(next_button),
             next_button,
@@ -1400,7 +1412,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
         next_expression.evaluate()
         self.assertFalse(next_expression.hasError(), next_expression.error())
         self.app.processEvents()
-        previous_button = editor.findChild(QObject, "sobjectBatchPrevious")
+        previous_button = self._visual_child(editor, "sobjectBatchPrevious")
         previous_expression = QQmlExpression(
             QQmlEngine.contextForObject(previous_button),
             previous_button,
@@ -1439,6 +1451,12 @@ class SObjectEditorQmlTests(unittest.TestCase):
         editor.deleteLater()
         theme.deleteLater()
         window.close()
+        editor.setParentItem(None)
+        window.deleteLater()
+        from PySide6.QtCore import QCoreApplication, QEvent
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        engine.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
 
     def test_preview_field_shows_every_local_image_with_shared_scrollbar(self):
         engine = QQmlEngine()
@@ -1516,6 +1534,12 @@ class SObjectEditorQmlTests(unittest.TestCase):
             editor.deleteLater()
             theme.deleteLater()
             window.close()
+            editor.setParentItem(None)
+            window.deleteLater()
+            from PySide6.QtCore import QCoreApplication, QEvent
+            QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+            engine.deleteLater()
+            QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
 
 
 if __name__ == "__main__":

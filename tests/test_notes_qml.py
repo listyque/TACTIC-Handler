@@ -1006,9 +1006,7 @@ Window {
             "visible: !messageRow.groupFirst", messages_source
         )
         self.assertNotIn("messageRow.groupFirst", notes_source)
-        self.assertIn(
-            "root.theme.communicationBubblePadding * 2", notes_source
-        )
+        self.assertRegex(notes_source, r"geometry.padding\s*\*\s*2")
         self.assertIn(
             "root.theme.communicationContentSpacing", notes_source
         )
@@ -1025,12 +1023,9 @@ Window {
         self.assertNotIn(
             'timelineRow.entryType === "status" ? 10 : 0', notes_source
         )
-        status_content = notes_source[
-            notes_source.index('name: "status"'):
-            notes_source.index("MessageBodyText {")
-        ]
-        self.assertIn("font.pointSize: Controls.Typography.body", status_content)
-        self.assertNotIn("font.pixelSize", status_content)
+        self.assertIn("Objects.NoteBody {", notes_source)
+        shared_note = (qml_dir / "tactic_frame/features/objects/note.ui.mjs").read_text(encoding="utf-8")
+        self.assertIn("bodyMetrics", shared_note)
         self.assertIn("font.pointSize:", body_source)
         self.assertIn(": Controls.Typography.body", body_source)
         self.assertNotIn("font.pixelSize", body_source)
@@ -2537,6 +2532,55 @@ Window {
             worker,
         ))
         self.assertEqual(harness.loading_calls, [])
+
+    def test_note_editor_rejects_row_reused_by_another_context(self):
+        controller = CommunicationController(_Application())
+        controller._workspace.note_model.replace(
+            [{"searchKey": "sthpw/note?code=NEW", "body": "New note"}]
+        )
+        controller._run = Mock()
+        self.assertFalse(controller.edit(0, "Old draft", "sthpw/note?code=OLD"))
+        controller.remove(0, "sthpw/note?code=OLD")
+        controller._run.assert_not_called()
+        self.assertIn("context changed", controller.error)
+
+    def test_note_write_completion_survives_retarget_and_preserves_new_read(self):
+        controller = CommunicationController(_Application())
+        controller._mutation_request_id = "old-write"
+        controller._mutation_pending = True
+        controller._request_id = "new-read"
+        controller._busy = True
+        controller._loading = True
+        controller._mutation_ready("old-write")
+        self.assertFalse(controller._mutation_pending)
+        self.assertTrue(controller.loading)
+        self.assertTrue(controller.busy)
+        controller._mutation_pending = True
+        controller._failed(
+            "old-write",
+            ({"exception": ConnectionError("Lost after retarget")}, None),
+            mutation=True,
+        )
+        self.assertTrue(controller.uncertain)
+        self.assertTrue(controller.loading)
+        self.assertEqual(controller._request_id, "new-read")
+
+    def test_lost_note_mutation_reply_blocks_second_write(self):
+        controller = CommunicationController(_Application())
+        controller._request_id = "write"
+        controller._mutation_request_id = "write"
+        controller._mutation_pending = True
+        controller._failed(
+            "write", ({"exception": ConnectionError("Reply lost")}, None), mutation=True
+        )
+        self.assertTrue(controller.uncertain)
+        self.assertIn("Reply lost", controller.error)
+        self.assertIn("Refresh", controller.error)
+        controller._run = Mock()
+        self.assertFalse(controller.edit(0, "Again"))
+        controller.remove(0)
+        controller.send("Again")
+        controller._run.assert_not_called()
 
     def test_existing_note_can_be_edited(self):
         import thlib.tactic_classes as tc

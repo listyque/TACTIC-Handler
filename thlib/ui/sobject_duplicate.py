@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from xmlrpc.client import Fault
 from collections.abc import Mapping
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
@@ -139,6 +140,8 @@ class SObjectDuplicateController(QObject):
         self._duplicating = False
         self._ready = False
         self._error = ""
+        self._uncertain = False
+        self._retry_draft = None
         self._remember_settings = True
         self._quick_after_analysis = False
         self._generation = 0
@@ -146,6 +149,24 @@ class SObjectDuplicateController(QObject):
         self._duplicate_started_at = 0.0
         self._script_triggers = None
         self._trigger_payload = {}
+
+    @Property("QVariantMap", notify=stateChanged)
+    def presentation(self) -> dict:
+        return {
+            "title": self.title, "searchType": self.searchType,
+            "step": self.step, "ready": self.ready, "busy": self.busy,
+            "saving": self.duplicating, "error": self.error,
+            "uncertain": self._uncertain,
+            "remember": self.rememberSettings,
+            "relations": [dict(row) for row in self.relations._records],
+            "processes": [dict(row) for row in self.processes._records],
+            "totals": {
+                "related": self.selectedRelationCount,
+                "snapshots": self.selectedSnapshotCount,
+                "tasks": self.selectedTaskCount,
+                "messages": self.selectedMessageCount + self.selectedAttachmentCount,
+            },
+        }
 
     def attach_script_triggers(self, triggers) -> None:
         self._script_triggers = triggers
@@ -268,6 +289,8 @@ class SObjectDuplicateController(QObject):
         if not search_key:
             self._application._notify("Selected item is no longer available")
             return False
+        if search_key != _search_key(self._source):
+            self._retry_draft = None
         self._generation += 1
         generation = self._generation
         self._source = source
@@ -279,6 +302,7 @@ class SObjectDuplicateController(QObject):
         self._duplicating = False
         self._ready = False
         self._error = ""
+        self._uncertain = False
         self._quick_after_analysis = bool(quick)
         self.fields.clear()
         self.relations.clear()
@@ -349,7 +373,9 @@ class SObjectDuplicateController(QObject):
         envelope = dict(payload or {})
         edit_view = dict(envelope.get("editView") or {})
         payload = dict(envelope.get("analysis") or envelope)
-        profile = self._profiles.get(self._profile_key_value) or {}
+        retry_draft = self._retry_draft
+        self._retry_draft = None
+        profile = retry_draft["profile"] if retry_draft else self._profiles.get(self._profile_key_value) or {}
         relations, processes = apply_duplicate_profile(
             list(payload.get("relations") or []),
             list(payload.get("processes") or []),
@@ -358,6 +384,10 @@ class SObjectDuplicateController(QObject):
         fields = self._edit_view_fields(edit_view)
         if not fields:
             fields = self._fallback_fields(payload.get("fields") or [])
+        if retry_draft:
+            for field in fields:
+                if not field.get("fieldReadOnly") and field["fieldName"] in retry_draft["fields"]:
+                    field["fieldValue"] = retry_draft["fields"][field["fieldName"]]
         self.fields.replace(fields)
         self.relations.reset_records(relations)
         self.processes.reset_records(processes)
@@ -559,7 +589,7 @@ class SObjectDuplicateController(QObject):
 
     @Slot()
     def duplicate(self) -> None:
-        if self._busy or self._duplicating or not self._ready:
+        if self._busy or self._duplicating or self._uncertain or not self._ready:
             return
         if not self.fields.valid:
             self._error = "Correct the highlighted fields"
@@ -706,7 +736,11 @@ class SObjectDuplicateController(QObject):
         self._duplicating = False
         self._ready = phase == "duplicate"
         self._duplicate_started_at = 0.0
-        self._error = str(exception or error)
+        self._uncertain = phase == "duplicate" and not isinstance(exception, Fault)
+        self._error = (
+            "The result is unknown. Refresh the objects before trying again."
+            if self._uncertain else str(exception or error)
+        )
         self.stateChanged.emit()
         self._application._notify(self._error)
         if self._debug_log:
@@ -718,8 +752,9 @@ class SObjectDuplicateController(QObject):
 
     @Slot()
     def retry(self) -> None:
-        if self._busy or self._duplicating or not self._source:
+        if self._busy or self._duplicating or self._uncertain or not self._source:
             return
+        self._retry_draft = {"profile": self._profile(), "fields": self.fields.values()} if self._ready else self._retry_draft
         self.begin(self._source, quick=False)
 
     @Slot()

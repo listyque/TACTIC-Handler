@@ -92,7 +92,7 @@ class UpdateArchiveTests(unittest.TestCase):
         app = make_app(self.root)
         source = Path(__file__).resolve().parents[1] / 'thlib/ui/qml'
         files = [source / 'qmldir']
-        for directory in ('tactic_frame', 'features/administration', 'shell'):
+        for directory in ('tactic_frame', 'features/administration', 'features/objects', 'shell'):
             files.extend(path for path in (source / directory).rglob('*') if path.is_file())
         for path in files:
             name = path.relative_to(source).as_posix()

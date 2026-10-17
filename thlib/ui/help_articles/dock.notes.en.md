@@ -52,3 +52,23 @@ Keyboard behavior:
 - **No task** still permits creating one from workflow defaults.
 - A note upload failure preserves the draft and attachment selection for retry.
 - If Notes was opened from Task Manager, it follows that task even when its parent was not previously selected.
+
+## Note editing and files
+
+Open a note's **Note actions → Edit note**. Its modeless editor keeps the text
+when saving fails; Save closes it only after confirmation. **Delete note** uses
+a modal confirmation. A lost reply blocks another write: close the child,
+refresh and check the actual note first. Your composer draft is independent.
+Long text, emoji-only notes, link previews and file cards use measured heights.
+Browser files open FilePreview with Download; Handler retains local open/folder
+and Repository Sync. sKey previews use the same protected resolver as Messages.
+Quick **Edit task in full editor** opens the normal modeless object form;
+Stream's existing inline editor remains in **Task actions → Edit task**.
+
+## Presentation examples
+
+Examples use test data and show the panel content. The surrounding window or dock keeps its normal behavior.
+
+![Inspector quick fields](media/frame-objects-inspector-quick-en.png)
+
+![Note text and attachments](media/frame-objects-note-files-en.png)

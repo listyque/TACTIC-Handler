@@ -465,7 +465,12 @@ class SObjectLinkControllerTests(unittest.TestCase):
         self.assertEqual(list(controller._linked), before)
         self.assertTrue(controller.dirty)
         self.assertFalse(controller.busy)
-        self.assertEqual(controller.error, "TACTIC unavailable")
+        self.assertIn("TACTIC unavailable", controller.error)
+        self.assertTrue(controller.uncertain)
+        with patch.object(controller,"_start_worker") as start:
+            controller.save()
+            start.assert_not_called()
+        self.assertFalse(controller._can_stage_links())
 
     def test_failed_available_request_still_runs_latest_queued_search(self):
         controller = _ready_controller([], [])
@@ -646,6 +651,8 @@ Window {
             self.assertIsNotNone(scroll_bar)
             self.assertIsNotNone(link_list)
             self.assertGreater(object_list.property("contentHeight"), 5000)
+            self.assertEqual(link_list.property("width")-object_list.width()-object_list.x(),10)
+            self.assertGreaterEqual(object_list.property("rightMargin"),18)
             pagination_requests = []
             link_list.loadMoreRequested.connect(
                 lambda: pagination_requests.append(True)
@@ -785,25 +792,29 @@ Window {
             window,
             "\n".join(error.toString() for error in component.errors()),
         )
+        def find_item(name):
+            return next((item for item in self._visual_children(window.contentItem(), name) if name != "availableLinkSearch" or item.property("popupOpen") is not None), None)
         try:
             for _pass in range(8):
                 self.app.processEvents()
-            available_pane = window.findChild(QObject, "availableLinkPane")
-            linked_pane = window.findChild(QObject, "linkedLinkPane")
-            transfer = window.findChild(QQuickItem, "linkTransferButton")
-            available_search = window.findChild(
-                QQuickItem, "availableLinkSearch"
-            )
+            available_pane = find_item("availableLinkPane")
+            linked_pane = find_item("linkedLinkPane")
+            transfer = find_item("linkTransferButton")
+            available_search = find_item("availableLinkSearch")
             self.assertIsNotNone(available_pane)
             self.assertIsNotNone(linked_pane)
             self.assertIsNotNone(transfer)
-            self.assertGreater(available_pane.property("radius"), 0)
+            self.assertGreater(available_pane.property("width"), 0)
             self.assertIsNotNone(available_search)
             search_input = available_search.findChild(
                 QQuickItem, "tacticSearchInput"
             )
             self.assertIsNotNone(search_input)
-            search_input.forceActiveFocus()
+            window.requestActivate()
+            QTest.qWait(20)
+            point = search_input.mapToScene(QPointF(search_input.width()/2, search_input.height()/2))
+            QTest.mouseClick(window, Qt.LeftButton, pos=point.toPoint())
+            self.assertTrue(search_input.property("activeFocus"))
             controller.available_search.suggestions.replace([{
                 "title": "Asset suggestion",
                 "description": "Suggested result",
@@ -814,9 +825,11 @@ Window {
             }])
             for _pass in range(4):
                 self.app.processEvents()
+            from tests.profile_ui_responsiveness import frame
+            frame(window)
             self.assertTrue(available_search.property("popupOpen"))
             controller.available_search.clear_search_suggestions()
-            self.assertGreater(linked_pane.property("radius"), 0)
+            self.assertGreater(linked_pane.property("width"), 0)
             self.assertAlmostEqual(
                 available_pane.property("width"),
                 linked_pane.property("width"),
@@ -857,24 +870,18 @@ Window {
                 for _pass in range(4):
                     self.app.processEvents()
 
-            linked_drop = window.findChild(
-                QQuickItem, "linkDropArea-add"
-            )
-            available_list = window.findChild(
-                QQuickItem, "linkObjectList-remove"
-            )
+            linked_drop = find_item("linkDropArea-add")
+            available_list = find_item("linkObjectList-remove")
             available_row = visual_child(available_list, "linkRow-remove")
             self.assertIsNotNone(available_row)
             self.assertIsNotNone(linked_drop)
 
-            drag_preview = window.findChild(
-                QQuickItem, "linkDragPreview"
-            )
+            drag_preview = find_item("linkDragPreview")
             row_preview = visual_child(
-                available_row, "linkRowPreview-remove"
+                available_row, "linkRowPreview"
             )
             row_subtitle = visual_child(
-                available_row, "linkRowSubtitle-remove"
+                available_row, "linkRowSubtitle"
             )
             self.assertIsNotNone(drag_preview)
             self.assertIsNotNone(row_preview)
@@ -946,13 +953,9 @@ Window {
                 list(controller._linked), [candidate.get_search_key()]
             )
 
-            linked_list = window.findChild(
-                QQuickItem, "linkObjectList-add"
-            )
+            linked_list = find_item("linkObjectList-add")
             linked_row = visual_child(linked_list, "linkRow-add")
-            available_drop = window.findChild(
-                QQuickItem, "linkDropArea-remove"
-            )
+            available_drop = find_item("linkDropArea-remove")
             self.assertIsNotNone(linked_row)
             self.assertIsNotNone(available_drop)
             drag(linked_row, available_drop)
@@ -998,10 +1001,11 @@ Window {
         self.assertIn("onContentYChanged:", link_list)
         self.assertNotIn('qsTr("Load more")', link_list)
         self.assertNotIn("SplitView {", view)
-        self.assertIn('objectName: "linkTransferButton"', view)
-        self.assertIn('objectName: "availableLinkPane"', view)
-        self.assertIn('objectName: "linkedLinkPane"', view)
-        self.assertIn('qsTr("Parent object")', view)
+        self.assertIn("UI.describe(root.model", view)
+        self.assertIn("linkTransferButton", (qml_dir / "tactic_frame/features/objects/links.ui.mjs").read_text(encoding="utf-8"))
+        self.assertIn("available", (qml_dir / "tactic_frame/features/objects/links.ui.mjs").read_text(encoding="utf-8"))
+        self.assertIn("linked", (qml_dir / "tactic_frame/features/objects/links.ui.mjs").read_text(encoding="utf-8"))
+        self.assertIn("Parent object", (qml_dir / "tactic_frame/features/objects/links.ui.mjs").read_text(encoding="utf-8"))
         self.assertIn("sobjectLinkController.parent_type_title", view)
         self.assertIn("sobjectLinkController.parent_code", view)
         self.assertIn("Drag.dragType: Drag.Internal", view)
@@ -1009,7 +1013,8 @@ Window {
             "Drag.supportedActions: Qt.MoveAction", view
         )
         self.assertIn("Drag.proposedAction: Qt.MoveAction", view)
-        self.assertIn("anchors.rightMargin: 10", link_list)
+        self.assertIn("root.listScene.viewport.width", link_list)
+        self.assertIn("rightMargin: root.listScene.rowInsets.right", link_list)
         self.assertIn(
             "property color selectedColor: theme.contentSelection",
             item_surface,

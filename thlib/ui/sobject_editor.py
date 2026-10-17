@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from copy import deepcopy
 from datetime import datetime
 import os
@@ -300,26 +302,9 @@ class SObjectEditorController(QObject):
     stateChanged = Signal()
     saved = Signal(str)
 
-    _field_icons = {
-        "string": "type",
-        "integer": "type",
-        "float": "type",
-        "multiline": "description",
-        "bool": "task-alt",
-        "enum": "view-list",
-        "user": "person",
-        "project": "workspaces",
-        "process": "process",
-        "pipeline": "workflow",
-        "status": "status",
-        "date": "calendar-month",
-        "datetime": "calendar-month",
-        "parent": "link",
-        "preview": "image-edit",
-        "thumbnail": "image",
-        "password": "visibility-off",
-        "unsupported": "warning",
-    }
+    _field_icons = json.loads(
+        (Path(__file__).parent / "qml/tactic_frame/features/objects/fields.json").read_text(encoding="utf-8")
+    )["icons"]
     _batch_number = re.compile(r"\{n(?::0([1-9]))?\}")
 
     def __init__(self, context, notify=None, checkin=None, parent=None) -> None:
@@ -328,6 +313,7 @@ class SObjectEditorController(QObject):
         self._notify = notify or (lambda _message: None)
         self._checkin = checkin
         self._busy = False
+        self._uncertain = False
         self._error = ""
         self._title = ""
         self._search_type = ""
@@ -358,6 +344,7 @@ class SObjectEditorController(QObject):
 
     @Slot()
     def begin_session(self) -> None:
+        self._uncertain = False
         context = dict(self._context() or {})
         stype = context.get("stype")
         project_code = str(context.get("project_code") or "")
@@ -986,7 +973,7 @@ class SObjectEditorController(QObject):
 
     @Slot()
     def submit(self) -> None:
-        if self._busy or not self._edit_widget:
+        if self._busy or self._uncertain or not self._edit_widget:
             return
         if self._batch_enabled and self._batch_index < 0:
             self._error = self.tr("Preview the batch before creating it")
@@ -1243,12 +1230,29 @@ class SObjectEditorController(QObject):
             )
         else:
             message = str(payload)
+        from xmlrpc.client import Fault
+        exception = payload.get("exception") if isinstance(payload, dict) else payload
+        self._uncertain = not isinstance(exception, Fault)
+        if self._uncertain:
+            message = self.tr("The save result is unknown. Close this form and refresh the records before trying again.")
         self._set_error(message or "The server rejected the changes")
         self._notify(self._error)
 
     @Slot(result="QVariantMap")
     def values(self) -> dict:
         return self.model.values()
+
+    @Property("QVariantMap", notify=stateChanged)
+    def presentation(self) -> dict:
+        return {
+            "title": self.title, "searchType": self.searchType,
+            "parentTitle": self.parentTitle, "mode": self.mode,
+            "fieldCount": self.model.count, "valid": self.model.valid,
+            "busy": self.busy, "error": self.error, "uncertain": self._uncertain,
+            "batchEnabled": self.batchEnabled, "batchCount": self.batchCount, "batchExample": self.batchExample,
+            "batchPreview": self.batchPreview, "batchIndex": self.batchIndex,
+            "batchTotal": self.batchTotal,
+        }
 
     @Property(bool, notify=stateChanged)
     def busy(self) -> bool:

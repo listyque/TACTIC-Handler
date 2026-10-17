@@ -1,13 +1,10 @@
-import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/objects/fields.ui.mjs" as UI
 
 Item {
     id: root
     objectName: "sobjectFieldFrame_" + fieldName
-
     required property var theme
     required property string title
     required property string fieldName
@@ -17,138 +14,32 @@ Item {
     required property bool requiredField
     required property bool readOnlyField
     default property alias editorData: editorHost.data
-    readonly property bool compact: width < Foundation.controls.formField.compactBreakpoint
-
-    implicitHeight: surface.implicitHeight
-
-    Rectangle {
-        id: surface
-        objectName: "sobjectFieldSurface_" + root.fieldName
-
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    readonly property var fieldModel: ({
+            name: fieldName,
+            title: title,
+            description: description,
+            icon: iconName,
+            error: errorText,
+            required: requiredField,
+            readOnly: readOnlyField,
+            minimumHeight: theme.controlHeight
+        })
+    readonly property var columns: UI.columns(fieldModel, width)
+    readonly property var scene: UI.field(fieldModel, width, editorHost.childrenRect.height, language)
+    readonly property bool compact: scene.compact
+    implicitHeight: scene.height
+    Frame.FrameView {
         anchors.fill: parent
-        implicitHeight: fieldLayout.implicitHeight + Foundation.controls.formField.padding * 2
-        radius: root.theme.surfaceRadius
-        color: root.theme.surfaceContainerLow
-        border.width: 1
-        border.color: root.errorText.length > 0 ? root.theme.error : root.theme.outlineVariant
-
-        GridLayout {
-            id: fieldLayout
-
-            anchors.fill: parent
-            anchors.margins: Foundation.controls.formField.padding
-            columns: 2
-            columnSpacing: Foundation.controls.formField.columnSpacing
-            rowSpacing: Foundation.controls.formField.rowSpacing
-
-            RowLayout {
-                Layout.row: 0
-                Layout.column: 0
-                Layout.columnSpan: root.compact ? 2 : 1
-                Layout.fillWidth: root.compact
-                Layout.preferredWidth: root.compact ? -1 : Foundation.controls.formField.labelWidth
-                Layout.minimumWidth: 0
-                Layout.alignment: Qt.AlignTop
-                spacing: Foundation.controls.formField.labelSpacing
-
-                Rectangle {
-                    Layout.preferredWidth: Foundation.controls.formField.iconExtent
-                    Layout.preferredHeight: Foundation.controls.formField.iconExtent
-                    radius: root.theme.itemRadius
-                    color: root.errorText.length > 0 ? root.theme.errorContainer : root.theme.secondaryContainer
-
-                    Controls.MaterialIcon {
-                        anchors.centerIn: parent
-                        name: root.iconName
-                        size: Foundation.controls.formField.iconSize
-                        color: root.errorText.length > 0 ? root.theme.error : root.theme.action
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: Foundation.controls.formField.textSpacing
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        Label {
-                            Layout.fillWidth: true
-                            text: root.title
-                            color: root.errorText.length > 0 ? root.theme.error : root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.hintingPreference: Font.PreferVerticalHinting
-                            font.pixelSize: Foundation.textStyles.bodyLarge
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
-                        }
-
-                        Label {
-                            visible: root.requiredField
-                            text: "*"
-                            color: root.theme.error
-                            font.family: root.theme.fontFamily
-                            font.hintingPreference: Font.PreferVerticalHinting
-                            font.pixelSize: Foundation.textStyles.bodyLarge
-                            font.weight: Font.Bold
-                        }
-                    }
-
-                    Label {
-                        Layout.fillWidth: true
-                        text: root.description.length > 0 ? root.description : root.fieldName
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.hintingPreference: Font.PreferVerticalHinting
-                        font.pixelSize: Foundation.textStyles.caption
-                        wrapMode: Text.WordWrap
-                        maximumLineCount: 2
-                        elide: Text.ElideRight
-                    }
-
-                    Label {
-                        visible: root.readOnlyField
-                        text: qsTr("Read only")
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.hintingPreference: Font.PreferVerticalHinting
-                        font.pixelSize: Foundation.textStyles.caption
-                        font.weight: Font.DemiBold
-                    }
-                }
-            }
-
-            ColumnLayout {
-                id: editorColumn
-
-                Layout.row: root.compact ? 1 : 0
-                Layout.column: root.compact ? 0 : 1
-                Layout.columnSpan: root.compact ? 2 : 1
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.alignment: Qt.AlignTop
-                spacing: Foundation.controls.formField.editorSpacing
-
-                Item {
-                    id: editorHost
-                    objectName: "sobjectFieldEditorHost_" + root.fieldName
-
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: Math.max(root.theme.controlHeight, childrenRect.height)
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    visible: root.errorText.length > 0
-                    text: root.errorText
-                    color: root.theme.error
-                    font.family: root.theme.fontFamily
-                    font.hintingPreference: Font.PreferVerticalHinting
-                    font.pixelSize: Foundation.textStyles.caption
-                    wrapMode: Text.WordWrap
-                }
-            }
-        }
+        theme: root.theme
+        scene: root.scene
+    }
+    Item {
+        id: editorHost
+        objectName: "sobjectFieldEditorHost_" + root.fieldName
+        x: root.columns.inputX
+        y: root.columns.inputY
+        width: root.columns.inputWidth
+        height: Math.max(root.theme.controlHeight, childrenRect.height)
     }
 }

@@ -1,0 +1,22 @@
+{
+  "icons": {
+    "string": "type",
+    "integer": "type",
+    "float": "type",
+    "multiline": "description",
+    "bool": "task-alt",
+    "enum": "view-list",
+    "user": "person",
+    "project": "workspaces",
+    "process": "process",
+    "pipeline": "workflow",
+    "status": "status",
+    "date": "calendar-month",
+    "datetime": "calendar-month",
+    "parent": "link",
+    "preview": "image-edit",
+    "thumbnail": "image",
+    "password": "visibility-off",
+    "unsupported": "warning"
+  }
+}

@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import "tactic_frame/features/objects/fields.ui.mjs" as UI
 
 Item {
     id: root
@@ -14,28 +15,21 @@ Item {
     property real minimumCellWidth: 430
     property int maximumColumns: 3
     property real spacing: 10
-    readonly property int columnCount: Math.max(1, Math.min(
-        maximumColumns, Math.max(1, fields.count),
-        Math.floor((width + spacing) / (minimumCellWidth + spacing))))
+    readonly property int columnCount: UI.columnCount(width, fields.count, minimumCellWidth, maximumColumns, spacing)
     property var positions: []
     signal previewRequested(int row)
 
     function cellWidth() {
-        return Math.max(0, (width - spacing * (columnCount - 1)) / columnCount)
+        return Math.max(0, (width - spacing * (columnCount - 1)) / columnCount);
     }
 
     function arrange() {
-        const bottoms = Array(columnCount).fill(0)
-        const nextPositions = []
-        for (let index = 0; index < fields.count; ++index) {
-            const item = fields.itemAt(index)
-            const column = index % columnCount
-            nextPositions.push(bottoms[column])
-            if (item)
-                bottoms[column] += item.height + spacing
-        }
-        positions = nextPositions
-        implicitHeight = Math.max(0, Math.max.apply(Math, bottoms) - spacing)
+        const heights = [];
+        for (let index = 0; index < fields.count; ++index)
+            heights.push(fields.itemAt(index) ? fields.itemAt(index).height : 0);
+        const layout = UI.arrange(width, heights, minimumCellWidth, maximumColumns, spacing);
+        positions = layout.cells.map(cell => cell.y);
+        implicitHeight = layout.height;
     }
 
     onWidthChanged: Qt.callLater(arrange)

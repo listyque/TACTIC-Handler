@@ -382,6 +382,7 @@ class SObjectLinkController(QObject):
         self._loading_available = False
         self._loading_linked = False
         self._dirty = False
+        self._uncertain = False
         self._error = ""
         self._available_query = ""
         self._linked_query = ""
@@ -529,6 +530,7 @@ class SObjectLinkController(QObject):
         return any(folded in str(value or "").casefold() for value in values)
 
     def _reset(self) -> None:
+        self._uncertain = False
         self._request_id += 1
         self._worker = None
         self._context_data = {}
@@ -947,7 +949,7 @@ class SObjectLinkController(QObject):
         self._sync_models()
 
     def _can_stage_links(self) -> bool:
-        return not self._loading_linked and (
+        return not self._uncertain and not self._loading_linked and (
             not self._busy or self._loading_available
         )
 
@@ -973,7 +975,7 @@ class SObjectLinkController(QObject):
 
     @Slot()
     def save(self) -> None:
-        if self._busy or not self._dirty or not self._context_data:
+        if self._busy or self._uncertain or not self._dirty or not self._context_data:
             return
         current_keys = set(self._linked)
         insert_keys = sorted(current_keys - self._initial_keys)
@@ -1060,12 +1062,23 @@ class SObjectLinkController(QObject):
     def _save_failed(self, session: str, error) -> None:
         if session != self._session_token:
             return
-        self._set_error(self._failure_message(error))
+        from xmlrpc.client import Fault
+        payload = error[0] if isinstance(error,(tuple,list)) else error
+        exception = payload.get("exception") if isinstance(payload,dict) else payload
+        self._uncertain = not isinstance(exception,Fault)
+        message=self._failure_message(error)
+        if self._uncertain:
+            message += "\n" + self.tr("The save result is unknown. Close this form and refresh the records before trying again.")
+        self._set_error(message)
         self._notify(self._error)
+
+    @Property(bool, notify=stateChanged)
+    def uncertain(self):
+        return self._uncertain
 
     @Slot()
     def refresh(self) -> None:
-        if self._busy or not self._context_data:
+        if self._busy or self._dirty or self._uncertain or not self._context_data:
             return
         self._available.clear()
         self._linked.clear()

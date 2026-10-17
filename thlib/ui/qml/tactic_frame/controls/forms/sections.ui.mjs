@@ -3,7 +3,7 @@ import { metrics } from '../../core/foundation.mjs';
 import { translate } from '../../core/strings.mjs';
 import { fieldProperties } from './fields.mjs';
 
-function captionHeight(text, width) {
+export function captionHeight(text, width) {
     if (!text) return 0;
     // shortcut: Segoe UI EN/RU word estimates; use font advances for arbitrary fonts/scripts.
     const available = Math.max(1, width);

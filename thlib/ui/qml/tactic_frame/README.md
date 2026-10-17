@@ -15,6 +15,7 @@ Neither product imports the other checkout at runtime.
 | `features/projects` | Project catalogue, four-step creation, modal editor and templates | Core, controls and configuration settings/shell |
 | `features/search` | Query cards, presets, tag/quick headers and editors, process visibility, menus, paging and card geometry | Core and controls; query and mutation owners stay outside descriptions |
 | `features/table` | Table geometry/paint, column and view menus, typed cells, inline editor and widget catalogue | Core and controls; queries, XML revisions and writes stay with existing owners |
+| `features/objects` | Object reports, descriptions, configured field cards/forms, operations, snapshots, watch and inspector fragments | Core and neutral controls; existing drafts, revisions, ACL, write and filesystem owners remain outside descriptions |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
 | `features/support/diagnostics` | Debug sessions, event details, measurements and selection | Core and controls |
@@ -313,3 +314,5 @@ It requires the owning Qt application thread, owns no layout or UI objects, and
 loads no browser or external checkout. Vue calls the same portable functions
 directly. The whole-layout reference and real input drivers live in
 `tools/frame_docks` and `frontend/tests/frame_dock*.mjs`.
+
+B08 source/owner/capability and evidence boundaries are documented in `docs/frame_objects.md` in each independent product. The note body and child forms are included. Reproduction, acceptance evidence and platform limits live in that guide.

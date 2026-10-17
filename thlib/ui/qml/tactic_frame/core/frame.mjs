@@ -4,7 +4,7 @@ import { textStyles } from './foundation.mjs';
 
 /** @typedef {{x:number, y:number, width:number, height:number}} Bounds Logical pixels. */
 /** @typedef {{type:string, [key:string]:unknown}} Action UI event or adapter command. */
-/** @typedef {'Box'|'Label'|'Icon'|'Button'|'Action'|'CheckBox'|'Field'|'Area'|'Preview'|'List'|'Scroll'|'Choice'|'Grid'|'IconChoice'|'Splitter'|'Switch'|'Graph'|'View'|'ColorChoice'|'Code'|'DateChoice'|'UserChoice'|'SummaryChip'} ControlKind */
+/** @typedef {'Box'|'Label'|'Icon'|'Button'|'Action'|'CheckBox'|'Field'|'Area'|'Preview'|'List'|'Scroll'|'Choice'|'Grid'|'IconChoice'|'Splitter'|'Switch'|'Graph'|'View'|'ColorChoice'|'Code'|'DateChoice'|'UserChoice'|'SummaryChip'|'StatusChip'|'Segmented'} ControlKind */
 /** @typedef {Bounds & {kind:ControlKind, id:string, children:FrameNode[], fontRole:keyof typeof textStyles, fontSize:number, action:Action|null, [key:string]:unknown}} FrameNode */
 /** @typedef {{nodes:FrameNode[]}} Scene */
 
@@ -31,7 +31,9 @@ export const controlKinds = Object.freeze([
     'View',
     'ColorChoice',
     'Code',
-    'SummaryChip'
+    'SummaryChip',
+    'StatusChip',
+    'Segmented'
 ]);
 
 export function rect(x, y, width, height) {

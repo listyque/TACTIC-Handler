@@ -396,6 +396,7 @@ class SObjectDeleteController(QObject):
         self._context = "items"
         self._busy = False
         self._deleting = False
+        self._uncertain = False
         self._ready = False
         self._error = ""
         self._generation = 0
@@ -405,6 +406,13 @@ class SObjectDeleteController(QObject):
 
     def attach_script_triggers(self, triggers) -> None:
         self._script_triggers = triggers
+
+    @Property("QVariantMap", notify=stateChanged)
+    def presentation(self) -> dict:
+        return dict(targets=self.targets, targetCount=self.targetCount,
+                    remainingTargetCount=self.remainingTargetCount,
+                    groups=self.model.records(), busy=self.busy, deleting=self.deleting,
+                    ready=self.ready, error=self.error, uncertain=self._uncertain)
 
     @Property(bool, notify=stateChanged)
     def busy(self) -> bool:
@@ -481,6 +489,7 @@ class SObjectDeleteController(QObject):
         self._context = str(context or "items")
         self._busy = True
         self._deleting = False
+        self._uncertain = False
         self._ready = False
         self._error = ""
         self.model.clear()
@@ -633,7 +642,7 @@ class SObjectDeleteController(QObject):
 
     @Slot()
     def confirm_delete(self) -> None:
-        if self._busy or self._deleting or not self._ready:
+        if self._busy or self._deleting or self._uncertain or not self._ready:
             return
         if self._context == "items" and not self._can_delete_targets(self._sources):
             self._error = self.tr(
@@ -748,6 +757,7 @@ class SObjectDeleteController(QObject):
         self._worker = None
         self._busy = False
         self._deleting = False
+        self._uncertain = False
         self._ready = False
         self._error = ""
         self.stateChanged.emit()
@@ -785,7 +795,11 @@ class SObjectDeleteController(QObject):
         self._busy = False
         self._deleting = False
         self._ready = phase == "delete"
+        from xmlrpc.client import Fault
+        self._uncertain = phase == "delete" and not isinstance(exception, Fault)
         self._error = str(exception or error)
+        if self._uncertain:
+            self._error += "\n" + self.tr("This operation cannot be retried here. Close this dialog and refresh the data to check the result.")
         self.stateChanged.emit()
         if self._debug_log:
             self._debug_log.raise_error(
@@ -796,7 +810,7 @@ class SObjectDeleteController(QObject):
 
     @Slot()
     def retry(self) -> None:
-        if self._busy or self._deleting or not self._sources:
+        if self._busy or self._deleting or self._uncertain or not self._sources:
             return
         self.begin(
             list(self._sources), self._context,
@@ -814,6 +828,7 @@ class SObjectDeleteController(QObject):
                 pass
         self._busy = False
         self._deleting = False
+        self._uncertain = False
         self._ready = False
         self.stateChanged.emit()
         self._application.window_model.close_window("delete_sobject")
