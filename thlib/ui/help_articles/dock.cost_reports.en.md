@@ -35,3 +35,7 @@ permission or data message above the report before treating zero as a real finan
 - Hiding this dock does not change permissions or source data.
 - Project labels and currency come from server configuration.
 - Refresh is read-only and preserves the selected range after a temporary failure.
+
+## Access and presentation
+
+Cost Reports reuse the shared Work Reports composition. Wage/cost data remains protected by the existing server and controller permissions; a shared layout does not grant finance access. Browser report choices come from the authorized server response.

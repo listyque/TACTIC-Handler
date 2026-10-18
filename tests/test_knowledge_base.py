@@ -32,7 +32,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import (
     QFont, QGuiApplication, QImage, QTextCursor, QTextDocument, QTextFormat,
 )
-from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQml import QQmlProperty, QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtTest import QSignalSpy, QTest
 
@@ -552,6 +552,45 @@ class _RichTextInteractionProbe(RichTextDocumentController):
         return super().fit_images_to_width(maximum_width)
 
 
+def wait_for_image(item):
+    deadline = time.monotonic() + 5
+    while not item.property("imageReady") and time.monotonic() < deadline:
+        QTest.qWait(10)
+    return bool(item.property("imageReady"))
+
+
+def wait_for_images(root):
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        pending = [root]
+        images = []
+        while pending:
+            item = pending.pop()
+            if item.objectName().startswith(
+                ("knowledgeEditorImage-", "knowledgeArticleImage-")
+            ):
+                images.append(item)
+            pending.extend(item.childItems())
+        if images and all(image.property("imageReady") for image in images):
+            return True
+        QTest.qWait(10)
+    return False
+
+
+def control_icon(item):
+    return item.property("iconName") or QQmlProperty.read(item, "icon.name")
+
+
+def frame_item(root, name):
+    pending = [root]
+    while pending:
+        item = pending.pop()
+        if item.objectName() == name:
+            return item
+        pending.extend(item.childItems())
+    return None
+
+
 class KnowledgeBaseTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -575,6 +614,25 @@ class KnowledgeBaseTests(unittest.TestCase):
         cls.material_glyphs = glyphs(
             "materialdesignicons-webfont-charmap.json"
         )
+
+    def missing_image_url(self, name):
+        class MissingImage(SimpleHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(404)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), MissingImage)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        self.addCleanup(server.shutdown)
+        return f"http://127.0.0.1:{server.server_port}/{name}"
+
 
     def configure_icon_context(self, context):
         context.setContextProperty(
@@ -664,22 +722,30 @@ class KnowledgeBaseTests(unittest.TestCase):
         controller = _KnowledgeStub()
         controller._editing = True
         controller._document["contentMarkdown"] = (
-            "# Publish\n\n**Ready** for review\n\n"
-            "```python\nprint('ready')\n```"
+            "# Publish\n\n**Ready** for review\n\n```python\nprint('ready')\n```"
         )
         rich_text = RichTextDocumentController(engine)
         attachments = _AttachmentStub()
         context = engine.rootContext()
         self.configure_icon_context(context)
+        context.setContextProperty("knowledgeAttachments", attachments)
         context.setContextProperty(
-            "knowledgeAttachments", attachments
-        )
-        context.setContextProperty(
-            "knowledgeAttachmentDraftModel", RecordListModel((
-                "token", "title", "path", "size", "fileType",
-                "previewUrl", "status", "progress", "error",
-                "snapshotKey", "uploadTarget",
-            ))
+            "knowledgeAttachmentDraftModel",
+            RecordListModel(
+                (
+                    "token",
+                    "title",
+                    "path",
+                    "size",
+                    "fileType",
+                    "previewUrl",
+                    "status",
+                    "progress",
+                    "error",
+                    "snapshotKey",
+                    "uploadTarget",
+                )
+            ),
         )
         context.setContextProperty("knowledgeRichText", rich_text)
         context.setContextProperty("skeyPreviewResolver", _PreviewStub())
@@ -689,19 +755,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeArticleEditor.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeArticleEditor.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": controller,
-            "width": 900,
-            "height": 700,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": controller,
+                "width": 900,
+                "height": 700,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(900, 700)
         view.setParentItem(window.contentItem())
@@ -719,15 +785,11 @@ class KnowledgeBaseTests(unittest.TestCase):
             return None
 
         source_editor = view.findChild(QObject, "knowledgeMarkdownEditor")
-        toolbar = view.findChild(QObject, "knowledgeRichTextToolbar")
+        toolbar = frame_item(view, "knowledgeRichTextToolbar")
         self.assertIsNotNone(source_editor)
         self.assertIsNotNone(toolbar)
-        markdown_mode = visual_child(
-            toolbar, "knowledgeContentMode-markdown"
-        )
-        visual_mode = visual_child(
-            toolbar, "knowledgeContentMode-visual"
-        )
+        markdown_mode = visual_child(toolbar, "knowledgeContentMode_markdown")
+        visual_mode = visual_child(toolbar, "knowledgeContentMode_visual")
         self.assertIsNotNone(markdown_mode)
         self.assertIsNotNone(visual_mode)
         self.assertTrue(markdown_mode.property("visible"))
@@ -740,40 +802,37 @@ class KnowledgeBaseTests(unittest.TestCase):
         decoration_repeater = view.findChild(
             QObject, "knowledgeBlockDecorationRepeater"
         )
-        code_language = visual_child(
-            view, "knowledgeEditorCodeLanguage-0"
-        )
+        code_language = visual_child(view, "knowledgeEditorCodeLanguage-0")
         self.assertIsNotNone(decoration_repeater)
         self.assertEqual(decoration_repeater.property("count"), 1)
         self.assertIsNotNone(code_language)
         self.assertEqual(code_language.property("text"), "Python")
         code_block = next(
-            block for block in (
+            block
+            for block in (
                 rich_text._live_document().findBlockByNumber(index)
-                for index in range(
-                    rich_text._live_document().blockCount()
-                )
+                for index in range(rich_text._live_document().blockCount())
             )
-            if block.blockFormat().hasProperty(
-                QTextFormat.BlockCodeFence
-            )
+            if block.blockFormat().hasProperty(QTextFormat.BlockCodeFence)
         )
         syntax_colors = {
             value.format.foreground().color().name()
             for value in code_block.layout().formats()
             if value.format.foreground().style() != Qt.NoBrush
         }
-        self.assertIn(
-            theme.property("syntaxFunction").name(), syntax_colors
-        )
+        self.assertIn(theme.property("syntaxFunction").name(), syntax_colors)
         self.assertEqual(
             {
                 action.get("command")
                 for action in style_menu.property("actions").toVariant()
                 if action.get("command")
             },
-            {f"heading:{level}" for level in range(7)} | {
-                "quote", "pullquote", "code-block", "small-text",
+            {f"heading:{level}" for level in range(7)}
+            | {
+                "quote",
+                "pullquote",
+                "code-block",
+                "small-text",
             },
         )
         self.assertEqual(
@@ -783,20 +842,12 @@ class KnowledgeBaseTests(unittest.TestCase):
             },
             {"bullet", "number", "checklist"},
         )
-        table_action = visual_child(
-            toolbar, "knowledgeToolbarAction-table"
-        )
+        table_action = visual_child(toolbar, "knowledgeToolbarAction-table")
         self.assertIsNotNone(table_action)
-        self.assertEqual(table_action.property("iconName"), "table-view")
-        divider_action = visual_child(
-            toolbar, "knowledgeToolbarAction-divider"
-        )
-        quote_action = visual_child(
-            toolbar, "knowledgeToolbarAction-quote"
-        )
-        small_text_action = visual_child(
-            toolbar, "knowledgeToolbarAction-small-text"
-        )
+        self.assertEqual(control_icon(table_action), "fontawesome-solid:table")
+        divider_action = visual_child(toolbar, "knowledgeToolbarAction-divider")
+        quote_action = visual_child(toolbar, "knowledgeToolbarAction-quote")
+        small_text_action = visual_child(toolbar, "knowledgeToolbarAction-small-text")
         self.assertIsNotNone(divider_action)
         self.assertTrue(divider_action.property("visible"))
         self.assertTrue(quote_action.property("visible"))
@@ -813,14 +864,10 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertIsNotNone(mode_switch)
         self.assertTrue(all(action is not None for action in alignment_actions))
         self.assertTrue(all(separator is not None for separator in separators))
-        self.assertTrue(all(
-            separator.property("visible") for separator in separators
-        ))
+        self.assertTrue(all(separator.property("visible") for separator in separators))
         view.setWidth(1024)
         QTest.qWait(20)
-        self.assertTrue(all(
-            action.property("visible") for action in alignment_actions
-        ))
+        self.assertTrue(all(action.property("visible") for action in alignment_actions))
         wide_mode_position = mode_switch.mapToItem(toolbar, QPointF(0, 0))
         self.assertLessEqual(
             wide_mode_position.x() + mode_switch.width(),
@@ -831,10 +878,10 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertTrue(divider_action.property("visible"))
         self.assertFalse(quote_action.property("visible"))
         self.assertFalse(small_text_action.property("visible"))
-        self.assertFalse(any(
-            action.property("visible") for action in alignment_actions
-        ))
-        self.assertTrue(mode_switch.property("iconOnly"))
+        self.assertFalse(
+            any(action.property("visible") for action in alignment_actions)
+        )
+        self.assertFalse(mode_switch.property("iconOnly"))
         mode_position = mode_switch.mapToItem(toolbar, QPointF(0, 0))
         self.assertLessEqual(
             mode_position.x() + mode_switch.width(),
@@ -844,20 +891,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         QTest.qWait(20)
         self.assertTrue(quote_action.property("visible"))
         self.assertTrue(small_text_action.property("visible"))
-        markdown_point = markdown_mode.mapToScene(QPointF(
-            markdown_mode.width() / 2,
-            markdown_mode.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=markdown_point.toPoint()
+        markdown_point = markdown_mode.mapToScene(
+            QPointF(
+                markdown_mode.width() / 2,
+                markdown_mode.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=markdown_point.toPoint())
         self.application.processEvents()
         self.assertEqual(view.property("contentMode"), "markdown")
         self.assertTrue(source_editor.property("visible"))
         self.assertEqual(
             source_editor.property("text"),
-            "# Publish\n\n**Ready** for review\n\n"
-            "```python\nprint('ready')\n```",
+            "# Publish\n\n**Ready** for review\n\n```python\nprint('ready')\n```",
             rich_text.html(),
         )
 
@@ -868,13 +914,13 @@ class KnowledgeBaseTests(unittest.TestCase):
             controller._document["contentMarkdown"],
             "# Changed\n\n**Body** plain",
         )
-        visual_point = visual_mode.mapToScene(QPointF(
-            visual_mode.width() / 2,
-            visual_mode.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=visual_point.toPoint()
+        visual_point = visual_mode.mapToScene(
+            QPointF(
+                visual_mode.width() / 2,
+                visual_mode.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=visual_point.toPoint())
         self.application.processEvents()
         self.assertEqual(view.property("contentMode"), "visual")
         self.assertEqual(
@@ -883,10 +929,8 @@ class KnowledgeBaseTests(unittest.TestCase):
         )
         self.assertIn("font-weight: 700", rich_text.html())
 
-        editor = view.findChild(QObject, "knowledgeRichTextEditor")
-        bold_action = visual_child(
-            toolbar, "knowledgeToolbarAction-bold"
-        )
+        editor = frame_item(view, "knowledgeRichTextEditor")
+        bold_action = visual_child(toolbar, "knowledgeToolbarAction-bold")
         self.assertIsNotNone(editor)
         self.assertIsNotNone(bold_action)
         bold_action.setProperty("duplicateWindow", 0)
@@ -895,70 +939,71 @@ class KnowledgeBaseTests(unittest.TestCase):
         editor.forceActiveFocus()
         editor.setProperty("cursorPosition", insertion_position)
         QTest.qWait(120)
-        self.assertFalse(bold_action.property("formatChecked"))
-        bold_point = bold_action.mapToScene(QPointF(
-            bold_action.width() / 2,
-            bold_action.height() / 2,
-        ))
+        self.assertFalse(bold_action.property("tonal"))
+        bold_point = bold_action.mapToScene(
+            QPointF(
+                bold_action.width() / 2,
+                bold_action.height() / 2,
+            )
+        )
         QTest.mouseClick(window, Qt.LeftButton, pos=bold_point.toPoint())
         self.application.processEvents()
-        self.assertTrue(bold_action.property("formatChecked"))
+        self.assertTrue(bold_action.property("tonal"))
         QTest.keyClick(window, Qt.Key_X)
         self.application.processEvents()
-        self.assertTrue(bold_action.property("formatChecked"))
+        self.assertTrue(bold_action.property("tonal"))
         QTest.mouseClick(window, Qt.LeftButton, pos=bold_point.toPoint())
         self.application.processEvents()
-        self.assertFalse(bold_action.property("formatChecked"))
+        self.assertFalse(bold_action.property("tonal"))
         QTest.keyClick(window, Qt.Key_Y)
         self.application.processEvents()
         bold_character = QTextCursor(document)
         bold_character.setPosition(insertion_position)
-        bold_character.setPosition(
-            insertion_position + 1, QTextCursor.KeepAnchor
-        )
+        bold_character.setPosition(insertion_position + 1, QTextCursor.KeepAnchor)
         plain_character = QTextCursor(document)
         plain_character.setPosition(insertion_position + 1)
-        plain_character.setPosition(
-            insertion_position + 2, QTextCursor.KeepAnchor
-        )
+        plain_character.setPosition(insertion_position + 2, QTextCursor.KeepAnchor)
         self.assertGreaterEqual(
             bold_character.charFormat().fontWeight(), QFont.DemiBold
         )
         self.assertLess(
-            plain_character.charFormat().fontWeight(), QFont.DemiBold,
+            plain_character.charFormat().fontWeight(),
+            QFont.DemiBold,
             document.toHtml(),
         )
-        self.assertFalse(bold_action.property("formatChecked"))
+        self.assertFalse(bold_action.property("tonal"))
         body_position = document.toPlainText().index("Body") + 1
         body_rect = editor.positionToRectangle(body_position)
-        body_point = editor.mapToScene(QPointF(
-            body_rect.x() + 1,
-            body_rect.y() + body_rect.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=body_point.toPoint()
+        body_point = editor.mapToScene(
+            QPointF(
+                body_rect.x() + 1,
+                body_rect.y() + body_rect.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=body_point.toPoint())
         QTest.qWait(120)
-        self.assertTrue(bold_action.property("formatChecked"))
+        self.assertTrue(bold_action.property("tonal"))
         plain_rect = editor.positionToRectangle(insertion_position + 2)
-        plain_point = editor.mapToScene(QPointF(
-            plain_rect.x() + plain_rect.width() + 1,
-            plain_rect.y() + plain_rect.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=plain_point.toPoint()
+        plain_point = editor.mapToScene(
+            QPointF(
+                plain_rect.x() + plain_rect.width() + 1,
+                plain_rect.y() + plain_rect.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=plain_point.toPoint())
         QTest.qWait(120)
-        self.assertFalse(bold_action.property("formatChecked"))
+        self.assertFalse(bold_action.property("tonal"))
 
         style_menu.triggered.emit("heading:4")
         self.application.processEvents()
         self.assertEqual(rich_text.formatState["heading"], 4)
-        self.assertTrue(next(
-            action["checked"]
-            for action in style_menu.property("actions").toVariant()
-            if action.get("command") == "heading:4"
-        ))
+        self.assertTrue(
+            next(
+                action["checked"]
+                for action in style_menu.property("actions").toVariant()
+                if action.get("command") == "heading:4"
+            )
+        )
         style_menu.triggered.emit("heading:4")
         self.application.processEvents()
         self.assertEqual(rich_text.formatState["heading"], 0)
@@ -972,16 +1017,14 @@ class KnowledgeBaseTests(unittest.TestCase):
         block_text = view.findChild(QObject, "knowledgeBlockText")
         block_apply = visual_child(view, "knowledgeBlockApply")
         self.assertTrue(block_panel.property("visible"))
-        block_text.setProperty(
-            "text", "import hashlib\nimport time\n\nvalue = 4"
+        block_text.setProperty("text", "import hashlib\nimport time\n\nvalue = 4")
+        apply_point = block_apply.mapToScene(
+            QPointF(
+                block_apply.width() / 2,
+                block_apply.height() / 2,
+            )
         )
-        apply_point = block_apply.mapToScene(QPointF(
-            block_apply.width() / 2,
-            block_apply.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=apply_point.toPoint()
-        )
+        QTest.mouseClick(window, Qt.LeftButton, pos=apply_point.toPoint())
         self.application.processEvents()
         self.assertFalse(block_panel.property("visible"))
         self.assertIn(
@@ -999,14 +1042,10 @@ class KnowledgeBaseTests(unittest.TestCase):
         block_text.setProperty("text", "Important callout")
         block_apply.clicked.emit()
         self.application.processEvents()
-        self.assertIn(
-            "> Important callout {align=center}", rich_text.markdown()
-        )
+        self.assertIn("> Important callout {align=center}", rich_text.markdown())
         decorations = sorted(
             (
-                visual_child(
-                    view, f"knowledgeEditorBlockDecoration-{index}"
-                )
+                visual_child(view, f"knowledgeEditorBlockDecoration-{index}")
                 for index in range(decoration_repeater.property("count"))
             ),
             key=lambda item: item.y(),
@@ -1017,13 +1056,13 @@ class KnowledgeBaseTests(unittest.TestCase):
                 current.y(),
             )
 
-        table_point = table_action.mapToScene(QPointF(
-            table_action.width() / 2,
-            table_action.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=table_point.toPoint()
+        table_point = table_action.mapToScene(
+            QPointF(
+                table_action.width() / 2,
+                table_action.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=table_point.toPoint())
         self.application.processEvents()
         self.assertIn("| --- | --- | --- |", rich_text.markdown())
 
@@ -1031,27 +1070,25 @@ class KnowledgeBaseTests(unittest.TestCase):
         editor.setProperty("cursorPosition", 0)
         editor.forceActiveFocus()
         self.application.processEvents()
-        divider_point = divider_action.mapToScene(QPointF(
-            divider_action.width() / 2,
-            divider_action.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=divider_point.toPoint()
+        divider_point = divider_action.mapToScene(
+            QPointF(
+                divider_action.width() / 2,
+                divider_action.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=divider_point.toPoint())
         self.application.processEvents()
         self.assertEqual(rich_text.markdown(), "---")
         self.assertEqual(document.blockCount(), 3)
         self.assertEqual(document.lastBlock().text(), "")
-        caret_rect = editor.positionToRectangle(
-            document.lastBlock().position()
+        caret_rect = editor.positionToRectangle(document.lastBlock().position())
+        caret_point = editor.mapToScene(
+            QPointF(
+                caret_rect.x() + 2,
+                caret_rect.y() + caret_rect.height() / 2,
+            )
         )
-        caret_point = editor.mapToScene(QPointF(
-            caret_rect.x() + 2,
-            caret_rect.y() + caret_rect.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=caret_point.toPoint()
-        )
+        QTest.mouseClick(window, Qt.LeftButton, pos=caret_point.toPoint())
         QTest.keyClick(window, Qt.Key_A)
         self.application.processEvents()
         self.assertEqual(rich_text.markdown(), "---\n\na")
@@ -1546,9 +1583,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         engine = QQmlEngine()
         controller = _KnowledgeStub()
         controller._editing = True
-        storage_source = (
-            f"http://127.0.0.1:{server.server_port}/missing.png"
-        )
+        storage_source = f"http://127.0.0.1:{server.server_port}/missing.png"
         controller._document["contentMarkdown"] = markdown_from_rich_html(
             '<p><a href="https://example.test/old">Old label</a></p>'
             f'<p><img src="{storage_source}" width="320" '
@@ -1558,21 +1593,30 @@ class KnowledgeBaseTests(unittest.TestCase):
         preview_image = QImage(320, 180, QImage.Format_ARGB32)
         preview_image.fill(Qt.red)
         self.assertTrue(preview_image.save(str(preview_path)))
-        controller.image_source_candidates[
-            storage_source
-        ] = [QUrl.fromLocalFile(str(preview_path)).toString()]
+        controller.image_source_candidates[storage_source] = [
+            QUrl.fromLocalFile(str(preview_path)).toString()
+        ]
         attachments = _AttachmentStub()
-        attachment_model = RecordListModel((
-            "token", "title", "path", "size", "fileType", "previewUrl",
-            "status", "progress", "error", "snapshotKey", "uploadTarget",
-        ))
+        attachment_model = RecordListModel(
+            (
+                "token",
+                "title",
+                "path",
+                "size",
+                "fileType",
+                "previewUrl",
+                "status",
+                "progress",
+                "error",
+                "snapshotKey",
+                "uploadTarget",
+            )
+        )
         rich_text = _RichTextInteractionProbe(engine)
         context = engine.rootContext()
         self.configure_icon_context(context)
         context.setContextProperty("knowledgeAttachments", attachments)
-        context.setContextProperty(
-            "knowledgeAttachmentDraftModel", attachment_model
-        )
+        context.setContextProperty("knowledgeAttachmentDraftModel", attachment_model)
         context.setContextProperty("knowledgeRichText", rich_text)
         context.setContextProperty("skeyPreviewResolver", _PreviewStub())
         theme_component = QQmlComponent(
@@ -1581,19 +1625,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeArticleEditor.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeArticleEditor.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": controller,
-            "width": 900,
-            "height": 700,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": controller,
+                "width": 900,
+                "height": 700,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(900, 700)
         view.setParentItem(window.contentItem())
@@ -1608,21 +1652,20 @@ class KnowledgeBaseTests(unittest.TestCase):
             if child.objectName().startswith("knowledgeEditorImage-"):
                 editor_images.append(child)
             pending_items.extend(child.childItems())
-        image_repeater = view.findChild(
-            QObject, "knowledgeEditorImageRepeater"
-        )
+        image_repeater = view.findChild(QObject, "knowledgeEditorImageRepeater")
         self.assertEqual(
-            len(editor_images), 1,
-            "overlays=" + repr(rich_text.imageOverlays)
-            + " repeater=" + repr(
-                image_repeater.property("count")
-                if image_repeater is not None else None
+            len(editor_images),
+            1,
+            "overlays="
+            + repr(rich_text.imageOverlays)
+            + " repeater="
+            + repr(
+                image_repeater.property("count") if image_repeater is not None else None
             ),
         )
         deadline = time.monotonic() + 1.0
         while (
-            not editor_images[0].property("imageReady")
-            and time.monotonic() < deadline
+            not editor_images[0].property("imageReady") and time.monotonic() < deadline
         ):
             QTest.qWait(10)
         self.assertTrue(editor_images[0].property("imageReady"))
@@ -1631,14 +1674,10 @@ class KnowledgeBaseTests(unittest.TestCase):
             QUrl.fromLocalFile(str(preview_path)).toString(),
         )
 
-        editor = view.findChild(QObject, "knowledgeRichTextEditor")
+        editor = frame_item(view, "knowledgeRichTextEditor")
         frame = view.findChild(QObject, "knowledgeSelectedImageFrame")
-        resize_handle = view.findChild(
-            QObject, "knowledgeImageResizeHandle"
-        )
-        content_width = view.findChild(
-            QObject, "knowledgeImageContentWidth"
-        )
+        resize_handle = view.findChild(QObject, "knowledgeImageResizeHandle")
+        content_width = view.findChild(QObject, "knowledgeImageContentWidth")
         fixed_width = view.findChild(QObject, "knowledgeImageFixedWidth")
         edit_link = view.findChild(QObject, "knowledgeEditHoveredLink")
         link_target = view.findChild(QObject, "knowledgeLinkTarget")
@@ -1660,25 +1699,25 @@ class KnowledgeBaseTests(unittest.TestCase):
         line_end_x = text_line.cursorToX(len(text_block.text()))
         if isinstance(line_end_x, tuple):
             line_end_x = line_end_x[0]
-        line_end = editor.mapToScene(QPointF(
-            text_block.layout().position().x() + line_end_x + 3,
-            document.documentLayout().blockBoundingRect(
-                text_block
-            ).center().y(),
-        ))
-        image_center = editor_images[0].mapToScene(QPointF(
-            editor_images[0].width() / 2,
-            editor_images[0].height() / 2,
-        ))
+        line_end = editor.mapToScene(
+            QPointF(
+                text_block.layout().position().x() + line_end_x + 3,
+                document.documentLayout().blockBoundingRect(text_block).center().y(),
+            )
+        )
+        image_center = editor_images[0].mapToScene(
+            QPointF(
+                editor_images[0].width() / 2,
+                editor_images[0].height() / 2,
+            )
+        )
         QTest.mouseMove(window, image_center.toPoint())
         self.application.processEvents()
         self.assertEqual(window.cursor().shape(), Qt.OpenHandCursor)
         QTest.mouseMove(window, line_end.toPoint())
         self.application.processEvents()
         self.assertEqual(window.cursor().shape(), Qt.IBeamCursor)
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=line_end.toPoint()
-        )
+        QTest.mouseClick(window, Qt.LeftButton, pos=line_end.toPoint())
         self.application.processEvents()
         self.assertFalse(rich_text.imageSelected)
         self.assertEqual(
@@ -1698,20 +1737,18 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(len(rich_text.image_fit_calls), fit_calls + 1)
         rich_text.fit_images_to_width(view.property("imageMaximumWidth"))
-        image_position = next(rich_text._image_cursors(
-            rich_text._live_document()
-        ))[2]
-        self.assertTrue(rich_text.select_image_at(
-            image_position, 560.0
-        ))
+        image_position = next(rich_text._image_cursors(rich_text._live_document()))[2]
+        self.assertTrue(rich_text.select_image_at(image_position, 560.0))
         self.application.processEvents()
         image_rect = rich_text.selectedImageRect
         self.assertAlmostEqual(
-            frame.x(), editor.property("leftPadding") + image_rect.x(),
+            frame.x(),
+            editor.property("leftPadding") + image_rect.x(),
             delta=0.5,
         )
         self.assertAlmostEqual(
-            frame.y(), editor.property("topPadding") + image_rect.y(),
+            frame.y(),
+            editor.property("topPadding") + image_rect.y(),
             delta=0.5,
         )
         self.assertAlmostEqual(frame.width(), image_rect.width(), delta=0.5)
@@ -1719,13 +1756,13 @@ class KnowledgeBaseTests(unittest.TestCase):
 
         self.assertFalse(content_width.property("checked"))
         self.assertTrue(fixed_width.property("visible"))
-        toggle_point = content_width.mapToScene(QPointF(
-            content_width.width() / 2,
-            content_width.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=toggle_point.toPoint()
+        toggle_point = content_width.mapToScene(
+            QPointF(
+                content_width.width() / 2,
+                content_width.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=toggle_point.toPoint())
         self.application.processEvents()
         self.assertTrue(rich_text.selectedImageContentWidth)
         self.assertEqual(
@@ -1734,13 +1771,13 @@ class KnowledgeBaseTests(unittest.TestCase):
         )
         self.assertFalse(fixed_width.property("visible"))
         self.assertFalse(resize_handle.property("visible"))
-        toggle_point = content_width.mapToScene(QPointF(
-            content_width.width() / 2,
-            content_width.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=toggle_point.toPoint()
+        toggle_point = content_width.mapToScene(
+            QPointF(
+                content_width.width() / 2,
+                content_width.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=toggle_point.toPoint())
         self.application.processEvents()
         self.assertFalse(rich_text.selectedImageContentWidth)
         self.assertEqual(rich_text.selectedImageWidth, 320.0)
@@ -1762,9 +1799,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         rich_text.clear_image_selection()
         for local_y in range(12, 90, 6):
             for local_x in range(14, 130, 6):
-                link_point = editor.mapToScene(QPointF(
-                    local_x, local_y
-                )).toPoint()
+                link_point = editor.mapToScene(QPointF(local_x, local_y)).toPoint()
                 QTest.mouseMove(window, link_point)
                 self.application.processEvents()
                 if edit_link.property("visible"):
@@ -1772,23 +1807,25 @@ class KnowledgeBaseTests(unittest.TestCase):
             if edit_link.property("visible"):
                 break
         self.assertTrue(edit_link.property("visible"))
-        edit_point = edit_link.mapToScene(QPointF(
-            edit_link.width() / 2,
-            edit_link.height() / 2,
-        )).toPoint()
+        edit_point = edit_link.mapToScene(
+            QPointF(
+                edit_link.width() / 2,
+                edit_link.height() / 2,
+            )
+        ).toPoint()
         QTest.mouseClick(window, Qt.LeftButton, pos=edit_point)
         self.application.processEvents()
-        self.assertEqual(
-            link_target.property("text"), "https://example.test/old"
-        )
+        self.assertEqual(link_target.property("text"), "https://example.test/old")
         self.assertEqual(link_label.property("text"), "Old label")
         self.assertEqual(link_apply.property("text"), "Save link")
         link_target.setProperty("text", "skey://demo/assets?code=HERO")
         link_label.setProperty("text", "Hero asset")
-        apply_point = link_apply.mapToScene(QPointF(
-            link_apply.width() / 2,
-            link_apply.height() / 2,
-        )).toPoint()
+        apply_point = link_apply.mapToScene(
+            QPointF(
+                link_apply.width() / 2,
+                link_apply.height() / 2,
+            )
+        ).toPoint()
         QTest.mouseClick(window, Qt.LeftButton, pos=apply_point)
         self.application.processEvents()
         updated_html = rich_text.html()
@@ -1798,18 +1835,18 @@ class KnowledgeBaseTests(unittest.TestCase):
         document = rich_text._live_document()
         body_position = document.toPlainText().index("Body text")
         body_rect = editor.positionToRectangle(body_position)
-        selection_start = editor.mapToScene(QPointF(
-            body_rect.x() + 2,
-            body_rect.y() + body_rect.height() / 2,
-        )).toPoint()
+        selection_start = editor.mapToScene(
+            QPointF(
+                body_rect.x() + 2,
+                body_rect.y() + body_rect.height() / 2,
+            )
+        ).toPoint()
         selection_end = selection_start + QPoint(70, 0)
         sync_calls = rich_text.selection_sync_calls
         link_calls = rich_text.link_lookup_calls
         QTest.mousePress(window, Qt.LeftButton, pos=selection_start)
         for offset in range(10, 71, 10):
-            QTest.mouseMove(
-                window, selection_start + QPoint(offset, 0), delay=2
-            )
+            QTest.mouseMove(window, selection_start + QPoint(offset, 0), delay=2)
         QTest.mouseRelease(window, Qt.LeftButton, pos=selection_end)
         self.application.processEvents()
         self.assertIn("text", editor.property("selectedText"))
@@ -1850,42 +1887,54 @@ class KnowledgeBaseTests(unittest.TestCase):
 
         controller = _KnowledgeStub()
         controller._editing = True
-        remote_source = (
-            f"http://127.0.0.1:{server.server_port}/editor-resize.png"
-        )
+        remote_source = f"http://127.0.0.1:{server.server_port}/editor-resize.png"
         controller._document["contentMarkdown"] = markdown_from_rich_html(
             (
-                '<p>Before image</p>'
+                "<p>Before image</p>"
                 '<p align="center"><img src="%s" width="560" '
                 'height="543"></p>'
-                '<p>After image</p>'
-            ) % remote_source
+                "<p>After image</p>"
+            )
+            % remote_source
         )
-        controller._uploaded_attachments.replace([{
-            "token": "editor-resize",
-            "snapshotKey": "skey://sthpw/snapshot?code=SNAP_RESIZE",
-            "title": "editor-resize.png",
-            "extension": "PNG",
-            "sizeText": "2 KB",
-            "previewUrl": QUrl.fromLocalFile(str(preview_path)).toString(),
-            "webUrl": remote_source,
-            "isImage": True,
-        }])
+        controller._uploaded_attachments.replace(
+            [
+                {
+                    "token": "editor-resize",
+                    "snapshotKey": "skey://sthpw/snapshot?code=SNAP_RESIZE",
+                    "title": "editor-resize.png",
+                    "extension": "PNG",
+                    "sizeText": "2 KB",
+                    "previewUrl": QUrl.fromLocalFile(str(preview_path)).toString(),
+                    "webUrl": remote_source,
+                    "isImage": True,
+                }
+            ]
+        )
         preview_source = QUrl.fromLocalFile(str(preview_path)).toString()
         controller.image_source_candidates[remote_source] = [preview_source]
         attachments = _AttachmentStub()
-        attachment_model = RecordListModel((
-            "token", "title", "path", "size", "fileType", "previewUrl",
-            "status", "progress", "error", "snapshotKey", "uploadTarget",
-        ))
+        attachment_model = RecordListModel(
+            (
+                "token",
+                "title",
+                "path",
+                "size",
+                "fileType",
+                "previewUrl",
+                "status",
+                "progress",
+                "error",
+                "snapshotKey",
+                "uploadTarget",
+            )
+        )
         rich_text = RichTextDocumentController()
         engine = QQmlEngine()
         context = engine.rootContext()
         self.configure_icon_context(context)
         context.setContextProperty("knowledgeAttachments", attachments)
-        context.setContextProperty(
-            "knowledgeAttachmentDraftModel", attachment_model
-        )
+        context.setContextProperty("knowledgeAttachmentDraftModel", attachment_model)
         context.setContextProperty("knowledgeRichText", rich_text)
         context.setContextProperty("skeyPreviewResolver", _PreviewStub())
         theme_component = QQmlComponent(
@@ -1894,19 +1943,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeArticleEditor.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeArticleEditor.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": controller,
-            "width": 900,
-            "height": 700,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": controller,
+                "width": 900,
+                "height": 700,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(900, 700)
         view.setParentItem(window.contentItem())
@@ -1917,9 +1966,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         live_document = rich_text._live_document()
         live_image = next(rich_text._image_cursors(live_document))[1]
         self.assertTrue(str(live_image.name()).startswith("data:image/png"))
-        self.assertEqual(
-            rich_text.imageOverlays[0]["source"], preview_source
-        )
+        self.assertEqual(rich_text.imageOverlays[0]["source"], preview_source)
         self.assertIn(remote_source, rich_text.markdown())
 
         library = view.findChild(QQuickItem, "knowledgeAttachmentLibrary")
@@ -1955,7 +2002,10 @@ class KnowledgeBaseTests(unittest.TestCase):
             xs = [point[0] for point in points]
             ys = [point[1] for point in points]
             return (
-                min(xs), min(ys), max(xs) + 1, max(ys) + 1,
+                min(xs),
+                min(ys),
+                max(xs) + 1,
+                max(ys) + 1,
                 capture.devicePixelRatio(),
             )
 
@@ -1963,24 +2013,25 @@ class KnowledgeBaseTests(unittest.TestCase):
         document = rich_text._live_document()
         image_position = next(rich_text._image_cursors(document))[2]
         self.assertGreater(image_position, 0)
-        self.assertTrue(rich_text.select_image_at(
-            image_position, view.property("imageMaximumWidth")
-        ))
+        self.assertTrue(
+            rich_text.select_image_at(
+                image_position, view.property("imageMaximumWidth")
+            )
+        )
         self.assertEqual(rich_text.selectedImagePosition, image_position)
-        resize_handle = view.findChild(
-            QObject, "knowledgeImageResizeHandle"
-        )
+        resize_handle = view.findChild(QObject, "knowledgeImageResizeHandle")
         self.assertIsNotNone(resize_handle)
-        handle_point = resize_handle.mapToScene(QPointF(
-            resize_handle.width() / 2,
-            resize_handle.height() / 2,
-        )).toPoint()
+        handle_point = resize_handle.mapToScene(
+            QPointF(
+                resize_handle.width() / 2,
+                resize_handle.height() / 2,
+            )
+        ).toPoint()
         QTest.mousePress(window, Qt.LeftButton, pos=handle_point)
-        QTest.mouseMove(
-            window, handle_point + QPoint(-287, 80), delay=0
-        )
+        QTest.mouseMove(window, handle_point + QPoint(-287, 80), delay=0)
         QTest.mouseRelease(
-            window, Qt.LeftButton,
+            window,
+            Qt.LeftButton,
             pos=handle_point + QPoint(-287, 80),
         )
         self.application.processEvents()
@@ -2003,14 +2054,10 @@ class KnowledgeBaseTests(unittest.TestCase):
             round((after[0] + after[2]) / 2),
             round((after[1] + after[3]) / 2),
         )
-        self.assertGreater(
-            selected_color.red(), 245, selected_color.getRgb()
-        )
+        self.assertGreater(selected_color.red(), 245, selected_color.getRgb())
         self.assertLess(selected_color.green(), 10)
         self.assertGreater(selected_color.blue(), 245)
-        image_frame = view.findChild(
-            QObject, "knowledgeSelectedImageFrame"
-        )
+        image_frame = view.findChild(QObject, "knowledgeSelectedImageFrame")
         self.assertIsNotNone(image_frame)
         frame_origin = image_frame.mapToScene(QPointF(0, 0))
         frame_width = image_frame.width()
@@ -2027,25 +2074,15 @@ class KnowledgeBaseTests(unittest.TestCase):
             rich_text.selectedImageHeight,
             delta=2,
         )
-        self.assertAlmostEqual(
-            frame_width, rich_text.selectedImageWidth, delta=1
-        )
-        self.assertAlmostEqual(
-            frame_height, rich_text.selectedImageHeight, delta=1
-        )
-        self.assertAlmostEqual(
-            after[0] / device_ratio, frame_origin.x(), delta=2
-        )
-        self.assertAlmostEqual(
-            after[1] / device_ratio, frame_origin.y(), delta=2
-        )
+        self.assertAlmostEqual(frame_width, rich_text.selectedImageWidth, delta=1)
+        self.assertAlmostEqual(frame_height, rich_text.selectedImageHeight, delta=1)
+        self.assertAlmostEqual(after[0] / device_ratio, frame_origin.x(), delta=2)
+        self.assertAlmostEqual(after[1] / device_ratio, frame_origin.y(), delta=2)
         self.assertNotIn("max-width:", document.toHtml())
 
         stretch_width = 560.0
-        self.assertTrue(rich_text.set_selected_image_content_width(
-            True, stretch_width
-        ))
-        editor = view.findChild(QObject, "knowledgeRichTextEditor")
+        self.assertTrue(rich_text.set_selected_image_content_width(True, stretch_width))
+        editor = frame_item(view, "knowledgeRichTextEditor")
         editor.setProperty("cursorPosition", image_position + 1)
         rich_text.clear_image_selection()
         self.application.processEvents()
@@ -2056,12 +2093,10 @@ class KnowledgeBaseTests(unittest.TestCase):
             delta=2,
         )
 
-        self.assertTrue(rich_text.select_image_at(
-            image_position, stretch_width
-        ))
-        self.assertTrue(rich_text.set_selected_image_content_width(
-            False, stretch_width
-        ))
+        self.assertTrue(rich_text.select_image_at(image_position, stretch_width))
+        self.assertTrue(
+            rich_text.set_selected_image_content_width(False, stretch_width)
+        )
         rich_text.clear_image_selection()
         self.application.processEvents()
         fixed_again = rendered_image_bounds()
@@ -2340,15 +2375,24 @@ class KnowledgeBaseTests(unittest.TestCase):
 
         def visual_child(item, object_name):
             return next(
-                (child for child in visual_children(item)
-                 if child.objectName() == object_name),
+                (
+                    child
+                    for child in visual_children(item)
+                    if child.objectName() == object_name
+                ),
                 None,
             )
 
         def geometry(item):
-            return tuple(round(value, 2) for value in (
-                item.x(), item.y(), item.width(), item.height(),
-            ))
+            return tuple(
+                round(value, 2)
+                for value in (
+                    item.x(),
+                    item.y(),
+                    item.width(),
+                    item.height(),
+                )
+            )
 
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -2357,7 +2401,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         image.fill(Qt.blue)
         self.assertTrue(image.save(str(image_path)))
         local_source = QUrl.fromLocalFile(str(image_path)).toString()
-        remote_source = "https://example.invalid/wysiwyg.png"
+        remote_source = self.missing_image_url("wysiwyg.png")
         markdown = (
             "Article **body**\n\n\n"
             f"![Board]({remote_source}){{width=480}}\n\n\n"
@@ -2369,23 +2413,30 @@ class KnowledgeBaseTests(unittest.TestCase):
         reader_controller = _KnowledgeStub()
         for controller in (editor_controller, reader_controller):
             controller._document["contentMarkdown"] = markdown
-            controller.image_source_candidates[remote_source] = [
-                local_source
-            ]
+            controller.image_source_candidates[remote_source] = [local_source]
         editor_controller._editing = True
 
         engine = QQmlEngine()
         context = engine.rootContext()
         self.configure_icon_context(context)
+        context.setContextProperty("knowledgeAttachments", _AttachmentStub())
         context.setContextProperty(
-            "knowledgeAttachments", _AttachmentStub()
-        )
-        context.setContextProperty(
-            "knowledgeAttachmentDraftModel", RecordListModel((
-                "token", "title", "path", "size", "fileType",
-                "previewUrl", "status", "progress", "error",
-                "snapshotKey", "uploadTarget",
-            ))
+            "knowledgeAttachmentDraftModel",
+            RecordListModel(
+                (
+                    "token",
+                    "title",
+                    "path",
+                    "size",
+                    "fileType",
+                    "previewUrl",
+                    "status",
+                    "progress",
+                    "error",
+                    "snapshotKey",
+                    "uploadTarget",
+                )
+            ),
         )
         context.setContextProperty(
             "knowledgeRichText", editor_controller.richTextDocument
@@ -2398,48 +2449,50 @@ class KnowledgeBaseTests(unittest.TestCase):
 
         editor_component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeArticleEditor.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeArticleEditor.qml")),
         )
-        editor_view = editor_component.createWithInitialProperties({
-            "theme": theme,
-            "controller": editor_controller,
-            "width": 900,
-            "height": 900,
-        })
-        self.assertIsNotNone(editor_view, "\n".join(
-            error.toString() for error in editor_component.errors()
-        ))
+        editor_view = editor_component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": editor_controller,
+                "width": 900,
+                "height": 900,
+            }
+        )
+        self.assertIsNotNone(
+            editor_view,
+            "\n".join(error.toString() for error in editor_component.errors()),
+        )
         editor_window = QQuickWindow()
         editor_window.resize(900, 900)
         editor_view.setParentItem(editor_window.contentItem())
         editor_window.show()
         QTest.qWait(150)
-        editor_text = visual_child(
-            editor_view, "knowledgeRichTextEditor"
-        )
+        editor_text = visual_child(editor_view, "knowledgeRichTextEditor")
         self.assertIsNotNone(editor_text)
 
         reader_component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeArticleContent.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeArticleContent.qml")),
         )
-        reader_view = reader_component.createWithInitialProperties({
-            "theme": theme,
-            "controller": reader_controller,
-            "contentWidth": editor_text.width(),
-            "width": editor_text.width(),
-        })
-        self.assertIsNotNone(reader_view, "\n".join(
-            error.toString() for error in reader_component.errors()
-        ))
+        reader_view = reader_component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": reader_controller,
+                "contentWidth": editor_text.width(),
+                "width": editor_text.width(),
+            }
+        )
+        self.assertIsNotNone(
+            reader_view,
+            "\n".join(error.toString() for error in reader_component.errors()),
+        )
         reader_window = QQuickWindow()
         reader_window.resize(round(editor_text.width()), 900)
         reader_view.setParentItem(reader_window.contentItem())
         reader_window.show()
+        self.assertTrue(wait_for_images(editor_view))
+        self.assertTrue(wait_for_images(reader_view))
         QTest.qWait(200)
         reader_text = visual_child(reader_view, "knowledgeArticleText")
         self.assertIsNotNone(reader_text)
@@ -2454,8 +2507,13 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertEqual(editor_font.family(), reader_font.family())
         self.assertEqual(editor_font.pointSizeF(), reader_font.pointSizeF())
         for name in (
-            "leftPadding", "rightPadding", "topPadding", "bottomPadding",
-            "color", "selectionColor", "selectedTextColor",
+            "leftPadding",
+            "rightPadding",
+            "topPadding",
+            "bottomPadding",
+            "color",
+            "selectionColor",
+            "selectedTextColor",
         ):
             self.assertEqual(
                 editor_text.property(name), reader_text.property(name), name
@@ -2479,36 +2537,46 @@ class KnowledgeBaseTests(unittest.TestCase):
         )
 
         editor_blocks = sorted(
-            (child for child in visual_children(editor_view)
-             if child.objectName().startswith(
-                 "knowledgeEditorBlockDecoration-")),
+            (
+                child
+                for child in visual_children(editor_view)
+                if child.objectName().startswith("knowledgeEditorBlockDecoration-")
+            ),
             key=lambda child: child.objectName(),
         )
         reader_blocks = sorted(
-            (child for child in visual_children(reader_view)
-             if child.objectName().startswith(
-                 "knowledgeEditorBlockDecoration-")),
+            (
+                child
+                for child in visual_children(reader_view)
+                if child.objectName().startswith("knowledgeEditorBlockDecoration-")
+            ),
             key=lambda child: child.objectName(),
         )
         self.assertEqual(len(editor_blocks), 3)
         self.assertEqual(len(reader_blocks), 3)
         self.assertEqual(
-            [(geometry(item), item.property("color"),
-              item.property("radius")) for item in editor_blocks],
-            [(geometry(item), item.property("color"),
-              item.property("radius")) for item in reader_blocks],
+            [
+                (geometry(item), item.property("color"), item.property("radius"))
+                for item in editor_blocks
+            ],
+            [
+                (geometry(item), item.property("color"), item.property("radius"))
+                for item in reader_blocks
+            ],
         )
 
         editor_image = next(
-            child for child in visual_children(editor_view)
+            child
+            for child in visual_children(editor_view)
             if child.objectName().startswith("knowledgeEditorImage-")
         )
         reader_image = next(
-            child for child in visual_children(reader_view)
+            child
+            for child in visual_children(reader_view)
             if child.objectName().startswith("knowledgeArticleImage-")
         )
-        self.assertTrue(editor_image.property("imageReady"))
-        self.assertTrue(reader_image.property("imageReady"))
+        self.assertTrue(wait_for_image(editor_image))
+        self.assertTrue(wait_for_image(reader_image))
         self.assertEqual(geometry(editor_image), geometry(reader_image))
         self.assertEqual(
             editor_image.property("imageSource"),
@@ -2519,52 +2587,49 @@ class KnowledgeBaseTests(unittest.TestCase):
             "blocks": [geometry(item) for item in editor_blocks],
             "image": geometry(editor_image),
         }
-        layout_revision = (
-            editor_controller.richTextDocument.layoutRevision
-        )
-        toolbar = visual_child(
-            editor_view, "knowledgeRichTextToolbar"
-        )
-        markdown_mode = visual_child(
-            toolbar, "knowledgeContentMode-markdown"
-        )
-        visual_mode = visual_child(
-            toolbar, "knowledgeContentMode-visual"
-        )
+        layout_revision = editor_controller.richTextDocument.layoutRevision
+        toolbar = visual_child(editor_view, "knowledgeRichTextToolbar")
+        markdown_mode = visual_child(toolbar, "knowledgeContentMode_markdown")
+        visual_mode = visual_child(toolbar, "knowledgeContentMode_visual")
         for _cycle in range(3):
             for mode_button, expected_mode in (
                 (markdown_mode, "markdown"),
                 (visual_mode, "visual"),
             ):
-                point = mode_button.mapToScene(QPointF(
-                    mode_button.width() / 2, mode_button.height() / 2,
-                ))
-                QTest.mouseClick(
-                    editor_window, Qt.LeftButton, pos=point.toPoint()
+                point = mode_button.mapToScene(
+                    QPointF(
+                        mode_button.width() / 2,
+                        mode_button.height() / 2,
+                    )
                 )
+                QTest.mouseClick(editor_window, Qt.LeftButton, pos=point.toPoint())
                 QTest.qWait(80)
-                self.assertEqual(
-                    editor_view.property("contentMode"), expected_mode
-                )
+                self.assertEqual(editor_view.property("contentMode"), expected_mode)
         self.assertGreater(
             editor_controller.richTextDocument.layoutRevision,
             layout_revision,
         )
         switched_blocks = sorted(
-            (child for child in visual_children(editor_view)
-             if child.objectName().startswith(
-                 "knowledgeEditorBlockDecoration-")),
+            (
+                child
+                for child in visual_children(editor_view)
+                if child.objectName().startswith("knowledgeEditorBlockDecoration-")
+            ),
             key=lambda child: child.objectName(),
         )
         switched_image = next(
-            child for child in visual_children(editor_view)
+            child
+            for child in visual_children(editor_view)
             if child.objectName().startswith("knowledgeEditorImage-")
         )
-        self.assertEqual({
-            "contentHeight": editor_text.property("contentHeight"),
-            "blocks": [geometry(item) for item in switched_blocks],
-            "image": geometry(switched_image),
-        }, before_mode_switch)
+        self.assertEqual(
+            {
+                "contentHeight": editor_text.property("contentHeight"),
+                "blocks": [geometry(item) for item in switched_blocks],
+                "image": geometry(switched_image),
+            },
+            before_mode_switch,
+        )
         for item, block in zip(
             switched_blocks,
             editor_controller.richTextDocument.blockDecorations,
@@ -2607,7 +2672,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         local_source = QUrl.fromLocalFile(str(image_path)).toString()
 
         controller = _KnowledgeStub()
-        remote_source = "https://example.invalid/article.png"
+        remote_source = self.missing_image_url("article.png")
         controller._document["contentMarkdown"] = (
             f"![Board]({remote_source}){{width=1200 height=675}}"
         )
@@ -2620,19 +2685,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeArticleContent.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeArticleContent.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": controller,
-            "contentWidth": 500.0,
-            "width": 500.0,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": controller,
+                "contentWidth": 500.0,
+                "width": 500.0,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(500, 400)
         view.setParentItem(window.contentItem())
@@ -2645,29 +2710,23 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertIsNotNone(image_block)
         if not image_block.property("imageReady"):
             QTest.qWait(250)
-        self.assertTrue(image_block.property("imageReady"))
-        self.assertEqual(
-            image_block.property("imageSource").toString(), local_source
-        )
-        self.assertEqual(
-            article_image.property("imageSourceSize").width(), 1280
-        )
-        self.assertEqual(
-            article_image.property("imageSourceSize").height(), 1280
-        )
+        self.assertTrue(wait_for_image(image_block))
+        self.assertEqual(image_block.property("imageSource").toString(), local_source)
+        self.assertEqual(article_image.property("imageSourceSize").width(), 1280)
+        self.assertEqual(article_image.property("imageSourceSize").height(), 1280)
         self.assertLessEqual(article_image.width(), 500.0)
         self.assertAlmostEqual(
             article_image.height() / article_image.width(),
             675.0 / 1200.0,
             places=2,
         )
-        image_point = article_image.mapToScene(QPointF(
-            article_image.width() / 2,
-            article_image.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=image_point.toPoint()
+        image_point = article_image.mapToScene(
+            QPointF(
+                article_image.width() / 2,
+                article_image.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=image_point.toPoint())
         self.application.processEvents()
         self.assertEqual(controller.opened_links, [remote_source])
 
@@ -2677,15 +2736,13 @@ class KnowledgeBaseTests(unittest.TestCase):
             view.setWidth(float(width))
             window.resize(width, 400)
             self.application.processEvents()
-        resized_article_image = visual_child(
-            view, "knowledgeArticleImage-0"
-        )
+        resized_article_image = visual_child(view, "knowledgeArticleImage-0")
         self.assertEqual(
             resized_article_image.property("imageSourceSize"), decoded_size
         )
         if not resized_article_image.property("imageReady"):
             QTest.qWait(250)
-        self.assertTrue(resized_article_image.property("imageReady"))
+        self.assertTrue(wait_for_image(resized_article_image))
         self.assertEqual(
             resized_article_image.property("imageSource").toString(),
             local_source,
@@ -2731,7 +2788,7 @@ class KnowledgeBaseTests(unittest.TestCase):
             source_image = QImage(3000, 1688, QImage.Format_ARGB32)
             source_image.fill(color)
             self.assertTrue(source_image.save(str(image_path)))
-            remote_source = f"https://example.invalid/article-{index}.png"
+            remote_source = self.missing_image_url(f"article-{index}.png")
             controller.image_source_candidates[remote_source] = [
                 QUrl.fromLocalFile(str(image_path)).toString()
             ]
@@ -2751,19 +2808,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeArticleContent.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeArticleContent.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": controller,
-            "contentWidth": 900.0,
-            "width": 900.0,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": controller,
+                "contentWidth": 900.0,
+                "width": 900.0,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(900, 700)
         view.setParentItem(window.contentItem())
@@ -2772,18 +2829,12 @@ class KnowledgeBaseTests(unittest.TestCase):
 
         images = article_images(view)
         self.assertEqual(len(images), 3)
-        if not all(image.property("imageReady") for image in images):
+        if not all(wait_for_image(image) for image in images):
             QTest.qWait(400)
-        self.assertTrue(all(
-            image.property("imageReady") for image in images
-        ))
+        self.assertTrue(all(wait_for_image(image) for image in images))
 
-        source_sizes = [
-            image.property("imageSourceSize") for image in images
-        ]
-        sources = [
-            image.property("imageSource").toString() for image in images
-        ]
+        source_sizes = [image.property("imageSourceSize") for image in images]
+        sources = [image.property("imageSource").toString() for image in images]
         for image, source_size in zip(images, source_sizes):
             self.assertEqual(source_size.width(), 1280)
             self.assertEqual(source_size.height(), 1280)
@@ -2801,15 +2852,12 @@ class KnowledgeBaseTests(unittest.TestCase):
         QTest.qWait(100)
         self.application.processEvents()
 
+        self.assertTrue(wait_for_images(view))
         resized_images = article_images(view)
         self.assertEqual(len(resized_images), 3)
         for index, image in enumerate(resized_images):
-            self.assertEqual(
-                image.property("imageSourceSize"), source_sizes[index]
-            )
-            self.assertEqual(
-                image.property("imageSource").toString(), sources[index]
-            )
+            self.assertEqual(image.property("imageSourceSize"), source_sizes[index])
+            self.assertEqual(image.property("imageSource").toString(), sources[index])
             self.assertLessEqual(image.width(), 420.0)
 
         window.hide()
@@ -4062,33 +4110,46 @@ class KnowledgeBaseTests(unittest.TestCase):
         engine = QQmlEngine()
         self.configure_icon_context(engine.rootContext())
         controller = _KnowledgeStub()
-        controller._uploaded_attachments.replace([
-            {
-                "token": "attachment-1",
-                "snapshotKey": "skey://sthpw/snapshot?code=SNAP0001",
-                "title": "guide.png",
-                "extension": "PNG",
-                "sizeText": "2 KB",
-                "previewUrl": "",
-                "webUrl": "http://tactic/assets/guide.png",
-                "isImage": True,
-            },
-            {
-                "token": "attachment-2",
-                "snapshotKey": "skey://sthpw/snapshot?code=SNAP0002",
-                "title": "reference.png",
-                "extension": "PNG",
-                "sizeText": "4 KB",
-                "previewUrl": "",
-                "webUrl": "http://tactic/assets/reference.png",
-                "isImage": True,
-            },
-        ])
+        controller._uploaded_attachments.replace(
+            [
+                {
+                    "token": "attachment-1",
+                    "snapshotKey": "skey://sthpw/snapshot?code=SNAP0001",
+                    "title": "guide.png",
+                    "extension": "PNG",
+                    "sizeText": "2 KB",
+                    "previewUrl": "",
+                    "webUrl": "http://tactic/assets/guide.png",
+                    "isImage": True,
+                },
+                {
+                    "token": "attachment-2",
+                    "snapshotKey": "skey://sthpw/snapshot?code=SNAP0002",
+                    "title": "reference.png",
+                    "extension": "PNG",
+                    "sizeText": "4 KB",
+                    "previewUrl": "",
+                    "webUrl": "http://tactic/assets/reference.png",
+                    "isImage": True,
+                },
+            ]
+        )
         upload_controller = _AttachmentStub(count=1)
-        staging_model = RecordListModel((
-            "token", "title", "path", "size", "fileType", "previewUrl",
-            "status", "progress", "error", "snapshotKey", "uploadTarget",
-        ))
+        staging_model = RecordListModel(
+            (
+                "token",
+                "title",
+                "path",
+                "size",
+                "fileType",
+                "previewUrl",
+                "status",
+                "progress",
+                "error",
+                "snapshotKey",
+                "uploadTarget",
+            )
+        )
         document_controller = RichTextDocumentController(engine)
         theme_component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(self.qml / "Theme.qml"))
@@ -4096,23 +4157,23 @@ class KnowledgeBaseTests(unittest.TestCase):
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeAttachmentLibrary.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeAttachmentLibrary.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": controller,
-            "uploadController": upload_controller,
-            "stagingModel": staging_model,
-            "uploadedModel": controller.uploadedAttachmentModel,
-            "documentController": document_controller,
-            "width": 260,
-            "height": 460,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": controller,
+                "uploadController": upload_controller,
+                "stagingModel": staging_model,
+                "uploadedModel": controller.uploadedAttachmentModel,
+                "documentController": document_controller,
+                "width": 260,
+                "height": 460,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(260, 460)
         view.setParentItem(window.contentItem())
@@ -4124,21 +4185,11 @@ class KnowledgeBaseTests(unittest.TestCase):
         duplicate_upload = visual_child(view, "attachmentChooseFiles")
         clipboard_upload = visual_child(view, "attachmentClipboardImage")
         clear_uploads = visual_child(view, "attachmentClearAll")
-        first_attachment = visual_child(
-            view, "knowledgeUploadedAttachment-0"
-        )
-        second_attachment = visual_child(
-            view, "knowledgeUploadedAttachment-1"
-        )
-        copy_link = visual_child(
-            first_attachment, "knowledgeCopyAttachmentLink"
-        )
-        insert_link = visual_child(
-            first_attachment, "knowledgeInsertAttachment"
-        )
-        delete_file = visual_child(
-            first_attachment, "knowledgeDeleteAttachment"
-        )
+        first_attachment = visual_child(view, "knowledgeUploadedAttachment-0")
+        second_attachment = visual_child(view, "knowledgeUploadedAttachment-1")
+        copy_link = visual_child(first_attachment, "knowledgeCopyAttachmentLink")
+        insert_link = visual_child(first_attachment, "knowledgeInsertAttachment")
+        delete_file = visual_child(first_attachment, "knowledgeDeleteAttachment")
         self.assertIsNotNone(primary_upload)
         self.assertTrue(primary_upload.property("visible"))
         self.assertIsNotNone(duplicate_upload)
@@ -4152,8 +4203,8 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertIsNotNone(delete_file)
         self.assertIsNotNone(first_attachment)
         self.assertIsNotNone(second_attachment)
-        self.assertEqual(copy_link.property("iconName"), "content-copy")
-        self.assertEqual(delete_file.property("iconName"), "delete")
+        self.assertEqual(control_icon(copy_link), "content-copy")
+        self.assertEqual(control_icon(delete_file), "delete")
         self.assertTrue(copy_link.property("visible"))
         insert_position = insert_link.mapToItem(view, QPointF(0, 0))
         copy_position = copy_link.mapToItem(view, QPointF(0, 0))
@@ -4170,9 +4221,7 @@ class KnowledgeBaseTests(unittest.TestCase):
             insert_position.x() + insert_link.width(),
             copy_position.x() + 0.5,
         )
-        self.assertLessEqual(
-            abs(delete_position.y() - copy_position.y()), 0.5
-        )
+        self.assertLessEqual(abs(delete_position.y() - copy_position.y()), 0.5)
         self.assertLessEqual(
             delete_position.x() + delete_file.width(),
             view.width(),
@@ -4188,44 +4237,39 @@ class KnowledgeBaseTests(unittest.TestCase):
         )
         self.assertLessEqual(first_attachment.height(), 64.5)
         self.assertLessEqual(second_attachment.height(), 64.5)
-        copy_point = copy_link.mapToScene(QPointF(
-            copy_link.width() / 2, copy_link.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=copy_point.toPoint()
+        copy_point = copy_link.mapToScene(
+            QPointF(
+                copy_link.width() / 2,
+                copy_link.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=copy_point.toPoint())
         self.application.processEvents()
-        self.assertEqual(
-            controller.copied_attachment_tokens, ["attachment-1"]
-        )
-        self.assertEqual(copy_link.property("iconName"), "check")
+        self.assertEqual(controller.copied_attachment_tokens, ["attachment-1"])
+        self.assertEqual(control_icon(copy_link), "check")
 
-        delete_dialog = view.findChild(
-            QObject, "knowledgeDeleteAttachmentDialog"
-        )
-        delete_confirm = view.findChild(
-            QObject, "knowledgeDeleteAttachmentConfirm"
-        )
+        delete_dialog = view.findChild(QObject, "knowledgeDeleteAttachmentDialog")
+        delete_confirm = view.findChild(QObject, "knowledgeDeleteAttachmentConfirm")
         self.assertIsNotNone(delete_dialog)
         self.assertIsNotNone(delete_confirm)
-        delete_point = delete_file.mapToScene(QPointF(
-            delete_file.width() / 2, delete_file.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=delete_point.toPoint()
+        delete_point = delete_file.mapToScene(
+            QPointF(
+                delete_file.width() / 2,
+                delete_file.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=delete_point.toPoint())
         self.application.processEvents()
         self.assertTrue(delete_dialog.property("visible"))
-        confirm_point = delete_confirm.mapToScene(QPointF(
-            delete_confirm.width() / 2, delete_confirm.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=confirm_point.toPoint()
+        confirm_point = delete_confirm.mapToScene(
+            QPointF(
+                delete_confirm.width() / 2,
+                delete_confirm.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=confirm_point.toPoint())
         self.application.processEvents()
-        self.assertEqual(
-            controller.removed_attachment_tokens, ["attachment-1"]
-        )
+        self.assertEqual(controller.removed_attachment_tokens, ["attachment-1"])
 
         window.hide()
         view.setParentItem(None)
@@ -4638,92 +4682,141 @@ class KnowledgeBaseTests(unittest.TestCase):
                     'width="320" height="180"></p><p>Body text</p>'
                 )
                 controller._document["contentText"] = "Body text"
-                controller._uploaded_attachments.replace([{
-                    "token": "attachment-1",
-                    "snapshotKey": "skey://sthpw/snapshot?code=SNAP0001",
-                    "title": "guide.png",
-                    "extension": "PNG",
-                    "sizeText": "2 KB",
-                    "previewUrl": "",
-                    "webUrl": "http://tactic/assets/guide.png",
-                    "isImage": True,
-                }])
+                controller._uploaded_attachments.replace(
+                    [
+                        {
+                            "token": "attachment-1",
+                            "snapshotKey": "skey://sthpw/snapshot?code=SNAP0001",
+                            "title": "guide.png",
+                            "extension": "PNG",
+                            "sizeText": "2 KB",
+                            "previewUrl": "",
+                            "webUrl": "http://tactic/assets/guide.png",
+                            "isImage": True,
+                        }
+                    ]
+                )
             attachments = _AttachmentStub()
-            navigation = RecordListModel((
-                "identity", "title", "description", "excerpt", "kind",
-                "parentCode", "sortOrder", "updatedBy", "timestamp",
-                "searchKey", "depth", "hasChildren", "expanded", "draft",
-                "localDraft",
-            ))
-            navigation.replace([{
-                "identity": "SEC0001", "title": "Production",
-                "description": "Pipeline and publishing guides",
-                "excerpt": "", "kind": "section", "parentCode": "",
-                "sortOrder": 0, "updatedBy": "admin", "timestamp": "",
-                "searchKey": "skey://demo/th_knowledge_article?code=SEC0001",
-                "depth": 0, "hasChildren": True, "expanded": True,
-                "draft": False,
-                "localDraft": False,
-            }, {
-                "identity": "DOC0001", "title": "Pipeline guide",
-                "description": "", "excerpt": "", "kind": "article",
-                "parentCode": "", "sortOrder": 0, "updatedBy": "admin",
-                "timestamp": "", "searchKey": "skey://demo/th_knowledge_article?code=DOC0001",
-                "depth": 0, "hasChildren": False, "expanded": True,
-                "draft": False,
-                "localDraft": False,
-            }])
-            attachments_model = RecordListModel((
-                "token", "title", "path", "size", "fileType", "previewUrl",
-                "status", "progress", "error", "snapshotKey", "uploadTarget",
-            ))
+            navigation = RecordListModel(
+                (
+                    "identity",
+                    "title",
+                    "description",
+                    "excerpt",
+                    "kind",
+                    "parentCode",
+                    "sortOrder",
+                    "updatedBy",
+                    "timestamp",
+                    "searchKey",
+                    "depth",
+                    "hasChildren",
+                    "expanded",
+                    "draft",
+                    "localDraft",
+                )
+            )
+            navigation.replace(
+                [
+                    {
+                        "identity": "SEC0001",
+                        "title": "Production",
+                        "description": "Pipeline and publishing guides",
+                        "excerpt": "",
+                        "kind": "section",
+                        "parentCode": "",
+                        "sortOrder": 0,
+                        "updatedBy": "admin",
+                        "timestamp": "",
+                        "searchKey": "skey://demo/th_knowledge_article?code=SEC0001",
+                        "depth": 0,
+                        "hasChildren": True,
+                        "expanded": True,
+                        "draft": False,
+                        "localDraft": False,
+                    },
+                    {
+                        "identity": "DOC0001",
+                        "title": "Pipeline guide",
+                        "description": "",
+                        "excerpt": "",
+                        "kind": "article",
+                        "parentCode": "",
+                        "sortOrder": 0,
+                        "updatedBy": "admin",
+                        "timestamp": "",
+                        "searchKey": "skey://demo/th_knowledge_article?code=DOC0001",
+                        "depth": 0,
+                        "hasChildren": False,
+                        "expanded": True,
+                        "draft": False,
+                        "localDraft": False,
+                    },
+                ]
+            )
+            attachments_model = RecordListModel(
+                (
+                    "token",
+                    "title",
+                    "path",
+                    "size",
+                    "fileType",
+                    "previewUrl",
+                    "status",
+                    "progress",
+                    "error",
+                    "snapshotKey",
+                    "uploadTarget",
+                )
+            )
             context = engine.rootContext()
             self.configure_icon_context(context)
             context.setContextProperty("knowledgeController", controller)
             context.setContextProperty("knowledgeNavigationModel", navigation)
             context.setContextProperty("knowledgeAttachments", attachments)
-            context.setContextProperty("knowledgeAttachmentDraftModel", attachments_model)
+            context.setContextProperty(
+                "knowledgeAttachmentDraftModel", attachments_model
+            )
             rich_text = RichTextDocumentController(engine)
             context.setContextProperty("knowledgeRichText", rich_text)
             context.setContextProperty("skeyPreviewResolver", _PreviewStub())
             theme_component = QQmlComponent(
-                engine, QUrl.fromLocalFile(str(self.qml / "Theme.qml")))
-            theme = theme_component.createWithInitialProperties({
-                "dark": width < 500
-            })
+                engine, QUrl.fromLocalFile(str(self.qml / "Theme.qml"))
+            )
+            theme = theme_component.createWithInitialProperties({"dark": width < 500})
             component = QQmlComponent(
-                engine, QUrl.fromLocalFile(str(self.qml / "KnowledgeBaseView.qml")))
-            view = component.createWithInitialProperties({
-                "theme": theme, "width": width, "height": 760,
-            })
-            self.assertIsNotNone(view, "\n".join(
-                error.toString() for error in component.errors()))
+                engine, QUrl.fromLocalFile(str(self.qml / "KnowledgeBaseView.qml"))
+            )
+            view = component.createWithInitialProperties(
+                {
+                    "theme": theme,
+                    "width": width,
+                    "height": 760,
+                }
+            )
+            self.assertIsNotNone(
+                view, "\n".join(error.toString() for error in component.errors())
+            )
             self.application.processEvents()
             QTest.qWait(30)
-            self.assertIsNotNone(view.findChild(QObject, "knowledgeNavigationList"))
+            self.assertIsNotNone(frame_item(view, "knowledgeNavigationList"))
             navigation_panel = visual_child(view, "knowledgeNavigation")
-            navigation_toggle = visual_child(
-                view, "knowledgeToggleNavigation"
-            )
+            navigation_toggle = visual_child(view, "knowledgeToggleNavigation")
             article_loader = visual_child(view, "knowledgeArticleLoader")
             self.assertIsNotNone(navigation_panel)
             self.assertIsNotNone(navigation_toggle)
             self.assertIsNotNone(article_loader)
-            self.assertEqual(
-                bool(navigation_toggle.property("visible")), width >= 720
-            )
-            feature_layout = visual_child(view, "knowledgeBaseLayout")
+            self.assertEqual(bool(navigation_toggle.property("visible")), width >= 720)
+            feature_layout = visual_child(view, "knowledgePage")
             dock_surface = visual_child(view, "knowledgeDockSurface")
             self.assertIsNotNone(feature_layout)
             self.assertIsNotNone(dock_surface)
             self.assertAlmostEqual(
-                feature_layout.y() + feature_layout.height(),
+                feature_layout.mapToItem(view, QPointF()).y() + feature_layout.height(),
                 view.height() - 8,
             )
             self.assertAlmostEqual(dock_surface.height(), view.height())
-            expected_corner = max(
-                0.0, float(theme.property("surfaceRadius")) - 1.0
-            )
+            expected_corner = max(0.0, float(theme.property("surfaceRadius")) - 1.0)
             self.assertEqual(dock_surface.property("topLeftRadius"), 0.0)
             self.assertEqual(dock_surface.property("topRightRadius"), 0.0)
             self.assertAlmostEqual(
@@ -4732,9 +4825,7 @@ class KnowledgeBaseTests(unittest.TestCase):
             self.assertAlmostEqual(
                 dock_surface.property("bottomRightRadius"), expected_corner
             )
-            footer_divider = visual_child(
-                dock_surface, "dockWorkspaceFooterDivider"
-            )
+            footer_divider = visual_child(dock_surface, "dockWorkspaceFooterDivider")
             self.assertIsNotNone(footer_divider)
             self.assertFalse(footer_divider.property("visible"))
             section_description = visual_child(
@@ -4750,39 +4841,24 @@ class KnowledgeBaseTests(unittest.TestCase):
                 section_description.property("text"),
                 "Pipeline and publishing guides",
             )
-            self.assertEqual(
-                section_disclosure.property("iconName"), "chevron-down"
-            )
+            self.assertEqual(control_icon(section_disclosure), "chevron-down")
             if width > 500:
-                self.assertIsNotNone(visual_child(
-                    view, "knowledgeUploadAttachments"
-                ))
-                self.assertIsNone(visual_child(
-                    view, "knowledgeUploadImage"
-                ))
-                self.assertIsNone(visual_child(
-                    view, "knowledgeUploadFile"
-                ))
-                self.assertIsNotNone(visual_child(
-                    view, "knowledgeInsertAttachment"
-                ))
-                self.assertIsNotNone(visual_child(
-                    view, "knowledgeCopyAttachmentLink"
-                ))
-                self.assertIsNotNone(visual_child(
-                    view, "knowledgeDeleteAttachment"
-                ))
-            selected_row = visual_child(
-                view, "knowledgeNavigationRow-SEC0001"
+                self.assertIsNotNone(visual_child(view, "knowledgeUploadAttachments"))
+                self.assertIsNone(visual_child(view, "knowledgeUploadImage"))
+                self.assertIsNone(visual_child(view, "knowledgeUploadFile"))
+                self.assertIsNotNone(visual_child(view, "knowledgeInsertAttachment"))
+                self.assertIsNotNone(visual_child(view, "knowledgeCopyAttachmentLink"))
+                self.assertIsNotNone(visual_child(view, "knowledgeDeleteAttachment"))
+            selected_row = visual_child(view, "knowledgeNavigationRow-SEC0001")
+            selected_title = visual_child(view, "knowledgeNavigationTitle-SEC0001")
+            self.assertIsNotNone(
+                selected_row,
+                [
+                    child.objectName()
+                    for child in view.findChildren(QObject)
+                    if child.objectName().startswith("knowledgeNavigation")
+                ],
             )
-            selected_title = visual_child(
-                view, "knowledgeNavigationTitle-SEC0001"
-            )
-            self.assertIsNotNone(selected_row, [
-                child.objectName()
-                for child in view.findChildren(QObject)
-                if child.objectName().startswith("knowledgeNavigation")
-            ])
             self.assertIsNotNone(selected_title)
             self.assertTrue(selected_row.property("selected"))
             self.assertFalse(selected_row.property("railVisible"))
@@ -4798,12 +4874,8 @@ class KnowledgeBaseTests(unittest.TestCase):
                 selected_title.property("color"),
                 theme.property("primaryText"),
             )
-            save_order = view.findChild(
-                QObject, "knowledgeSaveOrganization"
-            )
-            discard_order = view.findChild(
-                QObject, "knowledgeDiscardOrganization"
-            )
+            save_order = frame_item(view, "knowledgeSaveOrganization")
+            discard_order = frame_item(view, "knowledgeDiscardOrganization")
             self.assertIsNotNone(save_order)
             self.assertIsNotNone(discard_order)
             self.assertFalse(save_order.property("visible"))
@@ -4821,38 +4893,24 @@ class KnowledgeBaseTests(unittest.TestCase):
                 controller.stateChanged.emit()
                 self.application.processEvents()
                 self.assertFalse(controller.openArticlePending)
-                self.assertEqual(
-                    controller.article_open_acknowledgements, 1
-                )
-                self.assertIsNotNone(visual_child(
-                    view, "knowledgeViewerBack"
-                ))
+                self.assertEqual(controller.article_open_acknowledgements, 1)
+                self.assertIsNotNone(visual_child(view, "knowledgeViewerBack"))
             if width > 500:
-                editor = view.findChild(QObject, "knowledgeRichTextEditor")
+                editor = frame_item(view, "knowledgeRichTextEditor")
                 self.assertIsNotNone(editor)
                 self.assertTrue(rich_text.attached)
-                toolbar = view.findChild(
-                    QObject, "knowledgeRichTextToolbar"
-                )
+                toolbar = frame_item(view, "knowledgeRichTextToolbar")
                 text_style = visual_child(toolbar, "knowledgeTextStyle")
                 list_style = visual_child(toolbar, "knowledgeListStyle")
-                content_mode = visual_child(
-                    toolbar, "knowledgeContentMode"
-                )
-                first_action = visual_child(
-                    toolbar, "knowledgeToolbarAction-undo"
-                )
+                content_mode = visual_child(toolbar, "knowledgeContentMode")
+                first_action = visual_child(toolbar, "knowledgeToolbarAction-undo")
                 self.assertIsNotNone(toolbar)
                 self.assertIsNotNone(text_style)
                 self.assertIsNotNone(list_style)
                 self.assertIsNotNone(content_mode)
                 self.assertIsNotNone(first_action)
-                style_position = text_style.mapToItem(
-                    toolbar, QPointF(0, 0)
-                )
-                action_position = first_action.mapToItem(
-                    toolbar, QPointF(0, 0)
-                )
+                style_position = text_style.mapToItem(toolbar, QPointF(0, 0))
+                action_position = first_action.mapToItem(toolbar, QPointF(0, 0))
                 self.assertAlmostEqual(
                     style_position.y(), action_position.y(), delta=0.5
                 )
@@ -4860,9 +4918,7 @@ class KnowledgeBaseTests(unittest.TestCase):
                     style_position.y() + text_style.height(),
                     toolbar.height() + 0.5,
                 )
-                mode_position = content_mode.mapToItem(
-                    toolbar, QPointF(0, 0)
-                )
+                mode_position = content_mode.mapToItem(toolbar, QPointF(0, 0))
                 self.assertTrue(content_mode.property("visible"))
                 self.assertEqual(
                     bool(content_mode.property("iconOnly")),
@@ -4873,11 +4929,12 @@ class KnowledgeBaseTests(unittest.TestCase):
                     toolbar.width() + 0.5,
                 )
                 self.assertLessEqual(toolbar.height(), 52)
-                fontawesome = json.loads((
-                    Path(__file__).parents[1]
-                    / "thlib/ui/assets/fonts/"
-                    "fontawesome5-solid-webfont-charmap.json"
-                ).read_text(encoding="utf-8"))
+                fontawesome = json.loads(
+                    (
+                        Path(__file__).parents[1] / "thlib/ui/assets/fonts/"
+                        "fontawesome5-solid-webfont-charmap.json"
+                    ).read_text(encoding="utf-8")
+                )
                 expected_icons = {
                     "undo": "undo",
                     "redo": "redo",
@@ -4887,50 +4944,40 @@ class KnowledgeBaseTests(unittest.TestCase):
                     "attach": "attachments-editor",
                 }
                 for action, icon_name in expected_icons.items():
-                    button = visual_child(
-                        toolbar, "knowledgeToolbarAction-" + action
-                    )
+                    button = visual_child(toolbar, "knowledgeToolbarAction-" + action)
                     self.assertIsNotNone(button)
-                    self.assertEqual(button.property("iconName"), icon_name)
+                    self.assertEqual(
+                        control_icon(button),
+                        "fontawesome-solid:"
+                        + {
+                            "undo": "undo-alt",
+                            "redo": "redo-alt",
+                            "attachments-editor": "paperclip",
+                        }.get(icon_name, icon_name),
+                    )
                     glyph = visual_child(button, "materialIconGlyph")
                     self.assertIsNotNone(glyph)
                     resolved_name = str(
-                        glyph.property("fontAwesomeName") or ""
+                        glyph.property("fontAwesomeName")
+                        or control_icon(button).split(":")[-1]
                     )
                     self.assertIn(resolved_name, fontawesome)
                     self.assertTrue(str(glyph.property("text") or ""))
                     self.assertFalse(glyph.property("useMaterial"))
-                style_label = visual_child(
-                    text_style, "knowledgeTextStyleLabel"
-                )
-                fallback_glyph = visual_child(
-                    text_style, "materialIconGlyph"
-                )
+                style_label = visual_child(text_style, "knowledgeTextStyleLabel")
+                fallback_glyph = visual_child(text_style, "materialIconGlyph")
                 self.assertIsNotNone(style_label)
                 self.assertEqual(style_label.property("text"), "Aa")
-                self.assertIsNotNone(fallback_glyph)
-                self.assertFalse(
-                    fallback_glyph.parent().property("visible")
-                )
-                self.assertIsNone(visual_child(
-                    toolbar, "knowledgeHeading-H1"
-                ))
-                kind_icon = view.findChild(
-                    QObject, "knowledgeEditorKindIcon"
-                )
+                self.assertIsNone(fallback_glyph)
+                self.assertIsNone(visual_child(toolbar, "knowledgeHeading-H1"))
+                kind_icon = frame_item(view, "knowledgeEditorKindIcon")
                 self.assertEqual(kind_icon.property("name"), "file")
                 kind_glyph = visual_child(kind_icon, "materialIconGlyph")
                 self.assertIsNotNone(kind_glyph)
-                self.assertEqual(
-                    kind_glyph.property("resolvedName"), "file"
-                )
-                metadata_toggle = visual_child(
-                    view, "knowledgeMetadataToggle"
-                )
+                self.assertEqual(kind_glyph.property("resolvedName"), "file")
+                metadata_toggle = visual_child(view, "knowledgeMetadataToggle")
                 title_field = visual_child(view, "knowledgeTitleField")
-                attachment_library = visual_child(
-                    view, "knowledgeAttachmentLibrary"
-                )
+                attachment_library = visual_child(view, "knowledgeAttachmentLibrary")
                 editor_surface = visual_child(view, "knowledgeEditorSurface")
                 self.assertIsNotNone(metadata_toggle)
                 self.assertTrue(metadata_toggle.property("visible"))
@@ -4939,9 +4986,7 @@ class KnowledgeBaseTests(unittest.TestCase):
                     metadata_toggle.property("text"),
                     "Show title and summary",
                 )
-                metadata_glyph = visual_child(
-                    metadata_toggle, "materialIconGlyph"
-                )
+                metadata_glyph = visual_child(metadata_toggle, "materialIconGlyph")
                 self.assertIsNotNone(metadata_glyph)
                 self.assertEqual(
                     metadata_glyph.property("resolvedName"),
@@ -4962,21 +5007,21 @@ class KnowledgeBaseTests(unittest.TestCase):
                 window.show()
                 self.assertTrue(QTest.qWaitForWindowExposed(window))
 
-                initial_article_x = article_loader.x()
+                initial_article_x = article_loader.mapToItem(view, QPointF()).x()
                 initial_article_width = article_loader.width()
-                toggle_point = navigation_toggle.mapToScene(QPointF(
-                    navigation_toggle.width() / 2,
-                    navigation_toggle.height() / 2,
-                ))
-                QTest.mouseClick(
-                    window, Qt.LeftButton, pos=toggle_point.toPoint()
+                toggle_point = navigation_toggle.mapToScene(
+                    QPointF(
+                        navigation_toggle.width() / 2,
+                        navigation_toggle.height() / 2,
+                    )
                 )
+                QTest.mouseClick(window, Qt.LeftButton, pos=toggle_point.toPoint())
                 self.application.processEvents()
                 self.assertFalse(navigation_panel.property("visible"))
-                self.assertEqual(
-                    navigation_toggle.property("iconName"), "chevron-right"
+                self.assertEqual(control_icon(navigation_toggle), "chevron-right")
+                self.assertLess(
+                    article_loader.mapToItem(view, QPointF()).x(), initial_article_x
                 )
-                self.assertLess(article_loader.x(), initial_article_x)
                 self.assertGreater(article_loader.width(), initial_article_width)
 
                 view.setWidth(430)
@@ -4995,16 +5040,17 @@ class KnowledgeBaseTests(unittest.TestCase):
                 QTest.keyClick(window, Qt.Key_Space)
                 self.application.processEvents()
                 self.assertTrue(navigation_panel.property("visible"))
-                self.assertEqual(
-                    navigation_toggle.property("iconName"), "chevron-left"
-                )
+                self.assertEqual(control_icon(navigation_toggle), "chevron-left")
 
-                metadata_point = metadata_toggle.mapToScene(QPointF(
-                    metadata_toggle.width() / 2,
-                    metadata_toggle.height() / 2,
-                ))
+                metadata_point = metadata_toggle.mapToScene(
+                    QPointF(
+                        metadata_toggle.width() / 2,
+                        metadata_toggle.height() / 2,
+                    )
+                )
                 QTest.mouseClick(
-                    window, Qt.LeftButton,
+                    window,
+                    Qt.LeftButton,
                     pos=metadata_point.toPoint(),
                 )
                 self.application.processEvents()
@@ -5018,7 +5064,8 @@ class KnowledgeBaseTests(unittest.TestCase):
                     "chevron-up",
                 )
                 QTest.mouseClick(
-                    window, Qt.LeftButton,
+                    window,
+                    Qt.LeftButton,
                     pos=metadata_point.toPoint(),
                 )
                 self.application.processEvents()
@@ -5031,29 +5078,15 @@ class KnowledgeBaseTests(unittest.TestCase):
                     QUrl("https://example.com/large.png"),
                     QImage(1280, 720, QImage.Format_ARGB32),
                 )
-                editor_document.markContentsDirty(
-                    0, editor_document.characterCount()
-                )
+                editor_document.markContentsDirty(0, editor_document.characterCount())
                 self.assertTrue(rich_text.select_image_at(0, 560.0))
                 self.application.processEvents()
-                image_frame = visual_child(
-                    view, "knowledgeSelectedImageFrame"
-                )
-                resize_handle = visual_child(
-                    view, "knowledgeImageResizeHandle"
-                )
-                image_metrics = visual_child(
-                    view, "knowledgeSelectedImageMetrics"
-                )
-                image_size = visual_child(
-                    view, "knowledgeSelectedImageSize"
-                )
-                image_width_mode = visual_child(
-                    view, "knowledgeImageContentWidth"
-                )
-                image_width_slider = visual_child(
-                    view, "knowledgeImageWidthSlider"
-                )
+                image_frame = visual_child(view, "knowledgeSelectedImageFrame")
+                resize_handle = visual_child(view, "knowledgeImageResizeHandle")
+                image_metrics = visual_child(view, "knowledgeSelectedImageMetrics")
+                image_size = visual_child(view, "knowledgeSelectedImageSize")
+                image_width_mode = visual_child(view, "knowledgeImageContentWidth")
+                image_width_slider = visual_child(view, "knowledgeImageWidthSlider")
                 self.assertIsNotNone(image_frame)
                 self.assertIsNotNone(resize_handle)
                 self.assertIsNotNone(image_metrics)
@@ -5069,31 +5102,29 @@ class KnowledgeBaseTests(unittest.TestCase):
                 image_width_slider.forceActiveFocus()
                 QTest.keyClick(window, Qt.Key_Left)
                 self.application.processEvents()
-                self.assertLess(
-                    rich_text.selectedImageWidth, width_before_key
+                self.assertLess(rich_text.selectedImageWidth, width_before_key)
+                image_point = image_frame.mapToScene(
+                    QPointF(
+                        image_frame.width() / 2,
+                        image_frame.height() / 2,
+                    )
                 )
-                image_point = image_frame.mapToScene(QPointF(
-                    image_frame.width() / 2,
-                    image_frame.height() / 2,
-                ))
                 rich_text.clear_image_selection()
                 self.application.processEvents()
                 self.assertFalse(image_frame.property("visible"))
-                QTest.mouseClick(
-                    window, Qt.LeftButton, pos=image_point.toPoint()
-                )
+                QTest.mouseClick(window, Qt.LeftButton, pos=image_point.toPoint())
                 self.application.processEvents()
                 self.assertTrue(rich_text.imageSelected)
                 self.assertTrue(image_frame.property("visible"))
 
                 initial_image_width = rich_text.selectedImageWidth
-                handle_point = resize_handle.mapToScene(QPointF(
-                    resize_handle.width() / 2,
-                    resize_handle.height() / 2,
-                )).toPoint()
-                QTest.mousePress(
-                    window, Qt.LeftButton, pos=handle_point
-                )
+                handle_point = resize_handle.mapToScene(
+                    QPointF(
+                        resize_handle.width() / 2,
+                        resize_handle.height() / 2,
+                    )
+                ).toPoint()
+                QTest.mousePress(window, Qt.LeftButton, pos=handle_point)
                 QTest.mouseMove(
                     window,
                     handle_point + QPoint(70, 40),
@@ -5105,12 +5136,9 @@ class KnowledgeBaseTests(unittest.TestCase):
                     pos=handle_point + QPoint(70, 40),
                 )
                 self.application.processEvents()
-                self.assertGreater(
-                    rich_text.selectedImageWidth, initial_image_width
-                )
+                self.assertGreater(rich_text.selectedImageWidth, initial_image_width)
                 self.assertAlmostEqual(
-                    rich_text.selectedImageHeight
-                    / rich_text.selectedImageWidth,
+                    rich_text.selectedImageHeight / rich_text.selectedImageWidth,
                     180.0 / 320.0,
                     places=2,
                 )
@@ -5119,42 +5147,42 @@ class KnowledgeBaseTests(unittest.TestCase):
                     image_size.property("text"),
                 )
 
-                drag_start = image_frame.mapToScene(QPointF(
-                    image_frame.width() / 2,
-                    image_frame.height() / 2,
-                )).toPoint()
-                drag_target = editor.mapToScene(QPointF(
-                    40,
-                    image_frame.y() + image_frame.height() + 48,
-                )).toPoint()
+                drag_start = image_frame.mapToScene(
+                    QPointF(
+                        image_frame.width() / 2,
+                        image_frame.height() / 2,
+                    )
+                ).toPoint()
+                drag_target = editor.mapToScene(
+                    QPointF(
+                        40,
+                        image_frame.y() + image_frame.height() + 48,
+                    )
+                ).toPoint()
                 drop_indicator = visual_child(
                     image_frame, "knowledgeImageDropIndicator"
                 )
                 self.assertIsNotNone(drop_indicator)
-                QTest.mousePress(
-                    window, Qt.LeftButton, pos=drag_start
-                )
+                QTest.mousePress(window, Qt.LeftButton, pos=drag_start)
                 QTest.mouseMove(window, drag_target, delay=30)
                 self.application.processEvents()
                 self.assertTrue(drop_indicator.property("visible"))
-                QTest.mouseRelease(
-                    window, Qt.LeftButton, pos=drag_target
-                )
+                QTest.mouseRelease(window, Qt.LeftButton, pos=drag_target)
                 self.application.processEvents()
                 self.assertGreater(rich_text.selectedImagePosition, 0)
                 self.assertFalse(drop_indicator.property("visible"))
 
-                body_position = rich_text._live_document().toPlainText().index(
-                    "Body text"
+                body_position = (
+                    rich_text._live_document().toPlainText().index("Body text")
                 )
                 body_rect = editor.positionToRectangle(body_position + 2)
-                body_point = editor.mapToScene(QPointF(
-                    body_rect.x() + 3,
-                    body_rect.y() + body_rect.height() / 2,
-                ))
-                QTest.mouseClick(
-                    window, Qt.LeftButton, pos=body_point.toPoint()
+                body_point = editor.mapToScene(
+                    QPointF(
+                        body_rect.x() + 3,
+                        body_rect.y() + body_rect.height() / 2,
+                    )
                 )
+                QTest.mouseClick(window, Qt.LeftButton, pos=body_point.toPoint())
                 self.application.processEvents()
                 self.assertFalse(rich_text.imageSelected)
                 self.assertTrue(editor.property("activeFocus"))
@@ -5163,12 +5191,15 @@ class KnowledgeBaseTests(unittest.TestCase):
                 attachment_button = visual_child(
                     toolbar, "knowledgeToolbarAction-attach"
                 )
-                attachment_point = attachment_button.mapToScene(QPointF(
-                    attachment_button.width() / 2,
-                    attachment_button.height() / 2,
-                ))
+                attachment_point = attachment_button.mapToScene(
+                    QPointF(
+                        attachment_button.width() / 2,
+                        attachment_button.height() / 2,
+                    )
+                )
                 QTest.mouseClick(
-                    window, Qt.LeftButton,
+                    window,
+                    Qt.LeftButton,
                     pos=attachment_point.toPoint(),
                 )
                 self.application.processEvents()
@@ -5185,21 +5216,17 @@ class KnowledgeBaseTests(unittest.TestCase):
                     attachment_library, "knowledgeInsertAttachment"
                 )
                 self.assertIsNotNone(insert_attachment)
-                insert_point = insert_attachment.mapToScene(QPointF(
-                    insert_attachment.width() / 2,
-                    insert_attachment.height() / 2,
-                ))
-                QTest.mouseClick(
-                    window, Qt.LeftButton, pos=insert_point.toPoint()
+                insert_point = insert_attachment.mapToScene(
+                    QPointF(
+                        insert_attachment.width() / 2,
+                        insert_attachment.height() / 2,
+                    )
                 )
+                QTest.mouseClick(window, Qt.LeftButton, pos=insert_point.toPoint())
                 self.application.processEvents()
                 inserted_html = rich_text.html()
-                self.assertEqual(
-                    inserted_html.count("guide.png"), 1, inserted_html
-                )
-                self.assertEqual(
-                    rich_text.selectedImagePosition, caret_position
-                )
+                self.assertEqual(inserted_html.count("guide.png"), 1, inserted_html)
+                self.assertEqual(rich_text.selectedImagePosition, caret_position)
                 self.assertEqual(
                     (
                         editor.property("selectionStart"),
@@ -5217,92 +5244,88 @@ class KnowledgeBaseTests(unittest.TestCase):
                     attachment_library, "knowledgeCloseAttachments"
                 )
                 self.assertIsNotNone(close_attachments)
-                close_point = close_attachments.mapToScene(QPointF(
-                    close_attachments.width() / 2,
-                    close_attachments.height() / 2,
-                ))
+                close_point = close_attachments.mapToScene(
+                    QPointF(
+                        close_attachments.width() / 2,
+                        close_attachments.height() / 2,
+                    )
+                )
                 QTest.mouseClick(
-                    window, Qt.LeftButton,
+                    window,
+                    Qt.LeftButton,
                     pos=close_point.toPoint(),
                 )
                 self.application.processEvents()
                 self.assertFalse(attachment_library.property("visible"))
 
-                disclosure_point = section_disclosure.mapToScene(QPointF(
-                    section_disclosure.width() / 2,
-                    section_disclosure.height() / 2,
-                ))
+                disclosure_point = section_disclosure.mapToScene(
+                    QPointF(
+                        section_disclosure.width() / 2,
+                        section_disclosure.height() / 2,
+                    )
+                )
                 QTest.mouseClick(
-                    window, Qt.LeftButton,
+                    window,
+                    Qt.LeftButton,
                     pos=disclosure_point.toPoint(),
                 )
                 self.application.processEvents()
                 self.assertEqual(controller.toggle_calls, ["SEC0001"])
                 self.assertEqual(controller.selected_identities, [])
 
-                article_row = visual_child(
-                    view, "knowledgeNavigationRow-DOC0001"
-                )
+                article_row = visual_child(view, "knowledgeNavigationRow-DOC0001")
                 self.assertIsNotNone(article_row)
-                article_point = article_row.mapToScene(QPointF(
-                    article_row.width() / 2,
-                    article_row.height() / 2,
-                ))
-                QTest.mouseClick(
-                    window, Qt.LeftButton, pos=article_point.toPoint()
+                article_point = article_row.mapToScene(
+                    QPointF(
+                        article_row.width() / 2,
+                        article_row.height() / 2,
+                    )
                 )
+                QTest.mouseClick(window, Qt.LeftButton, pos=article_point.toPoint())
                 self.application.processEvents()
                 self.assertEqual(controller.identity, "DOC0001")
                 self.assertTrue(article_row.property("selected"))
                 self.assertFalse(article_row.property("railVisible"))
                 self.assertEqual(article_row.property("borderWidth"), 0)
 
-                section_point = selected_row.mapToScene(QPointF(
-                    selected_row.width() / 2,
-                    selected_row.height() / 2,
-                ))
-                QTest.mouseClick(
-                    window, Qt.LeftButton, pos=section_point.toPoint()
+                section_point = selected_row.mapToScene(
+                    QPointF(
+                        selected_row.width() / 2,
+                        selected_row.height() / 2,
+                    )
                 )
+                QTest.mouseClick(window, Qt.LeftButton, pos=section_point.toPoint())
                 self.application.processEvents()
                 self.assertEqual(controller.navigationIdentity, "SEC0001")
                 self.assertTrue(selected_row.property("selected"))
                 self.assertFalse(selected_row.property("railVisible"))
                 self.assertFalse(article_row.property("selected"))
 
-                archive_action = view.findChild(
-                    QObject, "knowledgeArchiveAction"
-                )
+                archive_action = frame_item(view, "knowledgeArchiveAction")
                 self.assertIsNotNone(archive_action)
-                self.assertEqual(
-                    archive_action.property("text"), "Delete article"
-                )
+                self.assertEqual(archive_action.property("text"), "Delete article")
                 previous_delete_calls = controller.delete_calls
                 archive_action.clicked.emit()
                 self.application.processEvents()
-                self.assertEqual(
-                    controller.delete_calls, previous_delete_calls + 1
-                )
+                self.assertEqual(controller.delete_calls, previous_delete_calls + 1)
 
                 controller._error = "Archive failed"
                 controller.stateChanged.emit()
                 self.application.processEvents()
-                error_text = view.findChild(QObject, "knowledgeErrorText")
-                error_dismiss = view.findChild(
-                    QObject, "knowledgeErrorDismiss"
-                )
+                error_text = frame_item(view, "knowledgeErrorText")
+                error_dismiss = frame_item(view, "knowledgeErrorDismiss")
                 self.assertIsNotNone(error_text)
                 self.assertIsNotNone(error_dismiss)
                 self.assertNotEqual(
                     error_text.property("color"), theme.property("error")
                 )
-                dismiss_point = error_dismiss.mapToScene(QPointF(
-                    error_dismiss.width() / 2,
-                    error_dismiss.height() / 2,
-                ))
-                QTest.mouseClick(
-                    window, Qt.LeftButton, pos=dismiss_point.toPoint()
+                dismiss_point = error_dismiss.mapToScene(
+                    QPointF(
+                        error_dismiss.width() / 2,
+                        error_dismiss.height() / 2,
+                    )
                 )
+                QTest.mouseClick(window, Qt.LeftButton, pos=dismiss_point.toPoint())
                 self.application.processEvents()
                 self.assertEqual(controller.error, "")
 
@@ -5315,24 +5338,46 @@ class KnowledgeBaseTests(unittest.TestCase):
     def test_article_surface_survives_ancestor_visibility_cycle(self):
         engine = QQmlEngine()
         controller = _KnowledgeStub()
-        navigation = RecordListModel((
-            "identity", "title", "description", "excerpt", "kind",
-            "parentCode", "sortOrder", "updatedBy", "timestamp",
-            "searchKey", "depth", "hasChildren", "expanded", "draft",
-            "localDraft",
-        ))
-        attachment_drafts = RecordListModel((
-            "token", "title", "path", "size", "fileType", "previewUrl",
-            "status", "progress", "error", "snapshotKey", "uploadTarget",
-        ))
+        navigation = RecordListModel(
+            (
+                "identity",
+                "title",
+                "description",
+                "excerpt",
+                "kind",
+                "parentCode",
+                "sortOrder",
+                "updatedBy",
+                "timestamp",
+                "searchKey",
+                "depth",
+                "hasChildren",
+                "expanded",
+                "draft",
+                "localDraft",
+            )
+        )
+        attachment_drafts = RecordListModel(
+            (
+                "token",
+                "title",
+                "path",
+                "size",
+                "fileType",
+                "previewUrl",
+                "status",
+                "progress",
+                "error",
+                "snapshotKey",
+                "uploadTarget",
+            )
+        )
         context = engine.rootContext()
         self.configure_icon_context(context)
         context.setContextProperty("knowledgeController", controller)
         context.setContextProperty("knowledgeNavigationModel", navigation)
         context.setContextProperty("knowledgeAttachments", _AttachmentStub())
-        context.setContextProperty(
-            "knowledgeAttachmentDraftModel", attachment_drafts
-        )
+        context.setContextProperty("knowledgeAttachmentDraftModel", attachment_drafts)
         context.setContextProperty(
             "knowledgeRichText", RichTextDocumentController(engine)
         )
@@ -5345,19 +5390,23 @@ class KnowledgeBaseTests(unittest.TestCase):
             engine,
             QUrl.fromLocalFile(str(self.qml / "KnowledgeBaseView.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme, "width": 1000, "height": 760,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "width": 1000,
+                "height": 760,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(1000, 760)
         view.setParentItem(window.contentItem())
         window.show()
         self.application.processEvents()
 
-        article_loader = view.findChild(QObject, "knowledgeArticleLoader")
+        article_loader = frame_item(view, "knowledgeArticleLoader")
         self.assertIsNotNone(article_loader)
         article = article_loader.property("item")
         self.assertIsNotNone(article)
@@ -5620,19 +5669,32 @@ class KnowledgeBaseTests(unittest.TestCase):
             attachments=attachments,
             rich_text_document=rich_text,
         )
-        catalog = [{
-            "identity": "SEC0001", "title": "Characters",
-            "description": "Character documentation", "excerpt": "",
-            "kind": "section", "parentCode": "", "sortOrder": 0,
-            "updatedBy": "admin", "timestamp": "",
-            "searchKey": "skey://demo/th_knowledge_article?code=SEC0001",
-        }, {
-            "identity": "DOC0001", "title": "Niki",
-            "description": "Character notes", "excerpt": "",
-            "kind": "article", "parentCode": "SEC0001", "sortOrder": 10,
-            "updatedBy": "admin", "timestamp": "",
-            "searchKey": "skey://demo/th_knowledge_article?code=DOC0001",
-        }]
+        catalog = [
+            {
+                "identity": "SEC0001",
+                "title": "Characters",
+                "description": "Character documentation",
+                "excerpt": "",
+                "kind": "section",
+                "parentCode": "",
+                "sortOrder": 0,
+                "updatedBy": "admin",
+                "timestamp": "",
+                "searchKey": "skey://demo/th_knowledge_article?code=SEC0001",
+            },
+            {
+                "identity": "DOC0001",
+                "title": "Niki",
+                "description": "Character notes",
+                "excerpt": "",
+                "kind": "article",
+                "parentCode": "SEC0001",
+                "sortOrder": 10,
+                "updatedBy": "admin",
+                "timestamp": "",
+                "searchKey": "skey://demo/th_knowledge_article?code=DOC0001",
+            },
+        ]
         controller._catalog = catalog
         controller._initialized = True
         controller._can_edit = True
@@ -5649,21 +5711,22 @@ class KnowledgeBaseTests(unittest.TestCase):
                 "contentText": "Niki Character notes",
                 "sortOrder": 10,
             }
-            handler({
-                "initialized": True,
-                "canEdit": True,
-                "canInitialize": True,
-                "catalog": catalog,
-                "query": "",
-                "identity": target_identity,
-                "searchKey": (
-                    "skey://demo/th_knowledge_article?code="
-                    + target_identity
-                ),
-                "revision": action + "-revision",
-                "document": target_document,
-                "sectionContents": [],
-            })
+            handler(
+                {
+                    "initialized": True,
+                    "canEdit": True,
+                    "canInitialize": True,
+                    "catalog": catalog,
+                    "query": "",
+                    "identity": target_identity,
+                    "searchKey": (
+                        "skey://demo/th_knowledge_article?code=" + target_identity
+                    ),
+                    "revision": action + "-revision",
+                    "document": target_document,
+                    "sectionContents": [],
+                }
+            )
             return True
 
         pending_requests = []
@@ -5677,16 +5740,25 @@ class KnowledgeBaseTests(unittest.TestCase):
         context = engine.rootContext()
         self.configure_icon_context(context)
         context.setContextProperty("knowledgeController", controller)
-        context.setContextProperty(
-            "knowledgeNavigationModel", controller.navigation
-        )
+        context.setContextProperty("knowledgeNavigationModel", controller.navigation)
         context.setContextProperty("knowledgeAttachments", attachments)
         context.setContextProperty(
-            "knowledgeAttachmentDraftModel", RecordListModel((
-                "token", "title", "path", "size", "fileType",
-                "previewUrl", "status", "progress", "error",
-                "snapshotKey", "uploadTarget",
-            ))
+            "knowledgeAttachmentDraftModel",
+            RecordListModel(
+                (
+                    "token",
+                    "title",
+                    "path",
+                    "size",
+                    "fileType",
+                    "previewUrl",
+                    "status",
+                    "progress",
+                    "error",
+                    "snapshotKey",
+                    "uploadTarget",
+                )
+            ),
         )
         context.setContextProperty("knowledgeRichText", rich_text)
         context.setContextProperty("skeyPreviewResolver", _PreviewStub())
@@ -5698,55 +5770,58 @@ class KnowledgeBaseTests(unittest.TestCase):
             engine,
             QUrl.fromLocalFile(str(self.qml / "KnowledgeBaseView.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme, "width": 1000, "height": 760,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "width": 1000,
+                "height": 760,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(1000, 760)
         view.setParentItem(window.contentItem())
         window.show()
         self.application.processEvents()
 
-        article_row = visual_child(
-            view, "knowledgeNavigationRow-DOC0001"
-        )
+        article_row = visual_child(view, "knowledgeNavigationRow-DOC0001")
         self.assertIsNotNone(article_row)
-        article_point = article_row.mapToScene(QPointF(
-            article_row.width() / 2, article_row.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=article_point.toPoint()
+        article_point = article_row.mapToScene(
+            QPointF(
+                article_row.width() / 2,
+                article_row.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=article_point.toPoint())
         self.application.processEvents()
         self.assertEqual(controller.identity, "DOC0001")
         self.assertEqual(controller.document["title"], "Niki")
-        self.assertEqual(
-            controller.viewerDocument.get("contentMarkdown") or "", ""
-        )
+        self.assertEqual(controller.viewerDocument.get("contentMarkdown") or "", "")
         viewer_back = visual_child(view, "knowledgeViewerBack")
         self.assertIsNotNone(viewer_back)
         self.assertFalse(viewer_back.property("visible"))
         navigation_toggle = visual_child(view, "knowledgeToggleNavigation")
-        toggle_point = navigation_toggle.mapToScene(QPointF(
-            navigation_toggle.width() / 2, navigation_toggle.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=toggle_point.toPoint()
+        toggle_point = navigation_toggle.mapToScene(
+            QPointF(
+                navigation_toggle.width() / 2,
+                navigation_toggle.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=toggle_point.toPoint())
         self.application.processEvents()
         self.assertTrue(viewer_back.property("visible"))
         navigation_panel = visual_child(view, "knowledgeNavigation")
         article_loader = visual_child(view, "knowledgeArticleLoader")
         self.assertFalse(navigation_panel.property("visible"))
-        back_point = viewer_back.mapToScene(QPointF(
-            viewer_back.width() / 2, viewer_back.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=back_point.toPoint()
+        back_point = viewer_back.mapToScene(
+            QPointF(
+                viewer_back.width() / 2,
+                viewer_back.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=back_point.toPoint())
         self.application.processEvents()
         self.assertTrue(navigation_panel.property("visible"))
         self.assertFalse(article_loader.property("visible"))
@@ -5754,9 +5829,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         view.setProperty("navigationPage", False)
         self.application.processEvents()
         self.assertFalse(viewer_back.property("visible"))
-        self.assertIsNotNone(
-            visual_child(view, "knowledgeViewerKindIcon")
-        )
+        self.assertIsNotNone(visual_child(view, "knowledgeViewerKindIcon"))
         self.assertEqual(len(pending_requests), 1)
 
         pending_requests.pop(0)()
@@ -5767,9 +5840,13 @@ class KnowledgeBaseTests(unittest.TestCase):
         )
 
         edit_button = visual_child(view, "knowledgeEdit")
-        QTest.mouseClick(window, Qt.LeftButton, pos=edit_button.mapToScene(
-            QPointF(edit_button.width() / 2, edit_button.height() / 2)
-        ).toPoint())
+        QTest.mouseClick(
+            window,
+            Qt.LeftButton,
+            pos=edit_button.mapToScene(
+                QPointF(edit_button.width() / 2, edit_button.height() / 2)
+            ).toPoint(),
+        )
         self.application.processEvents()
         editor_view = visual_child(view, "knowledgeArticleEditor")
         editor = visual_child(view, "knowledgeRichTextEditor")
@@ -5781,7 +5858,8 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertFalse(controller.dirty)
         for position in (QPointF(30, 20), QPointF(80, 95), QPointF(180, 210)):
             QTest.mouseClick(
-                window, Qt.LeftButton,
+                window,
+                Qt.LeftButton,
                 pos=editor.mapToScene(position).toPoint(),
             )
             self.application.processEvents()
@@ -5795,9 +5873,13 @@ class KnowledgeBaseTests(unittest.TestCase):
             self.assertFalse(controller.localDraft)
         cancel_button = visual_child(view, "knowledgeCancelAction")
         self.assertIsNotNone(cancel_button)
-        QTest.mouseClick(window, Qt.LeftButton, pos=cancel_button.mapToScene(
-            QPointF(cancel_button.width() / 2, cancel_button.height() / 2)
-        ).toPoint())
+        QTest.mouseClick(
+            window,
+            Qt.LeftButton,
+            pos=cancel_button.mapToScene(
+                QPointF(cancel_button.width() / 2, cancel_button.height() / 2)
+            ).toPoint(),
+        )
         self.application.processEvents()
         self.assertFalse(controller.editing)
         self.assertIsNotNone(visual_child(view, "knowledgeEdit"))
@@ -5806,7 +5888,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         create_section = visual_child(view, "knowledgeCreateSection")
         self.assertIsNotNone(create_article)
         self.assertIsNotNone(create_section)
-        self.assertEqual(create_article.property("iconName"), "create-article")
+        self.assertEqual(control_icon(create_article), "create-article")
         controller._busy = True
         controller.stateChanged.emit()
         self.application.processEvents()
@@ -5815,12 +5897,13 @@ class KnowledgeBaseTests(unittest.TestCase):
         controller._busy = False
         controller.stateChanged.emit()
         self.application.processEvents()
-        create_point = create_article.mapToScene(QPointF(
-            create_article.width() / 2, create_article.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=create_point.toPoint()
+        create_point = create_article.mapToScene(
+            QPointF(
+                create_article.width() / 2,
+                create_article.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=create_point.toPoint())
         self.application.processEvents()
         self.assertEqual(pending_requests, [])
         self.assertTrue(controller.identity.startswith("local:"))
@@ -5828,28 +5911,18 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertTrue(controller.creating)
         self.assertFalse(controller.draft)
         self.assertTrue(controller.localDraft)
-        self.assertIsNotNone(
-            visual_child(view, "knowledgeArticleEditor")
-        )
-        creation_parent = visual_child(
-            view, "knowledgeCreationParent"
-        )
-        creation_parent_title = visual_child(
-            view, "knowledgeCreationParentTitle"
-        )
+        self.assertIsNotNone(visual_child(view, "knowledgeArticleEditor"))
+        creation_parent = visual_child(view, "knowledgeCreationParent")
+        creation_parent_title = visual_child(view, "knowledgeCreationParentTitle")
         self.assertIsNotNone(creation_parent)
         self.assertIsNotNone(creation_parent_title)
         self.assertTrue(creation_parent.property("visible"))
-        self.assertEqual(
-            creation_parent_title.property("text"), "Characters"
-        )
+        self.assertEqual(creation_parent_title.property("text"), "Characters")
         creation_next = visual_child(view, "knowledgeCreationNext")
         creation_step = visual_child(view, "knowledgeCreationStep")
         title_field = visual_child(view, "knowledgeTitleField")
         editor_toolbar = visual_child(view, "knowledgeRichTextToolbar")
-        attachment_library = visual_child(
-            view, "knowledgeAttachmentLibrary"
-        )
+        attachment_library = visual_child(view, "knowledgeAttachmentLibrary")
         self.assertIsNotNone(creation_next)
         self.assertTrue(creation_next.property("visible"))
         self.assertEqual(creation_step.property("text"), "Step 1 of 2")
@@ -5861,13 +5934,13 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertTrue(save_draft.property("visible"))
         self.assertEqual(save_draft.property("text"), "Save as draft")
 
-        next_point = creation_next.mapToScene(QPointF(
-            creation_next.width() / 2,
-            creation_next.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=next_point.toPoint()
+        next_point = creation_next.mapToScene(
+            QPointF(
+                creation_next.width() / 2,
+                creation_next.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=next_point.toPoint())
         self.application.processEvents()
         self.assertFalse(creation_next.property("visible"))
         self.assertEqual(creation_step.property("text"), "Step 2 of 2")
@@ -5888,31 +5961,19 @@ class KnowledgeBaseTests(unittest.TestCase):
             metadata_toggle.property("text"),
             "Back to title and summary",
         )
-        metadata_glyph = visual_child(
-            metadata_toggle, "materialIconGlyph"
-        )
+        metadata_glyph = visual_child(metadata_toggle, "materialIconGlyph")
         self.assertIsNotNone(metadata_glyph)
-        self.assertEqual(
-            metadata_glyph.property("resolvedName"), "arrow-left"
-        )
+        self.assertEqual(metadata_glyph.property("resolvedName"), "arrow-left")
 
         local_identity = controller.identity
         view.setWidth(430)
         window.resize(430, 760)
         self.application.processEvents()
         self.assertTrue(metadata_toggle.property("compact"))
-        toolbar_overflow = visual_child(
-            editor_toolbar, "knowledgeToolbarOverflow"
-        )
-        compact_style = visual_child(
-            editor_toolbar, "knowledgeTextStyle"
-        )
-        compact_mode = visual_child(
-            editor_toolbar, "knowledgeContentMode"
-        )
-        compact_action = visual_child(
-            editor_toolbar, "knowledgeToolbarAction-bold"
-        )
+        toolbar_overflow = visual_child(editor_toolbar, "knowledgeToolbarOverflow")
+        compact_style = visual_child(editor_toolbar, "knowledgeTextStyle")
+        compact_mode = visual_child(editor_toolbar, "knowledgeContentMode")
+        compact_action = visual_child(editor_toolbar, "knowledgeToolbarAction-bold")
         self.assertIsNotNone(toolbar_overflow)
         self.assertTrue(toolbar_overflow.property("visible"))
         self.assertIsNotNone(compact_style)
@@ -5923,17 +5984,11 @@ class KnowledgeBaseTests(unittest.TestCase):
             editor_toolbar.width() < 760,
         )
         self.assertAlmostEqual(
-            compact_style.mapToItem(
-                editor_toolbar, QPointF(0, 0)
-            ).y(),
-            compact_action.mapToItem(
-                editor_toolbar, QPointF(0, 0)
-            ).y(),
+            compact_style.mapToItem(editor_toolbar, QPointF(0, 0)).y(),
+            compact_action.mapToItem(editor_toolbar, QPointF(0, 0)).y(),
             delta=0.5,
         )
-        compact_mode_position = compact_mode.mapToItem(
-            editor_toolbar, QPointF(0, 0)
-        )
+        compact_mode_position = compact_mode.mapToItem(editor_toolbar, QPointF(0, 0))
         self.assertLessEqual(
             compact_mode_position.x() + compact_mode.width(),
             editor_toolbar.width() + 0.5,
@@ -5942,19 +5997,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         editor_back = visual_child(view, "knowledgeEditorBack")
         self.assertIsNotNone(editor_back)
         self.assertTrue(editor_back.property("visible"))
-        back_point = editor_back.mapToScene(QPointF(
-            editor_back.width() / 2,
-            editor_back.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=back_point.toPoint()
+        back_point = editor_back.mapToScene(
+            QPointF(
+                editor_back.width() / 2,
+                editor_back.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=back_point.toPoint())
         self.application.processEvents()
         self.assertFalse(controller.editing)
         self.assertTrue(controller.localDraft)
-        self.assertIsNotNone(visual_child(
-            view, "knowledgeNavigationRow-" + local_identity
-        ))
+        self.assertIsNotNone(
+            visual_child(view, "knowledgeNavigationRow-" + local_identity)
+        )
 
         window.hide()
         view.setParentItem(None)
@@ -6157,51 +6212,61 @@ class KnowledgeBaseTests(unittest.TestCase):
                         "title": "Characters",
                         "description": "Character documentation",
                     }
-                    controller._selected_link_candidates = [{
-                        "searchKey": "skey://demo/assets?code=HERO",
-                        "title": "Hero asset",
-                        "description": "Main character",
-                    }]
+                    controller._selected_link_candidates = [
+                        {
+                            "searchKey": "skey://demo/assets?code=HERO",
+                            "title": "Hero asset",
+                            "description": "Main character",
+                        }
+                    ]
                     attachments = _AttachmentStub()
                     rich_text = RichTextDocumentController(engine)
                     context = engine.rootContext()
                     self.configure_icon_context(context)
+                    context.setContextProperty("knowledgeAttachments", attachments)
                     context.setContextProperty(
-                        "knowledgeAttachments", attachments
-                    )
-                    context.setContextProperty(
-                        "knowledgeAttachmentDraftModel", RecordListModel((
-                            "token", "title", "path", "size", "fileType",
-                            "previewUrl", "status", "progress", "error",
-                            "snapshotKey", "uploadTarget",
-                        ))
+                        "knowledgeAttachmentDraftModel",
+                        RecordListModel(
+                            (
+                                "token",
+                                "title",
+                                "path",
+                                "size",
+                                "fileType",
+                                "previewUrl",
+                                "status",
+                                "progress",
+                                "error",
+                                "snapshotKey",
+                                "uploadTarget",
+                            )
+                        ),
                     )
                     context.setContextProperty("knowledgeRichText", rich_text)
-                    context.setContextProperty(
-                        "skeyPreviewResolver", _PreviewStub()
-                    )
+                    context.setContextProperty("skeyPreviewResolver", _PreviewStub())
                     theme_component = QQmlComponent(
                         engine,
                         QUrl.fromLocalFile(str(self.qml / "Theme.qml")),
                     )
-                    theme = theme_component.createWithInitialProperties({
-                        "dark": True
-                    })
+                    theme = theme_component.createWithInitialProperties({"dark": True})
                     component = QQmlComponent(
                         engine,
-                        QUrl.fromLocalFile(str(
-                            self.qml / "KnowledgeArticleEditor.qml"
-                        )),
+                        QUrl.fromLocalFile(
+                            str(self.qml / "KnowledgeArticleEditor.qml")
+                        ),
                     )
-                    view = component.createWithInitialProperties({
-                        "theme": theme,
-                        "controller": controller,
-                        "width": width,
-                        "height": 520,
-                    })
-                    self.assertIsNotNone(view, "\n".join(
-                        error.toString() for error in component.errors()
-                    ))
+                    view = component.createWithInitialProperties(
+                        {
+                            "theme": theme,
+                            "controller": controller,
+                            "width": width,
+                            "height": 520,
+                        }
+                    )
+                    self.assertIsNotNone(
+                        view,
+                        "\n".join(error.toString() for error in component.errors()),
+                    )
                     window = QQuickWindow()
                     window.resize(width, 520)
                     view.setParentItem(window.contentItem())
@@ -6209,33 +6274,15 @@ class KnowledgeBaseTests(unittest.TestCase):
                     self.assertTrue(QTest.qWaitForWindowExposed(window))
                     self.application.processEvents()
 
-                    link_button = visual_child(
-                        view, "knowledgeLinkSelectedObjects"
-                    )
-                    back_button = visual_child(
-                        view, "knowledgeEditorBack"
-                    )
-                    editor_header = visual_child(
-                        view, "knowledgeEditorHeader"
-                    )
-                    editor_title = visual_child(
-                        view, "knowledgeEditorTitle"
-                    )
-                    cancel_action = visual_child(
-                        view, "knowledgeCancelAction"
-                    )
-                    editor_overflow = visual_child(
-                        view, "knowledgeEditorOverflow"
-                    )
-                    archive_action = visual_child(
-                        view, "knowledgeArchiveAction"
-                    )
-                    linked_header = visual_child(
-                        view, "knowledgeLinkedObjectHeader"
-                    )
-                    creation_parent = visual_child(
-                        view, "knowledgeCreationParent"
-                    )
+                    link_button = visual_child(view, "knowledgeLinkSelectedObjects")
+                    back_button = visual_child(view, "knowledgeEditorBack")
+                    editor_header = visual_child(view, "knowledgeEditorHeader")
+                    editor_title = visual_child(view, "knowledgeEditorTitle")
+                    cancel_action = visual_child(view, "knowledgeCancelAction")
+                    editor_overflow = visual_child(view, "knowledgeEditorOverflow")
+                    archive_action = visual_child(view, "knowledgeArchiveAction")
+                    linked_header = visual_child(view, "knowledgeLinkedObjectHeader")
+                    creation_parent = visual_child(view, "knowledgeCreationParent")
                     creation_parent_title = visual_child(
                         view, "knowledgeCreationParentTitle"
                     )
@@ -6261,45 +6308,49 @@ class KnowledgeBaseTests(unittest.TestCase):
                     self.assertEqual(
                         creation_parent_title.property("text"), "Characters"
                     )
-                    save_draft = visual_child(
-                        view, "knowledgeSaveDraft"
-                    )
+                    save_draft = visual_child(view, "knowledgeSaveDraft")
                     self.assertIsNotNone(save_draft)
                     self.assertTrue(save_draft.property("visible"))
-                    self.assertEqual(
-                        save_draft.property("text"), "Save as draft"
-                    )
+                    self.assertEqual(save_draft.property("text"), "Save as draft")
                     header_items = [
-                        item for item in (
+                        item
+                        for item in (
                             back_button,
                             editor_title,
                             link_button,
                             cancel_action,
                             save_draft,
-                        ) if item.property("visible")
+                        )
+                        if item.property("visible")
                     ]
                     positions = []
                     for item in header_items:
-                        position = item.mapToItem(
-                            editor_header, QPointF(0, 0)
-                        )
+                        position = item.mapToItem(editor_header, QPointF(0, 0))
                         self.assertGreaterEqual(position.x(), -0.5)
                         self.assertLessEqual(
                             position.x() + item.width(),
                             editor_header.width() + 0.5,
                         )
-                        positions.append((position.x(), item.width()))
-                    positions.sort()
-                    for previous, current in zip(
-                        positions, positions[1:]
-                    ):
-                        self.assertGreaterEqual(
-                            current[0], previous[0] + previous[1] - 0.5
+                        positions.append(
+                            (
+                                round((position.y() + item.height() / 2) / 16),
+                                position.x(),
+                                item.width(),
+                            )
                         )
-                    draft_point = save_draft.mapToScene(QPointF(
-                        save_draft.width() / 2,
-                        save_draft.height() / 2,
-                    ))
+                    positions.sort()
+                    for previous, current in zip(positions, positions[1:]):
+                        if current[0] != previous[0]:
+                            continue
+                        self.assertGreaterEqual(
+                            current[1], previous[1] + previous[2] - 0.5
+                        )
+                    draft_point = save_draft.mapToScene(
+                        QPointF(
+                            save_draft.width() / 2,
+                            save_draft.height() / 2,
+                        )
+                    )
                     QTest.mouseClick(
                         window,
                         Qt.LeftButton,
@@ -6308,13 +6359,13 @@ class KnowledgeBaseTests(unittest.TestCase):
                     self.application.processEvents()
                     self.assertEqual(controller.save_draft_calls, 1)
 
-                    button_point = link_button.mapToScene(QPointF(
-                        link_button.width() / 2,
-                        link_button.height() / 2,
-                    ))
-                    QTest.mouseClick(
-                        window, Qt.LeftButton, pos=button_point.toPoint()
+                    button_point = link_button.mapToScene(
+                        QPointF(
+                            link_button.width() / 2,
+                            link_button.height() / 2,
+                        )
                     )
+                    QTest.mouseClick(window, Qt.LeftButton, pos=button_point.toPoint())
                     self.application.processEvents()
                     self.assertEqual(
                         controller.document["linkedSearchKeys"],
@@ -6323,14 +6374,14 @@ class KnowledgeBaseTests(unittest.TestCase):
                     self.assertFalse(link_button.property("visible"))
                     self.assertTrue(linked_header.property("visible"))
 
-                    creation_next = visual_child(
-                        view, "knowledgeCreationNext"
-                    )
+                    creation_next = visual_child(view, "knowledgeCreationNext")
                     self.assertIsNotNone(creation_next)
-                    next_point = creation_next.mapToScene(QPointF(
-                        creation_next.width() / 2,
-                        creation_next.height() / 2,
-                    ))
+                    next_point = creation_next.mapToScene(
+                        QPointF(
+                            creation_next.width() / 2,
+                            creation_next.height() / 2,
+                        )
+                    )
                     QTest.mouseClick(
                         window,
                         Qt.LeftButton,
@@ -6339,18 +6390,14 @@ class KnowledgeBaseTests(unittest.TestCase):
                     window.update()
                     self.application.processEvents()
                     self.assertTrue(linked_header.property("visible"))
-                    unlink_button = visual_child(
-                        view, "knowledgeLinkedObjectUnlink"
-                    )
+                    unlink_button = visual_child(view, "knowledgeLinkedObjectUnlink")
                     self.assertIsNotNone(unlink_button)
                     self.assertTrue(unlink_button.property("visible"))
 
                     publish = visual_child(view, "knowledgeSave")
                     self.assertIsNotNone(publish)
                     self.assertTrue(save_draft.property("visible"))
-                    self.assertEqual(
-                        save_draft.property("text"), "Save as draft"
-                    )
+                    self.assertEqual(save_draft.property("text"), "Save as draft")
                     self.assertEqual(publish.property("text"), "Publish")
                     if width == 900:
                         controller._creating = False
@@ -6363,37 +6410,41 @@ class KnowledgeBaseTests(unittest.TestCase):
                         window.update()
                         self.application.processEvents()
                         window.grabWindow()
-                        self.assertTrue(
-                            archive_action.property("visible")
-                        )
+                        self.assertTrue(archive_action.property("visible"))
                         header_items = [
-                            item for item in (
+                            item
+                            for item in (
                                 back_button,
                                 editor_title,
                                 link_button,
                                 cancel_action,
                                 archive_action,
                                 publish,
-                            ) if item.property("visible")
+                            )
+                            if item.property("visible")
                         ]
                         positions = []
                         for item in header_items:
-                            position = item.mapToItem(
-                                editor_header, QPointF(0, 0)
-                            )
+                            position = item.mapToItem(editor_header, QPointF(0, 0))
                             self.assertGreaterEqual(position.x(), -0.5)
                             self.assertLessEqual(
                                 position.x() + item.width(),
                                 editor_header.width() + 0.5,
                             )
-                            positions.append((position.x(), item.width()))
+                            positions.append(
+                                (
+                                    round((position.y() + item.height() / 2) / 16),
+                                    position.x(),
+                                    item.width(),
+                                )
+                            )
                         positions.sort()
-                        for previous, current in zip(
-                            positions, positions[1:]
-                        ):
+                        for previous, current in zip(positions, positions[1:]):
+                            if current[0] != previous[0]:
+                                continue
                             self.assertGreaterEqual(
-                                current[0],
-                                previous[0] + previous[1] - 0.5,
+                                current[1],
+                                previous[1] + previous[2] - 0.5,
                                 positions,
                             )
                         archive_action.clicked.emit()
@@ -6408,13 +6459,13 @@ class KnowledgeBaseTests(unittest.TestCase):
                         self.assertTrue(archive_action.property("visible"))
                         self.assertTrue(archive_action.property("compact"))
                         lifecycle_actions = [
-                            cancel_action, archive_action, publish,
+                            cancel_action,
+                            archive_action,
+                            publish,
                         ]
                         positions = sorted(
                             (
-                                item.mapToItem(
-                                    editor_header, QPointF(0, 0)
-                                ).x(),
+                                item.mapToItem(editor_header, QPointF(0, 0)).x(),
                                 item.width(),
                             )
                             for item in lifecycle_actions
@@ -6426,9 +6477,7 @@ class KnowledgeBaseTests(unittest.TestCase):
                                 position + item_width,
                                 editor_header.width() + 0.5,
                             )
-                        for previous, current in zip(
-                            positions, positions[1:]
-                        ):
+                        for previous, current in zip(positions, positions[1:]):
                             self.assertGreaterEqual(
                                 current[0],
                                 previous[0] + previous[1] - 0.5,
@@ -6436,10 +6485,15 @@ class KnowledgeBaseTests(unittest.TestCase):
                         view.setProperty("editorStep", 0)
                         window.update()
                         self.application.processEvents()
-                        back_point = back_button.mapToScene(QPointF(
-                            back_button.width() / 2,
-                            back_button.height() / 2,
-                        ))
+                        from tests.profile_ui_responsiveness import frame
+
+                        frame(window)
+                        back_point = back_button.mapToScene(
+                            QPointF(
+                                back_button.width() / 2,
+                                back_button.height() / 2,
+                            )
+                        )
                         QTest.mouseClick(
                             window,
                             Qt.LeftButton,
@@ -6455,9 +6509,7 @@ class KnowledgeBaseTests(unittest.TestCase):
                     window.deleteLater()
                     theme.deleteLater()
                     engine.deleteLater()
-                    QCoreApplication.sendPostedEvents(
-                        None, QEvent.DeferredDelete
-                    )
+                    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
                     self.application.processEvents()
         finally:
             qInstallMessageHandler(previous_handler)
@@ -6610,36 +6662,37 @@ class KnowledgeBaseTests(unittest.TestCase):
             + "<h2>Final checks</h2><p>Ready.</p>"
         )
         controller._document["contentText"] = "Publish Final checks"
-        controller._linked_objects = [{
-            "searchKey": "skey://demo/assets?code=HERO",
-            "title": "Hero asset",
-            "description": "Primary character model and rig",
-            "subtitle": "demo/assets",
-            "previewUrl": "",
-            "status": "ready",
-        }]
-        engine.rootContext().setContextProperty(
-            "skeyPreviewResolver", _PreviewStub()
-        )
+        controller._linked_objects = [
+            {
+                "searchKey": "skey://demo/assets?code=HERO",
+                "title": "Hero asset",
+                "description": "Primary character model and rig",
+                "subtitle": "demo/assets",
+                "previewUrl": "",
+                "status": "ready",
+            }
+        ]
+        engine.rootContext().setContextProperty("skeyPreviewResolver", _PreviewStub())
         self.configure_icon_context(engine.rootContext())
         theme_component = QQmlComponent(
-            engine, QUrl.fromLocalFile(str(self.qml / "Theme.qml")))
+            engine, QUrl.fromLocalFile(str(self.qml / "Theme.qml"))
+        )
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                self.qml / "KnowledgeArticleViewer.qml"
-            )),
+            QUrl.fromLocalFile(str(self.qml / "KnowledgeArticleViewer.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": controller,
-            "width": 900,
-            "height": 620,
-        })
-        self.assertIsNotNone(view, "\n".join(
-            error.toString() for error in component.errors()
-        ))
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": controller,
+                "width": 900,
+                "height": 620,
+            }
+        )
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
         window = QQuickWindow()
         window.resize(900, 620)
         view.setParentItem(window.contentItem())
@@ -6648,32 +6701,20 @@ class KnowledgeBaseTests(unittest.TestCase):
 
         kind_icon = visual_child(view, "knowledgeViewerKindIcon")
         kind_surface = visual_child(view, "knowledgeViewerKindSurface")
-        outline_toggle = visual_child(
-            view, "knowledgeToggleTableOfContents"
-        )
+        outline_toggle = visual_child(view, "knowledgeToggleTableOfContents")
         history_button = visual_child(view, "knowledgeChangeHistory")
-        history_popup = view.findChild(
-            QObject, "knowledgeRevisionHistoryPopup"
-        )
+        history_popup = view.findChild(QObject, "knowledgeRevisionHistoryPopup")
         viewer_title = visual_child(view, "knowledgeViewerTitle")
-        revision_banner = visual_child(
-            view, "knowledgeRevisionPreviewBanner"
-        )
-        back_to_current = visual_child(
-            view, "knowledgeBackToCurrentRevision"
-        )
+        revision_banner = visual_child(view, "knowledgeRevisionPreviewBanner")
+        back_to_current = visual_child(view, "knowledgeBackToCurrentRevision")
         edit_action = visual_child(view, "knowledgeEdit")
         linked_header = visual_child(view, "knowledgeLinkedObjectHeader")
         side_outline = visual_child(view, "knowledgeSideTableOfContents")
         second_heading = visual_child(view, "knowledgeTocEntry-1")
         article_scroll = visual_child(view, "knowledgeArticleScroll")
-        article_scrollbar = visual_child(
-            view, "knowledgeArticleScrollBar"
-        )
+        article_scrollbar = visual_child(view, "knowledgeArticleScrollBar")
         reading_time = visual_child(view, "knowledgeReadingTime")
-        metadata_footer = visual_child(
-            view, "knowledgeArticleMetadataFooter"
-        )
+        metadata_footer = visual_child(view, "knowledgeArticleMetadataFooter")
         article_author = visual_child(view, "knowledgeArticleAuthor")
         article_created = visual_child(view, "knowledgeArticleCreated")
         article_updated = visual_child(view, "knowledgeArticleUpdated")
@@ -6694,8 +6735,8 @@ class KnowledgeBaseTests(unittest.TestCase):
             theme.property("surfaceContainerHigh"),
         )
         self.assertEqual(
-            outline_toggle.property("backgroundColor"),
-            theme.property("surfaceContainerHigh"),
+            outline_toggle.property("tonal"),
+            True,
         )
         self.assertFalse(edit_action.property("highlighted"))
         self.assertTrue(edit_action.property("tonal"))
@@ -6714,9 +6755,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertTrue(reading_time.property("visible"))
         self.assertEqual(reading_time.property("text"), "3 min read")
         self.assertTrue(metadata_footer.property("visible"))
-        self.assertEqual(
-            article_author.property("text"), "Author: Admin Pretty Name"
-        )
+        self.assertEqual(article_author.property("text"), "Author: Admin Pretty Name")
         self.assertEqual(
             article_author.property("color").toRgb().rgba(),
             theme.property("disabledText").toRgb().rgba(),
@@ -6755,58 +6794,60 @@ class KnowledgeBaseTests(unittest.TestCase):
         article_scroll.setProperty("contentY", 0.0)
         self.application.processEvents()
 
-        history_point = history_button.mapToScene(QPointF(
-            history_button.width() / 2,
-            history_button.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=history_point.toPoint()
+        history_point = history_button.mapToScene(
+            QPointF(
+                history_button.width() / 2,
+                history_button.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=history_point.toPoint())
         QTest.qWait(80)
         self.assertTrue(history_popup.property("visible"))
         self.assertEqual(controller.history_load_calls, 1)
-        popup_window = next((
-            candidate for candidate in QGuiApplication.topLevelWindows()
-            if candidate is not window and candidate.isVisible()
-        ), None)
+        popup_window = next(
+            (
+                candidate
+                for candidate in QGuiApplication.topLevelWindows()
+                if candidate is not window and candidate.isVisible()
+            ),
+            None,
+        )
         self.assertIsNotNone(popup_window)
         previous_revision = visual_child(
             popup_window.contentItem(),
             "knowledgeRevisionHistoryEntry-1",
         )
         self.assertIsNotNone(previous_revision)
-        previous_point = previous_revision.mapToScene(QPointF(
-            previous_revision.width() / 2,
-            previous_revision.height() / 2,
-        ))
-        QTest.mouseClick(
-            popup_window, Qt.LeftButton, pos=previous_point.toPoint()
+        previous_point = previous_revision.mapToScene(
+            QPointF(
+                previous_revision.width() / 2,
+                previous_revision.height() / 2,
+            )
         )
+        QTest.mouseClick(popup_window, Qt.LeftButton, pos=previous_point.toPoint())
         QTest.qWait(80)
         self.assertEqual(controller.history_preview_calls, ["TX1"])
         self.assertTrue(revision_banner.property("visible"))
-        self.assertEqual(
-            viewer_title.property("text"), "Earlier pipeline guide"
+        self.assertEqual(viewer_title.property("text"), "Earlier pipeline guide")
+        back_point = back_to_current.mapToScene(
+            QPointF(
+                back_to_current.width() / 2,
+                back_to_current.height() / 2,
+            )
         )
-        back_point = back_to_current.mapToScene(QPointF(
-            back_to_current.width() / 2,
-            back_to_current.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=back_point.toPoint()
-        )
+        QTest.mouseClick(window, Qt.LeftButton, pos=back_point.toPoint())
         self.application.processEvents()
         self.assertFalse(revision_banner.property("visible"))
         self.assertEqual(viewer_title.property("text"), "Pipeline guide")
         QTest.qWait(200)
 
-        toggle_point = outline_toggle.mapToScene(QPointF(
-            outline_toggle.width() / 2,
-            outline_toggle.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=toggle_point.toPoint()
+        toggle_point = outline_toggle.mapToScene(
+            QPointF(
+                outline_toggle.width() / 2,
+                outline_toggle.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=toggle_point.toPoint())
         self.application.processEvents()
         self.assertFalse(side_outline.property("visible"))
         self.assertEqual(
@@ -6814,21 +6855,19 @@ class KnowledgeBaseTests(unittest.TestCase):
             "Show table of contents",
         )
         QTest.qWait(200)
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=toggle_point.toPoint()
-        )
+        QTest.mouseClick(window, Qt.LeftButton, pos=toggle_point.toPoint())
         self.application.processEvents()
         self.assertTrue(side_outline.property("visible"))
 
         second_heading = visual_child(view, "knowledgeTocEntry-1")
         self.assertIsNotNone(second_heading)
-        heading_point = second_heading.mapToScene(QPointF(
-            second_heading.width() / 2,
-            second_heading.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=heading_point.toPoint()
+        heading_point = second_heading.mapToScene(
+            QPointF(
+                second_heading.width() / 2,
+                second_heading.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=heading_point.toPoint())
         self.application.processEvents()
         self.assertGreater(article_scroll.property("contentY"), 0)
 
@@ -6842,12 +6881,8 @@ class KnowledgeBaseTests(unittest.TestCase):
             visual_child(view, "knowledgeArticleText"),
             first_article_block,
         )
-        inline_outline = visual_child(
-            view, "knowledgeInlineTableOfContents"
-        )
-        metadata_footer = visual_child(
-            view, "knowledgeArticleMetadataFooter"
-        )
+        inline_outline = visual_child(view, "knowledgeInlineTableOfContents")
+        metadata_footer = visual_child(view, "knowledgeArticleMetadataFooter")
         metadata_labels = [
             visual_child(view, "knowledgeArticleAuthor"),
             visual_child(view, "knowledgeArticleCreated"),
@@ -6866,13 +6901,13 @@ class KnowledgeBaseTests(unittest.TestCase):
             )
         self.assertTrue(inline_outline.property("visible"))
         QTest.qWait(200)
-        toggle_point = outline_toggle.mapToScene(QPointF(
-            outline_toggle.width() / 2,
-            outline_toggle.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.LeftButton, pos=toggle_point.toPoint()
+        toggle_point = outline_toggle.mapToScene(
+            QPointF(
+                outline_toggle.width() / 2,
+                outline_toggle.height() / 2,
+            )
         )
+        QTest.mouseClick(window, Qt.LeftButton, pos=toggle_point.toPoint())
         self.application.processEvents()
         self.assertFalse(inline_outline.property("visible"))
 
@@ -7157,7 +7192,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         window.show()
         self.application.processEvents()
 
-        button = view.findChild(QObject, "collaborationInitializeButton")
+        button = frame_item(window.contentItem(),"collaborationInitializeButton")
         confirmation = view.findChild(
             QObject, "collaborationInitializationConfirmation"
         )
@@ -7171,16 +7206,18 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.application.processEvents()
 
         self.assertTrue(confirmation.property("visible"))
-        messages = view.findChild(QObject, "collaborationMessagesChange")
-        knowledge = view.findChild(QObject, "collaborationKnowledgeChange")
-        preservation = view.findChild(
-            QObject, "collaborationPreservationNotice"
-        )
+        messages = frame_item(window.contentItem(),"collaborationMessagesChange")
+        knowledge = frame_item(window.contentItem(),"collaborationKnowledgeChange")
+        preservation = frame_item(window.contentItem(),"collaborationPreservationNotice")
         self.assertIn("sthpw/message_log", messages.property("text"))
         self.assertIn("metadata", messages.property("text"))
         self.assertIn("PROJECT/th_knowledge_article", knowledge.property("text"))
         self.assertIn("content_text", knowledge.property("text"))
         self.assertIn("Nothing is deleted", preservation.property("text"))
+
+        view.setProperty("projectCode", "another-project")
+        self.application.processEvents()
+        self.assertFalse(confirmation.property("visible"))
 
         window.hide()
         view.setParentItem(None)

@@ -38,3 +38,7 @@ not task status.
 - Missing bids, wages or work-hour records are shown as unavailable rather than guessed.
 - Project-configured names and currencies are not translated or hardcoded by the UI.
 - Refresh errors preserve the chosen report and date range for retry.
+
+## Shared report presentation
+
+The report selector and value rows share one Frame composition. The narrow selector contains only reports allowed by the existing permissions; desktop keeps inaccessible report types disabled. Long value lists are virtualized and scroll to their last row without creating every delegate. Refresh reloads through the existing report controller. Native team/cost capabilities and browser server-provided report options remain explicit.

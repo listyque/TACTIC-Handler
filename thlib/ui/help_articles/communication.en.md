@@ -141,3 +141,7 @@ filters. Handler additionally shows Repository Sync. Clearing history does not
 change the activity journal or messages. Message and activity notices open their
 source; quick reply retains its text when sending fails. Stream's phone error notices keep
 long diagnostic text in a scrollable area instead of covering the whole screen.
+
+## First-use confirmation
+
+When collaboration storage is missing, **Initialize** opens a confirmation explaining the message metadata and Knowledge Base schema changes. Cancel leaves the schema unchanged. Existing columns and data are preserved on confirmation. The dialog closes when the active project changes; initialization uses the existing server permissions and mutation path.

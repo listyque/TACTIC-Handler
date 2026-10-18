@@ -334,3 +334,22 @@ directly. The whole-layout reference and real input drivers live in
 `tools/frame_docks` and `frontend/tests/frame_dock*.mjs`.
 
 B08 source/owner/capability and evidence boundaries are documented in `docs/frame_objects.md` in each independent product. The note body and child forms are included. Reproduction, acceptance evidence and platform limits live in that guide.
+
+
+## Remaining domain compositions (B14)
+
+`features/knowledge` owns workspace, commands, formatting actions, navigation and
+heading-outline geometry. It does not own Markdown serialization, rich document
+selection, image editing, attachments, revisions or writes. `features/workhours`
+owns report composition, Timesheet controls/entries and hour form fields/rules;
+existing controllers and authorized report catalogs own data and mutations.
+`features/support/collaboration/initialization.ui.mjs` describes the common schema
+warning/confirmation; hosts retain lifecycle and explicit initialization.
+`features/support/documentation` supplies API method/parameter and journal command
+presentations for Stream capabilities. No native browser is introduced.
+
+Action `pressAction` runs before activation for pointer and keyboard, allowing
+anchored menus to remember their open state and native text selection before
+focus moves. It does not dispatch a mutation. Complete source ownership and
+remaining gaps are in `tools/frame_remaining/surfaces.json` and
+`docs/frame_remaining.md`; source classification is not runtime acceptance.

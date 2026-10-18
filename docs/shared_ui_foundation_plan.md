@@ -7,7 +7,7 @@ Started 2026-10-15. This replaces the previous screen-first migration order.
 This is the current execution order. The phase IDs and release checkpoints below
 remain the coverage map and evidence history, not separate user-sized tasks.
 Preparation is delivered; verified parts of controls and shell stay delivered.
-**B01–B06 and B08–B13 are delivered** at the checkpoints below. **B07 remains incomplete**; its gaps are not absorbed by later batches.
+**B01–B06 and B08–B14 are delivered** at the checkpoints below. **B07 remains incomplete**; its gaps are not absorbed by later batches.
 
 **B07 is in progress.** Table geometry/paint, menus, typed inline editors and the
 widget catalogue are shared; 37 classes have typed adapters. The shipped/CG
@@ -21,10 +21,26 @@ fragments (including note bodies and edit/delete child forms) share one skeleton
 The source/owner/capability and acceptance ledger is `docs/frame_objects.md`.
 This does not close B07's gaps.
 
-**B12 is delivered.** The current release follows the B09 task, B10 schedule
-and B11 messaging checkpoints recorded in the Stream plan. Files/check-in and
-repository queues now pass the shared B12 acceptance below. B07 remains open;
-B13 is delivered below. See `frame_files.md` for file evidence and limits.
+**B09 is delivered.** Task Manager, Quick Tasks, remaining task Inspector
+fields, bulk editors and desktop/phone composition use independent shared
+descriptions. Scope, existing owners, acceptance and limits: `docs/frame_tasks.md`.
+Production Gantt/calendar is delivered in B10 below; B07's 40 legacy-widget gaps remain open.
+
+**B10 is delivered.** Production Gantt, the separate Calendar dock, milestones
+and schedule editing use shared descriptions and input calculations. Existing
+draft/revision/write owners remain independent. Scope, capabilities and current
+evidence: `docs/frame_schedule.md`. B11 Messaging is delivered below.
+
+**B11 is delivered.** Messages, attachment staging, activity, notification history
+and toast content use independent shared descriptions. Original/native/browser
+captures and real workflows are accepted within the documented platform limits.
+See `docs/frame_messages.md`. B07 stays open; B12 is delivered below.
+
+**B12 is delivered.** File Workspace, check-in/ingest, Drop Plate, matching,
+Commit Queue, native synchronization and screenshot tools use shared composition.
+Final gate, connected scenarios and source-checked comparisons pass; native/browser
+capabilities and deployment limits are explicit in `docs/frame_files.md`.
+B13 is delivered below; B07's unrelated gaps remain open.
 
 **B13 is delivered.** Stream 0.112.166 / Handler 0.6.0.117 share Script
 Editor/source commands, shelf bar/editor and the native script/tools compositions.
@@ -33,7 +49,7 @@ Batch Manager and its existing web UI remain intact; `side_tools/frame_tool` is 
 small native reuse example, not another scheduler. The final platform gate passes
 134 stages; 384 original/current native pairs and 144 native/Vue compositions
 pass the current source-checked comparison. Scope and limits:
-[frame_scripts.md](frame_scripts.md). The next batch is B14; B07 stays incomplete.
+[frame_scripts.md](frame_scripts.md). B14 is delivered below; B07 stays incomplete.
 
 Each batch targets roughly **eight hours of complete engineering work**: inspect
 the original and dependencies, implement both hosts, exercise real workflows,
@@ -87,6 +103,118 @@ Re-estimate from actual completed batches; do not manufacture work to fill time.
 The user-facing checkpoint reports the **whole batch**, its remaining gaps and
 evidence. Each delivered checkpoint below records implementation and current acceptance;
 the batch table itself is scope, not evidence.
+
+## B11 delivered: Messages, activity and notifications, 2026-10-18
+
+Stream **0.112.164** / Handler **0.6.0.115** ship **153 portable `.mjs`
+modules and three JSON catalogs** independently. Fourteen new modules describe
+conversations, message metadata/body/reference/pins, composer rules, forms and
+child panels, attachment staging, activity cards/calendar, notification history,
+toast content and neutral people/emoji pickers. Native Qt text/file/image ports
+remain native; existing request, permission, draft, receipt, upload and timer
+owners retain their responsibilities. There is no embedded browser.
+
+Acceptance: **111 mandatory platform stages**, **214 native communication cases**,
+**eight temporary-server API/browser checks** and the separate notification layout
+check passed. The complete desktop/mobile Workbench and independent wheel check
+also passed. The source-checked gallery records **384 Qt/Vue pairs / 1,152
+original/current-native/browser images**: 288 pairs across three styles, both
+modes/languages and 24 states/widths at 100%, plus 48 pairs each at 150% and 200%.
+Forms, forwarding, members, revision/pin history and files are included alongside
+the main communication surfaces; composer send/emoji geometry is measured.
+
+Real workflows cover cached switching, independent drafts/read positions,
+send/newline and popup input, files and failures, rights, notification actions,
+activity paging and hide/logout/expiry. Restored conversations create their
+retained surface, closed owners reject late opening callbacks, and authentication
+failure stops subsequent reads before ticket cleanup. Activity counts no longer
+reset the selected calendar month. Native message/Knowledge preview widths and
+phone toolbar composition are verified separately from the original reference.
+
+Handler retains local file/cancel and Repository Sync capabilities; Stream keeps
+browser downloads/reselection and its phone composition. Physical touch, OS IME,
+compositor/font rasterization and production PostgreSQL remain separate hardware
+and deployment acceptance. Source/owner map, reproduction and explicit limits:
+`docs/frame_messages.md`; gallery: `tools/frame_messages/output/index.html`.
+This checkpoint does not close B07's 40 legacy-widget gaps. **Next: B12 files,
+check-in and repository queues.**
+
+## B10 delivered: production Gantt and calendar, 2026-10-18
+
+Stream **0.112.163** / Handler **0.6.0.114** ship **136 portable `.mjs`
+modules and three JSON catalogs** independently. Five scheduling modules describe
+the production timeline, virtualized rows, drag/resize/progress previews,
+zoom/overview/menus, the independent Calendar and Agenda, milestone management
+and the explicit schedule form. Native house controls and existing task and
+milestone mutation owners remain in place. There is no embedded browser.
+
+Acceptance: **107 mandatory platform stages**, **25 focused native scheduling
+cases**, **four connected server/browser workflows** and **208 paired states /
+624 original/current-native/browser images** passed on final source fingerprints.
+The matrix covers thirteen states/widths, three themes, light/dark and EN/RU;
+additional processes cover 125% and 150% DPI. Actual input verifies pointer
+cancellation, group-band activation, bounded progress, Enter-to-apply, one-step
+form undo, retained redo after no-op, original saved times, independent calendar
+ownership, milestone conflicts and deletion guards, mode/zoom/scroll retention
+and 500-row virtualization. Fractional-size empty/populated scroll checks and
+the complete desktop/mobile Workbench also passed.
+
+Connectors use actual loaded task dependency IDs. Handler milestones retain
+their existing SObject commit/delete path; browser revision review and
+unknown-write inspection remain explicit client capabilities. Physical touch,
+OS IME and compositor/font rasterization are separate acceptance. Reproduction,
+source/owner map and gallery: `docs/frame_schedule.md` and
+`tools/frame_schedule/output/index.html`. B07's legacy-widget gaps remain open;
+this checkpoint does not close B11 Messaging.
+
+## B09 delivered: Task Manager and task inspector, 2026-10-18
+
+Stream **0.112.162** / Handler **0.6.0.113** ship **131 portable `.mjs`
+modules and three JSON catalogs** independently. Thirteen task modules describe
+the workspace/quick toolbars, table/group/expanded rows, scope and filters,
+columns/options/footer, typed inline/full editors, pending changes, opt-in bulk
+editing, row menus, empty states and native management summary. Existing owners
+retain requests, revisions, drafts, permissions, selection, persistence and writes.
+Native lazy controls and virtualized models remain; Stream retains phone
+list/detail/back navigation and its additional Inspector/timesheet capabilities.
+
+Acceptance: **104 mandatory platform stages**, **153 focused native cases**
+(136 task owner/QML, 15 creation/picker/section and two filled-action checks),
+**four connected task/context/process/phone workflows**, the existing production
+Gantt/separate Calendar scenario, and **160 paired states / 480 images** passed.
+The complete desktop/mobile Workbench and dedicated phone tasks/search gesture
+regression also passed, including Back/Forward, scroll, unchanged-response
+identity, coalesced quiet refresh, revision-preserving Save and visible pickers.
+The complete matrix covers three themes, light/dark, EN/RU, ten states/widths
+(520–1600 px); two additional DPI processes cover 125% and 150%. Comparisons
+retain the archived Handler before B09, current Handler and Stream, check source
+freshness and exercise actual painted labels, selected text, geometry, colors,
+checkboxes, filled actions and idle/hover row commands. EN/RU Help includes usage.
+
+Actual input verifies virtual creation, status/user/date/hour edits, expanded
+fields, column resize/order/visibility, opt-in bulk changes, save/discard,
+conflicts/unknown writes, exact contexts, live profile avatars, lazy popup
+reopening/release and phone-to-desktop restoration. The gate runs popup suites
+in independent Qt processes to avoid process-wide style/grab contamination;
+no assertions or input paths are bypassed. A single object-batch navigation
+timeout was retained in local diagnostics and its isolated scenario passed.
+The native table test waits for a rendered frame after changing scroll and row
+height before clicking, replacing its fixed 20 ms layout pause.
+The dock-resize test waits for the applied wide projection before recording
+the baseline that must be restored after a narrow viewport.
+The native UserChoice test waits for its popup's opened signal before using
+the separate popup window; a parent-window frame alone is not popup readiness.
+Mobile tests use the public Frame buttons and touch visible content outside
+editable fields/actions; the search fixture reserves its actual flex viewport.
+
+The gallery exposes deliberate toolbar/empty-state improvements against the
+archive; absolute archived-screen identity is not claimed. Native standalone
+management summary remains a native capability, and the Stream task API's
+existing administrator requirement is unchanged. OS text rasterization,
+physical touch/IME and compositor/hardware acceptance remain separate; exact
+filled-button hover tint for fully saturated custom accents is still limited.
+See `docs/frame_tasks.md` and `tools/frame_tasks/output/index.html`.
+This checkpoint does not close B07, B10 scheduling or B11 messaging.
 
 ## B08 delivered: Objects and inspector docks, 2026-10-17
 
@@ -1252,3 +1380,29 @@ Scope, reproducible evidence and platform limits: `docs/frame_files.md`.
 Physical touch, OS IME, desktop-capture pixels, DCC and live PostgreSQL remain
 deployment acceptance. This **does not close B07's 40 widget gaps**. Next: **B13,
 scripts and standalone tools**.
+
+
+## B14 delivered: remaining surfaces and release audit, 2026-10-19
+
+Stream **0.112.167** / Handler **0.6.0.118** share Knowledge Base navigation,
+outline, workspace, reader/editor commands, formatting, schema confirmation,
+Timesheet, Work/Cost Reports and work-hour forms. API/journal browser adapters
+retain their client-specific capabilities. Typed document/image editing stays
+with existing engines; mutation, ACL, revision and execution owners are preserved.
+
+The final platform gate passes **142 stages**. Fresh evidence contains **720
+native/Vue compositions**, **44 original/current native pairs**, **7,416
+rectangles** and **5,256 typography/color checks**. The focused native suite passes
+108 tests, and connected production journeys pass against disposable servers.
+
+Every inventoried QML/Vue source has an explicit ownership classification; the
+checker rejects omissions and stale entries. Native/browser input and production
+workflows, original-reference captures, themes/languages/widths and independent
+packages are checked in the release audit. Reproducible commands, measured counts,
+restore points and platform limits: [frame_remaining.md](frame_remaining.md).
+
+This closes **B14**, not the whole legacy migration. **B07 remains incomplete**
+with 40 usable legacy widget classes awaiting complete workflows. User-script,
+plugin and DCC-created UI retain their owners. Full-screen pixel identity, live
+production writes, physical touch/OS IME and shipping EXE/DCC deployment are not
+inferred from a source ledger or offline captures.

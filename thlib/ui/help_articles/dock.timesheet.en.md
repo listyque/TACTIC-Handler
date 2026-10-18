@@ -50,3 +50,7 @@ after a successful save.
 - Approval controls depend on server permissions and may be unavailable for your own or other users' entries.
 - A failed write keeps the editor values for retry.
 - Empty totals mean no accessible work-hour records in the selected week, not necessarily no project work.
+
+## Shared controls
+
+Handler and Stream share the week commands, summary, entry cards and time-entry fields. Select entries through the full checkbox hit area; approvals and edits still use the existing authorized controller. Duration accepts 0.01–24 hours with at most two decimal places (dot or comma); the server additionally checks the daily total. Cancel closes the editor without submitting it. Narrow cards keep overtime and actions visible; form descriptions remain multiline.

@@ -162,3 +162,9 @@ The relation is updated when the draft is saved or published; the sObject itself
   remain unchanged and no article query errors are shown.
 - The Knowledge Base action stays at the right edge of the item-action group when hover-only actions
   appear.
+
+## Shared presentation and context safety
+
+The navigation, heading outline, reader/editor command bars and formatting toolbar now use the same Frame descriptions in Handler and Stream. Narrow bars wrap their commands; extra formatting stays in **More formatting actions**. Native Qt rich text and browser document editing retain their existing Markdown, selection, image and attachment owners; text rasterization can differ between engines.
+
+On first use, **Initialize** opens an explicit confirmation describing both collaboration metadata and project article schema changes. **Cancel** writes nothing. Confirming preserves existing columns and data. Switching projects closes the confirmation; delayed results from the previous project cannot change the new project's articles or permissions. Already submitted server writes still belong to their original project.

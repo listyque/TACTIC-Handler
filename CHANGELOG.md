@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.118 - 2026-10-19
+
+- Move Knowledge Base workspace, navigation/outline, editor/viewer commands and formatting controls to independent Frame descriptions. Preserve native rich text, image tools, Markdown, attachments, revision/ACL and draft owners.
+- Share Timesheet, Work/Cost Reports and work-hour forms with Stream; keep native controllers, approvals and permission-filtered reports. Retain complete narrow forms and virtualized report rows.
+- Share explicit Messages/Knowledge schema confirmation and align the browser Messages action with Handler’s existing combined schema procedure. Reads never initialize storage. Close confirmation on project changes; reject stale browser Knowledge mutation completions after context changes. Preserve API-console and journal browser capabilities with their existing authorization and transport.
+- Add a complete QML/Vue source ownership ledger, connected input/lifecycle checks and source-verified original/native/browser comparisons. Keep B07's 40 usable legacy widget classes open and Batch Manager's existing UI intact.
+
 ## 0.6.0.117 - 2026-10-18
 
 - Share Script Editor workspace/source commands, shelf bar/editor, native triggers, DCC options, Handler Server and selected-object Database presentation through independent Tactic Frame modules. Retain existing execution, revisions, ACL, drafts, transport and native window owners.

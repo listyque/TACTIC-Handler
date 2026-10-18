@@ -624,6 +624,7 @@ Item {
                             describeCell: root.describeCell
                             enabled: false
                         }
+                        onPressed: root.send(wrapper.node.pressAction, undefined, actionControl)
                         onClicked: root.send(wrapper.node.action, undefined, actionControl)
                         onDoubleClicked: root.send(wrapper.node.doubleAction)
 
