@@ -3715,8 +3715,8 @@ class TasksQmlTests(unittest.TestCase):
         ), None)
         self.assertIsNotNone(progress_handle)
         schedule_bar = progress_handle.parentItem()
-        start_grip = schedule_bar.findChild(QQuickItem, "ganttStartGrip")
-        end_grip = schedule_bar.findChild(QQuickItem, "ganttEndGrip")
+        start_grip = self.visual_find(schedule_bar,"ganttStartGrip")
+        end_grip = self.visual_find(schedule_bar,"ganttEndGrip")
         self.assertIsNotNone(start_grip)
         self.assertIsNotNone(end_grip)
 
@@ -3754,7 +3754,7 @@ class TasksQmlTests(unittest.TestCase):
             if item.objectName() == "ganttProgressHandle"
         )
         schedule_bar = progress_handle.parentItem()
-        end_grip = schedule_bar.findChild(QQuickItem, "ganttEndGrip")
+        end_grip = self.visual_find(schedule_bar,"ganttEndGrip")
         end_point = end_grip.mapToScene(QPointF(
             end_grip.width() / 2, end_grip.height() / 2
         )).toPoint()
@@ -3812,9 +3812,7 @@ class TasksQmlTests(unittest.TestCase):
         QMetaObject.invokeMethod(gantt_list, "forceLayout")
         QGuiApplication.processEvents()
         narrowed_bar = progress_handle.parentItem()
-        narrowed_end_grip = narrowed_bar.findChild(
-            QQuickItem, "ganttEndGrip"
-        )
+        narrowed_end_grip = self.visual_find(narrowed_bar, "ganttEndGrip")
         narrowed_end_point = narrowed_end_grip.mapToScene(QPointF(
             narrowed_end_grip.width() / 2,
             narrowed_end_grip.height() / 2,

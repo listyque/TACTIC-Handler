@@ -4986,5 +4986,10 @@
   "REVIEW": "НА ПРОВЕРКУ",
   "RECENT": "НЕДАВНИЕ",
   "No supervisor": "Без руководителя",
-  "No milestone": "Без вехи"
+  "No milestone": "Без вехи",
+  "The schedule could not be staged.": "Не удалось применить расписание к черновику.",
+  "The task changed while this editor was open. Close and reopen the schedule.": "Задача изменилась, пока редактор был открыт. Закройте его и откройте расписание заново.",
+  "Task schedule": "Расписание задач",
+  "Scheduled tasks": "Задачи с расписанием",
+  "Unscheduled tasks": "Задачи без расписания"
 }

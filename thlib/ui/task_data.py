@@ -121,6 +121,7 @@ def task_record(
         "milestoneLabel": "",
         "milestoneDueDate": "",
         "milestoneChoices": [],
+        "taskId": str(info.get("id") or ""),
         "dependencyId": str(info.get("depend_id") or ""),
         "userChoices": [],
         "start": str(info.get("bid_start_date") or info.get("start_date") or ""),

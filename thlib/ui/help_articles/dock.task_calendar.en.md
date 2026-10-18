@@ -37,3 +37,19 @@ day message states which date is currently filtering tasks.
 - Tasks without usable start or end dates cannot be positioned reliably in the calendar.
 - Server filtering keeps the selected day while loading; an error does not silently switch dates.
 - Date labels follow the interface locale, while stored task dates remain project data.
+
+## Shared scheduling
+
+Gantt and the separate Task Calendar dock use the same Frame layout in Handler
+and Stream. Use the pencil on a task to edit its schedule without dragging.
+Apply to draft stages dates and progress together; Save task changes performs
+the existing server write. Undo/Redo affect pending schedule edits and preserve
+other task drafts. Escape cancels an unfinished pointer gesture.
+
+Calendar month navigation and Agenda keep the current task owner. Select a day
+to filter Task Browser; clear it to return. Calendar does not replace Gantt.
+Dependency connectors show actual links between loaded, visible scheduled tasks;
+they do not infer missing tasks or cascade schedule changes automatically.
+Project milestones retain their linked-task plan and existing save/conflict
+controls. Native milestone SObject storage and browser revision review remain
+separate client capabilities.

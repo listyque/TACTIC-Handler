@@ -1,5 +1,6 @@
 import QtQuick
 import "controls" as Controls
+import "tactic_frame/features/tasks/gantt.state.mjs" as State
 
 Rectangle {
     id: root
@@ -17,11 +18,28 @@ Rectangle {
     property int editProgress: progress
     readonly property int displayProgress: editing ? editProgress : progress
 
-    visible: progressSupported && scheduled && barWidth >= 36
-        && (rowHovered || progressPointer.pressed)
-    x: Math.max(18, Math.min(
-        barWidth - 18, barWidth * displayProgress / 100
-    )) - width / 2
+    activeFocusOnTab: true
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_Escape && editing) {
+            editing = false;
+            editProgress = progress;
+            event.accepted = true;
+            return;
+        }
+        const names = {};
+        names[Qt.Key_Left] = "ArrowLeft";
+        names[Qt.Key_Right] = "ArrowRight";
+        names[Qt.Key_Home] = "Home";
+        names[Qt.Key_End] = "End";
+        const value = State.progressKey(progress, names[event.key] || "");
+        if (value !== null) {
+            controller.stage_gantt_progress(taskCode, value);
+            event.accepted = true;
+        }
+    }
+
+    visible: progressSupported && scheduled && barWidth >= 36 && (rowHovered || progressPointer.pressed || activeFocus)
+    x: State.progressLeft(barWidth, displayProgress)
     anchors.verticalCenter: parent.verticalCenter
     width: 18
     height: 22
@@ -46,7 +64,7 @@ Rectangle {
 
     onProgressChanged: {
         if (!editing)
-            editProgress = progress
+            editProgress = progress;
     }
 
     MouseArea {
@@ -56,29 +74,28 @@ Rectangle {
         cursorShape: Qt.SizeHorCursor
         preventStealing: true
 
-        onPressed: function(mouse) {
-            root.editProgress = root.progress
-            root.editing = true
-            mouse.accepted = true
+        onPressed: function (mouse) {
+            root.forceActiveFocus();
+            root.editProgress = root.progress;
+            root.editing = true;
+            mouse.accepted = true;
         }
-        onPositionChanged: function(mouse) {
+        onPositionChanged: function (mouse) {
             if (!pressed)
-                return
-            const mapped = mapToItem(root.parent, mouse.x, mouse.y)
-            root.editProgress = Math.max(0, Math.min(100, Math.round(
-                mapped.x / root.barWidth * 100
-            )))
+                return;
+            const mapped = mapToItem(root.parent, mouse.x, mouse.y);
+            root.editProgress = State.progressAt(mapped.x, root.barWidth);
         }
         onReleased: {
-            root.editing = false
+            if (!root.editing)
+                return;
+            root.editing = false;
             if (root.editProgress !== root.progress)
-                root.controller.stage_gantt_progress(
-                    root.taskCode, root.editProgress
-                )
+                root.controller.stage_gantt_progress(root.taskCode, root.editProgress);
         }
         onCanceled: {
-            root.editing = false
-            root.editProgress = root.progress
+            root.editing = false;
+            root.editProgress = root.progress;
         }
     }
 

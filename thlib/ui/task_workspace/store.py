@@ -21,7 +21,7 @@ TASK_ROLES = (
     "supervisor", "supervisorLabel", "supervisorAvatar", "supervisorChoices",
     "priority", "priorityLabel", "priorityColor", "priorityChoices",
     "milestoneCode", "milestoneLabel", "milestoneDueDate", "milestoneChoices",
-    "dependencyId", "userChoices", "start", "end", "actualStart",
+    "taskId", "dependencyId", "userChoices", "start", "end", "actualStart",
     "actualEnd", "dueState", "progress", "description",
     "plannedHours", "loggedHours", "approvedHours", "pendingHours",
     "remainingHours", "overPlanHours", "hoursLabel",

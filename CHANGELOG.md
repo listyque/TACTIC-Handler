@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.114 - 2026-10-18
+
+- Move production Gantt, the independent Task Calendar dock, milestone presentation and the explicit schedule editor onto shared Tactic Frame descriptions with Stream; retain native controls, virtualized models and existing mutation owners.
+- Share row/bar/timeline/overview geometry, operation menus, zoom anchoring, progress input and pointer previews. Show real loaded task dependency links, preserve cancel/undo and original times, and stage form dates/progress as one undo entry.
+- Add native Agenda and explicit schedule editing; reject invalid dates and stale editor context. Keep independent Calendar ownership and native SObject milestone storage capabilities explicit.
+- Add pinned original/current QML/Vue comparisons across themes, languages and DPI, real Qt/browser/server scheduling journeys and platform-gate coverage. Fix missing palette projection, menu anchoring/focus and named quarter scale; update EN/RU Help.
+
 ## 0.6.0.113 - 2026-10-18
 
 - Share Task Manager tables/expanded fields, Quick Tasks, scope/filter/options/columns, pending changes, bulk editors and task menus with Stream through independent Tactic Frame copies. Move the native management heading/summary/workload to the same description layer; retain native controls, virtualized models and existing revision/ACL/mutation owners.

@@ -5733,6 +5733,8 @@ class TasksController(QObject):
     def _apply_gantt_edits(self, edits):
         if not edits or self._advanced_saving:
             return False
+        previous_undo = list(self._gantt_undo)
+        previous_redo = list(self._gantt_redo)
         self._push_gantt_history()
         changed = False
         for code, values in edits.items():
@@ -5742,13 +5744,15 @@ class TasksController(QObject):
         if changed:
             self._rebuild_advanced_models()
             return True
-        self._gantt_undo.pop()
+        self._gantt_undo = previous_undo
+        self._gantt_redo = previous_redo
         return False
 
     @Slot(str, int, int, result=bool)
     @Slot(str, int, int, str, result=bool)
+    @Slot(str, int, int, str, int, result=bool)
     def stage_gantt_schedule(
-            self, task_code, start_day, duration_days, edit_mode=""):
+            self, task_code, start_day, duration_days, edit_mode="", progress=-1):
         task_code = str(task_code or "")
         source = next((
             record for record in self._advanced_raw
@@ -5772,6 +5776,8 @@ class TasksController(QObject):
                 self._gantt_working_days,
             )
         }
+        if progress >= 0 and self._progress_column():
+            edits[task_code]["progress"] = str(max(0, min(100, progress)))
         selected = set(self._advanced_checked)
         if edit_mode == "move" and task_code in selected and len(selected) > 1:
             peers = []

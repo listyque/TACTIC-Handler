@@ -614,6 +614,13 @@ Item {
                         id: fieldControl
                         objectName: wrapper.node.id
                         theme: root.effectiveTheme
+                        Binding {
+                            target: fieldControl
+                            property: "leftPadding"
+                            value: Number(wrapper.node.paddingLeft || 0)
+                            when: wrapper.node.paddingLeft !== undefined
+                            restoreMode: Binding.RestoreBindingOrValue
+                        }
                         text: wrapper.node.text
                         enabled: !!wrapper.node.enabled
                         readOnly: !!wrapper.node.readOnly
@@ -770,6 +777,7 @@ Item {
                         language: wrapper.node.language || (typeof localizationController !== "undefined" ? localizationController.current_language : "en")
                         property bool textWasEdited: false
                         includeTime: !!wrapper.node.includeTime
+                        monthOnly: !!wrapper.node.monthOnly
                         allowClear: wrapper.node.allowClear !== false
                         readOnly: !!wrapper.node.readOnly
                         enabled: !!wrapper.node.enabled

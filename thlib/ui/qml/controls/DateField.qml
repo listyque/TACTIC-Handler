@@ -27,6 +27,7 @@ Item {
         dateTextField.forceActiveFocus();
     }
     property bool includeTime: false
+    property bool monthOnly: false
     property bool allowClear: true
     readonly property string datePresentationText: presentationDate(dateTextField.text)
     readonly property string fullPresentationText: presentationDateTime(dateTextField.text)
@@ -57,7 +58,7 @@ Item {
 
     function presentationDate(value) {
         const parsed = parseValue(value);
-        return parsed ? Qt.locale(root.localeName).toString(parsed, "d MMMM yyyy") : String(value || "");
+        return parsed ? (monthOnly ? Calendar.monthLabel(parsed, language) : Qt.locale(root.localeName).toString(parsed, "d MMMM yyyy")) : String(value || "");
     }
 
     function presentationDateTime(value) {

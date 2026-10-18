@@ -51,7 +51,7 @@ class GanttScrollTests(unittest.TestCase):
                     'ganttSectionFirst':index==0,'groupFirst':False} for index in range(40)]}
             fixture.tasks._gantt=projection
             fixture.tasks.gantt_model.replace([{**record,'checked':False,'selected':False,
-                'parentPreviewUrl':'','groupCollapsed':False} for record in projection['records']])
+                'parentPreviewUrl':'','groupCollapsed':False,'processColor':record.get('statusColor',''),'groupColor':''} for record in projection['records']])
             fixture.tasks.advancedChanged.emit()
             for width,height in ((871.25,872.75),(1091.6,691.4)):
                 with self.subTest(mode=mode,width=width):

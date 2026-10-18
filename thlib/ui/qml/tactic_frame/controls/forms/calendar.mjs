@@ -1,4 +1,38 @@
 // Local wall-clock dates. Never introduce a UTC conversion at this UI boundary.
+export function monthLabel(date, language) {
+    const names =
+        language === 'ru'
+            ? [
+                  'январь',
+                  'февраль',
+                  'март',
+                  'апрель',
+                  'май',
+                  'июнь',
+                  'июль',
+                  'август',
+                  'сентябрь',
+                  'октябрь',
+                  'ноябрь',
+                  'декабрь'
+              ]
+            : [
+                  'January',
+                  'February',
+                  'March',
+                  'April',
+                  'May',
+                  'June',
+                  'July',
+                  'August',
+                  'September',
+                  'October',
+                  'November',
+                  'December'
+              ];
+    return names[date.getMonth()] + ' ' + date.getFullYear();
+}
+
 export function localDate(
     year,
     month,

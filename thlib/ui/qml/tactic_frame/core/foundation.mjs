@@ -22,6 +22,8 @@ export function fontLineHeight(pixelSize) {
 
 // Segoe UI, Qt Label at 96 logical DPI with vertical hinting; both hosts use these line boxes.
 export const lineHeights = Object.freeze({
+    timelineTick: 10,
+    timelineMajorTick: 11,
     menuHeading: 14,
     caption: 15,
     secondary: 16,
@@ -38,6 +40,8 @@ export const lineHeights = Object.freeze({
 // Frame geometry and resolved text sizes use logical pixels in both engines.
 // Legacy house controls keep the point-based API above until Frame supplies a font.
 export const textStyles = Object.freeze({
+    timelineTick: 7,
+    timelineMajorTick: 8,
     menuHeading: 10,
     caption: 11,
     secondary: 12,
@@ -517,6 +521,7 @@ export const cssRoles = {
     cyan: '--cyan',
     violet: '--violet',
     tertiary: '--tertiary',
+    tertiaryContainer: '--tertiary-container',
     surfaceContainerLow: '--surface',
     surfaceContainer: '--surface-container',
     surfaceContainerHigh: '--surface-high',
