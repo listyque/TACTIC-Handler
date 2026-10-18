@@ -3,6 +3,8 @@
 - `tactic_db/`: PostgreSQL backup and restore scripts, plus a TACTIC Server
   Python helper that stages a database-upgrade command. See
   [`docs/tactic_database/README.md`](../docs/tactic_database/README.md).
+- `frame_tool/`: a small script-created native Tactic Frame example; see its
+  README for composition, controls and window cleanup. It submits no jobs.
 - `batch_scheduler/`: batch dispatcher source, test fixtures, and focused tests.
   The `batch/batch_dispatcher_dev` custom script in TACTIC imports this package.
 - `tactic_demo/`: optional demo-project seed and its offline test.

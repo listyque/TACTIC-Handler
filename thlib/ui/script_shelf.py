@@ -242,6 +242,9 @@ class ScriptShelfController(QObject):
         self._editor_view = ""
         self._editor_title = ""
         self._original_editor_payload: dict = {}
+        self._editor_context_key = ""
+        self._editor_epoch = 0
+        self._editor_entry_key = ""
         self.buttons = RecordListModel(_BUTTON_ROLES, identity_role="buttonId")
         self.editor_buttons = RecordListModel(
             _BUTTON_ROLES, identity_role="buttonId"
@@ -316,6 +319,33 @@ class ScriptShelfController(QObject):
             return bool(self._users.canManageUsers)
         except (AttributeError, RuntimeError):
             return False
+
+    @Property(str, notify=stateChanged)
+    def editorContextKey(self) -> str:
+        entry = (
+            str(self._context().get("entryKey") or "")
+            if self._editor_mode == "personal" and self._personal_scope == "tab"
+            else ""
+        )
+        return json.dumps([
+            self._project_code,
+            self._generation,
+            self._login(),
+            self._editor_epoch,
+            entry,
+        ])
+
+    @Property(bool, notify=stateChanged)
+    def editorContextChanged(self) -> bool:
+        return bool(
+            self._editor_context_key
+            and self._editor_context_key != self.editorContextKey
+        )
+
+    def _capture_editor_context(self) -> None:
+        self._editor_epoch += 1
+        self._editor_context_key = self.editorContextKey
+        self._editor_entry_key = str(self._context().get("entryKey") or "")
 
     @Property(str, notify=stateChanged)
     def editorMode(self) -> str:
@@ -899,6 +929,7 @@ class ScriptShelfController(QObject):
         self._editor_title = self.tr("New shelf")
         self.editor_buttons.clear()
         self._original_editor_payload = {}
+        self._capture_editor_context()
         self.stateChanged.emit()
 
     @Slot(str)
@@ -922,6 +953,7 @@ class ScriptShelfController(QObject):
         return self._personal_record(self._personal_scope)
 
     def _load_editor(self) -> None:
+        self._capture_editor_context()
         self._error = ""
         record = self._editor_record()
         if self._editor_mode == "shared":
@@ -961,7 +993,6 @@ class ScriptShelfController(QObject):
             self.presets.update_record(row, {"selected": record["selected"]})
 
     def _editor_payload(self) -> dict:
-        context = self._context()
         return {
             "mode": self._editor_mode,
             "scope": (
@@ -971,7 +1002,7 @@ class ScriptShelfController(QObject):
                 else self._personal_scope
             ),
             "entryKey": (
-                str(context.get("entryKey") or "")
+                self._editor_entry_key
                 if (
                     self._editor_mode == "personal"
                     and self._personal_scope == "tab"
@@ -1040,6 +1071,11 @@ class ScriptShelfController(QObject):
 
     @Slot()
     def save(self) -> None:
+        if self.editorContextChanged:
+            self._set_error(self.tr(
+                "Connection context changed. Discard this draft before saving."
+            ))
+            return
         if self._busy or not self._project_code:
             return
         payload = self._editor_payload()

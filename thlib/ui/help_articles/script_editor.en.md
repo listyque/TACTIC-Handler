@@ -88,3 +88,27 @@ possible. Collapse, resize, wrap, select, copy or clear Output without changing 
 
 The completion notification is only a summary. Use Output for prints and the real traceback, and
 Debug Log for request IDs, runtime commands and remote details.
+
+## Shared presentation and native script tools
+
+Script Editor uses the shared Frame workspace and source command layout. Python,
+QML, server and selected-DCC execution still use their existing execution owners;
+the browser offers only its supported server/browser runtimes. Saved scripts do
+not need conversion. Source edits, undo, revisions and drafts remain with the
+editor. Cancel in a confirmation cancels a pending run; it does not forcibly
+interrupt Python that is already running.
+
+In Handler, a small native example is available for local Python scripts:
+
+```python
+from side_tools.frame_tool.showcase import show
+show([{"id": "asset-a", "title": "Robot Arm"}])
+```
+
+Run this on the GUI thread, like other scripts that create QML windows. It opens
+a nonmodal native window using existing fields, buttons, a virtualized record
+list and the current theme. Preview shows the exact selection; it submits no
+render jobs. Close releases the window and its model. The three example files
+separate portable composition, native event adaptation and Python lifetime.
+Batch Manager keeps its existing scheduler and web UI; this is an example of
+reusing controls, not another Batch Manager.

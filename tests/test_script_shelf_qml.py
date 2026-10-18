@@ -4,7 +4,7 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QCoreApplication, QObject, QPointF, Property, Qt, QUrl, Signal, Slot
-from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
 from PySide6.QtTest import QSignalSpy, QTest
 
 from tests.profile_ui_responsiveness import frame
@@ -259,10 +259,12 @@ class ScriptShelfQmlTests(unittest.TestCase):
 
     @staticmethod
     def _item(view, name):
-        return next(
+        item = next(
             item for item in workspace.visual_items(view)
             if item.objectName() == name
         )
+        loaded = item.property("item")
+        return loaded if hasattr(loaded, "childItems") else item
 
     @staticmethod
     def _click(window, item):
@@ -301,7 +303,8 @@ class ScriptShelfQmlTests(unittest.TestCase):
         shelf = _Shelf()
         with self.fixture.scene(width=720, shelf=shelf) as (window, view):
             toggle = self._item(view, "scriptShelfButton")
-            self.assertEqual(toggle.property("iconName"), "code")
+            icon = QQmlExpression(QQmlEngine.contextForObject(toggle), toggle, "icon.name")
+            self.assertEqual(icon.evaluate()[0], "code")
             self._click(window, toggle)
 
             loader = self._item(view, "scriptShelfLoader")
@@ -312,15 +315,15 @@ class ScriptShelfQmlTests(unittest.TestCase):
             personal = self._item(view, "scriptShelfMode_personal")
             shared = self._item(view, "scriptShelfMode_shared")
             self.assertAlmostEqual(personal.x(), shared.x())
-            self.assertLess(personal.y(), shared.y())
+            self.assertLess(personal.mapToScene(QPointF()).y(), shared.mapToScene(QPointF()).y())
             action = self._item(view, "scriptShelfAction_save")
             self.assertEqual(action.width(), 40)
             self.assertEqual(action.height(), 40)
             self.assertEqual(
-                action.property("toolTip"), "Save the current scene"
+                action.property("description"), "Save the current scene"
             )
-            icon = action.findChild(QObject, "scriptShelfActionIcon")
-            label = action.findChild(QObject, "scriptShelfActionLabel")
+            icon = self._item(action, "scriptShelfActionIcon")
+            label = self._item(action, "scriptShelfActionLabel")
             self.assertIsNotNone(icon)
             self.assertIsNotNone(label)
             self.assertEqual(label.property("text"), "Save")
@@ -329,7 +332,7 @@ class ScriptShelfQmlTests(unittest.TestCase):
             self.assertEqual(icon.x(), round(icon.x()))
             self.assertEqual(icon.y(), round(icon.y()))
             self.assertGreaterEqual(
-                label.y(), icon.y() + icon.height() + 4
+                label.mapToScene(QPointF()).y(), icon.mapToScene(QPointF()).y() + icon.height() + 4
             )
             self.assertFalse(icon.property("nativeRendering"))
             self._click(window, action)
@@ -371,7 +374,7 @@ class ScriptShelfQmlTests(unittest.TestCase):
             shelf.stateChanged.emit()
             frame(window)
             self.assertTrue(action.isVisible())
-            self.assertEqual(action.property("iconName"), "upload")
+            self.assertTrue(any(item.property("name") == "upload" for item in workspace.visual_items(action)))
             self._click(window, action)
             field = view.findChild(QObject, "dccShelfNameField")
             self.assertIsNotNone(field)
@@ -536,7 +539,10 @@ ApplicationWindow {
             editor_pane = self._item(
                 window.contentItem(), "scriptShelfEditorPane"
             )
-            self.assertLess(preset_pane.x(), editor_pane.x())
+            self.assertLess(
+                preset_pane.mapToScene(QPointF()).x(),
+                editor_pane.mapToScene(QPointF()).x(),
+            )
             self.assertLess(preset_pane.width(), editor_pane.width() / 2)
             self.assertIsNone(
                 window.findChild(QObject, "scriptShelfSelector")

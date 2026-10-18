@@ -165,6 +165,7 @@ class ScriptTriggerController(QObject):
         self._dcc_bridge = None
         self._project_code = ""
         self._generation = 0
+        self._document_epoch = 0
         self._workers = set()
         self._script_workers = set()
         self._busy = False
@@ -184,6 +185,10 @@ class ScriptTriggerController(QObject):
         self._project_changed(
             str(getattr(application, "current_project_code", "") or ""), ""
         )
+
+    @Property(int, notify=stateChanged)
+    def documentEpoch(self) -> int:
+        return self._document_epoch
 
     @Property(QObject, constant=True)
     def model(self):
@@ -364,6 +369,7 @@ class ScriptTriggerController(QObject):
     def discard(self) -> None:
         if self._busy:
             return
+        self._document_epoch += 1
         self.rules.replace(self._present(self._original))
         self._selected = min(self._selected, len(self._original) - 1)
         self._error = ""
@@ -867,6 +873,7 @@ class ScriptTriggerController(QObject):
         project_code, generation, records, revision = payload
         if project_code != self._project_code or generation != self._generation:
             return
+        self._document_epoch += 1
         rules = [_project_rule(record, index) for index, record in enumerate(records)]
         rules.sort(key=lambda item: (item["order"], item["ruleId"]))
         self.rules.replace(self._present(rules))
@@ -921,6 +928,7 @@ class ScriptTriggerController(QObject):
     @Slot(str, str)
     def _project_changed(self, project_code: str, _title: str) -> None:
         self._generation += 1
+        self._document_epoch += 1
         self._project_code = str(project_code or "")
         self._revision = ""
         self._original = []

@@ -13,7 +13,10 @@ export function toolbar(model, width, language, revision) {
             ['replace', 'Replace', 'edit', !model.readOnly],
             ['help', 'Code editor help', 'help', true]
         ],
-        compact = width < 620;
+        compact =
+            model.compactToolbar === undefined
+                ? width < 620
+                : model.compactToolbar;
     let x = 0;
     if (compact) {
         const size = Math.max(110, width * 0.43);

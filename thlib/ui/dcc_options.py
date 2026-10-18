@@ -26,6 +26,7 @@ class DccOptionsController(QObject):
         self._application = application
         self._invoke_action = invoke_action
         self._dcc_bridge = None
+        self._client_id = ""
         self._application_type = ""
         self._action_id = ""
         self._node_id = ""
@@ -76,6 +77,8 @@ class DccOptionsController(QObject):
         return bool(
             self._node_id
             and bridge
+            and str(getattr(bridge, "selectedClient", "") or "") == self._client_id
+            and str(bridge.selectedApplicationType or "").lower() == self._application_type
             and bridge.has_dcc_capability(self._schema.get("capability", ""))
         )
 
@@ -111,6 +114,7 @@ class DccOptionsController(QObject):
             self.stateChanged.emit()
             return False
         self._application_type = application_type
+        self._client_id = str(getattr(bridge, "selectedClient", "") or "")
         self._action_id = str(schema["id"])
         self._node_id = str(node_id or "")
         self._target_title = str(title or "")

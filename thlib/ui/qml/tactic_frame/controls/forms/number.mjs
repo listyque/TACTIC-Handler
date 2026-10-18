@@ -25,7 +25,8 @@ function separator(language) {
 export function pattern(decimals = 0, language = 'en') {
     const digits = Math.floor(Math.max(0, Math.min(8, decimals)));
     const point = separator(language) === ',' ? ',' : '\\.';
-    const group = separator(language) === ',' ? '[\\u00a0\\u202f ]' : ',';
+    // Qt's PCRE2 bridge needs literal grouping spaces instead of JS regex escapes.
+    const group = separator(language) === ',' ? '[\u00a0\u202f ]' : ',';
     const integer = '(?:\\d+|\\d{1,3}(?:' + group + '\\d{3})+)';
     return digits
         ? '^[+-]?(?:' +

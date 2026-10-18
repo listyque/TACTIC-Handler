@@ -20,6 +20,8 @@ Neither product imports the other checkout at runtime.
 | `features/messages` | Conversations, message header/body/reference/pins, composer input rules, forms, members/history/files and attachment drafts | Core and neutral controls; requests, permissions, drafts, receipts, uploads and retained identities stay in the hosts |
 | `features/activity` | Feed toolbar, event card, calendar, notification history and toasts | Core and neutral controls; activity queries, paging, notification timers and writes stay in the hosts |
 | `features/files` | Matching templates, ingest, Drop Plate, object check-in, commit/sync queues, repository prompts, screenshot selection and File Workspace | Core and neutral controls; native/browser capabilities, filesystem identities, requests, drafts, journals and mutations retain their existing owners |
+| `features/scripts` | Script workspace/source commands, shelf editor/bar and native trigger form | Core and controls; buffers, execution, ACL, revisions, scope and cleanup retain their existing owners |
+| `features/tools` | Native DCC options, Handler Server and selected-object Database tools | Core and controls; connector manifests, fixed command routing, selected identities and mutations stay with existing controllers. No additional browser Batch Manager |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
 | `features/support/diagnostics` | Debug sessions, event details, measurements and selection | Core and controls |
@@ -77,6 +79,18 @@ focus. `SummaryChip` maps directly to each product's existing house control.
 Short confirmations live in `controls/feedback`; authentication, ACL, mutations,
 retry workers and installers never move into a portable description. B04's owner
 map, capability differences and verification commands are in `docs/frame_support.md`.
+
+Native Frame views update synchronously. Snapshot arrays use the array-list
+adapter even when their records declare fields; Qt role models keep their own
+adapter and delegate lifetimes. Both adapters pass the row index to `describeRow`.
+Never authorize writes from the rendered enabled state. Browser resize observers
+must settle before screenshot measurements. The resize/clear regression and native tool workflows are in
+`tests/test_frame_script_tools.py`; platform checks retain focus, selection and IME.
+
+`side_tools/frame_tool` in Handler is a small script-created native example. It
+reuses this renderer, the existing record model, theme and controls. It submits
+no jobs and creates no additional browser Batch Manager. The existing
+`side_tools/batch_scheduler` retains its own scheduler and web UI.
 
 ## One screen
 

@@ -276,7 +276,9 @@ Item {
                     case "Preview":
                         return previewBrick;
                     case "List":
-                        return wrapper.node.fields.length ? listBrick : arrayListBrick;
+                        // JS/QVariant arrays have snapshots, not native model-role lifetimes.
+                        const rows = root.models[wrapper.node.source];
+                        return wrapper.node.fields.length && !(rows && typeof rows.length === "number") ? listBrick : arrayListBrick;
                     case "Scroll":
                         return scrollBrick;
                     case "Choice":

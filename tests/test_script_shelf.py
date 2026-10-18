@@ -383,6 +383,7 @@ class ScriptShelfTests(unittest.TestCase):
         ])
         self.controller._run = lambda operation, handler: handler(operation())
 
+        self.controller._capture_editor_context()
         with patch.object(tc, "server_start", return_value=server):
             self.controller.save()
 
@@ -420,6 +421,7 @@ class ScriptShelfTests(unittest.TestCase):
         ])
         self.controller._run = lambda operation, handler: handler(operation())
 
+        self.controller._capture_editor_context()
         with patch.object(tc, "server_start", return_value=server):
             self.controller.save()
 
@@ -658,6 +660,45 @@ class ScriptShelfTests(unittest.TestCase):
             {SCRIPT_SHELF_GLOBAL_VIEW, "script_shelf@mine"},
         )
 
+    def test_discard_invalidates_picker_scope_without_changing_tab(self):
+        self.controller._load_editor()
+        before = self.controller.editorContextKey
+        self.controller.add_button()
+        self.controller.discard()
+        self.assertNotEqual(self.controller.editorContextKey, before)
+        self.assertFalse(self.controller.editorContextChanged)
+        self.assertFalse(self.controller.editorDirty)
+
+    def test_project_draft_survives_switching_search_tabs(self):
+        self.controller._project_code = "demo"
+        self.controller.set_personal_scope("project")
+        self.controller._load_editor()
+        self.controller.add_button()
+        original = self.controller._editor_payload()
+        self.application.context["entryKey"] = "demo/asset@other"
+        self.application.search_state_changed.emit()
+        self.assertFalse(self.controller.editorContextChanged)
+        self.assertEqual(self.controller._editor_payload(), original)
+        self.assertTrue(self.controller.editorDirty)
+
+    def test_tab_draft_cannot_save_into_a_different_context(self):
+        self.controller._project_code = "demo"
+        self.controller.set_personal_scope("tab")
+        self.controller._load_editor()
+        self.controller.add_button()
+        original = self.controller._editor_payload()
+        self.application.context["entryKey"] = "demo/asset@other"
+        self.application.search_state_changed.emit()
+        self.assertTrue(self.controller.editorContextChanged)
+        self.assertEqual(self.controller._editor_payload(), original)
+        with patch("thlib.tactic_classes.server_start") as server:
+            self.controller.save()
+        server.assert_not_called()
+        self.assertTrue(self.controller.editorDirty)
+        self.controller.discard()
+        self.assertFalse(self.controller.editorContextChanged)
+        self.assertFalse(self.controller.editorDirty)
+
     def test_editor_does_not_discard_unsaved_buttons_when_scope_changes(self):
         self.controller.editor_buttons.replace([
             _button("save", "tools/save")
@@ -742,12 +783,13 @@ class ScriptShelfTests(unittest.TestCase):
         self.assertEqual(model.entry("demo/shot@shots").script_shelf, "")
 
     def test_sidebar_shelf_assignment_is_native_and_shelf_records_are_hidden(self):
+        self.application.can_administer = True
         controller = SidebarEditorController(
             self.application, _Users(),
         )
         controller._loaded(("demo", "Demo", object(), [{
             "search_type": "SideBarWdg",
-            "view": "definition",
+            "view": "tactic_handler",
             "config": (
                 "<config><element name='assets' title='Assets'>"
                 "<display class='LinkWdg'/><search_type>demo/asset"
@@ -760,7 +802,7 @@ class ScriptShelfTests(unittest.TestCase):
 
         controller.update_selected("scriptShelf", "script_shelf@assets")
 
-        self.assertEqual(set(controller._documents), {"definition"})
+        self.assertEqual(set(controller._documents), {"tactic_handler"})
         self.assertEqual(
             controller.selectedEntry["scriptShelf"], "script_shelf@assets"
         )

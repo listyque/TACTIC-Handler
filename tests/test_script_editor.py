@@ -669,6 +669,15 @@ class ScriptEditorTests(unittest.TestCase):
                     }
                     self.assertEqual(colors, {"#c0a000"})
 
+    def test_completion_starts_at_the_cursor_after_a_newline(self):
+        for source in ("pri\n", "server.que\n", "pri\r\n"):
+            with self.subTest(source=source):
+                self.assertEqual(completion_items(source, len(source)), [])
+                self.assertTrue(all(
+                    row["start"] == len(source)
+                    for row in completion_items(source, len(source), True)
+                ))
+
     def test_completion_indexes_python_locals_and_handler_api(self):
         local = completion_items(
             "custom_value = 1\ncus", len("custom_value = 1\ncus")
@@ -1008,9 +1017,10 @@ class ScriptEditorTests(unittest.TestCase):
             current_project_code="niki_friends"
         )
 
-        with patch.object(self.controller, "_request_load"):
+        with patch.object(self.controller, "_request_sync") as request_sync:
             self.controller._sync_project_sessions()
 
+        request_sync.assert_called_once_with()
         self.assertEqual(self.controller.currentTabId, project_tab)
         self.assertEqual(
             self.controller.currentEditor["source"], "print('restored')"

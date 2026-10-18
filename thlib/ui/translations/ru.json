@@ -5102,5 +5102,8 @@
   "tree": "Дерево",
   "Parent: {parent}": "Родитель: {parent}",
   "Step {step} of {total}": "Шаг {step} из {total}",
-  "The session changed during check-in. Inspect Snapshot Browser before repeating it.": "Сессия изменилась во время публикации. Проверьте результат в браузере снапшотов перед повторной отправкой."
+  "The session changed during check-in. Inspect Snapshot Browser before repeating it.": "Сессия изменилась во время публикации. Проверьте результат в браузере снапшотов перед повторной отправкой.",
+  "Connection context changed. Discard this draft before saving.": "Контекст изменился. Отмените этот черновик перед сохранением.",
+  "Frame tool example": "Пример инструмента Frame",
+  "Script shelf help": "Справка по шелфу скриптов"
 }

@@ -4745,71 +4745,62 @@ class TasksQmlTests(unittest.TestCase):
         window.show()
         QTest.qWait(50)
 
-        toolbar = view.findChild(QObject, "scriptEditorToolbar")
-        toolbar_scrollbar = view.findChild(
-            QObject, "scriptEditorToolbarScrollBar"
+        def find(name):
+            from tests.test_sidebar_editor_qml import SidebarEditorQmlTests
+            return view.findChild(QObject, name) or next(
+                (item for item in SidebarEditorQmlTests.descendants(view)
+                 if item.objectName() == name), None
+            )
+
+        toolbar = find("scriptEditorToolbar")
+        toolbar_scrollbar = find("scriptEditorToolbarScrollBar"
         )
-        tabs = view.findChild(QObject, "scriptEditorTabs")
-        output_panel = view.findChild(QObject, "scriptEditorOutputPanel")
-        source_panel = view.findChild(QObject, "scriptEditorSourcePanel")
-        source_toolbar = view.findChild(QObject, "scriptEditorSourceToolbar")
-        source_toolbar_scrollbar = view.findChild(
-            QObject, "scriptEditorSourceToolbarScrollBar"
+        tabs = find("scriptEditorTabs")
+        output_panel = find("scriptEditorOutputPanel")
+        source_panel = find("scriptEditorSourcePanel")
+        source_toolbar = find("scriptEditorSourceToolbar")
+        source_toolbar_scrollbar = find("scriptEditorSourceToolbarScrollBar"
         )
-        scripts_panel = view.findChild(QObject, "scriptEditorScriptsPanel")
-        tree_search = view.findChild(QObject, "scriptEditorTreeSearch")
-        tree_list = view.findChild(QObject, "scriptEditorTreeList")
-        code_editor = view.findChild(QObject, "scriptEditorCodeEditor")
-        line_numbers = view.findChild(QObject, "scriptEditorLineNumberGutter")
-        line_number_text = view.findChild(
-            QObject, "scriptEditorLineNumberText"
+        scripts_panel = find("scriptEditorScriptsPanel")
+        tree_search = find("scriptEditorTreeSearch")
+        tree_list = find("scriptEditorTreeList")
+        code_editor = find("scriptEditorCodeEditor")
+        line_numbers = find("scriptEditorLineNumberGutter")
+        line_number_text = find("scriptEditorLineNumberText"
         )
-        source_scroll = view.findChild(
-            QObject, "scriptEditorSourceScrollView"
+        source_scroll = find("scriptEditorSourceScrollView"
         )
-        source_vertical = view.findChild(
-            QObject, "scriptEditorSourceVerticalScrollBar"
+        source_vertical = find("scriptEditorSourceVerticalScrollBar"
         )
-        source_horizontal = view.findChild(
-            QObject, "scriptEditorSourceHorizontalScrollBar"
+        source_horizontal = find("scriptEditorSourceHorizontalScrollBar"
         )
-        output_horizontal = view.findChild(
-            QObject, "scriptEditorOutputHorizontalScrollBar"
+        output_horizontal = find("scriptEditorOutputHorizontalScrollBar"
         )
-        output_vertical = view.findChild(
-            QObject, "scriptEditorOutputVerticalScrollBar"
+        output_vertical = find("scriptEditorOutputVerticalScrollBar"
         )
-        output_wrap_button = view.findChild(
-            QObject, "scriptEditorOutputWrapButton"
+        output_wrap_button = find("scriptOutput_wrap"
         )
-        tree_toggle_button = view.findChild(
-            QObject, "scriptEditorTreeToggleButton"
+        tree_toggle_button = find("script_tree"
         )
-        close_all_button = view.findChild(
-            QObject, "scriptEditorCloseAllButton"
+        close_all_button = find("scriptEditorCloseAllButton"
         )
-        find_button = view.findChild(QObject, "scriptEditorFindButton")
-        edit_history_button = view.findChild(
-            QObject, "scriptEditorHistoryButton"
+        find_button = find("frameCode_find")
+        edit_history_button = find("frameCodeHistory"
         )
-        saved_history_button = view.findChild(
-            QObject, "scriptEditorSavedHistoryButton"
+        saved_history_button = find("scriptSource_saved"
         )
-        saved_history_popup = view.findChild(
-            QObject, "scriptSavedRevisionHistoryPopup"
+        saved_history_popup = find("scriptSavedRevisionHistoryPopup"
         )
-        search_panel = view.findChild(QObject, "scriptEditorSearchPanel")
-        source_text_item = view.findChild(QObject, "scriptEditorSourceText")
-        output_text_item = view.findChild(QObject, "scriptEditorOutputText")
-        output_title = view.findChild(QObject, "scriptEditorOutputTitle")
-        outline = view.findChild(QObject, "scriptEditorOutline")
-        outline_filter = view.findChild(QObject, "scriptEditorOutlineFilter")
-        outline_list = view.findChild(QObject, "scriptEditorOutlineList")
-        completion_popup = view.findChild(
-            QObject, "scriptEditorCompletionPopup"
+        search_panel = find("scriptEditorSearchPanel")
+        source_text_item = find("scriptEditorSourceText")
+        output_text_item = find("scriptEditorOutputText")
+        output_title = find("scriptOutputTitle")
+        outline = find("scriptEditorOutline")
+        outline_filter = find("scriptEditorOutlineFilter")
+        outline_list = find("scriptEditorOutlineList")
+        completion_popup = find("scriptEditorCompletionPopup"
         )
-        execution_target = view.findChild(
-            QObject, "scriptEditorExecutionTarget"
+        execution_target = find("scriptTarget"
         )
         for name, item in {
             "toolbar": toolbar, "toolbar scrollbar": toolbar_scrollbar,
@@ -4842,7 +4833,7 @@ class TasksQmlTests(unittest.TestCase):
             "completion popup": completion_popup,
             "execution target": execution_target,
         }.items():
-            self.assertIsNotNone(item, name)
+            self.assertIsNotNone(item, name + "\n" + "\n".join(warnings))
         self.assertEqual(source_text_item.property("text"), "print('current')")
         self.assertEqual(execution_target.property("currentValue"), "dcc")
         self.assertEqual(
@@ -5080,6 +5071,11 @@ class TasksQmlTests(unittest.TestCase):
         self.assertTrue(bool(saved_history_button.property("enabled")))
         self.assertGreater(float(saved_history_button.property("width")), 0)
         self.assertGreater(float(saved_history_button.property("height")), 0)
+        source_toolbar.setProperty("contentX", max(
+            0, saved_history_button.x() + saved_history_button.width()
+            - source_toolbar.width()
+        ))
+        QTest.qWait(20)
         saved_history_center = saved_history_button.mapToItem(
             window.contentItem(),
             QPointF(

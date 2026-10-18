@@ -71,7 +71,7 @@ Flickable {
             nodes.push(Contract.node("Box", "row:" + key, Contract.rect(0, index * node.rowHeight, Math.max(0, width - 16), Contract.listRowHeight(node)), {
                 recordKey: key,
                 background: "transparent",
-                children: describeRow(node, record).nodes
+                children: describeRow(node, record, index).nodes
             }));
         }
         return {

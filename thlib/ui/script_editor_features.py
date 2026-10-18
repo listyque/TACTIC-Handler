@@ -597,14 +597,14 @@ def completion_items(source, cursor_position, manual=False):
     match = re.search(
         r"(?P<base>[A-Za-z_]\w*(?:\([^()\n]*\))?"
         r"(?:\.[A-Za-z_]\w*(?:\([^()\n]*\))?)*)\."
-        r"(?P<prefix>[A-Za-z_]\w*)?$",
+        r"(?P<prefix>[A-Za-z_]\w*)?\Z",
         before,
     )
     if match:
         base = match.group("base") or ""
         prefix = match.group("prefix") or ""
     else:
-        match = re.search(r"(?P<prefix>[A-Za-z_]\w*)?$", before)
+        match = re.search(r"(?P<prefix>[A-Za-z_]\w*)?\Z", before)
         base = ""
     if not match:
         return []
@@ -616,6 +616,8 @@ def completion_items(source, cursor_position, manual=False):
     aliases = _module_aliases(tree)
 
     start = match.start("prefix")
+    if start < 0:
+        start = cursor_position
     values = []
     if base:
         symbols = _expression_symbols(

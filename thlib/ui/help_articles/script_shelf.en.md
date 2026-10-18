@@ -65,3 +65,13 @@ order and rendered icon. Maya persists the tab through its native shelf mechanis
 - A tab-specific empty shelf intentionally overrides the common one.
 - Unsaved editor changes do not replace the active shelf.
 - If a server script was deleted, refresh and remove or repair the stale shelf action.
+
+## Scope, drafts and shared controls
+
+The shelf bar and editor share their Frame composition with Handler. Overflowing
+buttons and lists retain visible scrollbars. Icon and script pickers use the
+current button identity and editing scope; a delayed selection cannot change a
+removed button or a different shelf. A native tab draft cannot be saved into a
+different tab after the editing context changes. Discard or reopen the editor
+before saving in the new context. Confirmed browser assignments immediately
+show Used on this tab. Help opens the general Help window at this article.

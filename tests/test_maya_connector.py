@@ -16,6 +16,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QObject, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuick import QQuickItem
 
 from handler_server.client import ThinClient
 from handler_server.registry import CommandRegistry
@@ -502,6 +503,29 @@ class MayaConnectorTests(unittest.TestCase):
             [("save", "asset-1", {"scene_type": "mayaAscii"})],
         )
 
+    def test_options_cannot_run_or_persist_after_selected_client_changes(self):
+        requests = []
+        bridge = SimpleNamespace(selectedClient="maya-one", selectedApplicationType="maya",
+            has_dcc_capability=lambda _: True,
+            stateChanged=SimpleNamespace(connect=lambda _: None))
+        options = DccOptionsController(SimpleNamespace(window_model=SimpleNamespace(close_window=lambda _: None)),
+            lambda *args: requests.append(args) or True)
+        with patch("thlib.ui.dcc_options.env_read_config", return_value={}), \
+                patch("thlib.ui.dcc_options.read_dcc_preferences", return_value={}), \
+                patch("thlib.ui.dcc_options.env_write_config") as write:
+            options.attach_dcc_bridge(bridge)
+            self.assertTrue(options.prepare_target("save", "asset-1", "Asset 1"))
+            bridge.selectedClient = "maya-two"
+            self.assertFalse(options.available)
+            options.confirm()
+            self.assertFalse(requests)
+            write.assert_not_called()
+            bridge.selectedClient = "maya-one"
+            self.assertTrue(options.available)
+            options.confirm()
+            self.assertEqual(requests[0][:2], ("save", "asset-1"))
+            write.assert_called_once()
+
     def test_maya_save_options_qml_exposes_scene_format_control(self):
         qml = Path(__file__).resolve().parents[1] / "thlib" / "ui" / "qml"
         application = SimpleNamespace(
@@ -535,13 +559,15 @@ class MayaConnectorTests(unittest.TestCase):
             engine, QUrl.fromLocalFile(str(qml / "DccOptionsView.qml"))
         )
         view = component.createWithInitialProperties({
-            "theme": theme,
+            "theme": theme, "width": 640, "height": 440,
         })
 
         self.assertIsNotNone(
             view,
             "\n".join(error.toString() for error in component.errors()),
         )
+        self.assertIsInstance(view, QQuickItem)
+        QGuiApplication.processEvents()
         visual_items = [view]
         for item in visual_items:
             visual_items.extend(item.childItems())
@@ -860,6 +886,7 @@ class MayaConnectorTests(unittest.TestCase):
             "version": 0,
         }
 
+        controller._is_progress_process = lambda *_args: False
         started = CheckinOutController.start_dcc_scene_checkin(
             controller,
             target,

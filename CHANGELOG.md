@@ -3,6 +3,15 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.117 - 2026-10-18
+
+- Share Script Editor workspace/source commands, shelf bar/editor, native triggers, DCC options, Handler Server and selected-object Database presentation through independent Tactic Frame modules. Retain existing execution, revisions, ACL, drafts, transport and native window owners.
+- Reject stale DCC confirmations after switching the selected client. Keep tab shelf drafts bound to their original context and guard delayed picker results by identity/scope. Fix completion at a newline in Handler and Stream.
+- Add a small native script-created Frame tool example using house controls and the existing record model; preserve Batch Manager and its existing web UI. No embedded browser, duplicate web scheduler or required user-script rewrite.
+- Add native input/selection/save/recovery checks, browser workflows, original/current composition comparisons and EN/RU Help. Fix hidden Frame labels intercepting browser clicks and obsolete editor styles shifting shared geometry.
+
+- Route snapshot arrays through the array-list adapter even with declared fields, avoiding a native resize/clear access violation without delaying normal input. Preserve row indexes in both list adapters. Accept literal Unicode grouping spaces in Qt numeric patterns.
+
 ## 0.6.0.116 - 2026-10-18
 
 - Move File Workspace panes, metadata, inspectors and operation dialogs, Matching Templates, Drop Plate, ingest, Commit Queue, Repository Sync, repository confirmations and screenshot selection onto independent Tactic Frame descriptions shared with Stream. Retain native Qt controls, filesystem/DCC capabilities and existing ACL, revision, transfer, cancellation and mutation owners.

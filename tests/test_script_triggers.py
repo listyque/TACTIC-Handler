@@ -166,6 +166,16 @@ class ScriptTriggerTests(unittest.TestCase):
             self.application, _Users(), self.scripts, None, None
         )
 
+    def test_discard_and_reload_invalidate_pending_picker_document(self):
+        self.controller._original = [_rule("same", "tools/one")]
+        self.controller.discard()
+        epoch = self.controller.documentEpoch
+        self.controller.discard()
+        self.assertNotEqual(self.controller.documentEpoch, epoch)
+        epoch = self.controller.documentEpoch
+        self.controller._refreshed(("", self.controller._generation, [], "same-revision"))
+        self.assertNotEqual(self.controller.documentEpoch, epoch)
+
     def test_matching_scripts_run_top_to_bottom_for_one_action(self):
         self.controller.rules.replace(self.controller._present([
             _rule("first", "tools/one", order=0),
@@ -399,7 +409,7 @@ class ScriptTriggerTests(unittest.TestCase):
         theme_component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
         )
-        theme = theme_component.createWithInitialProperties({"dark": True})
+        theme = theme_component.createWithInitialProperties({"dark": True, "popupAnimationsEnabled":False, "clickAnimationsEnabled":False})
         component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(QML / "ScriptTriggerEditorView.qml"))
         )
@@ -417,8 +427,11 @@ class ScriptTriggerTests(unittest.TestCase):
             window.resize(900, 650)
             window.show()
             QTest.qWait(20)
-            help_button = view.findChild(QObject, "scriptTriggerHelpButton")
-            self.assertIsNotNone(help_button)
+            items = [view]
+            for item in items:
+                items.extend(item.childItems())
+            help_button = next((item for item in items if item.objectName() == "scriptTriggerHelpButton"), None)
+            self.assertIsNotNone(help_button, "\n".join(warnings))
             center = help_button.mapToScene(QPointF(
                 help_button.width() / 2, help_button.height() / 2
             ))
@@ -429,6 +442,46 @@ class ScriptTriggerTests(unittest.TestCase):
                 self.application.window_model.help_topics,
                 ["script_triggers"],
             )
+            def visual(root):
+                values = [root]
+                for item in values:
+                    values.extend(item.childItems())
+                return values
+
+            from tests.profile_ui_responsiveness import frame
+
+            def click(item):
+                point = item.mapToScene(QPointF(item.width() / 2, item.height() / 2))
+                QTest.mouseClick(item.window(), Qt.LeftButton, pos=point.toPoint())
+                frame(window)
+
+            def control(name):
+                item = next(item for item in visual(view) if item.objectName() == name)
+                loaded = item.property("item")
+                return loaded if hasattr(loaded, "childItems") else item
+
+            click(control("scriptTriggerAdd"))
+            field = control("scriptTriggerTitle")
+            click(field)
+            QTest.keyClick(window, Qt.Key_A, Qt.ControlModifier)
+            for char in "Changed trigger": QTest.keyClick(window, char)
+            QTest.qWait(10)
+            self.assertEqual(self.controller.selectedRule["title"], "Changed trigger")
+            self.assertTrue(self.controller.dirty)
+            self.controller._project_code = "fixture"
+            reloads = []
+            self.controller._run_server = lambda *args: reloads.append(True)
+            click(control("scriptTriggersReload"))
+            confirmation = view.findChild(QObject, "reloadTriggerConfirmation")
+            self.assertTrue(confirmation.property("visible"))
+            QTest.keyClick(window, Qt.Key_Escape)
+            QTest.qWait(10)
+            self.assertFalse(confirmation.property("visible"))
+            self.assertEqual(reloads, [])
+            click(control("scriptTriggersReload"))
+            discard = next(item for item in visual(confirmation.property("footer")) if item.property("text") == "Discard" and item.property("pressed") is not None)
+            click(discard)
+            self.assertEqual(reloads, [True])
             self.assertEqual(warnings, [])
         finally:
             window.close()

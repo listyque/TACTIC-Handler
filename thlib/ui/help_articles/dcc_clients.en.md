@@ -278,3 +278,14 @@ path, `item` actions receive object context, and `scene_checkin` enters Handler'
 flow. Configuration and action-option fields support `boolean`, `choice`, `integer`, and `text`.
 
 For the complete manifest contract and a Nuke example, open `docs/dcc_api.md` in the installation.
+
+## Action confirmation and tools
+
+DCC action options stay bound to the client selected when the form opens.
+Switching to another client disables confirmation; reopen the action for that
+client. Handler Server keeps its native start/stop, client selection, fixed
+registered commands, payload validation, results and tracebacks. Invalid JSON
+can be corrected and sent again. Frame changes the presentation, not command
+authorization or execution. Database selection tools likewise retain their
+existing write owner: individual edits target the active object, and bulk edits
+target the exact selected identities. Busy writes remain disabled.

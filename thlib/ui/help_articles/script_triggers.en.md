@@ -121,3 +121,11 @@ for target in data.get('targets', []):
 
 RESULT = data.get('result_search_key')
 ```
+
+## Native trigger editing
+
+The trigger form uses the shared Frame controls while the existing Handler
+before/after hooks remain the execution owner. Reordering preserves rule
+identity. Choosing a script is ignored if the rule, action or document lifetime
+has changed. Reload asks before discarding unsaved changes. Handler/DCC hooks
+remain native capabilities; the browser does not install them.

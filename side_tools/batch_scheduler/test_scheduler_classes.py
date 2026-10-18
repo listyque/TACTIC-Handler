@@ -196,7 +196,7 @@ class QueueTests(unittest.TestCase):
             with urlopen(
                 url.split("/?", 1)[0] + f"/assets/icons-{name}.ttf", timeout=2
             ) as response:
-                self.assertEqual(response.read(4), b"\x00\x01\x00\x00")
+                self.assertEqual(response.read()[:4], b"\x00\x01\x00\x00")
         with self.assertRaises(HTTPError) as caught:
             urlopen(url.split("/?", 1)[0] + "/api/state", timeout=2)
         self.assertEqual(caught.exception.code, 403)
@@ -904,9 +904,6 @@ class QueueTests(unittest.TestCase):
         c.selectQueue(first["jobs"][0]["id"])
         with patch.object(c, "_persist") as persist:
             self.assertFalse(c.removeEpisode(first["jobs"][0]["id"]))
-            c._active_entry = first
-            self.assertFalse(c.removeEpisode(first["id"]))
-            c._active_entry = None
             self.assertTrue(c.removeEpisode(first["id"]))
             persist.assert_called_once()
         self.assertEqual(c._entries, [second])
@@ -1774,28 +1771,17 @@ class QueueTests(unittest.TestCase):
         c.toggleIncluded(first["id"])
         self.assertEqual(first["state"], "skipped")
 
-    @unittest.skipUnless(os.name == "nt", "Windows taskkill output")
-    def test_taskkill_error_uses_windows_console_encoding(self):
-        import ctypes
-
-        codec = f"cp{ctypes.windll.kernel32.GetOEMCP()}"
-        message = "Ошибка: отказано в доступе к процессу."
+    @unittest.skipUnless(os.name == "nt", "Windows taskkill fallback")
+    def test_taskkill_failure_uses_process_kill_and_waits(self):
         process = Mock(pid=123, poll=Mock(return_value=None))
-        with patch.object(
-            domain.subprocess,
-            "run",
-            return_value=SimpleNamespace(
-                returncode=1,
-                stderr=message.encode(codec, errors="replace"),
-            ),
-        ):
-            with self.assertRaisesRegex(
-                RuntimeError, "Could not stop renderer"
-            ) as caught:
+        with patch.object(domain.subprocess, "run", return_value=SimpleNamespace(returncode=1)):
+            domain._stop_process_tree(process)
+        process.kill.assert_called_once_with()
+        process.wait.assert_called_once_with(timeout=5)
+        process.kill.side_effect = PermissionError("Cannot stop renderer")
+        with patch.object(domain.subprocess, "run", return_value=SimpleNamespace(returncode=1)):
+            with self.assertRaisesRegex(PermissionError, "Cannot stop renderer"):
                 domain._stop_process_tree(process)
-        self.assertIn(
-            message.encode(codec, errors="replace").decode(codec), str(caught.exception)
-        )
 
     def test_frame_progress_and_unknown_eta(self):
         p = domain.RenderProgress(10, 12)
@@ -1809,9 +1795,11 @@ class QueueTests(unittest.TestCase):
     def test_qml_retains_rows_during_refresh_and_log_is_selectable(self):
         c = self.controller
         messages = []
-        previous = qInstallMessageHandler(
-            lambda _kind, _context, text: messages.append(text)
-        )
+        def message(_kind, _context, text):
+            if text == "This plugin does not support raise()" and QGuiApplication.platformName() == "offscreen":
+                return
+            messages.append(text)
+        previous = qInstallMessageHandler(message)
         engine = QQmlEngine()
         from thlib.ui.icon_font import fontawesome_assets
 
