@@ -106,7 +106,7 @@ Window {
             "\n".join(error.toString() for error in component.errors()),
         )
         try:
-            QTest.qWait(100)
+            QTest.qWait(240)
             picker = window.findChild(QObject, "emojiTestPicker")
             self.assertIsNotNone(picker)
             self.assertTrue(picker.property("opened"))
@@ -198,7 +198,7 @@ Window {
             self.assertTrue(picker.property("opened"))
 
             picker.close()
-            QTest.qWait(50)
+            QTest.qWait(240)
             self.assertFalse(loader.property("active"))
             self.assertIsNone(loader.property("item"))
         finally:

@@ -1,153 +1,83 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
-import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/messages/attachments.ui.mjs" as UI
 
-Item {
+Frame.FrameView {
     id: root
-
-    required property var theme
     required property var controller
     required property var attachmentModel
-
-    implicitWidth: controls.implicitWidth
-    implicitHeight: controls.implicitHeight
-
-    function openDrafts() {
-        draftsPopup.toggleBelowItem(draftButton, true, 6)
+    property bool previews: false
+    readonly property string language: typeof localizationController === 'undefined' ? 'en' : localizationController.current_language
+    implicitWidth: scene.width
+    implicitHeight: 26
+    scene: UI.controls({
+        count: controller.count,
+        busy: controller.busy,
+        canCancel: true
+    }, language)
+    function openDrafts(source) {
+        draftsPopup.toggleBelowItem(source || root, true, 6);
     }
-
+    onEvent: (action, source) => {
+        if (action.type === "choose")
+            fileDialog.open();
+        else if (action.type === "paste")
+            controller.add_clipboard_image();
+        else if (action.type === "drafts-press")
+            draftsPopup.rememberSourceOpen();
+        else if (action.type === "drafts")
+            openDrafts(source);
+        else if (action.type === "clear")
+            controller.clear();
+        else if (action.type === "cancel")
+            controller.cancel();
+    }
     FileDialog {
         id: fileDialog
         title: qsTr("Attach files")
         fileMode: FileDialog.OpenFiles
         onAccepted: root.controller.add_files(selectedFiles)
     }
-
-    RowLayout {
-        id: controls
-        anchors.fill: parent
-        spacing: 4
-
-        Controls.CompactIconButton {
-            theme: root.theme
-            iconName: "attach-file"
-            toolTip: qsTr("Choose files")
-            enabled: !root.controller.busy
-            onClicked: fileDialog.open()
-        }
-        Controls.CompactIconButton {
-            theme: root.theme
-            iconName: "content-paste"
-            toolTip: qsTr("Attach image from clipboard")
-            enabled: !root.controller.busy
-            onClicked: root.controller.add_clipboard_image()
-        }
-        Controls.CompactIconButton {
-            id: draftButton
-            visible: root.controller.count > 0
-            theme: root.theme
-            iconName: "inventory-2"
-            badgeCount: root.controller.count
-            toolTip: qsTr("Attachments to send")
-            onPressed: draftsPopup.rememberSourceOpen()
-            onClicked: root.openDrafts()
-        }
-        Controls.CompactIconButton {
-            visible: root.controller.count > 0
-            theme: root.theme
-            iconName: root.controller.busy ? "close" : "delete-sweep"
-            toolTip: root.controller.busy
-                ? qsTr("Cancel attachment upload") : qsTr("Clear attachments")
-            onClicked: {
-                if (root.controller.busy)
-                    root.controller.cancel()
-                else
-                    root.controller.clear()
-            }
-        }
-    }
-
     Controls.Popup {
         id: draftsPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(340, Math.max(
-            250, (parent ? parent.width : root.width) - 24
-        ))
-        height: Math.min(300, Math.max(
-            150, (parent ? parent.height : root.height) - 30
-        ))
+        width: Math.min(340, Math.max(250, (parent ? parent.width : root.width) - 24))
+        height: Math.min(300, Math.max(150, (parent ? parent.height : root.height) - 30))
         padding: 10
-
-        contentItem: ColumnLayout {
-            spacing: 7
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("ATTACHMENTS TO SEND")
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: Font.DemiBold
-            }
-            ListView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                spacing: 2
-                model: root.attachmentModel
-                ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-
-                delegate: Item {
-                    required property int index
-                    required property string title
-                    required property string size
-                    required property string status
-                    width: ListView.view.width
-                    height: 42
-
-                    Controls.ItemSurface {
-                        anchors.fill: parent
-                        theme: root.theme
-                        cornerRadius: 11
-                        railVisible: false
-                        separatorVisible: false
-                    }
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 9
-                        anchors.rightMargin: 5
-                        spacing: 7
-                        Controls.MaterialIcon {
-                            name: "description"
-                            size: 16
-                            color: status === "failed"
-                                ? root.theme.error : root.theme.action
+        contentItem: Frame.FrameView {
+            theme: root.theme
+            scene: UI.panel({
+                previews: root.previews
+            }, width, height, root.language)
+            models: ({
+                    drafts: root.attachmentModel
+                })
+            describeRow: (node, record) => UI.row(Object.assign({}, record, {
+                    previews: root.previews,
+                    busy: root.controller.busy
+                }), Math.max(0, node.width - 16), root.language)
+            onEvent: action => {
+                if (action.type === "previews")
+                    root.previews = action.value;
+                else if (action.type === "remove") {
+                    for (let index = 0; index < root.attachmentModel.count(); index++)
+                        if (root.attachmentModel.get(index).token === action.key) {
+                            root.controller.remove(index);
+                            break;
                         }
-                        Label {
-                            Layout.fillWidth: true
-                            text: title
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.label
-                            elide: Text.ElideMiddle
-                        }
-                        Label {
-                            text: size
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                        }
-                        Controls.CompactIconButton {
-                            theme: root.theme
-                            iconName: "close"
-                            enabled: !root.controller.busy
-                            onClicked: root.controller.remove(index)
-                        }
-                    }
                 }
             }
+        }
+    }
+    Connections {
+        target: root.controller
+        function onStateChanged() {
+            if (!root.controller.count)
+                draftsPopup.close();
         }
     }
 }

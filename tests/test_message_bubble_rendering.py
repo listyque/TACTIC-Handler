@@ -13,6 +13,7 @@ from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem
 from PySide6.QtTest import QSignalSpy, QTest
+from tests.profile_ui_responsiveness import frame as present
 
 
 class MessageBubbleRenderingTests(unittest.TestCase):
@@ -157,7 +158,7 @@ Window {
                 while preview.property("sourcePixelWidth") == 0 and monotonic() < deadline:
                     QTest.qWait(10)
                 self.assertGreater(preview.property("sourcePixelWidth"), 0)
-                QTest.qWait(20)
+                present(window)
                 self.assertAlmostEqual(frame.property("bubbleExtent"), 560, delta=1)
                 self.assertGreater(card.width(), 500)
                 self.assertLess(card.height(), 180, (
@@ -167,8 +168,7 @@ Window {
                 ))
                 if os.environ.get("TH_MEDIA_PREVIEW"):
                     self.assertTrue(window.grabWindow().save(os.environ["TH_MEDIA_PREVIEW"]))
-                frame.setWidth(320)
-                QTest.qWait(20)
+                present(window, lambda: frame.setWidth(320))
                 self.assertAlmostEqual(frame.property("bubbleExtent"), 224, delta=1)
                 self.assertLessEqual(card.width(), 224)
                 frame.setWidth(800)
@@ -177,7 +177,7 @@ Window {
                 while preview.property("sourcePixelWidth") != 180 and monotonic() < deadline:
                     QTest.qWait(10)
                 self.assertEqual(preview.property("sourcePixelWidth"), 180)
-                QTest.qWait(20)
+                present(window)
                 self.assertLessEqual(preview.width(), 180)
                 self.assertLess(card.height(), 130)
                 self.assertEqual(warnings, [])

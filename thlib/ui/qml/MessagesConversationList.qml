@@ -1,241 +1,108 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/messages/conversation.ui.mjs" as UI
+
 Rectangle {
     id: root
     required property var theme
     required property var conversationModel
-
-    signal newConversationRequested()
+    readonly property string language: typeof localizationController === 'undefined' ? 'en' : localizationController.current_language
+    readonly property var geometry: UI.layout(width, height)
+    signal newConversationRequested
     signal conversationSelected(int index)
     signal conversationContextRequested(int index, var source, real x, real y)
-
     function selectConversation(index) {
-        const retainedY = conversations.contentY
-        root.conversationSelected(index)
-        Qt.callLater(function() {
-            const minimum = conversations.originY
-            const maximum = Math.max(
-                minimum,
-                conversations.originY + conversations.contentHeight
-                    - conversations.height
-            )
-            conversations.contentY = Math.max(
-                minimum, Math.min(maximum, retainedY))
-        })
+        const retainedY = conversations.contentY;
+        root.conversationSelected(index);
+        Qt.callLater(function () {
+            const minimum = conversations.originY;
+            const maximum = Math.max(minimum, conversations.originY + conversations.contentHeight - conversations.height);
+            conversations.contentY = Math.max(minimum, Math.min(maximum, retainedY));
+        });
     }
 
-    function chatColor(index) {
-        return [
-            root.theme.action,
-            root.theme.green,
-            root.theme.cyan,
-            root.theme.violet,
-            root.theme.yellow
-        ][Math.max(0, Number(index) || 0) % 5]
-    }
-
-    SplitView.preferredWidth: 252
-    SplitView.minimumWidth: 210
+    SplitView.preferredWidth: UI.metrics.preferred
+    SplitView.minimumWidth: UI.metrics.minimum
     radius: 12
-    color: root.theme.panel
+    color: theme.panel
     border.width: 1
-    border.color: root.theme.outlineVariant
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 14
-        spacing: 12
-        RowLayout {
-            Layout.fillWidth: true
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("CONVERSATIONS")
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: Font.DemiBold
-            }
-            Controls.CompactIconButton {
-                theme: root.theme
-                iconName: "group-add"
-                toolTip: qsTr("New conversation")
-                onClicked: root.newConversationRequested()
-            }
+    border.color: theme.outlineVariant
+    Frame.FrameView {
+        theme: root.theme
+        x: root.geometry.header.x
+        y: root.geometry.header.y
+        width: root.geometry.header.width
+        height: root.geometry.header.height
+        scene: UI.heading(width, false, root.language)
+        onEvent: action => root.newConversationRequested()
+    }
+    ListView {
+        id: conversations
+        objectName: "messagesConversationListView"
+        x: root.geometry.list.x
+        y: root.geometry.list.y
+        width: root.geometry.list.width
+        height: root.geometry.list.height
+        clip: true
+        spacing: UI.metrics.rowGap
+        model: root.conversationModel
+        reuseItems: true
+        ScrollBar.vertical: Controls.ScrollBar {
+            theme: root.theme
+            flickableTarget: conversations
         }
-        ListView {
-            id: conversations
-            objectName: "messagesConversationListView"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            spacing: 6
-            model: root.conversationModel
-            ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-            delegate: Item {
-                id: conversation
-                required property int index
-                required property string title
-                required property string status
-                required property string lastMessage
-                required property string lastMessageSummary
-                required property int lastMessageLinkedCount
-                required property string lastSender
-                required property int unread
-                required property int mentionCount
-                required property bool selected
-                required property string avatarUrl
-                required property string initials
-                required property int participantCount
-                required property string memberSummary
-                required property string acronym
-                required property int colorIndex
-                required property bool isPersonalNotes
-                width: conversations.width
-                height: 68
-                Controls.ItemSurface {
-                    anchors.fill: parent
-                    theme: root.theme
-                    selected: conversation.selected
-                    hovered: conversationMouse.containsMouse
-                    pressed: conversationMouse.pressed
-                    accent: root.chatColor(conversation.colorIndex)
-                    cornerRadius: 10
-                    separatorVisible: false
-                    railVisible: conversation.unread > 0
-                }
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 9
-                    anchors.rightMargin: 9
-                    spacing: 8
-                    Controls.ItemPreview {
-                        Layout.preferredWidth: 34
-                        Layout.preferredHeight: 34
-                        theme: root.theme
-                        source: conversation.isPersonalNotes
-                            ? "" : conversation.avatarUrl
-                        fallbackIcon: conversation.isPersonalNotes
-                            ? "bookmark" : "group"
-                        fallbackText: conversation.isPersonalNotes
-                            ? "" : conversation.acronym
-                        previewSize: 34
-                        round: true
-                        outlined: true
-                        selected: conversation.selected
-                        accent: root.chatColor(conversation.colorIndex)
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 1
-                        Label {
-                            Layout.fillWidth: true
-                            text: conversation.isPersonalNotes
-                                ? qsTr("Favorites") : conversation.title
-                            color: conversation.selected
-                                ? root.theme.selectedText
-                                : root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: conversation.isPersonalNotes
-                                ? qsTr("Your personal notes")
-                                : conversation.participantCount + (
-                                    conversation.participantCount === 1
-                                        ? qsTr(" member")
-                                        : qsTr(" members")
-                                )
-                            color: conversation.selected
-                                ? root.theme.selectedText
-                                : root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            elide: Text.ElideRight
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: conversation.lastMessageSummary
-                                ? (conversation.lastSender
-                                    ? conversation.lastSender + ": " : "")
-                                    + conversation.lastMessageSummary
-                                    + (conversation.lastMessageLinkedCount > 0
-                                        ? "  ·  "
-                                            + conversation.lastMessageLinkedCount
-                                            + (conversation.lastMessageLinkedCount === 1
-                                                ? qsTr(" link") : qsTr(" links"))
-                                        : "")
-                                : conversation.status || qsTr("No messages yet")
-                            color: conversation.selected
-                                ? root.theme.selectedText
-                                : root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            opacity: 0.82
-                            maximumLineCount: 1
-                            wrapMode: Text.NoWrap
-                            elide: Text.ElideRight
-                            clip: true
-                        }
-                    }
-                    Rectangle {
-                        visible: conversation.mentionCount > 0
-                        implicitWidth: 18
-                        implicitHeight: 18
-                        radius: 9
-                        color: conversation.selected
-                            ? root.theme.selectedText
-                            : root.theme.tertiary
-                        Label {
-                            anchors.centerIn: parent
-                            text: qsTr("@")
-                            color: conversation.selected
-                                ? root.theme.tertiary
-                                : root.theme.selectedText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                            font.weight: Font.Bold
-                        }
-                    }
-                    Rectangle {
-                        visible: conversation.unread > 0
-                        implicitWidth: Math.max(
-                            18, unreadLabel.implicitWidth + 8
-                        )
-                        implicitHeight: 18
-                        radius: 9
-                        color: conversation.selected
-                            ? root.theme.selectedText : root.theme.action
-                        Label {
-                            id: unreadLabel
-                            anchors.centerIn: parent
-                            text: conversation.unread > 99
-                                ? "99+" : String(conversation.unread)
-                            color: conversation.selected
-                                ? root.theme.action : root.theme.selectedText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            font.weight: Font.Bold
-                        }
-                    }
-                }
-                MouseArea {
-                    id: conversationMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: mouse => {
-                        if (mouse.button === Qt.RightButton)
-                            root.conversationContextRequested(
-                                conversation.index, conversationMouse, mouse.x, mouse.y)
-                        else
-                            root.selectConversation(conversation.index)
-                    }
-                }
+        delegate: Item {
+            id: conversation
+            required property int index
+            required property string title
+            required property string status
+            required property string lastMessage
+            required property string lastMessageSummary
+            required property int lastMessageLinkedCount
+            required property string lastSender
+            required property int unread
+            required property int mentionCount
+            required property bool selected
+            required property string avatarUrl
+            required property string initials
+            required property int participantCount
+            required property string memberSummary
+            required property string acronym
+            required property int colorIndex
+            required property bool isPersonalNotes
+
+            width: root.geometry.rowWidth
+            height: UI.metrics.row
+            Frame.FrameView {
+                theme: root.theme
+                anchors.fill: parent
+                scene: UI.row({
+                    index: conversation.index,
+                    title: conversation.title,
+                    status: conversation.status,
+                    lastMessage: conversation.lastMessage,
+                    lastMessageSummary: conversation.lastMessageSummary,
+                    lastMessageLinkedCount: conversation.lastMessageLinkedCount,
+                    lastSender: conversation.lastSender,
+                    unread: conversation.unread,
+                    mentionCount: conversation.mentionCount,
+                    selected: conversation.selected,
+                    avatarUrl: conversation.avatarUrl,
+                    initials: conversation.initials,
+                    participantCount: conversation.participantCount,
+                    memberSummary: conversation.memberSummary,
+                    acronym: conversation.acronym,
+                    colorIndex: conversation.colorIndex,
+                    isPersonalNotes: conversation.isPersonalNotes
+                }, width, root.language)
+                onEvent: action => root.selectConversation(conversation.index)
+            }
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.RightButton
+                onClicked: mouse => root.conversationContextRequested(conversation.index, conversation, mouse.x, mouse.y)
             }
         }
     }

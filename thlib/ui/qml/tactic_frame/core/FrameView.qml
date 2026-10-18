@@ -345,6 +345,9 @@ Item {
                 Component {
                     id: labelBrick
                     Label {
+                        id: labelControl
+                        property bool tipDismissed: false
+                        activeFocusOnTab: !!wrapper.node.focusable
                         Accessible.role: wrapper.node.role === "alert" ? Accessible.AlertMessage : wrapper.node.role === "heading" ? Accessible.Heading : Accessible.StaticText
                         objectName: wrapper.node.id
                         text: wrapper.node.text
@@ -362,6 +365,31 @@ Item {
                         wrapMode: wrapper.node.wrap ? Text.WordWrap : Text.NoWrap
                         maximumLineCount: wrapper.node.maxLines || 2147483647
                         elide: wrapper.node.elide === false ? Text.ElideNone : wrapper.node.elideMiddle ? Text.ElideMiddle : wrapper.node.maxLines ? Text.ElideRight : wrapper.node.wrap ? Text.ElideNone : Text.ElideRight
+
+                        onActiveFocusChanged: tipDismissed = false
+                        Keys.onEscapePressed: event => {
+                            if (infoTip.item && infoTip.item.visible) {
+                                tipDismissed = true;
+                                event.accepted = true;
+                            } else
+                                event.accepted = false;
+                        }
+                        HoverHandler {
+                            id: infoHover
+                            enabled: !!(wrapper.node.toolTip)
+                            onHoveredChanged: if (hovered)
+                                labelControl.tipDismissed = false
+                        }
+                        Loader {
+                            id: infoTip
+                            active: !!(wrapper.node.toolTip) && (infoHover.hovered || labelControl.activeFocus) && !labelControl.tipDismissed
+                            sourceComponent: Controls.ToolTip {
+                                theme: root.effectiveTheme
+                                parent: labelControl
+                                text: wrapper.node.toolTip || ""
+                                visible: true
+                            }
+                        }
                     }
                 }
                 Component {
@@ -405,11 +433,39 @@ Item {
                 Component {
                     id: iconBrick
                     Controls.MaterialIcon {
+                        id: iconControl
+                        property bool tipDismissed: false
+                        activeFocusOnTab: !!wrapper.node.focusable
                         objectName: wrapper.node.id
                         name: wrapper.node.icon || ""
                         size: wrapper.node.width
                         color: root.color(wrapper.node.color)
                         Accessible.name: wrapper.node.text
+
+                        onActiveFocusChanged: tipDismissed = false
+                        Keys.onEscapePressed: event => {
+                            if (infoTip.item && infoTip.item.visible) {
+                                tipDismissed = true;
+                                event.accepted = true;
+                            } else
+                                event.accepted = false;
+                        }
+                        HoverHandler {
+                            id: infoHover
+                            enabled: !!(wrapper.node.toolTip || wrapper.node.text)
+                            onHoveredChanged: if (hovered)
+                                iconControl.tipDismissed = false
+                        }
+                        Loader {
+                            id: infoTip
+                            active: !!(wrapper.node.toolTip || wrapper.node.text) && (infoHover.hovered || iconControl.activeFocus) && !iconControl.tipDismissed
+                            sourceComponent: Controls.ToolTip {
+                                theme: root.effectiveTheme
+                                parent: iconControl
+                                text: wrapper.node.toolTip || wrapper.node.text || ""
+                                visible: true
+                            }
+                        }
                     }
                 }
                 Component {
@@ -500,6 +556,7 @@ Item {
                     id: actionBrick
                     Controls.PopupAction {
                         id: actionControl
+                        property bool tipDismissed: false
                         objectName: wrapper.node.id
                         text: wrapper.node.text
                         enabled: !!wrapper.node.enabled
@@ -508,7 +565,7 @@ Item {
                         property string description: wrapper.node.description || ""
                         Accessible.name: text
                         Accessible.description: description
-                        Accessible.role: wrapper.node.role === "treeitem" ? Accessible.TreeItem : wrapper.node.role === "checkbox" ? Accessible.CheckBox : Accessible.Button
+                        Accessible.role: wrapper.node.role === "treeitem" ? Accessible.TreeItem : wrapper.node.role === "checkbox" ? Accessible.CheckBox : wrapper.node.role === "option" ? Accessible.ListItem : Accessible.Button
                         Accessible.selectable: wrapper.node.role === "treeitem" || wrapper.node.role === "option"
                         Accessible.selected: !!wrapper.node.selected
                         checked: wrapper.node.checked || false
@@ -518,6 +575,7 @@ Item {
                         background: Controls.ItemSurface {
                             theme: root.effectiveTheme
                             selected: actionControl.selected
+                            accent: root.color(wrapper.node.accent || "action")
                             hovered: actionControl.hovered || actionControl.visualFocus
                             pressed: actionControl.down
                             normalColor: root.color(wrapper.node.normalColor)
@@ -537,6 +595,31 @@ Item {
                         }
                         onClicked: root.send(wrapper.node.action, undefined, actionControl)
                         onDoubleClicked: root.send(wrapper.node.doubleAction)
+
+                        onActiveFocusChanged: tipDismissed = false
+                        Keys.onEscapePressed: event => {
+                            if (infoTip.item && infoTip.item.visible) {
+                                tipDismissed = true;
+                                event.accepted = true;
+                            } else
+                                event.accepted = false;
+                        }
+                        HoverHandler {
+                            id: infoHover
+                            enabled: !!(wrapper.node.toolTip)
+                            onHoveredChanged: if (hovered)
+                                actionControl.tipDismissed = false
+                        }
+                        Loader {
+                            id: infoTip
+                            active: !!(wrapper.node.toolTip) && (infoHover.hovered || actionControl.activeFocus) && !actionControl.tipDismissed
+                            sourceComponent: Controls.ToolTip {
+                                theme: root.effectiveTheme
+                                parent: actionControl
+                                text: wrapper.node.toolTip || ""
+                                visible: true
+                            }
+                        }
                     }
                 }
                 Component {

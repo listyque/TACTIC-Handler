@@ -1,0 +1,186 @@
+{
+  "users": [
+    {
+      "login": "admin",
+      "displayName": "Administrator",
+      "initials": "A",
+      "avatarUrl": "",
+      "avatarColor": "#43796c",
+      "groups": [
+        "Administrators"
+      ],
+      "primaryGroup": "Administrators",
+      "current": true
+    },
+    {
+      "login": "artist",
+      "displayName": "Lighting Artist",
+      "initials": "LA",
+      "avatarUrl": "",
+      "avatarColor": "#4f91c7",
+      "groups": [
+        "Artists"
+      ],
+      "primaryGroup": "Artists",
+      "current": false
+    },
+    {
+      "login": "reviewer",
+      "displayName": "Review supervisor",
+      "initials": "RS",
+      "avatarUrl": "",
+      "avatarColor": "#9672b1",
+      "groups": [
+        "Supervisors"
+      ],
+      "primaryGroup": "Supervisors",
+      "current": false
+    }
+  ],
+  "conversations": [
+    {
+      "conversationId": "favorites",
+      "title": "Favorites",
+      "isPersonalNotes": true,
+      "recipients": [],
+      "messageCount": 3,
+      "canClearPersonal": true,
+      "canRename": true,
+      "selected": true
+    },
+    {
+      "conversationId": "review",
+      "title": "Lighting review",
+      "isPersonalNotes": false,
+      "recipients": [
+        "artist",
+        "reviewer"
+      ],
+      "participantCount": 3,
+      "messageCount": 8,
+      "unread": 2,
+      "mentionCount": 1,
+      "canManage": true,
+      "canRename": true,
+      "canDelete": true,
+      "canAddMembers": true,
+      "lastMessageSummary": "The lighting is ready for review"
+    }
+  ],
+  "messages": [
+    {
+      "code": "MSG001",
+      "login": "artist",
+      "message": "Lighting is ready.\nPlease review the final version.",
+      "timestamp": "2026-10-18T09:59:00",
+      "groupFirst": true,
+      "groupLast": true
+    },
+    {
+      "code": "MSG002",
+      "login": "admin",
+      "message": "Thank you! I will review it now.",
+      "timestamp": "2026-10-18T09:59:30",
+      "groupFirst": true,
+      "groupLast": true,
+      "__delivery__": {
+        "status": "read",
+        "recipientCount": 1,
+        "readCount": 1,
+        "deliveredCount": 1
+      }
+    },
+    {
+      "code": "MSG003",
+      "login": "artist",
+      "message": "Use the attached reference for the lighting.",
+      "timestamp": "2026-10-18T09:59:50",
+      "groupFirst": true,
+      "groupLast": true,
+      "__reply__": {
+        "messageId": "MSG002",
+        "login": "admin",
+        "body": "Thank you! I will review it now.",
+        "attachmentCount": 0,
+        "sender": "admin",
+        "senderDisplay": "Administrator"
+      }
+    }
+  ],
+  "reference": {
+    "messageId": "MSG002",
+    "login": "admin",
+    "sender": "admin",
+    "senderDisplay": "Administrator",
+    "body": "Thank you! I will review it now.",
+    "attachmentCount": 2,
+    "available": true,
+    "attachments": [
+      {},
+      {}
+    ]
+  },
+  "toast": {
+    "notificationId": "fixture-notification",
+    "kind": "info",
+    "message": "The lighting is ready for review.",
+    "detail": "Review the latest lighting version before publishing.",
+    "progress": -1,
+    "dismissible": true,
+    "sourceType": "message",
+    "sourceTitle": "Lighting review",
+    "avatarText": "LA",
+    "avatarColor": "#4f91c7",
+    "previewUrl": "",
+    "sourceIcon": "",
+    "action": "messages",
+    "actionData": "review",
+    "replyOpen": true,
+    "replySending": false,
+    "replyText": "I will check it now",
+    "replyError": ""
+  },
+  "calendar": {
+    "selected": "2026-10-18",
+    "counts": {
+      "2026-10-18": 7,
+      "2026-10-16": 3,
+      "2026-10-04": 12
+    }
+  },
+  "history": [
+    {
+      "notificationId": "event1",
+      "kind": "complete",
+      "group": "client",
+      "message": "Preview uploaded",
+      "detail": "The preview is ready for review.",
+      "timestamp": "2026-10-18T09:59:30Z",
+      "timestampPretty": "Just now",
+      "timestampFull": "2026-10-18 09:59:30"
+    }
+  ],
+  "activity": [
+    {
+      "eventId": "publication1",
+      "kind": "publication",
+      "actor": "artist",
+      "actorLabel": "Lighting Artist",
+      "actorInitials": "LA",
+      "actorColor": "#4f91c7",
+      "timestamp": "2026-10-18T09:59:30Z",
+      "timestampPretty": "Just now",
+      "timestampFull": "2026-10-18 09:59:30",
+      "targetTitle": "Hero Robot",
+      "targetType": "cg/assets",
+      "targetTypeTitle": "Assets",
+      "typeColor": "#5c8ee6",
+      "processColor": "#42a86b",
+      "process": "publish",
+      "detail": "Preview published",
+      "canOpen": true,
+      "dayKey": "2026-10-18",
+      "changes": []
+    }
+  ]
+}

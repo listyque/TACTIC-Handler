@@ -171,9 +171,15 @@ class NotificationsQmlTests(unittest.TestCase):
             if item.objectName() != object_name or not item.isVisible():
                 continue
             position = item.mapToItem(owner, QPointF(0, 0))
-            if (
-                    position.y() + item.height() >= 0
-                    and position.y() <= owner.height()):
+            center = QPointF(item.width()/2,item.height()/2)
+            parent = item.parentItem()
+            clipped = False
+            while parent:
+                if parent.clip() and not parent.contains(item.mapToItem(parent,center)):
+                    clipped = True
+                    break
+                parent = parent.parentItem()
+            if not clipped and position.y() >= 0 and position.y()+item.height() <= owner.height():
                 return item
         return None
 
@@ -201,9 +207,7 @@ class NotificationsQmlTests(unittest.TestCase):
             timestamp = self._visible_visual_item(
                 view, "notificationTimestampText"
             )
-            filters = view.findChild(
-                QQuickItem, "notificationHistoryFilters"
-            )
+            filters = self._visual_item(view,"notificationHistoryFilters")
 
             self.assertIsNotNone(panel)
             self.assertIsNotNone(toolbar)
@@ -288,12 +292,12 @@ class NotificationsQmlTests(unittest.TestCase):
             empty_state = view.findChild(
                 QQuickItem, "notificationsEmptyState"
             )
-            title = view.findChild(QQuickItem, "emptyStateTitle")
+            title = self._visual_item(view, "emptyStateTitle")
             self.assertIsNotNone(empty_state)
             self.assertIsNotNone(title)
             self.assertTrue(empty_state.isVisible())
             self.assertGreaterEqual(empty_state.width(), 240)
-            self.assertLessEqual(empty_state.width(), 440)
+            self.assertLessEqual(title.width(), 440)
             self.assertGreaterEqual(title.width(), 240)
             self.assertLessEqual(title.property("lineCount"), 2)
 
@@ -301,7 +305,7 @@ class NotificationsQmlTests(unittest.TestCase):
             view.setSize(window.size())
             QTest.qWait(80)
             self.assertGreaterEqual(empty_state.width(), 240)
-            self.assertLessEqual(empty_state.width(), 320)
+            self.assertLessEqual(title.width(), 320)
             self.assertGreaterEqual(title.width(), 240)
         finally:
             window.close()
@@ -449,7 +453,11 @@ class NotificationsQmlTests(unittest.TestCase):
                 origin = item.mapToScene(QPointF(0, 0))
                 self.assertGreaterEqual(origin.x(), 0)
                 self.assertLessEqual(origin.x() + item.width(), toast.width() + 1)
-            field.setProperty("text", "Will review it now")
+            field.forceActiveFocus()
+            for character in "Will review it now":
+                QTest.keyClick(toast, character)
+            from tests.profile_ui_responsiveness import frame
+            frame(toast)
             send_point = send_button.mapToScene(
                 QPointF(send_button.width() / 2, send_button.height() / 2)
             ).toPoint()

@@ -878,6 +878,10 @@ Window {
             )
             self.assertNotIn("TH KNOWLEDGE ARTICLE", visible_text)
 
+            from tests.profile_ui_responsiveness import frame
+            for _pass in range(3):
+                frame(window)
+            self.assertGreater(card.width(), 100)
             point = card.mapToScene(QPointF(20, card.height() / 2))
             QTest.mouseClick(
                 window, Qt.LeftButton, pos=point.toPoint()
@@ -1000,10 +1004,10 @@ Window {
         self.assertIn("messageRow.groupLast", messages_source)
         self.assertIn("messageRow.groupFirst", messages_source)
         self.assertIn(
-            'objectName: "messageMetadataSpacer"', messages_source
+            'objectName: "messageMetadataRow"', messages_source
         )
         self.assertIn(
-            "visible: !messageRow.groupFirst", messages_source
+            "first: model.groupFirst", (qml_dir / "features/messages/MessageHeader.qml").read_text(encoding="utf-8")
         )
         self.assertNotIn("messageRow.groupFirst", notes_source)
         self.assertRegex(notes_source, r"geometry.padding\s*\*\s*2")
@@ -1250,8 +1254,8 @@ Item {
         )
 
         self.assertIn("selectedConversationPresenceText", messages_source)
-        self.assertIn("selectedConversation.peerLogin", messages_source)
-        self.assertIn("selectedConversation.online", messages_source)
+        self.assertIn("conversation.peerLogin", messages_source)
+        self.assertIn("conversation.online", messages_source)
         self.assertNotIn("selectedConversationPresenceText", notes_source)
 
     @staticmethod
@@ -1453,7 +1457,7 @@ Window {
         self.assertIn("Controls.SmoothListView {", notes_source)
         self.assertIn("bottomAnchored: true", notes_source)
         self.assertIn(
-            "topMargin: Math.max(0, height - contentHeight)",
+            "y: Math.max(0, messages.height - height)",
             messages_source,
         )
         self.assertIn(
@@ -1523,7 +1527,7 @@ Window {
             Path(__file__).parents[1] / "thlib" / "ui" / "qml" / "MessagesView.qml"
         )
         source = path.read_text(encoding="utf-8")
-        self.assertIn("model: messageConversationModel", source)
+        self.assertIn("conversations: messageConversationModel", source)
         self.assertNotIn("model: messagesController.conversations", source)
 
     def test_pin_history_entries_open_their_message(self):
@@ -1531,8 +1535,8 @@ Window {
             Path(__file__).parents[1] / "thlib" / "ui" / "qml" / "MessagesView.qml"
         )
         source = path.read_text(encoding="utf-8")
-        self.assertIn("id: pinHistoryEntry", source)
-        self.assertIn("messagesController.show_message(messageId)", source)
+        self.assertIn("model: messagesController.pinHistory", source)
+        self.assertIn('messagesController.show_message(String(messagesController.pinnedMessage.messageId || ""))', source)
 
     def test_notes_controls_require_selected_sobject(self):
         application = _Application()
@@ -2689,6 +2693,7 @@ Window {
 
     def test_message_text_has_compact_header_gap_and_side_padding(self):
         from thlib.ui.communication_feed import MessagesController
+        from tests.profile_ui_responsiveness import frame
 
         class MessageApplication(_Application):
             project_changed = Signal(str, str)
@@ -2749,7 +2754,7 @@ Window {
         try:
             self.assertTrue(QTest.qWaitForWindowExposed(window))
             for _pass in range(3):
-                self.app.processEvents()
+                frame(window)
             pending = [window.contentItem()]
             found = {}
             while pending:
@@ -2768,7 +2773,7 @@ Window {
             body = found["messageBodyText"]
             for width, minimum_inset in ((920, 12), (520, 10)):
                 window.setWidth(width)
-                self.app.processEvents()
+                frame(window)
                 left_inset = (
                     body.mapToScene(QPointF()).x()
                     - bubble.mapToScene(QPointF()).x()
@@ -2782,7 +2787,7 @@ Window {
                 self.assertGreaterEqual(left_inset, minimum_inset)
 
             window.setWidth(920)
-            self.app.processEvents()
+            frame(window)
             if os.environ.get("TH_MESSAGE_SPACING_PREVIEW"):
                 self.assertTrue(window.grabWindow().save(
                     os.environ["TH_MESSAGE_SPACING_PREVIEW"]
@@ -2793,7 +2798,7 @@ Window {
             QTest.mouseMove(
                 window, bubble.mapToScene(QPointF(20, 12)).toPoint()
             )
-            self.app.processEvents()
+            frame(window)
             self.assertTrue(button.property("enabled"))
             if os.environ.get("TH_MESSAGE_HOVER_PREVIEW"):
                 self.assertTrue(window.grabWindow().save(
@@ -2805,7 +2810,7 @@ Window {
                     button.width() / 2, button.height() - 2
                 )).toPoint(),
             )
-            self.app.processEvents()
+            frame(window)
             view = window.findChild(QObject, "spacingMessagesView")
             self.assertEqual(view.property("actionMessageId"), "MSG001")
 
@@ -2817,6 +2822,7 @@ Window {
             for width in (920, 700):
                 window.setWidth(width)
                 window.grabWindow()
+                frame(window)
                 self.assertAlmostEqual(
                     viewport.mapToScene(QPointF()).x(),
                     header.mapToScene(QPointF()).x(), delta=1,
@@ -2845,6 +2851,7 @@ Window {
                 controller._busy = True
                 controller.stateChanged.emit()
                 window.grabWindow()
+                frame(window)
                 self.assertTrue(busy_slot.isVisible())
                 busy_inset = (
                     header.mapToScene(QPointF(header.width(), 0)).x()
@@ -2856,10 +2863,11 @@ Window {
                 controller._busy = False
                 controller.stateChanged.emit()
                 window.grabWindow()
+                frame(window)
 
             controller.messages.set_value(0, "groupFirst", False)
             controller.messages.set_value(0, "isOwn", True)
-            self.app.processEvents()
+            frame(window)
             time_label = found["messageTimeLabel"]
             time_gap = (
                 body.mapToScene(QPointF()).y()
@@ -2878,8 +2886,9 @@ Window {
                 "hasWebPreview": True, "snapshotCode": "SNAP001",
             }]
             controller.messages.replace([media_message])
-            self.app.processEvents()
+            frame(window)
             window.grabWindow()
+            frame(window)
             frame = bubble.parentItem()
             self.assertTrue(frame.property("mediaAttachments"))
             pending = [window.contentItem()]

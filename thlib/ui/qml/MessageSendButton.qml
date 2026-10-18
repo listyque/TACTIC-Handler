@@ -3,6 +3,7 @@ import "controls" as Controls
 
 Controls.Button {
     id: root
+    objectName: "messageComposerSendButton"
 
     property bool sending: false
     property bool hasContent: false

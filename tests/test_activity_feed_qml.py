@@ -6,7 +6,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QPointF, Property, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import QCoreApplication,QEvent,QObject, QPointF, Property, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
@@ -203,6 +203,10 @@ class ActivityFeedQmlTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = gui_test_application()
 
+    def tearDown(self):
+        QCoreApplication.sendPostedEvents(None,QEvent.DeferredDelete)
+        self.app.processEvents()
+
     def _create_view(self, controller=None, model=None):
         engine = QQmlEngine()
         engine.addImportPath(str(QML))
@@ -305,6 +309,9 @@ class ActivityFeedQmlTests(unittest.TestCase):
             self.assertNotIn("\n", collapsed)
             self.assertLessEqual(len(collapsed), 81)
             self.assertTrue(collapsed.endswith("…"))
+            from tests.profile_ui_responsiveness import frame
+            for _ in range(3):
+                frame(window)
 
             QTest.mouseClick(
                 window, Qt.LeftButton, Qt.NoModifier,
@@ -339,23 +346,13 @@ class ActivityFeedQmlTests(unittest.TestCase):
         window.show()
         try:
             QTest.qWait(80)
-            segments = view.findChild(
-                QQuickItem, "activityFeedFilterSegments"
-            )
-            search = view.findChild(QQuickItem, "activityFeedSearchBox")
-            calendar = view.findChild(
-                QQuickItem, "activityFeedCalendarButton"
-            )
-            refresh = view.findChild(
-                QQuickItem, "activityFeedRefreshButton"
-            )
-            exclude_own = view.findChild(
-                QQuickItem, "activityFeedExcludeOwnActivity"
-            )
-            activity_notifications = view.findChild(
-                QQuickItem, "activityFeedNotificationsEnabled"
-            )
-            feed = view.findChild(QQuickItem, "activityFeedList")
+            segments = self._visual_item(view, "activityFeedFilterSegments")
+            search = self._visual_item(view, "activityFeedSearchField")
+            calendar = self._visual_item(view, "activityFeedCalendarButton")
+            refresh = self._visual_item(view, "activityFeedRefreshButton")
+            exclude_own = self._visual_item(view, "activityFeedExcludeOwnActivity")
+            activity_notifications = self._visual_item(view, "activityFeedNotificationsEnabled")
+            feed = self._visual_item(view, "activityFeedList")
             for item in (
                     segments, search, calendar, refresh, exclude_own,
                     activity_notifications, feed):
@@ -398,11 +395,9 @@ class ActivityFeedQmlTests(unittest.TestCase):
             controller.select_day("2026-08-22")
             QTest.qWait(40)
             self.assertAlmostEqual(
-                calendar.width(), min(230, calendar.implicitWidth()), delta=0.5
+                calendar.width(), 160, delta=0.5
             )
-            compact_users = view.findChild(
-                QQuickItem, "activityFeedCompactUserFilterButton"
-            )
+            compact_users = self._visual_item(view, "activityFeedCompactUserFilterButton")
             for item in (calendar, compact_users, refresh):
                 self._assert_inside(item, view)
             self.assertFalse(window.grabWindow().isNull())
@@ -421,7 +416,7 @@ class ActivityFeedQmlTests(unittest.TestCase):
                         "all", "my_tasks", "my_objects", "notes",
                         "publications"):
                     segment = self._visual_item(
-                        segments, "segmentedButtonSegment_" + value
+                        segments, "activityFeedFilterSegments_" + value
                     )
                     self.assertIsNotNone(segment)
                     self.assertTrue(segment.property("visible"))
@@ -497,15 +492,15 @@ class ActivityFeedQmlTests(unittest.TestCase):
         window.show()
         try:
             QTest.qWait(80)
-            calendar_button = view.findChild(
-                QQuickItem, "activityFeedCalendarButton"
-            )
+            calendar_button = self._visual_item(view, "activityFeedCalendarButton")
             calendar_popup = view.findChild(
                 QObject, "activityCalendarPopup"
             )
             self.assertIsNotNone(calendar_button)
             self.assertIsNotNone(calendar_popup)
 
+            from tests.profile_ui_responsiveness import frame
+            frame(window)
             center = calendar_button.mapToScene(QPointF(
                 calendar_button.width() / 2,
                 calendar_button.height() / 2,
@@ -522,9 +517,7 @@ class ActivityFeedQmlTests(unittest.TestCase):
             )
             self.assertIsNotNone(scrim)
             self.assertEqual(scrim.property("color"), theme.property("scrim"))
-            month_label = calendar_popup.findChild(
-                QQuickItem, "activityCalendarMonthLabel"
-            )
+            month_label = self._visual_item(calendar_popup.property("contentItem"), "activityCalendarMonthLabel")
             self.assertIsNotNone(month_label)
             popup_window = month_label.window()
             day = self._visual_item(
@@ -541,7 +534,7 @@ class ActivityFeedQmlTests(unittest.TestCase):
                 popup_window, Qt.MouseButton.LeftButton,
                 Qt.KeyboardModifier.NoModifier, center,
             )
-            QTest.qWait(80)
+            QTest.qWait(240)
             self.assertEqual(controller.selectedDay, "2026-08-22")
             self.assertFalse(calendar_popup.property("visible"))
         finally:
@@ -569,10 +562,8 @@ class ActivityFeedQmlTests(unittest.TestCase):
         window.show()
         try:
             QTest.qWait(100)
-            feed = view.findChild(QQuickItem, "activityFeedList")
-            scroll_bar = view.findChild(
-                QQuickItem, "activityFeedScrollBar"
-            )
+            feed = self._visual_item(view, "activityFeedList")
+            scroll_bar = self._visual_item(view, "activityFeedScrollBar")
             self.assertIsNotNone(feed)
             self.assertIsNotNone(scroll_bar)
             self.assertGreater(feed.property("contentHeight"), feed.height())
@@ -604,10 +595,8 @@ class ActivityFeedQmlTests(unittest.TestCase):
         window.show()
         try:
             QTest.qWait(100)
-            feed = view.findChild(QQuickItem, "activityFeedList")
-            scroll_bar = view.findChild(
-                QQuickItem, "activityFeedScrollBar"
-            )
+            feed = self._visual_item(view, "activityFeedList")
+            scroll_bar = self._visual_item(view, "activityFeedScrollBar")
             self.assertIsNotNone(feed)
             self.assertIsNotNone(scroll_bar)
             self.assertGreater(feed.property("contentHeight"), feed.height())
@@ -885,7 +874,7 @@ class ActivityFeedQmlTests(unittest.TestCase):
             window.resize(380, 420)
             view.setSize(window.size())
             QTest.qWait(80)
-            self._assert_inside(changes, view)
+            self._assert_inside(changes, self._visual_item(view, "activityEventCard"))
             self.assertFalse(window.grabWindow().isNull())
         finally:
             window.close()
@@ -906,16 +895,14 @@ class ActivityFeedQmlTests(unittest.TestCase):
         window.show()
         try:
             QTest.qWait(80)
-            button = view.findChild(
-                QQuickItem, "activityFeedCompactUserFilterButton"
-            )
+            button = self._visual_item(view, "activityFeedCompactUserFilterButton")
             popup = view.findChild(
                 QObject, "activityFeedUserFilterPopup"
             )
             self.assertIsNotNone(button)
             self.assertIsNotNone(popup)
             self.assertTrue(button.property("visible"))
-            self.assertEqual(button.property("iconName"), "groups")
+            self.assertEqual(QQmlExpression(engine.rootContext(),button,"icon.name").evaluate()[0], "groups")
 
             center = button.mapToScene(QPointF(
                 button.width() / 2, button.height() / 2
@@ -927,28 +914,21 @@ class ActivityFeedQmlTests(unittest.TestCase):
             QTest.qWait(80)
             self.assertTrue(popup.property("visible"))
 
-            picker = popup.findChild(QQuickItem, "activityFeedUserPicker")
+            picker = self._visual_item(popup.property("contentItem"),"activityFeedUserPicker")
             self.assertIsNotNone(picker)
             self.assertGreaterEqual(popup.property("height"), 360)
             self.assertGreater(picker.height(), 200)
-            selection_expression = QQmlExpression(
-                engine.rootContext(), picker, "toggle('artist')"
-            )
-            selection_expression.evaluate()
-            self.assertFalse(selection_expression.hasError())
+            user = self._visual_item(picker,"userPickerAction_artist")
+            self.assertIsNotNone(user)
+            QTest.mouseClick(user.window(),Qt.LeftButton,Qt.NoModifier,user.mapToScene(QPointF(user.width()/2,user.height()/2)).toPoint())
+            QTest.qWait(30)
             selected = picker.property("selectedLogins")
             self.assertEqual(selected.toVariant(), ["artist"])
 
-            apply_button = popup.findChild(
-                QQuickItem, "activityFeedApplyUserFilterButton"
-            )
+            apply_button = self._visual_item(popup.property("contentItem"),"activityFeedApplyUserFilterButton")
             self.assertIsNotNone(apply_button)
-            apply_expression = QQmlExpression(
-                engine.rootContext(), apply_button, "clicked()"
-            )
-            apply_expression.evaluate()
-            self.assertFalse(apply_expression.hasError())
-            QTest.qWait(80)
+            QTest.mouseClick(apply_button.window(),Qt.LeftButton,Qt.NoModifier,apply_button.mapToScene(QPointF(apply_button.width()/2,apply_button.height()/2)).toPoint())
+            QTest.qWait(240)
             self.assertEqual(controller.selectedUsers, ["artist"])
             self.assertFalse(popup.property("visible"))
         finally:

@@ -107,7 +107,7 @@ class ActivityFeedLoadingTests(unittest.TestCase):
             feed = view.findChild(QQuickItem, "activityFeedList")
             self.wait_frame(window)
             yield controller, view, feed, window
-            self.assertEqual(self.warnings, [])
+            self.assertEqual([warning for warning in self.warnings if not(QGuiApplication.platformName()=="offscreen" and warning=="This plugin does not support raise()")], [])
         finally:
             window.close()
             view.setParentItem(None)
@@ -304,6 +304,10 @@ class ActivityFeedLoadingTests(unittest.TestCase):
         with self.scene(animated=True) as (controller, _view, feed, window):
             self.complete(window, _page(0, 26))
             feed.positionViewAtEnd()
+            # Recycled rich-text delegates report their measured heights after loading.
+            for _ in range(3):
+                self.wait_frame(window)
+            feed.positionViewAtEnd()
             self.wait_frame(window)
             self.assertTrue(feed.property("atYEnd"))
             self.wheel(feed, window, angle=120)
@@ -327,7 +331,7 @@ class ActivityFeedLoadingTests(unittest.TestCase):
             self.assertEqual(len(self.pool.workers), 2)
 
     def open_calendar(self, view, window):
-        button = view.findChild(QQuickItem, "activityFeedCalendarButton")
+        button = self._visual_item(view,"activityFeedCalendarButton")
         self.click(button, window)
         calendar = view.findChild(QObject, "activityCalendarPopup")
         self.wait_frame(window, lambda: calendar.property("opened"))
@@ -375,7 +379,7 @@ class ActivityFeedLoadingTests(unittest.TestCase):
             ]})
             self.assertEqual(controller.calendarCounts["2024-03-12"], 43)
             self.assertEqual(controller.model.count(), 25)
-            previous = calendar.findChild(QQuickItem, "activityCalendarPreviousMonth")
+            previous = self._visual_item(calendar.property("contentItem"),"activityCalendarPreviousMonth")
             popup_window = previous.window()
             self.click(previous, popup_window)
             self.wait_frame(popup_window)
@@ -383,7 +387,7 @@ class ActivityFeedLoadingTests(unittest.TestCase):
                 popup_window.contentItem(), "activityCalendarDay_2026-07-18",
             )
             self.assertIsNotNone(day)
-            self.assertEqual(day.property("eventCount"), 40)
+            self.assertEqual(self._visual_item(popup_window.contentItem(),"activityCalendarCountText_2026-07-18").property("text"), "40")
             self.click(day, popup_window)
             self.wait_frame(window, lambda: controller.selectedDay == "2026-07-18")
             self.assertEqual(self.pool.workers[-1].args[2], 0)
@@ -416,9 +420,7 @@ class ActivityFeedLoadingTests(unittest.TestCase):
 
             calendar = self.open_calendar(view, window)
             self.assertEqual(self.pool.workers[-1].args[8], "")
-            previous = calendar.findChild(
-                QQuickItem, "activityCalendarPreviousMonth"
-            )
+            previous = self._visual_item(calendar.property("contentItem"), "activityCalendarPreviousMonth")
             popup_window = previous.window()
             self.click(previous, popup_window)
             self.wait_frame(popup_window)
@@ -427,7 +429,7 @@ class ActivityFeedLoadingTests(unittest.TestCase):
                 "activityCalendarDay_2026-07-18",
             )
             self.assertIsNotNone(day)
-            self.assertEqual(day.property("eventCount"), 40)
+            self.assertEqual(self._visual_item(popup_window.contentItem(),"activityCalendarCountText_2026-07-18").property("text"), "40")
 
     @staticmethod
     def click(item, window):

@@ -4,10 +4,19 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQuick.Window
 import "controls" as Controls
+import "features/messages" as MessagesFeature
+import "tactic_frame" as Frame
+import "tactic_frame/features/messages/conversation.ui.mjs" as ConversationUI
+import "tactic_frame/controls/forms/people.ui.mjs" as PeopleUI
+import "tactic_frame/features/messages/message.ui.mjs" as MessageUI
+import "tactic_frame/features/messages/panels.ui.mjs" as PanelsUI
+import "tactic_frame/features/messages/messaging.state.mjs" as Messaging
+import "tactic_frame/features/messages/composer.ui.mjs" as ComposerUI
 
 Item {
     id: root
     required property var theme
+    readonly property string language: typeof localizationController === 'undefined' ? 'en' : localizationController.current_language
     property var messages: null
     readonly property var timelineActions: messageActions
     readonly property var timelineEditHistory: editHistoryPopup
@@ -29,6 +38,7 @@ Item {
     property var actionMessageEditHistory: []
     property var actionMessageAnchor: null
     property string mentionQuery: ""
+    readonly property var mentionRows: (messagesController.conversationMembers || []).filter(row => root.mentionMatches(row))
     property string attachmentMenuToken: ""
     property bool attachmentMenuLocal: false
     property bool attachmentMenuImage: false
@@ -41,98 +51,93 @@ Item {
     readonly property var hostWindow: root.Window.window
 
     function activateConversationDraft(conversationId) {
-        root.draft = String(messagesController.draftText || "")
+        root.draft = String(messagesController.draftText || "");
     }
 
     function beginConversationPresentation(conversationId) {
-        messages.cancelWheelScroll()
-        messages.currentIndex = -1
-        root.pendingPresentationConversationId = String(conversationId || "")
-        root.messagePresentationReady = false
+        messages.cancelWheelScroll();
+        messages.currentIndex = -1;
+        root.pendingPresentationConversationId = String(conversationId || "");
+        root.messagePresentationReady = false;
     }
 
     function finishConversationPresentation() {
         // Model notifications precede ListView's delegate layout. Position
         // the new conversation only after that update, while it is concealed.
-        Qt.callLater(root.completeConversationPresentation)
+        Qt.callLater(root.completeConversationPresentation);
     }
 
     function completeConversationPresentation() {
-        const conversationId = String(messagesController.conversationId || "")
+        const conversationId = String(messagesController.conversationId || "");
         if (!conversationId.length) {
-            root.pendingPresentationConversationId = ""
-            root.messagePresentationReady = true
-            return
+            root.pendingPresentationConversationId = "";
+            root.messagePresentationReady = true;
+            return;
         }
         if (root.pendingPresentationConversationId !== conversationId)
-            return
+            return;
         if (messages.count === 0 && messagesController.busy)
-            return
-        messages.revealLatestOnce()
-        root.pendingPresentationConversationId = ""
-        root.messagePresentationReady = true
-        messages.presented = true
+            return;
+        messages.revealLatestOnce();
+        root.pendingPresentationConversationId = "";
+        root.messagePresentationReady = true;
+        messages.presented = true;
     }
 
     function revealLatestMessage() {
-        if (root.visible && root.hostWindow && root.hostWindow.visible
-                && root.hostWindow.active && root.messagePresentationReady
-                && messages && messages.current)
-            messages.revealLatestOnce()
+        if (root.visible && root.hostWindow && root.hostWindow.visible && root.hostWindow.active && root.messagePresentationReady && messages && messages.current)
+            messages.revealLatestOnce();
     }
 
     function openBelow(source, popup) {
-        popup.openBelowItem(source, false, 6)
+        popup.openBelowItem(source, false, 6);
     }
 
     function jumpToMessage(messageId) {
-        const row = messagesController.message_index(messageId)
+        const row = messagesController.message_index(messageId);
         if (row < 0)
-            return
-        messages.focusMessage(row)
-        focusClearTimer.restart()
+            return;
+        messages.focusMessage(row);
+        focusClearTimer.restart();
     }
 
     function prepareMessageActions(messageRow, anchorItem) {
-        root.actionMessageId = messageRow.messageId
-        root.actionMessageBody = messageRow.body
-        root.actionMessageCanEdit = messagesController.can_change_message(messageRow.messageId)
-        root.actionMessageCanDelete = root.actionMessageCanEdit
-        root.actionMessagePinned = messageRow.pinned
-        root.actionMessageEditHistory = messageRow.editHistory
-        root.actionMessageAnchor = anchorItem || null
+        root.actionMessageId = messageRow.messageId;
+        root.actionMessageBody = messageRow.body;
+        root.actionMessageCanEdit = messagesController.can_change_message(messageRow.messageId);
+        root.actionMessageCanDelete = root.actionMessageCanEdit;
+        root.actionMessagePinned = messageRow.pinned;
+        root.actionMessageEditHistory = messageRow.editHistory;
+        root.actionMessageAnchor = anchorItem || null;
     }
 
     function openReactionPicker(messageId, anchorItem) {
         if (!messageId || !anchorItem)
-            return
-        reactionPicker.openFor(messageId, anchorItem)
+            return;
+        reactionPicker.openFor(messageId, anchorItem);
     }
 
     function setForwardTarget(conversationId, selected) {
-        const values = Object.assign({}, root.forwardTargets)
+        const values = Object.assign({}, root.forwardTargets);
         if (selected)
-            values[conversationId] = true
+            values[conversationId] = true;
         else
-            delete values[conversationId]
-        root.forwardTargets = values
+            delete values[conversationId];
+        root.forwardTargets = values;
     }
 
     function forwardTargetIds() {
-        return Object.keys(root.forwardTargets).filter(
-            conversationId => root.forwardTargets[conversationId])
+        return Object.keys(root.forwardTargets).filter(conversationId => root.forwardTargets[conversationId]);
     }
 
     function formatFileSize(bytes) {
-        const value = Math.max(0, Number(bytes) || 0)
+        const value = Math.max(0, Number(bytes) || 0);
         if (value === 0)
-            return ""
-        const units = ["B", "KB", "MB", "GB", "TB"]
-        const unit = Math.min(
-            units.length - 1, Math.floor(Math.log(value) / Math.log(1024)))
-        const scaled = value / Math.pow(1024, unit)
-        return (unit === 0 ? Math.round(scaled) : scaled.toFixed(1))
-            + " " + units[unit]
+            return "";
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        const unit = Math.min(units.length - 1, Math.floor(Math.log(value) / Math.log(1024)));
+        const scaled = value / Math.pow(1024, unit);
+        return (unit === 0 ? Math.round(scaled) : scaled.toFixed(1)) + " " + units[unit];
     }
 
     Timer {
@@ -142,44 +147,30 @@ Item {
     }
 
     function chatColor(index) {
-        return [
-            root.theme.action,
-            root.theme.green,
-            root.theme.cyan,
-            root.theme.violet,
-            root.theme.yellow
-        ][Math.max(0, Number(index) || 0) % 5]
+        return [root.theme.action, root.theme.green, root.theme.cyan, root.theme.violet, root.theme.yellow][Math.max(0, Number(index) || 0) % 5];
     }
 
     function mentionMatches(member) {
-        const query = root.mentionQuery.toLowerCase()
-        return query.length === 0
-            || String(member.login || "").toLowerCase().indexOf(query) >= 0
-            || String(member.displayName || "").toLowerCase().indexOf(query) >= 0
+        const query = root.mentionQuery.toLowerCase();
+        return query.length === 0 || String(member.login || "").toLowerCase().indexOf(query) >= 0 || String(member.displayName || "").toLowerCase().indexOf(query) >= 0;
     }
 
     function syncReadState() {
-        messagesController.set_visible(
-            root.visible && !!root.hostWindow
-            && root.hostWindow.visible
-            && root.hostWindow.active
-        )
+        messagesController.set_visible(root.visible && !!root.hostWindow && root.hostWindow.visible && root.hostWindow.active);
     }
 
     Component.onCompleted: {
-        root.activateConversationDraft(messagesController.conversationId)
-        root.syncReadState()
-        messagesController.load()
-        if (messagesController.conversationId.length > 0
-                && messages.count > 0) {
-            root.beginConversationPresentation(
-                messagesController.conversationId)
-            root.finishConversationPresentation()
+        root.activateConversationDraft(messagesController.conversationId);
+        root.syncReadState();
+        messagesController.load();
+        if (messagesController.conversationId.length > 0 && messages.count > 0) {
+            root.beginConversationPresentation(messagesController.conversationId);
+            root.finishConversationPresentation();
         }
     }
     Component.onDestruction: {
-        messagesController.set_draft_text(root.draft)
-        messagesController.set_visible(false)
+        messagesController.set_draft_text(root.draft);
+        messagesController.set_visible(false);
     }
     onVisibleChanged: root.syncReadState()
 
@@ -187,8 +178,12 @@ Item {
         target: root.hostWindow
         enabled: !!root.hostWindow
 
-        function onVisibleChanged() { root.syncReadState() }
-        function onActiveChanged() { root.syncReadState() }
+        function onVisibleChanged() {
+            root.syncReadState();
+        }
+        function onActiveChanged() {
+            root.syncReadState();
+        }
     }
 
     CollaborationInitializationState {
@@ -210,49 +205,52 @@ Item {
         target: messagesController
 
         function onConversationChanging(conversationId) {
-            root.activateConversationDraft(conversationId)
-            root.beginConversationPresentation(conversationId)
+            root.activateConversationDraft(conversationId);
+            root.beginConversationPresentation(conversationId);
         }
 
         function onConversationRestored(conversationId) {
-            root.activateConversationDraft(conversationId)
-            root.pendingPresentationConversationId = ""
-            root.messagePresentationReady = true
-            messages.cancelWheelScroll()
+            root.activateConversationDraft(conversationId);
+            root.pendingPresentationConversationId = "";
+            root.messagePresentationReady = true;
+            messages.cancelWheelScroll();
             if (!messages.presented) {
-                root.beginConversationPresentation(conversationId)
-                root.finishConversationPresentation()
+                root.beginConversationPresentation(conversationId);
+                root.finishConversationPresentation();
             }
-            Qt.callLater(root.revealLatestMessage)
+            Qt.callLater(root.revealLatestMessage);
         }
 
         function onConversationLoaded() {
-            root.finishConversationPresentation()
-            Qt.callLater(root.revealLatestMessage)
+            root.finishConversationPresentation();
+            Qt.callLater(root.revealLatestMessage);
         }
 
         function onVisibilityChanged(visible) {
             if (visible)
-                Qt.callLater(root.revealLatestMessage)
+                Qt.callLater(root.revealLatestMessage);
         }
 
         function onMessageFocusRequested(messageId) {
-            Qt.callLater(function() {
-                root.jumpToMessage(String(messageId || ""))
-            })
+            Qt.callLater(function () {
+                root.jumpToMessage(String(messageId || ""));
+            });
         }
 
         function onReplyStarted() {
-            composer.focusEditor()
+            composer.focusEditor();
         }
 
         function onForwardStarted() {
-            root.forwardTargets = ({})
-            forwardDialog.open()
+            root.forwardTargets = ({});
+            forwardDialog.open();
         }
     }
 
-    Rectangle { anchors.fill: parent; color: root.theme.workspace }
+    Rectangle {
+        anchors.fill: parent
+        color: root.theme.workspace
+    }
 
     FileDialog {
         id: chatPreviewDialog
@@ -266,103 +264,29 @@ Item {
         id: conversationPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(460, Math.max(320, root.width - 32))
+        width: Math.min(Messaging.popup("create").width + effectiveShadowMargin * 2, Math.max(320, root.width - 32))
         height: Math.min(560, Math.max(390, root.height - 32))
         padding: 14
 
-        contentItem: ColumnLayout {
-            spacing: 12
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-                Controls.MaterialIcon {
-                    name: "group-add"
-                    size: 22
-                    color: root.theme.action
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("New conversation")
-                        color: root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pixelSize: 14
-                        font.weight: Font.DemiBold
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("Find people and start a direct or group chat")
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.label
-                    }
-                }
+        contentItem: MessagesFeature.MessageForm {
+            id: newChatTitle
+            theme: root.theme
+            mode: "create"
+            availableBodyHeight: conversationPopup.availableHeight
+            selectedLogins: root.selectedRecipients
+            busy: messagesController.busy
+            canCreateGroup: messagesController.canCreateGroup
+            valid: root.selectedRecipients.length > 0 && (root.selectedRecipients.length === 1 || (messagesController.canCreateGroup && text.trim().length > 0))
+            onSelectionChanged: logins => root.selectedRecipients = logins
+            onCancelled: {
+                reset();
+                conversationPopup.close();
             }
-            UserPicker {
-                id: newConversationUsers
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                theme: root.theme
-                selectedLogins: root.selectedRecipients
-                onSelectionChanged: logins => root.selectedRecipients = logins
-            }
-            Controls.TextField {
-                id: newChatTitle
-                visible: root.selectedRecipients.length > 1
-                Layout.fillWidth: true
-                theme: root.theme
-                placeholderText: qsTr("Group chat title")
-            }
-            Label {
-                Layout.fillWidth: true
-                visible: root.selectedRecipients.length > 1
-                    && !messagesController.canCreateGroup
-                text: qsTr("Group chats can be created by administrators and supervisors")
-                color: root.theme.yellow
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.label
-                wrapMode: Text.WordWrap
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Label {
-                    text: root.selectedRecipients.length + qsTr(" selected")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.label
-                }
-                Item { Layout.fillWidth: true }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Cancel")
-                    onClicked: {
-                        newConversationUsers.reset()
-                        newChatTitle.clear()
-                        conversationPopup.close()
-                    }
-                }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Create")
-                    highlighted: true
-                    enabled: root.selectedRecipients.length > 0
-                        && (root.selectedRecipients.length === 1
-                            || messagesController.canCreateGroup)
-                        && (root.selectedRecipients.length === 1
-                            || newChatTitle.text.trim().length > 0)
-                        && !messagesController.busy
-                    onClicked: {
-                        if (messagesController.create_conversation(
-                                root.selectedRecipients,
-                                newChatTitle.text)) {
-                            root.selectedRecipients = []
-                            newConversationUsers.reset()
-                            newChatTitle.clear()
-                            conversationPopup.close()
-                        }
-                    }
+            onSubmitted: {
+                if (messagesController.create_conversation(root.selectedRecipients, text)) {
+                    root.selectedRecipients = [];
+                    reset();
+                    conversationPopup.close();
                 }
             }
         }
@@ -372,18 +296,16 @@ Item {
         id: membersPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(330, root.width - 24)
+        width: Math.min(Messaging.popup("view-members").width + effectiveShadowMargin * 2, root.width - 24)
         height: Math.min(390, root.height - 30)
         padding: 14
         contentItem: ColumnLayout {
-            spacing: 12
-            Label {
+            spacing: Messaging.popup("view-members").spacing
+            Frame.FrameView {
+                theme: root.theme
                 Layout.fillWidth: true
-                text: qsTr("CHAT MEMBERS")
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: Font.DemiBold
+                Layout.preferredHeight: 18
+                scene: PanelsUI.heading("view-members", width, 0, root.language)
             }
             ListView {
                 id: membersList
@@ -392,66 +314,21 @@ Item {
                 clip: true
                 spacing: 6
                 model: messagesController.conversationMembers
-                ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-                delegate: Controls.PopupAction {
-                    id: memberAction
+                ScrollBar.vertical: Controls.ScrollBar {
+                    theme: root.theme
+                }
+                delegate: Frame.FrameView {
                     required property var modelData
-                    width: ListView.view.width
+                    width: Math.max(0, membersList.width - 14)
                     height: 58
-                    hoverEnabled: true
-                    leftPadding: 10
-                    rightPadding: 10
-                    Accessible.name:
-                        modelData.displayName || modelData.login
-                    background: Controls.ItemSurface {
-                        theme: root.theme
-                        hovered: memberAction.hovered
-                        pressed: memberAction.down
-                        cornerRadius: 12
-                        railVisible: false
-                        separatorVisible: false
+                    theme: root.theme
+                    scene: PeopleUI.row(Object.assign({}, modelData, {
+                        current: !!modelData.current
+                    }), width, root.language)
+                    onEvent: action => {
+                        membersPopup.close();
+                        userController.open_profile(action.login);
                     }
-                    contentItem: RowLayout {
-                        spacing: 10
-                        Controls.ItemPreview {
-                            Layout.preferredWidth: 34
-                            Layout.preferredHeight: 34
-                            theme: root.theme
-                            source: modelData.avatarUrl || ""
-                            fallbackIcon: "person"
-                            fallbackText: modelData.initials || "?"
-                            previewSize: 34
-                            round: true
-                            outlined: true
-                            accent: modelData.avatarColor
-                                || root.theme.action
-                        }
-                        ColumnLayout {
-                            id: memberContent
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Label {
-                                Layout.fillWidth: true
-                                text: modelData.displayName || modelData.login
-                                color: root.theme.primaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.body
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                text: modelData.current
-                                    ? qsTr("You") : modelData.login
-                                color: root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.caption
-                                elide: Text.ElideRight
-                            }
-                        }
-                    }
-                    onClicked:
-                        userController.open_profile(modelData.login)
                 }
             }
         }
@@ -461,28 +338,16 @@ Item {
         id: filesPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(380, root.width - 24)
+        width: Math.min(Messaging.popup("files").width + effectiveShadowMargin * 2, root.width - 24)
         height: Math.min(430, root.height - 30)
         padding: 14
         contentItem: ColumnLayout {
-            spacing: 12
-            RowLayout {
+            spacing: Messaging.popup("files").spacing
+            Frame.FrameView {
+                theme: root.theme
                 Layout.fillWidth: true
-                Label {
-                    Layout.fillWidth: true
-                    text: qsTr("CHAT FILES")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.body
-                    font.weight: Font.DemiBold
-                }
-                Label {
-                    text: messagesController.conversationAttachments.length
-                        + qsTr(" loaded")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.caption
-                }
+                Layout.preferredHeight: 18
+                scene: PanelsUI.heading("files", width, messagesController.conversationAttachments.length, root.language)
             }
             ListView {
                 id: chatFilesList
@@ -496,62 +361,31 @@ Item {
                     theme: root.theme
                 }
                 onAtYEndChanged: {
-                    if (atYEnd && messagesController.hasMore
-                            && !messagesController.busy
-                            && chatFilesScrollBar.takePaginationPermit(false)) {
-                        messagesController.load_more()
+                    if (atYEnd && messagesController.hasMore && !messagesController.busy && chatFilesScrollBar.takePaginationPermit(false)) {
+                        messagesController.load_more();
                     }
                 }
-                delegate: Controls.PopupAction {
-                    id: fileAction
+                delegate: Frame.FrameView {
                     required property var modelData
-                    width: ListView.view.width
+                    theme: root.theme
+                    width: Math.max(0, chatFilesList.width - 14)
                     height: 60
-                    hoverEnabled: true
-                    leftPadding: 12
-                    rightPadding: 12
-                    Accessible.name: modelData.title || qsTr("File")
-                    background: Controls.ItemSurface {
-                        theme: root.theme
-                        hovered: fileAction.hovered
-                        pressed: fileAction.down
-                        cornerRadius: 12
-                        inset: 1
-                    }
-                    contentItem: RowLayout {
-                        spacing: 10
-                        Controls.MaterialIcon {
-                            name: modelData.previewUrl ? "image" : "description"
-                            size: 18
-                            color: root.theme.action
+                    scene: PanelsUI.gallery(Object.assign({}, modelData, {
+                        preview: !!modelData.previewUrl,
+                        time: modelData.timestamp,
+                        actions: true,
+                        busy: messagesController.busy
+                    }), width, root.language)
+                    onEvent: (action, source) => {
+                        if (action.type === "jump") {
+                            root.jumpToMessage(modelData.messageId);
+                            filesPopup.close();
+                        } else if (action.type === "menu") {
+                            root.attachmentMenuToken = String(modelData.token || "");
+                            root.attachmentMenuLocal = !!modelData.local;
+                            root.attachmentMenuImage = /^(png|jpe?g|webp|gif|bmp)$/i.test(String(modelData.extension || ""));
+                            attachmentMenu.toggleBelow(source);
                         }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Label {
-                                Layout.fillWidth: true
-                                text: modelData.title || qsTr("File")
-                                color: root.theme.primaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.body
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideMiddle
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                text: (modelData.sender || qsTr("Unknown"))
-                                    + (modelData.timestamp
-                                        ? "  ·  " + modelData.timestamp : "")
-                                color: root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.caption
-                                elide: Text.ElideRight
-                            }
-                        }
-                    }
-                    onClicked: {
-                        root.jumpToMessage(modelData.messageId)
-                        filesPopup.close()
                     }
                 }
                 Label {
@@ -578,52 +412,24 @@ Item {
         id: messageSearchPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(360, root.width - 24)
+        width: Math.min(Messaging.popup("search").width + effectiveShadowMargin * 2, root.width - 24)
         padding: 14
-        onOpened: {
-            messageSearchField.text = messagesController.messageSearch
-            messageSearchField.forceActiveFocus()
-        }
-        contentItem: ColumnLayout {
-            spacing: 10
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("SEARCH THIS CONVERSATION")
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: Font.DemiBold
+        onAboutToShow: messageSearchField.text = messagesController.messageSearch
+        onOpened: Qt.callLater(messageSearchField.focusEditor)
+        contentItem: MessagesFeature.MessageForm {
+            id: messageSearchField
+            theme: root.theme
+            mode: "search"
+            busy: messagesController.busy
+            activeSearch: messagesController.messageSearch.length > 0
+            onSubmitted: {
+                messagesController.search_messages(text);
+                messageSearchPopup.close();
             }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 7
-                Controls.TextField {
-                    id: messageSearchField
-                    Layout.fillWidth: true
-                    theme: root.theme
-                    placeholderText: qsTr("Type a message or phrase")
-                    onAccepted: {
-                        messagesController.search_messages(text)
-                        messageSearchPopup.close()
-                    }
-                }
-                Controls.CompactIconButton {
-                    theme: root.theme
-                    iconName: "close"
-                    toolTip: qsTr("Clear search")
-                    enabled: messagesController.messageSearch.length > 0
-                    onClicked: {
-                        messageSearchField.clear()
-                        messagesController.search_messages("")
-                        messageSearchPopup.close()
-                    }
-                }
-                Controls.CompactIconButton {
-                    theme: root.theme
-                    iconName: "search"
-                    toolTip: qsTr("Search")
-                    onClicked: messageSearchField.accepted()
-                }
+            onSearchCleared: {
+                text = "";
+                messagesController.search_messages("");
+                messageSearchPopup.close();
             }
         }
     }
@@ -632,81 +438,26 @@ Item {
         id: addMembersPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(460, Math.max(320, root.width - 32))
+        width: Math.min(Messaging.popup("members").width + effectiveShadowMargin * 2, Math.max(320, root.width - 32))
         height: Math.min(560, Math.max(390, root.height - 32))
         padding: 14
-        onOpened: {
-            root.editedMembers = Array.from(
-                messagesController.selectedConversation.recipients || []
-            )
-            addMemberUsers.setSelection(root.editedMembers)
+        onAboutToShow: {
+            root.editedMembers = Array.from(messagesController.selectedConversation.recipients || []);
+            addMemberUsers.setSelection(root.editedMembers);
         }
 
-        contentItem: ColumnLayout {
-            spacing: 12
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-                Controls.MaterialIcon {
-                    name: "manage-accounts"
-                    size: 22
-                    color: root.theme.action
-                }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("Add or remove members")
-                        color: root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pixelSize: 14
-                        font.weight: Font.DemiBold
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("Select everyone who should remain in this chat")
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.label
-                    }
-                }
-            }
-            UserPicker {
-                id: addMemberUsers
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                theme: root.theme
-                selectedLogins: root.editedMembers
-                onSelectionChanged: logins => root.editedMembers = logins
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Label {
-                    text: root.editedMembers.length
-                        + qsTr(" members selected")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.label
-                }
-                Item { Layout.fillWidth: true }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Cancel")
-                    onClicked: addMembersPopup.close()
-                }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Save members")
-                    highlighted: true
-                    enabled: root.editedMembers.length > 0
-                        && !messagesController.busy
-                    onClicked: {
-                        if (messagesController.set_members(root.editedMembers))
-                            addMembersPopup.close()
-                    }
-                }
-            }
+        contentItem: MessagesFeature.MessageForm {
+            id: addMemberUsers
+            theme: root.theme
+            mode: "members"
+            availableBodyHeight: addMembersPopup.availableHeight
+            selectedLogins: root.editedMembers
+            busy: messagesController.busy
+            valid: root.editedMembers.length > 0
+            onSelectionChanged: logins => root.editedMembers = logins
+            onCancelled: addMembersPopup.close()
+            onSubmitted: if (messagesController.set_members(root.editedMembers))
+                addMembersPopup.close()
         }
     }
 
@@ -714,46 +465,17 @@ Item {
         id: renameChatPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(390, root.width - 32)
+        width: Math.min(Messaging.popup("rename").width + effectiveShadowMargin * 2, root.width - 32)
 
-        contentItem: ColumnLayout {
-            spacing: 10
-            Label {
-                text: qsTr("RENAME CHAT")
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: Font.DemiBold
-            }
-            Controls.TextField {
-                id: chatTitleField
-                Layout.fillWidth: true
-                theme: root.theme
-                placeholderText: qsTr("Chat title")
-                onAccepted: renameChatButton.clicked()
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Cancel")
-                    onClicked: renameChatPopup.close()
-                }
-                Controls.Button {
-                    id: renameChatButton
-                    theme: root.theme
-                    text: qsTr("Rename")
-                    highlighted: true
-                    enabled: chatTitleField.text.trim().length > 0
-                        && !messagesController.busy
-                    onClicked: {
-                        if (messagesController.rename_conversation(
-                                chatTitleField.text))
-                            renameChatPopup.close()
-                    }
-                }
-            }
+        contentItem: MessagesFeature.MessageForm {
+            id: chatTitleField
+            theme: root.theme
+            mode: "rename"
+            busy: messagesController.busy
+            valid: text.trim().length > 0
+            onCancelled: renameChatPopup.close()
+            onSubmitted: if (messagesController.rename_conversation(text))
+                renameChatPopup.close()
         }
     }
 
@@ -767,35 +489,13 @@ Item {
         title: qsTr("Delete chat?")
         standardButtons: Dialog.NoButton
 
-        contentItem: ColumnLayout {
-            spacing: 12
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("The chat will be archived for every participant. Message history and attachments remain available for audit.")
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                wrapMode: Text.WordWrap
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Cancel")
-                    onClicked: deleteChatDialog.close()
-                }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Delete chat")
-                    destructive: true
-                    enabled: !messagesController.busy
-                    onClicked: {
-                        if (messagesController.delete_conversation())
-                            deleteChatDialog.close()
-                    }
-                }
-            }
+        contentItem: MessagesFeature.MessageForm {
+            theme: root.theme
+            mode: "delete"
+            busy: messagesController.busy
+            onCancelled: deleteChatDialog.close()
+            onSubmitted: if (messagesController.delete_conversation())
+                deleteChatDialog.close()
         }
     }
 
@@ -809,35 +509,13 @@ Item {
         title: qsTr("Clear favorites?")
         standardButtons: Dialog.NoButton
 
-        contentItem: ColumnLayout {
-            spacing: 12
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("All messages in Favorites will be cleared. Favorites itself will remain.")
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                wrapMode: Text.WordWrap
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Cancel")
-                    onClicked: clearNotesDialog.close()
-                }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Clear messages")
-                    destructive: true
-                    enabled: !messagesController.busy
-                    onClicked: {
-                        if (messagesController.clear_personal_chat())
-                            clearNotesDialog.close()
-                    }
-                }
-            }
+        contentItem: MessagesFeature.MessageForm {
+            theme: root.theme
+            mode: "clear"
+            busy: messagesController.busy
+            onCancelled: clearNotesDialog.close()
+            onSubmitted: if (messagesController.clear_personal_chat())
+                clearNotesDialog.close()
         }
     }
 
@@ -850,46 +528,22 @@ Item {
         width: Math.min(480, root.width - 40)
         title: qsTr("Edit message")
         standardButtons: Dialog.NoButton
-        onOpened: {
-            editMessageField.text = root.pendingEditBody
-            editMessageField.forceActiveFocus()
-        }
+        onAboutToShow: editMessageField.text = root.pendingEditBody
+        onOpened: Qt.callLater(editMessageField.focusEditor)
         onClosed: {
-            root.pendingEditMessageId = ""
-            root.pendingEditBody = ""
+            root.pendingEditMessageId = "";
+            root.pendingEditBody = "";
         }
 
-        contentItem: ColumnLayout {
-            spacing: 12
-            Controls.TextArea {
-                id: editMessageField
-                Layout.fillWidth: true
-                Layout.preferredHeight: 130
-                theme: root.theme
-                placeholderText: qsTr("Message")
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Cancel")
-                    onClicked: editMessageDialog.close()
-                }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Save")
-                    highlighted: true
-                    enabled: editMessageField.text.trim().length > 0
-                        && !messagesController.busy
-                    onClicked: {
-                        if (messagesController.edit_message(
-                                root.pendingEditMessageId,
-                                editMessageField.text))
-                            editMessageDialog.close()
-                    }
-                }
-            }
+        contentItem: MessagesFeature.MessageForm {
+            id: editMessageField
+            theme: root.theme
+            mode: "edit"
+            busy: messagesController.busy
+            valid: text.trim().length > 0
+            onCancelled: editMessageDialog.close()
+            onSubmitted: if (messagesController.edit_message(root.pendingEditMessageId, text))
+                editMessageDialog.close()
         }
     }
 
@@ -904,132 +558,22 @@ Item {
         title: qsTr("Forward messages")
         standardButtons: Dialog.NoButton
         onClosed: {
-            root.forwardTargets = ({})
+            root.forwardTargets = ({});
             if (!messagesController.busy)
-                messagesController.clear_forward_selection()
+                messagesController.clear_forward_selection();
         }
 
-        contentItem: ColumnLayout {
-            spacing: 12
-
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("Choose one or more destination chats")
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                wrapMode: Text.Wrap
-            }
-
-            ListView {
-                id: forwardConversations
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                spacing: 4
-                model: messageConversationModel
-                ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-
-                delegate: Item {
-                    required property string conversationId
-                    required property string title
-                    required property int participantCount
-                    required property bool isPersonalNotes
-                    width: ListView.view.width
-                    height: 54
-
-                    Controls.ItemSurface {
-                        anchors.fill: parent
-                        theme: root.theme
-                        hovered: targetMouse.containsMouse
-                        pressed: targetMouse.pressed
-                        selected: !!root.forwardTargets[conversationId]
-                        cornerRadius: 12
-                        inset: 1
-                    }
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 10
-                        anchors.rightMargin: 12
-                        spacing: 9
-
-                        Controls.CheckBox {
-                            id: targetCheck
-                            theme: root.theme
-                            checked: !!root.forwardTargets[conversationId]
-                            onClicked: root.setForwardTarget(
-                                conversationId, checked)
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Label {
-                                Layout.fillWidth: true
-                                text: isPersonalNotes ? qsTr("Favorites") : title
-                                color: root.theme.primaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.body
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                text: isPersonalNotes
-                                    ? qsTr("Your personal notes")
-                                    : participantCount + (participantCount === 1
-                                        ? qsTr(" member") : qsTr(" members"))
-                                color: root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.caption
-                            }
-                        }
-                    }
-
-                    MouseArea {
-                        id: targetMouse
-                        anchors.fill: parent
-                        anchors.leftMargin: 38
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.setForwardTarget(
-                            conversationId,
-                            !root.forwardTargets[conversationId])
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Label {
-                    Layout.fillWidth: true
-                    text: messagesController.forwardSelectionCount
-                        + (messagesController.forwardSelectionCount === 1
-                            ? qsTr(" message selected")
-                            : qsTr(" messages selected"))
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.label
-                }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Cancel")
-                    onClicked: forwardDialog.close()
-                }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Forward")
-                    highlighted: true
-                    enabled: root.forwardTargetIds().length > 0
-                        && messagesController.forwardSelectionCount > 0
-                        && !messagesController.busy
-                    onClicked: {
-                        if (messagesController.forward_messages(
-                                root.forwardTargetIds()))
-                            forwardDialog.close()
-                    }
-                }
-            }
+        contentItem: MessagesFeature.MessageForward {
+            theme: root.theme
+            conversations: messageConversationModel
+            targets: root.forwardTargets
+            selectionCount: messagesController.forwardSelectionCount
+            busy: messagesController.busy
+            valid: root.forwardTargetIds().length > 0 && messagesController.forwardSelectionCount > 0
+            onTargetToggled: key => root.setForwardTarget(key, !root.forwardTargets[key])
+            onCancelled: forwardDialog.close()
+            onSubmitted: if (messagesController.forward_messages(root.forwardTargetIds()))
+                forwardDialog.close()
         }
     }
 
@@ -1037,19 +581,17 @@ Item {
         id: editHistoryPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(420, Math.max(280, root.width - 32))
+        width: Math.min(Messaging.popup("history").width + effectiveShadowMargin * 2, Math.max(280, root.width - 32))
         height: Math.min(360, Math.max(180, root.height - 40))
         padding: 14
 
         contentItem: ColumnLayout {
-            spacing: 10
-            Label {
+            spacing: Messaging.popup("history").spacing
+            Frame.FrameView {
+                theme: root.theme
                 Layout.fillWidth: true
-                text: qsTr("EDIT HISTORY")
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: Font.DemiBold
+                Layout.preferredHeight: 18
+                scene: PanelsUI.heading("history", width, 0, root.language)
             }
             ListView {
                 Layout.fillWidth: true
@@ -1057,36 +599,20 @@ Item {
                 clip: true
                 spacing: 4
                 model: root.selectedEditHistory
-                ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-                delegate: Rectangle {
+                ScrollBar.vertical: Controls.ScrollBar {
+                    theme: root.theme
+                }
+                delegate: MessagesFeature.MessageRevision {
                     required property var modelData
-                    width: ListView.view.width
-                    height: revisionContent.implicitHeight + 16
-                    radius: 10
-                    color: root.theme.surfaceContainer
-                    ColumnLayout {
-                        id: revisionContent
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        spacing: 4
-                        Label {
-                            Layout.fillWidth: true
-                            text: qsTr("Edited by ")
-                                + String(modelData.editedBy || qsTr("unknown"))
-                                + "  ·  " + String(modelData.editedAt || "")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: String(modelData.body || "")
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                            wrapMode: Text.Wrap
-                            textFormat: Text.PlainText
-                        }
+                    theme: root.theme
+                    width: Math.max(0, ListView.view.width - 14)
+                    height: implicitHeight
+                    record: modelData
+                    mode: "history"
+                    busy: messagesController.busy
+                    onActivated: messageId => {
+                        root.jumpToMessage(messageId);
+                        editHistoryPopup.close();
                     }
                 }
             }
@@ -1097,18 +623,16 @@ Item {
         id: pinHistoryPopup
         theme: root.theme
         parent: Overlay.overlay
-        width: Math.min(420, Math.max(280, root.width - 32))
+        width: Math.min(Messaging.popup("pin-history").width + effectiveShadowMargin * 2, Math.max(280, root.width - 32))
         height: Math.min(360, Math.max(180, root.height - 40))
         padding: 14
         contentItem: ColumnLayout {
-            spacing: 10
-            Label {
+            spacing: Messaging.popup("pin-history").spacing
+            Frame.FrameView {
+                theme: root.theme
                 Layout.fillWidth: true
-                text: qsTr("PIN HISTORY")
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: Font.DemiBold
+                Layout.preferredHeight: 18
+                scene: PanelsUI.heading("pin-history", width, 0, root.language)
             }
             ListView {
                 Layout.fillWidth: true
@@ -1116,51 +640,20 @@ Item {
                 clip: true
                 spacing: 4
                 model: messagesController.pinHistory
-                ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-                delegate: Controls.PopupAction {
-                    id: pinHistoryEntry
+                ScrollBar.vertical: Controls.ScrollBar {
+                    theme: root.theme
+                }
+                delegate: MessagesFeature.MessageRevision {
                     required property var modelData
-                    width: ListView.view.width
-                    height: pinRevision.implicitHeight + 16
-                    hoverEnabled: true
-                    enabled: String(modelData.messageId || "").length > 0
-                    padding: 8
-                    Accessible.name: String(
-                        modelData.summary || qsTr("Pinned message")
-                    )
-                    background: Controls.ItemSurface {
-                        theme: root.theme
-                        hovered: pinHistoryEntry.hovered
-                        pressed: pinHistoryEntry.down
-                        cornerRadius: 10
-                        inset: 1
-                    }
-                    contentItem: ColumnLayout {
-                        id: pinRevision
-                        spacing: 4
-                        Label {
-                            Layout.fillWidth: true
-                            text: qsTr("Pinned by ")
-                                + String(modelData.pinnedBy || qsTr("unknown"))
-                                + "  ·  " + String(modelData.pinnedAt || "")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: String(modelData.summary
-                                || qsTr("Pinned message"))
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                            wrapMode: Text.Wrap
-                        }
-                    }
-                    onClicked: {
-                        const messageId = String(modelData.messageId || "")
-                        if (messagesController.show_message(messageId))
-                            pinHistoryPopup.close()
+                    theme: root.theme
+                    width: Math.max(0, ListView.view.width - 14)
+                    height: implicitHeight
+                    record: modelData
+                    mode: "pin-history"
+                    busy: messagesController.busy
+                    onActivated: messageId => {
+                        root.jumpToMessage(messageId);
+                        pinHistoryPopup.close();
                     }
                 }
             }
@@ -1174,69 +667,29 @@ Item {
         width: Math.min(320, Math.max(240, root.width - 32))
         height: Math.min(250, Math.max(120, root.height - 40))
         padding: 8
+        focus: false
+        onAboutToShow: mentionList.currentIndex = 0
         contentItem: ListView {
             id: mentionList
             clip: true
             spacing: 0
-            model: messagesController.conversationMembers
-            ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-            delegate: Controls.PopupAction {
-                id: mentionAction
+            model: root.mentionRows
+            currentIndex: 0
+            ScrollBar.vertical: Controls.ScrollBar {
+                theme: root.theme
+            }
+            delegate: Frame.FrameView {
                 required property var modelData
-                readonly property bool matches: root.mentionMatches(modelData)
-                width: ListView.view.width
-                height: matches ? 46 : 0
-                visible: matches
-                hoverEnabled: true
-                leftPadding: 8
-                rightPadding: 8
-                Accessible.name: String(
-                    modelData.displayName || modelData.login || ""
-                )
-                background: Controls.ItemSurface {
-                    theme: root.theme
-                    hovered: mentionAction.hovered
-                    pressed: mentionAction.down
-                    cornerRadius: 10
-                    railVisible: false
-                    separatorVisible: false
-                }
-                contentItem: RowLayout {
-                    spacing: 8
-                    Controls.ItemPreview {
-                        Layout.preferredWidth: 30
-                        Layout.preferredHeight: 30
-                        theme: root.theme
-                        source: String(modelData.avatarUrl || "")
-                        fallbackIcon: "person"
-                        fallbackText: String(modelData.initials || "")
-                        previewSize: 30
-                        round: true
-                        accent: modelData.avatarColor || root.theme.action
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 0
-                        Label {
-                            Layout.fillWidth: true
-                            text: String(modelData.displayName || modelData.login || "")
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                            elide: Text.ElideRight
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: qsTr("@") + String(modelData.login || "")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                        }
-                    }
-                }
-                onClicked: {
-                    composer.insertMention(String(modelData.login || ""))
-                    mentionPopup.close()
+                required property int index
+                theme: root.theme
+                width: Math.max(0, mentionList.width - 14)
+                height: 46
+                scene: PanelsUI.mention(Object.assign({}, modelData, {
+                    selected: index === mentionList.currentIndex
+                }), width)
+                onEvent: action => {
+                    composer.insertMention(action.login);
+                    mentionPopup.close();
                 }
             }
         }
@@ -1253,37 +706,14 @@ Item {
         standardButtons: Dialog.NoButton
         onClosed: root.pendingDeleteMessageId = ""
 
-        contentItem: ColumnLayout {
-            spacing: 12
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("The message will be removed from the conversation for every participant.")
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                wrapMode: Text.WordWrap
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Cancel")
-                    onClicked: deleteMessageDialog.close()
-                }
-                Controls.Button {
-                    theme: root.theme
-                    text: qsTr("Delete message")
-                    destructive: true
-                    enabled: root.pendingDeleteMessageId.length > 0
-                        && !messagesController.busy
-                    onClicked: {
-                        if (messagesController.delete_message(
-                                root.pendingDeleteMessageId))
-                            deleteMessageDialog.close()
-                    }
-                }
-            }
+        contentItem: MessagesFeature.MessageForm {
+            theme: root.theme
+            mode: "delete-message"
+            busy: messagesController.busy
+            valid: root.pendingDeleteMessageId.length > 0
+            onCancelled: deleteMessageDialog.close()
+            onSubmitted: if (messagesController.delete_message(root.pendingDeleteMessageId))
+                deleteMessageDialog.close()
         }
     }
 
@@ -1293,21 +723,20 @@ Item {
         catalog: emojiCatalog
         onReactionSelected: (messageId, emoji) => {
             if (messagesController.toggle_reaction(messageId, emoji))
-                reactionPicker.close()
+                reactionPicker.close();
         }
     }
 
     function selectedConversationPresenceText() {
-        const conversation = messagesController.selectedConversation || ({})
+        const conversation = messagesController.selectedConversation || ({});
         if (!String(conversation.peerLogin || "").length)
-            return ""
+            return "";
         if (!conversation.presenceKnown)
-            return qsTr("Status unavailable")
+            return qsTr("Status unavailable");
         if (conversation.online)
-            return qsTr("Online")
-        const lastSeen = String(conversation.lastSeenPretty || "")
-        return lastSeen.length
-            ? qsTr("Last seen %1").arg(lastSeen) : qsTr("Offline")
+            return qsTr("Online");
+        const lastSeen = String(conversation.lastSeenPretty || "");
+        return lastSeen.length ? qsTr("Last seen %1").arg(lastSeen) : qsTr("Offline");
     }
 
     ActionMenu {
@@ -1318,43 +747,46 @@ Item {
         preferredWidth: 230
         actions: [
             {
-                "title": "Rename chat", "icon": "edit", "command": "rename",
+                "title": "Rename chat",
+                "icon": "edit",
+                "command": "rename",
                 "enabled": !!messagesController.selectedConversation.canRename
             },
             {
-                "title": "Change preview", "icon": "image", "command": "preview",
+                "title": "Change preview",
+                "icon": "image",
+                "command": "preview",
                 "enabled": !!messagesController.selectedConversation.canManage
             },
             {
-                "title": "Add or remove members", "icon": "manage-accounts", "command": "members",
+                "title": "Add or remove members",
+                "icon": "manage-accounts",
+                "command": "members",
                 "enabled": !!messagesController.selectedConversation.canAddMembers
             },
-            {"separator": true},
             {
-                "title": messagesController.selectedConversation.canClearPersonal
-                    ? "Clear favorites" : "Delete chat",
-                "icon": messagesController.selectedConversation.canClearPersonal
-                    ? "delete-sweep" : "delete",
-                "command": messagesController.selectedConversation.canClearPersonal
-                    ? "clear" : "delete",
-                "enabled": !!messagesController.selectedConversation.canClearPersonal
-                    || !!messagesController.selectedConversation.canDelete
+                "separator": true
+            },
+            {
+                "title": messagesController.selectedConversation.canClearPersonal ? "Clear favorites" : "Delete chat",
+                "icon": messagesController.selectedConversation.canClearPersonal ? "delete-sweep" : "delete",
+                "command": messagesController.selectedConversation.canClearPersonal ? "clear" : "delete",
+                "enabled": !!messagesController.selectedConversation.canClearPersonal || !!messagesController.selectedConversation.canDelete
             }
         ]
         onTriggered: command => {
             if (command === "rename") {
-                chatTitleField.text =
-                    messagesController.selectedConversation.title || ""
-                renameChatPopup.openCenteredIn(Overlay.overlay)
-                chatTitleField.forceActiveFocus()
+                chatTitleField.text = messagesController.selectedConversation.title || "";
+                renameChatPopup.openCenteredIn(Overlay.overlay);
+                Qt.callLater(chatTitleField.focusEditor);
             } else if (command === "preview") {
-                chatPreviewDialog.open()
+                chatPreviewDialog.open();
             } else if (command === "members") {
-                addMembersPopup.openCenteredIn(Overlay.overlay)
+                addMembersPopup.openCenteredIn(Overlay.overlay);
             } else if (command === "clear") {
-                clearNotesDialog.open()
+                clearNotesDialog.open();
             } else if (command === "delete") {
-                deleteChatDialog.open()
+                deleteChatDialog.open();
             }
         }
     }
@@ -1366,30 +798,41 @@ Item {
         preferredWidth: 210
         actions: [
             {
-                "title": "Reply", "icon": "reply", "command": "reply",
+                "title": "Reply",
+                "icon": "reply",
+                "command": "reply",
                 "enabled": root.actionMessageId.length > 0
             },
             {
-                "title": "Forward", "icon": "share", "command": "forward",
+                "title": "Forward",
+                "icon": "share",
+                "command": "forward",
                 "enabled": root.actionMessageId.length > 0
             },
             {
-                "title": "Add reaction", "icon": "emoji", "command": "reaction",
+                "title": "Add reaction",
+                "icon": "emoji",
+                "command": "reaction",
                 "enabled": root.actionMessageId.length > 0
             },
             {
-                "title": "Select messages", "icon": "check-circle",
+                "title": "Select messages",
+                "icon": "check-circle",
                 "command": "select_forward",
                 "enabled": root.actionMessageId.length > 0
             },
-            {"separator": true},
             {
-                "title": messagesController.forwardSelectionCount > 1
-                    ? "Copy selected sKeys" : "Copy sKey",
-                "icon": "content-copy", "command": "copy_skey",
+                "separator": true
+            },
+            {
+                "title": messagesController.forwardSelectionCount > 1 ? "Copy selected sKeys" : "Copy sKey",
+                "icon": "content-copy",
+                "command": "copy_skey",
                 "enabled": root.actionMessageId.length > 0
             },
-            {"separator": true},
+            {
+                "separator": true
+            },
             {
                 "title": root.actionMessagePinned ? "Unpin message" : "Pin message",
                 "icon": "push-pin",
@@ -1397,46 +840,54 @@ Item {
                 "enabled": root.actionMessageId.length > 0
             },
             {
-                "title": "Edit message", "icon": "edit", "command": "edit",
+                "title": "Edit message",
+                "icon": "edit",
+                "command": "edit",
                 "visible": root.actionMessageCanEdit
             },
             {
-                "title": "Edit history", "icon": "history", "command": "history",
+                "title": "Edit history",
+                "icon": "history",
+                "command": "history",
                 "enabled": root.actionMessageEditHistory.length > 0
             },
-            {"separator": true, "visible": root.actionMessageCanDelete},
             {
-                "title": "Delete message", "icon": "delete", "command": "delete",
+                "separator": true,
+                "visible": root.actionMessageCanDelete
+            },
+            {
+                "title": "Delete message",
+                "icon": "delete",
+                "command": "delete",
                 "visible": root.actionMessageCanDelete
             }
         ]
         onTriggered: command => {
             if (command === "reply") {
-                messagesController.begin_reply(root.actionMessageId)
+                messagesController.begin_reply(root.actionMessageId);
             } else if (command === "forward") {
-                messagesController.begin_forward(root.actionMessageId)
+                messagesController.begin_forward(root.actionMessageId);
             } else if (command === "reaction") {
-                root.openReactionPicker(
-                    root.actionMessageId, root.actionMessageAnchor)
+                root.openReactionPicker(root.actionMessageId, root.actionMessageAnchor);
             } else if (command === "select_forward") {
-                messagesController.toggle_forward_selection(root.actionMessageId)
+                messagesController.toggle_forward_selection(root.actionMessageId);
             } else if (command === "copy_skey") {
-                messagesController.copy_message_skey(root.actionMessageId)
+                messagesController.copy_message_skey(root.actionMessageId);
             } else if (command === "pin") {
                 if (root.actionMessagePinned)
-                    messagesController.unpin_message(root.actionMessageId)
+                    messagesController.unpin_message(root.actionMessageId);
                 else
-                    messagesController.pin_message(root.actionMessageId)
+                    messagesController.pin_message(root.actionMessageId);
             } else if (command === "edit") {
-                root.pendingEditMessageId = root.actionMessageId
-                root.pendingEditBody = root.actionMessageBody
-                editMessageDialog.open()
+                root.pendingEditMessageId = root.actionMessageId;
+                root.pendingEditBody = root.actionMessageBody;
+                editMessageDialog.open();
             } else if (command === "history") {
-                root.selectedEditHistory = root.actionMessageEditHistory
-                editHistoryPopup.openCenteredIn(Overlay.overlay)
+                root.selectedEditHistory = root.actionMessageEditHistory;
+                editHistoryPopup.openCenteredIn(Overlay.overlay);
             } else if (command === "delete") {
-                root.pendingDeleteMessageId = root.actionMessageId
-                deleteMessageDialog.open()
+                root.pendingDeleteMessageId = root.actionMessageId;
+                deleteMessageDialog.open();
             }
         }
     }
@@ -1446,16 +897,44 @@ Item {
         theme: root.theme
         parent: Overlay.overlay
         actions: [
-            {"title": "Download", "icon": "download", "command": "download", "enabled": !root.attachmentMenuLocal},
-            {"title": "Show folder", "icon": "folder_open", "command": "folder", "enabled": root.attachmentMenuLocal},
-            {"title": root.attachmentMenuLocal ? "Open file" : "Download and open", "icon": "open_in_new", "command": "open"},
-            {"separator": true},
-            {"title": "Copy file path", "icon": "content_copy", "command": "copy_path"},
-            {"title": "Copy web link", "icon": "link", "command": "copy_web"},
-            {"title": "Copy image", "icon": "image", "command": "copy_image", "enabled": root.attachmentMenuLocal && root.attachmentMenuImage}
+            {
+                "title": "Download",
+                "icon": "download",
+                "command": "download",
+                "enabled": !root.attachmentMenuLocal
+            },
+            {
+                "title": "Show folder",
+                "icon": "folder_open",
+                "command": "folder",
+                "enabled": root.attachmentMenuLocal
+            },
+            {
+                "title": root.attachmentMenuLocal ? "Open file" : "Download and open",
+                "icon": "open_in_new",
+                "command": "open"
+            },
+            {
+                "separator": true
+            },
+            {
+                "title": "Copy file path",
+                "icon": "content_copy",
+                "command": "copy_path"
+            },
+            {
+                "title": "Copy web link",
+                "icon": "link",
+                "command": "copy_web"
+            },
+            {
+                "title": "Copy image",
+                "icon": "image",
+                "command": "copy_image",
+                "enabled": root.attachmentMenuLocal && root.attachmentMenuImage
+            }
         ]
-        onTriggered: command => messagesController.attachment_action(
-            root.attachmentMenuToken, command)
+        onTriggered: command => messagesController.attachment_action(root.attachmentMenuToken, command)
     }
 
     ActionMenu {
@@ -1464,22 +943,24 @@ Item {
         theme: root.theme
         actions: [
             {
-                "title": root.skeyMenuFailed ? "Retry preview"
-                    : root.skeyMenuCanOpen ? "Open linked item"
-                    : "Source conversation is unavailable",
+                "title": root.skeyMenuFailed ? "Retry preview" : root.skeyMenuCanOpen ? "Open linked item" : "Source conversation is unavailable",
                 "icon": root.skeyMenuFailed ? "refresh" : "open_in_new",
                 "command": root.skeyMenuFailed ? "retry" : "open",
                 "enabled": root.skeyMenuFailed || root.skeyMenuCanOpen
             },
-            {"title": "Copy sKey", "icon": "content_copy", "command": "copy"}
+            {
+                "title": "Copy sKey",
+                "icon": "content_copy",
+                "command": "copy"
+            }
         ]
         onTriggered: command => {
             if (command === "retry")
-                messagesController.retry_skey_preview(root.skeyMenuValue)
+                messagesController.retry_skey_preview(root.skeyMenuValue);
             else if (command === "copy")
-                messagesController.copy_skey_preview(root.skeyMenuValue)
+                messagesController.copy_skey_preview(root.skeyMenuValue);
             else
-                messagesController.open_skey_preview(root.skeyMenuValue)
+                messagesController.open_skey_preview(root.skeyMenuValue);
         }
     }
 
@@ -1498,16 +979,15 @@ Item {
             theme: root.theme
             conversationModel: messageConversationModel
             onNewConversationRequested: {
-                root.selectedRecipients = []
-                newConversationUsers.reset()
-                newChatTitle.clear()
-                conversationPopup.openCenteredIn(Overlay.overlay)
+                root.selectedRecipients = [];
+                newChatTitle.reset();
+                newChatTitle.clear();
+                conversationPopup.openCenteredIn(Overlay.overlay);
             }
-            onConversationSelected: index =>
-                messagesController.select_conversation(index)
+            onConversationSelected: index => messagesController.select_conversation(index)
             onConversationContextRequested: (index, source, x, y) => {
-                messagesController.select_conversation(index)
-                chatActions.openAt(source, x, y)
+                messagesController.select_conversation(index);
+                chatActions.openAt(source, x, y);
             }
         }
         Rectangle {
@@ -1524,342 +1004,85 @@ Item {
                 anchors.margins: 10
                 spacing: 10
 
-                Rectangle {
+                Frame.FrameView {
                     objectName: "messagesChatHeader"
                     Layout.fillWidth: true
                     Layout.preferredHeight: 58
-                    radius: 9
-                    color: root.theme.surfaceContainerHigh
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 10
-                        spacing: 8
-                        Controls.ItemPreview {
-                            visible: messagesController.conversationId.length > 0
-                            Layout.preferredWidth: 34
-                            Layout.preferredHeight: 34
-                            theme: root.theme
-                            source:
-                                messagesController.selectedConversation.isPersonalNotes
-                                ? ""
-                                : messagesController.selectedConversation.avatarUrl || ""
-                            fallbackIcon:
-                                messagesController.selectedConversation.isPersonalNotes
-                                ? "bookmark" : "group"
-                            fallbackText:
-                                messagesController.selectedConversation.isPersonalNotes
-                                ? ""
-                                : messagesController.selectedConversation.acronym || "?"
-                            previewSize: 34
-                            round: true
-                            outlined: true
-                            accent: root.chatColor(
-                                messagesController.selectedConversation.colorIndex
-                            )
+                    theme: root.theme
+                    readonly property string language: typeof localizationController === 'undefined' ? 'en' : localizationController.current_language
+                    readonly property var conversation: messagesController.selectedConversation
+                    readonly property string subtitle: {
+                        if (!messagesController.conversationId.length)
+                            return "";
+                        if (conversation.isPersonalNotes)
+                            return qsTr("Your personal notes") + " · " + Number(conversation.messageCount || 0) + qsTr(" notes");
+                        return (conversation.peerLogin ? "" : Number(conversation.participantCount || 0) + qsTr(" members") + " · ") + Number(conversation.messageCount || 0) + qsTr(" messages");
+                    }
+                    TextMetrics {
+                        id: presenceMetrics
+                        text: root.selectedConversationPresenceText()
+                        font: Qt.font({
+                            family: root.theme.fontFamily,
+                            pixelSize: 11
+                        })
+                    }
+                    scene: ConversationUI.header(Object.assign({}, conversation, {
+                        conversationId: messagesController.conversationId,
+                        busy: messagesController.busy,
+                        search: messagesController.messageSearch.length > 0,
+                        subtitle,
+                        presence: conversation.peerLogin ? root.selectedConversationPresenceText() : "",
+                        presenceWidth: Math.ceil(presenceMetrics.advanceWidth)
+                    }), width, language)
+                    onEvent: (action, source) => {
+                        if (action.type === "menu")
+                            chatActions.toggleBelow(source);
+                        else if (action.type === "refresh")
+                            messagesController.refresh_current();
+                        else if (action.type === "search")
+                            root.openBelow(source, messageSearchPopup);
+                        else if (action.type === "members")
+                            root.openBelow(source, membersPopup);
+                        else if (action.type === "files") {
+                            if (messagesController.messageSearch.length > 0)
+                                messagesController.search_messages("");
+                            root.openBelow(source, filesPopup);
                         }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Label {
-                                Layout.fillWidth: true
-                                text: messagesController.conversationId.length
-                                    ? (messagesController.selectedConversation.isPersonalNotes
-                                        ? qsTr("Favorites") : messagesController.selectedConversation.title)
-                                    : qsTr("Select a conversation")
-                                color: root.theme.primaryText
-                                font.family: root.theme.fontFamily
-                                font.pixelSize: 12
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
-                            }
-                            RowLayout {
-                                visible: messagesController.conversationId.length > 0
-                                Layout.fillWidth: true
-                                spacing: 5
-
-                                Rectangle {
-                                    visible: String(
-                                        messagesController.selectedConversation.peerLogin
-                                            || ""
-                                    ).length > 0
-                                    Layout.preferredWidth: 7
-                                    Layout.preferredHeight: 7
-                                    radius: 4
-                                    color:
-                                        messagesController.selectedConversation.online
-                                        ? root.theme.green
-                                        : root.theme.disabledText
-                                }
-                                Label {
-                                    visible: String(
-                                        messagesController.selectedConversation.peerLogin
-                                            || ""
-                                    ).length > 0
-                                    text: root.selectedConversationPresenceText()
-                                    color:
-                                        messagesController.selectedConversation.online
-                                        ? root.theme.green
-                                        : root.theme.secondaryText
-                                    font.family: root.theme.fontFamily
-                                    font.pointSize: Controls.Typography.caption
-                                    elide: Text.ElideRight
-                                }
-                                Label {
-                                    visible: String(
-                                        messagesController.selectedConversation.peerLogin
-                                            || ""
-                                    ).length > 0
-                                    text: "·"
-                                    color: root.theme.disabledText
-                                    font.family: root.theme.fontFamily
-                                    font.pointSize: Controls.Typography.caption
-                                }
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: messagesController.selectedConversation.isPersonalNotes
-                                    ? qsTr("Your personal notes  ·  ") + Number(
-                                        messagesController.selectedConversation.messageCount || 0
-                                    ) + qsTr(" notes")
-                                    : String(
-                                        messagesController.selectedConversation.peerLogin
-                                            || ""
-                                    ).length > 0
-                                    ? Number(
-                                        messagesController.selectedConversation.messageCount || 0
-                                    ) + qsTr(" messages")
-                                    : Number(
-                                        messagesController.selectedConversation.participantCount || 0
-                                    ) + qsTr(" members  ·  ") + Number(
-                                        messagesController.selectedConversation.messageCount || 0
-                                    ) + qsTr(" messages")
-                                    color: root.theme.secondaryText
-                                    font.family: root.theme.fontFamily
-                                    font.pointSize: Controls.Typography.caption
-                                    elide: Text.ElideRight
-                                }
-                            }
-                        }
-                        Controls.CompactIconButton {
-                            id: membersButton
-                            visible: messagesController.conversationId.length > 0
-                                && !messagesController.selectedConversation.isPersonalNotes
-                            theme: root.theme
-                            iconName: "group"
-                            badgeCount: Number(
-                                messagesController.selectedConversation.participantCount
-                                || 0
-                            )
-                            toolTip: qsTr("Chat members")
-                            onClicked: root.openBelow(membersButton, membersPopup)
-                        }
-                        Controls.CompactIconButton {
-                            id: filesButton
-                            visible: messagesController.conversationId.length > 0
-                            theme: root.theme
-                            iconName: "attach-file"
-                            badgeCount: Number(
-                                messagesController.selectedConversation.attachmentCount
-                                || 0
-                            )
-                            enabled: !messagesController.busy
-                            toolTip: qsTr("Chat files")
-                            onClicked: {
-                                if (messagesController.messageSearch.length > 0)
-                                    messagesController.search_messages("")
-                                root.openBelow(filesButton, filesPopup)
-                            }
-                        }
-                        Controls.CompactIconButton {
-                            id: searchMessagesButton
-                            visible: messagesController.conversationId.length > 0
-                            theme: root.theme
-                            iconName: "search"
-                            iconColor: messagesController.messageSearch.length > 0
-                                ? root.theme.action : root.theme.primaryText
-                            enabled: !messagesController.busy
-                            toolTip: messagesController.messageSearch.length > 0
-                                ? qsTr("Change message search")
-                                : qsTr("Search messages")
-                            onClicked: root.openBelow(
-                                searchMessagesButton, messageSearchPopup
-                            )
-                        }
-                        RefreshIconButton {
-                            theme: root.theme
-                            enabled: !messagesController.busy
-                            toolTip: qsTr("Refresh conversations and messages")
-                            onClicked: messagesController.refresh_current()
-                        }
-                        Controls.CompactIconButton {
-                            id: chatActionsButton
-                            objectName: "chatActionsButton"
-                            visible: messagesController.conversationId.length > 0
-                            theme: root.theme
-                            iconName: "more-vert"
-                            toolTip: qsTr("Chat actions")
-                            onClicked: chatActions.toggleBelow(chatActionsButton)
-                        }
-                        Item {
-                            objectName: "chatBusySlot"
-                            visible: messagesController.busy
-                            Layout.preferredWidth: 20
-                            Layout.preferredHeight: 20
-                            Controls.BusyIndicator {
-                                uiTheme: root.theme
-                                anchors.fill: parent
-                                visible: messagesController.busy
-                                running: visible
-                            }
+                    }
+                    Item {
+                        objectName: "chatBusySlot"
+                        visible: messagesController.busy
+                        x: parent.width - 32
+                        y: 19
+                        width: 20
+                        height: 20
+                        Controls.BusyIndicator {
+                            uiTheme: root.theme
+                            anchors.fill: parent
+                            running: parent.visible
                         }
                     }
                 }
 
-                Rectangle {
+                Frame.FrameView {
                     id: pinnedMessageBar
+                    theme: root.theme
                     Layout.fillWidth: true
                     Layout.preferredHeight: 48
-                    visible: String(messagesController.pinnedMessage.messageId || "").length > 0
-                    radius: 12
-                    color: pinnedMessageHover.hovered
-                        ? root.theme.surfaceContainerHighest
-                        : root.theme.surfaceContainerHigh
-                    border.width: 1
-                    border.color: root.theme.outlineVariant
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: root.theme.hoverMotionFast
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    HoverHandler {
-                        id: pinnedMessageHover
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                    Controls.ActivationHandler {
-                        onActivated: messagesController.show_message(
-                            String(messagesController.pinnedMessage.messageId || ""))
-                    }
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 8
-                        spacing: 9
-                        Rectangle {
-                            Layout.preferredWidth: 28
-                            Layout.preferredHeight: 28
-                            Layout.alignment: Qt.AlignVCenter
-                            radius: 9
-                            color: root.theme.tertiaryContainer
-                            Controls.MaterialIcon {
-                                anchors.centerIn: parent
-                                name: "push-pin"
-                                size: 16
-                                color: root.theme.tertiary
-                            }
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Label {
-                                Layout.fillWidth: true
-                                text: String(
-                                    messagesController.pinnedMessage.summary
-                                        || qsTr("Pinned message"))
-                                color: root.theme.primaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.body
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                text: {
-                                    const sender = String(
-                                        messagesController.pinnedMessage.senderDisplay || "")
-                                    const pinnedBy = String(
-                                        messagesController.pinnedMessage.pinnedBy || "")
-                                    return (sender.length ? sender + "  ·  " : "")
-                                        + qsTr("Pinned by ") + pinnedBy
-                                }
-                                color: root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.caption
-                                elide: Text.ElideRight
-                            }
-                        }
-                        RowLayout {
-                            spacing: 3
-                            visible: Number(
-                                messagesController.pinnedMessage.linkedCount || 0
-                            ) > 0
-                            Controls.MaterialIcon {
-                                name: Number(
-                                    messagesController.pinnedMessage.linkedMessageCount || 0
-                                ) === Number(
-                                    messagesController.pinnedMessage.linkedCount || 0
-                                ) ? "chat" : "link"
-                                size: 15
-                                color: root.theme.tertiary
-                            }
-                            Label {
-                                text: String(
-                                    messagesController.pinnedMessage.linkedCount || "")
-                                color: root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.label
-                            }
-                        }
-                        RowLayout {
-                            spacing: 3
-                            visible: Number(
-                                messagesController.pinnedMessage.attachmentCount || 0
-                            ) > 0
-                            Controls.MaterialIcon {
-                                name: "attach-file"
-                                size: 15
-                                color: root.theme.tertiary
-                            }
-                            Label {
-                                text: String(
-                                    messagesController.pinnedMessage.attachmentCount || "")
-                                color: root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.label
-                            }
-                        }
-                        Controls.MaterialIcon {
-                            visible: messagesController.pinnedMessage.hasReply === true
-                            name: "reply"
-                            size: 15
-                            color: root.theme.secondaryText
-                        }
-                        Controls.MaterialIcon {
-                            visible: messagesController.pinnedMessage.forwarded === true
-                            name: "share"
-                            size: 15
-                            color: root.theme.secondaryText
-                        }
-                        Controls.CompactIconButton {
-                            id: pinHistoryButton
-                            theme: root.theme
-                            iconName: "history"
-                            toolTip: qsTr("Pin history")
-                            onClicked: root.openBelow(pinHistoryButton, pinHistoryPopup)
-                        }
+                    visible: !!messagesController.pinnedMessage.messageId
+                    scene: MessageUI.pinned(messagesController.pinnedMessage, width, root.language)
+                    onEvent: (action, source) => {
+                        if (action.type === "open")
+                            messagesController.show_message(String(messagesController.pinnedMessage.messageId || ""));
+                        else if (action.type === "history")
+                            root.openBelow(source, pinHistoryPopup);
                     }
                 }
 
                 Label {
                     visible: false
                     Layout.fillWidth: true
-                    text: qsTr("Created by ") + String(
-                        messagesController.selectedConversation.createdBy || "unknown"
-                    ) + "  ·  Created " + String(
-                        messagesController.selectedConversation.createdPretty || "unknown"
-                    ) + "  ·  Active " + String(
-                        messagesController.selectedConversation.activePretty || "never"
-                    )
+                    text: qsTr("Created by ") + String(messagesController.selectedConversation.createdBy || "unknown") + "  ·  Created " + String(messagesController.selectedConversation.createdPretty || "unknown") + "  ·  Active " + String(messagesController.selectedConversation.activePretty || "never")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
                     font.pointSize: Controls.Typography.caption
@@ -1868,8 +1091,7 @@ Item {
                 }
 
                 Rectangle {
-                    visible: messagesController.error.length > 0
-                        || messageAttachments.error.length > 0
+                    visible: messagesController.error.length > 0 || messageAttachments.error.length > 0
                     Layout.fillWidth: true
                     Layout.preferredHeight: 44
                     radius: 10
@@ -1889,8 +1111,7 @@ Item {
                         Label {
                             id: messageErrorLabel
                             Layout.fillWidth: true
-                            text: messagesController.error
-                                || messageAttachments.error
+                            text: messagesController.error || messageAttachments.error
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
                             font.pointSize: Controls.Typography.label
@@ -1901,16 +1122,14 @@ Item {
                             iconName: "close"
                             toolTip: qsTr("Dismiss error")
                             onClicked: {
-                                messagesController.dismiss_error()
-                                messageAttachments.dismiss_error()
+                                messagesController.dismiss_error();
+                                messageAttachments.dismiss_error();
                             }
                         }
                     }
                     Controls.ToolTip {
                         theme: root.theme
-                        visible: messageErrorMouse.containsMouse
-                            && messageErrorLabel.truncated
-                            && !root.theme.suppressToolTips
+                        visible: messageErrorMouse.containsMouse && messageErrorLabel.truncated && !root.theme.suppressToolTips
                         text: messageErrorLabel.text
                     }
                     MouseArea {
@@ -1934,58 +1153,56 @@ Item {
                     Layout.bottomMargin: 10
                     clip: true
 
-                Repeater {
-                    model: messageSurfaceModel
-                    delegate: MessagesTimeline {
-                        id: conversationTimeline
-                        required property var messageModel
-                        required property string conversationId
-                        theme: root.theme
-                        host: root
-                        controller: messagesController
-                        timelineModel: messageModel
-                        onCurrentChanged: {
-                            if (current)
-                                root.messages = conversationTimeline
-                            else {
-                                conversationTimeline.cancelWheelScroll()
-                                conversationTimeline.cancelFlick()
+                    Repeater {
+                        model: messageSurfaceModel
+                        delegate: MessagesTimeline {
+                            id: conversationTimeline
+                            required property var messageModel
+                            required property string conversationId
+                            theme: root.theme
+                            host: root
+                            controller: messagesController
+                            timelineModel: messageModel
+                            onCurrentChanged: {
+                                if (current)
+                                    root.messages = conversationTimeline;
+                                else {
+                                    conversationTimeline.cancelWheelScroll();
+                                    conversationTimeline.cancelFlick();
+                                }
+                            }
+                            Component.onCompleted: {
+                                if (current)
+                                    root.messages = conversationTimeline;
                             }
                         }
-                        Component.onCompleted: {
-                            if (current)
-                                root.messages = conversationTimeline
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        z: 240
+                        visible: !root.messagePresentationReady && (root.pendingPresentationConversationId.length > 0 || messagesController.conversationId.length > 0)
+                        color: root.theme.workspace
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 9
+                            Controls.BusyIndicator {
+                                uiTheme: root.theme
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: 30
+                                height: 30
+                                running: parent.parent.visible
+                            }
+                            Label {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: qsTr("Loading conversation")
+                                color: root.theme.secondaryText
+                                font.family: root.theme.fontFamily
+                                font.pointSize: Controls.Typography.body
+                            }
                         }
                     }
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    z: 240
-                    visible: !root.messagePresentationReady
-                        && (root.pendingPresentationConversationId.length > 0
-                            || messagesController.conversationId.length > 0)
-                    color: root.theme.workspace
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 9
-                        Controls.BusyIndicator {
-                            uiTheme: root.theme
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: 30
-                            height: 30
-                            running: parent.parent.visible
-                        }
-                        Label {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: qsTr("Loading conversation")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                        }
-                    }
-                }
                 }
 
                 Rectangle {
@@ -2009,10 +1226,7 @@ Item {
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: messagesController.forwardSelectionCount
-                                + (messagesController.forwardSelectionCount === 1
-                                    ? qsTr(" message selected")
-                                    : qsTr(" messages selected"))
+                            text: messagesController.forwardSelectionCount + (messagesController.forwardSelectionCount === 1 ? qsTr(" message selected") : qsTr(" messages selected"))
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
                             font.pointSize: Controls.Typography.body
@@ -2021,9 +1235,7 @@ Item {
                         Controls.CompactIconButton {
                             theme: root.theme
                             iconName: "content-copy"
-                            toolTip: messagesController.forwardSelectionCount === 1
-                                ? qsTr("Copy selected sKey")
-                                : qsTr("Copy selected sKeys")
+                            toolTip: messagesController.forwardSelectionCount === 1 ? qsTr("Copy selected sKey") : qsTr("Copy selected sKeys")
                             enabled: !messagesController.busy
                             onClicked: messagesController.copy_message_skey("")
                         }
@@ -2044,18 +1256,13 @@ Item {
                 }
 
                 MessageReplyPreview {
-                    visible: String(
-                        messagesController.replyTarget.messageId || ""
-                    ).length > 0
+                    visible: String(messagesController.replyTarget.messageId || "").length > 0
                     Layout.fillWidth: true
                     theme: root.theme
-                    sender: String(
-                        messagesController.replyTarget.senderDisplay || ""
-                    )
+                    sender: String(messagesController.replyTarget.senderDisplay || "")
                     body: String(messagesController.replyTarget.body || "")
                     dismissible: true
-                    onActivated: messagesController.show_message(
-                        String(messagesController.replyTarget.messageId || ""))
+                    onActivated: messagesController.show_message(String(messagesController.replyTarget.messageId || ""))
                     onDismissed: messagesController.cancel_reply()
                 }
 
@@ -2070,46 +1277,67 @@ Item {
                         attachmentModel: messageAttachmentDraftModel
                         Layout.alignment: Qt.AlignVCenter
                     }
-                    MessageComposerField {
-                        id: composer
+                    Item {
+                        id: composerRow
                         Layout.fillWidth: true
-                        Layout.preferredHeight: implicitHeight
-                        Layout.alignment: Qt.AlignVCenter
-                        theme: root.theme
-                        emojiCatalogModel: emojiCatalog
-                        attachmentController: messageAttachments
-                        placeholderText: qsTr(
-                            "Write a reply · Enter to send · Ctrl+Enter for a new line"
-                        )
-                        text: root.draft
-                        readOnly: messagesController.sending
-                            || messageAttachments.busy
-                        onTextChanged: {
-                            root.draft = text
-                            messagesController.set_draft_text(text)
-                        }
-                        onMentionRequested: query => {
-                            root.mentionQuery = query
-                            if (query.length >= 0 && text.slice(
-                                    0, cursorPosition).match(
-                                        /(^|\s)@[A-Za-z0-9_.-]*$/)) {
-                                if (!mentionPopup.opened)
-                                    root.openBelow(composer, mentionPopup)
-                            } else {
-                                mentionPopup.close()
+                        Layout.preferredHeight: geometry.height
+                        readonly property var geometry: ComposerUI.layout(width, composer.implicitHeight)
+                        MessageComposerField {
+                            id: composer
+                            mentioning: mentionPopup.opened
+                            mentionCount: root.mentionRows.length
+                            onMentionStepped: delta => {
+                                const count = root.mentionRows.length;
+                                if (count) {
+                                    mentionList.currentIndex = (mentionList.currentIndex + delta + count) % count;
+                                    mentionList.positionViewAtIndex(mentionList.currentIndex, ListView.Contain);
+                                }
                             }
+                            onMentionAccepted: {
+                                const row = root.mentionRows[Math.max(0, mentionList.currentIndex)];
+                                if (row) {
+                                    composer.insertMention(String(row.login));
+                                    mentionPopup.close();
+                                }
+                            }
+                            onMentionDismissed: mentionPopup.close()
+                            x: composerRow.geometry.field.x
+                            y: composerRow.geometry.field.y
+                            width: composerRow.geometry.field.width
+                            height: composerRow.geometry.field.height
+                            theme: root.theme
+                            emojiCatalogModel: emojiCatalog
+                            attachmentController: messageAttachments
+                            placeholderText: qsTr("Write a reply · Enter to send · Ctrl+Enter for a new line")
+                            text: root.draft
+                            readOnly: messagesController.sending || messageAttachments.busy
+                            onTextChanged: {
+                                root.draft = text;
+                                messagesController.set_draft_text(text);
+                            }
+                            onMentionRequested: query => {
+                                root.mentionQuery = query;
+                                if (query.length >= 0 && text.slice(0, cursorPosition).match(/(^|\s)@[A-Za-z0-9_.-]*$/)) {
+                                    if (!mentionPopup.opened)
+                                        root.openBelow(composer, mentionPopup);
+                                } else {
+                                    mentionPopup.close();
+                                }
+                            }
+                            onSubmitRequested: sendButton.clicked()
                         }
-                        onSubmitRequested: sendButton.clicked()
-                    }
-                    MessageSendButton {
-                        id: sendButton
-                        theme: root.theme
-                        Layout.alignment: Qt.AlignVCenter
-                        sending: messagesController.sending
-                        hasContent: !messagesController.busy
-                            && (root.draft.trim().length > 0
-                                || messageAttachments.count > 0)
-                        onClicked: messagesController.send(root.draft)
+                        MessageSendButton {
+                            id: sendButton
+                            theme: root.theme
+                            x: composerRow.geometry.send.x
+                            y: composerRow.geometry.send.y
+                            width: composerRow.geometry.send.width
+                            height: composerRow.geometry.send.height
+                            compact: composerRow.geometry.compact
+                            sending: messagesController.sending
+                            hasContent: !messagesController.busy && (root.draft.trim().length > 0 || messageAttachments.count > 0)
+                            onClicked: messagesController.send(root.draft)
+                        }
                     }
                 }
             }
@@ -2120,8 +1348,7 @@ Item {
                 z: 20
                 theme: root.theme
                 attachmentController: messageAttachments
-                enabled: messagesController.conversationId.length > 0
-                    && !messageAttachments.busy
+                enabled: messagesController.conversationId.length > 0 && !messageAttachments.busy
             }
         }
     }
@@ -2129,20 +1356,19 @@ Item {
     Connections {
         target: messagesController
         function onMessageSentForConversation(conversationId) {
-            root.draft = String(messagesController.draftText || "")
+            root.draft = String(messagesController.draftText || "");
         }
 
         function onDraftChanged() {
-            const value = String(messagesController.draftText || "")
+            const value = String(messagesController.draftText || "");
             if (root.draft !== value)
-                root.draft = value
+                root.draft = value;
         }
 
         function onMessageAppendedForConversation(conversationId) {
-            if (String(conversationId || "")
-                    !== String(messagesController.conversationId || ""))
-                return
-            Qt.callLater(root.revealLatestMessage)
+            if (String(conversationId || "") !== String(messagesController.conversationId || ""))
+                return;
+            Qt.callLater(root.revealLatestMessage);
         }
     }
 }

@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.115 - 2026-10-18
+
+- Move conversations, message metadata/body/reference/pins, composer rules, membership/search/history/file forms, attachment staging, activity cards/calendar, notification history and toast content to independent shared Tactic Frame descriptions with Stream. Keep native Qt controls and existing request, permission, draft, receipt, upload and notification owners.
+- Restore natural message widths and usable Knowledge preview cards; retain the first input in member filters, multiline references, keyboard metadata tooltips, visible scrollbar room and correct activity paging after controller completion.
+- Add isolated original/native/browser capture tools and real native/Chromium communication regressions. Document native file and Repository Sync capabilities separately from browser phone presentation.
+
 ## 0.6.0.114 - 2026-10-18
 
 - Move production Gantt, the independent Task Calendar dock, milestone presentation and the explicit schedule editor onto shared Tactic Frame descriptions with Stream; retain native controls, virtualized models and existing mutation owners.

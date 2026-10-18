@@ -828,12 +828,10 @@ class SObjectInfoControllerTests(unittest.TestCase):
         self.assertIn('objectName: "sobjectInfoPresentationHeader"', source)
         self.assertIn("UI.tabs", source)
         self.assertNotIn("onCurrentIndexChanged: reportScroll.contentY = 0", source)
-        self.assertIn("columns: eventBubble.width >= 520 ? 2 : 1", activity_card_source)
-        self.assertIn("readonly property real bubbleExtent", activity_card_source)
-        self.assertIn(
-            "implicitHeight: Math.max(72, eventBubble.implicitHeight + 8)",
-            activity_card_source,
-        )
+        activity_description = (Path(__file__).resolve().parents[1] / "thlib/ui/qml/tactic_frame/features/activity/event.ui.mjs").read_text(encoding="utf-8")
+        self.assertIn("compact = g.bubble < 520", activity_description)
+        self.assertIn("implicitHeight: presentation.height", activity_card_source)
+        self.assertIn("UI.card", activity_card_source)
         self.assertNotIn("activePage:", source)
         self.assertNotIn("syncHeaderToScroll", source)
         self.assertNotIn("Collapse object header", source)

@@ -1,4 +1,5 @@
-import "tactic_frame/core/foundation.mjs" as Foundation
+import "tactic_frame" as Frame
+import "tactic_frame/controls/forms/people.ui.mjs" as UI
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -8,6 +9,7 @@ Item {
     id: root
 
     required property var theme
+    readonly property string language: typeof localizationController === 'undefined' ? 'en' : localizationController.current_language
     property var selectedLogins: []
     property var excludedLogins: []
     property bool includeCurrent: false
@@ -74,7 +76,7 @@ Item {
         ListView {
             id: usersList
             objectName: "userPickerList"
-            readonly property real scrollGutter: 16
+            readonly property real scrollGutter: UI.metrics.scrollbar
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -110,89 +112,24 @@ Item {
                 readonly property bool selectable: !root.isExcluded(userRow.login, userRow.current)
                 readonly property bool chosen: root.selectedLogins.indexOf(userRow.login) >= 0
                 width: Math.max(0, usersList.width - usersList.scrollGutter)
-                height: 54
+                height: UI.metrics.row
 
-                Controls.ItemSurface {
+                Frame.FrameView {
                     anchors.fill: parent
                     theme: root.theme
-                    selected: userRow.chosen
-                    hovered: userRow.selectable && userAction.hovered || userAction.visualFocus
-                    pressed: userRow.selectable && userAction.down
-                    accent: root.theme.action
-                    cornerRadius: 12
-                    railVisible: false
-                    separatorVisible: false
-                }
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
-                    spacing: 8
-
-                    Controls.ItemPreview {
-                        objectName: "userPickerAvatar_" + userRow.login
-                        Layout.preferredWidth: 36
-                        Layout.preferredHeight: 36
-                        theme: root.theme
-                        source: userRow.avatarUrl
-                        fallbackIcon: "person"
-                        fallbackText: userRow.initials
-                        previewSize: 36
-                        round: true
-                        outlined: true
-                        selected: userRow.chosen
-                        accent: userRow.avatarColor.length ? userRow.avatarColor : root.theme.action
-                        opacity: userRow.selectable ? 1 : 0.58
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 1
-                        Label {
-                            Layout.fillWidth: true
-                            text: userRow.displayName || userRow.login
-                            color: userRow.chosen ? root.theme.selectedText : userRow.selectable ? root.theme.primaryText : root.theme.disabledText
-                            font.family: root.theme.fontFamily
-                            font.hintingPreference: Font.PreferVerticalHinting
-                            font.pixelSize: Foundation.textStyles.body
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: userRow.login + (userRow.groups.length > 0 ? "  ·  " + userRow.groups.join(", ") : "")
-                            color: userRow.chosen ? root.theme.selectedText : userRow.selectable ? root.theme.secondaryText : root.theme.disabledText
-                            font.family: root.theme.fontFamily
-                            font.hintingPreference: Font.PreferVerticalHinting
-                            font.pixelSize: Foundation.textStyles.caption
-                            elide: Text.ElideRight
-                        }
-                    }
-                    Controls.MaterialIcon {
-                        visible: userRow.chosen
-                        name: "check-circle"
-                        size: 18
-                        color: root.theme.selectedText
-                    }
-                    Controls.StatusChip {
-                        objectName: "userPickerCurrentMarker"
-                        visible: userRow.currentUnavailable
-                        theme: root.theme
-                        text: qsTr("Current user")
-                        iconName: "lock"
-                        accentColor: root.theme.disabledText
-                    }
-                }
-                Controls.PopupAction {
-                    id: userAction
-                    objectName: "userPickerAction_" + userRow.login
-                    background: null
-                    contentItem: null
-                    Accessible.role: Accessible.CheckBox
-                    Accessible.name: userRow.displayName || userRow.login
-                    Accessible.checked: userRow.chosen
-                    anchors.fill: parent
-                    enabled: userRow.selectable
-                    onClicked: root.toggle(userRow.login)
+                    scene: UI.row({
+                        login: userRow.login,
+                        displayName: userRow.displayName,
+                        initials: userRow.initials,
+                        avatarUrl: userRow.avatarUrl,
+                        avatarColor: userRow.avatarColor,
+                        groups: userRow.groups,
+                        picker: true,
+                        selected: userRow.chosen,
+                        selectable: userRow.selectable,
+                        currentUnavailable: userRow.currentUnavailable
+                    }, width, root.language)
+                    onEvent: action => root.toggle(action.login)
                 }
             }
         }

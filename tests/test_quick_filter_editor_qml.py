@@ -308,6 +308,7 @@ ApplicationWindow {
                 self.assertLessEqual(top.y() + button.height(), height)
             center = flick.mapToScene(QPointF(flick.width() / 2, flick.height() / 2))
             QTest.mouseMove(self.window, center.toPoint())
+            frame(self.window)
             wheel = QWheelEvent(center, self.window.mapToGlobal(center.toPoint()),
                                 QPoint(), QPoint(0, -360), Qt.NoButton, Qt.NoModifier,
                                 Qt.NoScrollPhase, False)

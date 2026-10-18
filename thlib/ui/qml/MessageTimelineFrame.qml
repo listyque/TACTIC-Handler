@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
 import "controls" as Controls
+import "tactic_frame/features/messages/messaging.state.mjs" as State
 
 Item {
     id: root
@@ -22,44 +23,50 @@ Item {
     default property alias contentData: bubbleContent.data
     readonly property alias bubbleItem: messageBubble
     readonly property bool hovered: bubbleHover.hovered
-    readonly property real avatarExtent: width < 380 ? 34 : 40
-    readonly property real outerMargin: width < 380 ? 8 : 12
-    readonly property real bubblePadding:
-        theme.communicationBubblePadding + (width < 380 ? 0 : 3)
-    readonly property real bubbleSpacing: Math.max(
-        2, theme.communicationContentSpacing - 4)
-    readonly property real maximumBubbleExtent: Math.max(
-        0,
-        Math.min(
-            mediaAttachments ? width : 520,
-            width * 0.70,
-            width - avatarExtent - theme.communicationAvatarSpacing
-                - outerMargin * 2
-        )
-    )
-    readonly property real naturalBubbleExtent:
-        bubbleContent.implicitWidth + bubblePadding * 2
-    readonly property real bubbleExtent: Math.min(
-        maximumBubbleExtent,
-        mediaAttachments ? maximumBubbleExtent
-            : Math.max(width < 380 ? 104 : 116, naturalBubbleExtent)
-    )
-    readonly property real bubbleCornerRadius: theme.communicationBubbleRadius
+    readonly property var geometry: State.bubbleGeometry(width, bubbleContent.implicitWidth, bubbleContent.implicitHeight, {
+        media: mediaAttachments,
+        last: groupLast,
+        own: outgoing
+    }, theme.styleName)
+    readonly property real avatarExtent: geometry.avatar
+    readonly property real outerMargin: geometry.margin
+    readonly property real bubblePadding: geometry.padding
+    readonly property real bubbleSpacing: geometry.gap
+    readonly property real maximumBubbleExtent: geometry.maximum
+    readonly property real naturalBubbleExtent: bubbleContent.implicitWidth + bubblePadding * 2
+    readonly property real bubbleExtent: geometry.width
+    readonly property real bubbleCornerRadius: geometry.corner
+
+    function interactiveAt(item, x, y) {
+        if (item.clip && !item.contains(Qt.point(x, y)))
+            return false;
+        for (let index = item.children.length - 1; index >= 0; --index) {
+            const child = item.children[index];
+            if (!child.visible || !child.enabled)
+                continue;
+            const point = child.mapFromItem(item, x, y);
+            if (child.contains(point)) {
+                if (typeof child.clicked === "function" || typeof child.activated === "function")
+                    return true;
+                if (typeof child.linkAt === "function" && child.linkAt(point.x, point.y).length)
+                    return true;
+            }
+            if (interactiveAt(child, point.x, point.y))
+                return true;
+        }
+        return false;
+    }
 
     signal contextRequested(real localX, real localY)
-    signal selectionRequested()
+    signal selectionRequested
 
-    implicitHeight: Math.max(
-        groupLast ? avatarExtent : 0,
-        messageBubble.height
-    )
+    implicitHeight: Math.max(groupLast ? avatarExtent : 0, messageBubble.height)
     height: implicitHeight
 
     Controls.ItemPreview {
         id: authorAvatar
         objectName: "messageTimelineAvatar"
-        x: root.outgoing
-            ? root.width - width - root.outerMargin : root.outerMargin
+        x: root.outgoing ? root.width - width - root.outerMargin : root.outerMargin
         anchors.bottom: parent.bottom
         width: root.avatarExtent
         height: root.avatarExtent
@@ -79,20 +86,12 @@ Item {
     Item {
         id: messageBubble
         objectName: "messageTimelineBubble"
-        x: root.outgoing
-            ? authorAvatar.x - root.theme.communicationAvatarSpacing - width
-            : authorAvatar.x + authorAvatar.width
-                + root.theme.communicationAvatarSpacing
+        x: root.outgoing ? authorAvatar.x - root.theme.communicationAvatarSpacing - width : authorAvatar.x + authorAvatar.width + root.theme.communicationAvatarSpacing
         width: root.bubbleExtent
-        height: bubbleContent.implicitHeight
-            + root.bubblePadding * 2
-        readonly property color fillColor: root.outgoing
-            ? root.theme.secondaryContainer
-            : root.theme.surfaceContainerHigh
-        property real outlineWidth: root.forwardSelected || root.current
-            ? 2 : root.unread ? 1 : 0
-        readonly property color outlineColor: root.forwardSelected
-            ? root.theme.tertiary : root.theme.action
+        height: bubbleContent.implicitHeight + root.bubblePadding * 2
+        readonly property color fillColor: root.outgoing ? root.theme.secondaryContainer : root.theme.surfaceContainerHigh
+        property real outlineWidth: root.forwardSelected || root.current ? 2 : root.unread ? 1 : 0
+        readonly property color outlineColor: root.forwardSelected ? root.theme.tertiary : root.theme.action
 
         Behavior on outlineWidth {
             NumberAnimation {
@@ -104,9 +103,7 @@ Item {
         Shape {
             id: bubbleOutline
             objectName: "messageTimelineOutline"
-            readonly property real tailExtent: root.groupLast
-                ? Math.min(root.theme.communicationGroupTailSize,
-                           root.theme.communicationAvatarSpacing - 2) : 0
+            readonly property real tailExtent: root.groupLast ? Math.min(root.theme.communicationGroupTailSize, root.theme.communicationAvatarSpacing - 2) : 0
             readonly property real inset: tailExtent + 2
             x: -inset
             y: -2
@@ -124,43 +121,22 @@ Item {
                 strokeWidth: messageBubble.outlineWidth
                 joinStyle: ShapePath.RoundJoin
                 PathSvg {
-                    path: {
-                        const l = bubbleOutline.inset
-                        const t = 2
-                        const r = l + messageBubble.width
-                        const b = t + messageBubble.height
-                        const radius = Math.min(root.bubbleCornerRadius,
-                            messageBubble.height / 2, messageBubble.width / 2)
-                        const arc = " A " + radius + " " + radius + " 0 0 1 "
-                        let contour = "M " + (l + radius) + " " + t
-                            + " H " + (r - radius) + arc + r + " " + (t + radius)
-                            + " V " + (b - radius) + arc + (r - radius) + " " + b
-                            + " H " + (l + radius)
-                        if (root.groupLast) {
-                            const tip = l - bubbleOutline.tailExtent
-                            contour += " C " + l + " " + b + " " + tip + " " + b
-                                + " " + tip + " " + (b - 2)
-                                + " C " + tip + " " + (b - 4) + " " + l + " "
-                                + (b - 4) + " " + l + " " + (b - radius)
-                        } else {
-                            contour += arc + l + " " + (b - radius)
-                        }
-                        return contour + " V " + (t + radius)
-                            + arc + (l + radius) + " " + t + " Z"
-                    }
+                    path: State.bubbleContour(messageBubble.width, messageBubble.height, root.bubbleCornerRadius, root.groupLast, bubbleOutline.tailExtent)
                 }
             }
         }
 
-        HoverHandler { id: bubbleHover }
+        HoverHandler {
+            id: bubbleHover
+        }
 
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.RightButton
             cursorShape: Qt.ArrowCursor
             onPressed: mouse => {
-                root.contextRequested(mouse.x, mouse.y)
-                mouse.accepted = true
+                root.contextRequested(mouse.x, mouse.y);
+                mouse.accepted = true;
             }
         }
 
@@ -171,13 +147,14 @@ Item {
             spacing: root.bubbleSpacing
         }
 
-        MouseArea {
-            anchors.fill: parent
-            z: 100
-            visible: root.selectionMode
-            acceptedButtons: Qt.LeftButton
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.selectionRequested()
+        Controls.ActivationHandler {
+            enabled: root.selectionMode
+            repeatPointerTaps: true
+            onActivated: (modifiers, x, y) => {
+                const point = bubbleContent.mapFromItem(messageBubble, x, y);
+                if (!root.interactiveAt(bubbleContent, point.x, point.y))
+                    root.selectionRequested();
+            }
         }
     }
 }
