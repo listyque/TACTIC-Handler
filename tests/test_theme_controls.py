@@ -12,6 +12,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import (
     QAbstractListModel,
+    QCoreApplication,
+    QEvent,
     QModelIndex,
     QObject,
     QPointF,
@@ -432,6 +434,7 @@ Window {
     visible: true
     Theme { id: theme; objectName: "testedTheme"; dark: true }
     function triggerRipple() { ripple.burst(20, 20) }
+    function queueRippleRelease() { ripple.releaseAfterAnimation(ripple.animationGeneration) }
     function disableClickAnimations() { theme.clickAnimationsEnabled = false }
     function enableClickAnimations() { theme.clickAnimationsEnabled = true }
     function hideWhileAnimating() { visible = false }
@@ -495,6 +498,13 @@ Window {
             QTest.qWait(450)
             self.assertFalse(loader.property("active"))
             self.assertIsNone(loader.property("item"))
+            self.assertTrue(QMetaObject.invokeMethod(owner, "queueRippleRelease"))
+            owner.close()
+            owner.deleteLater()
+            QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+            owner = None
+            self.app.processEvents()
+            self.assertFalse([message for message in messages if "animationGeneration" in message], messages)
         finally:
             if owner is not None:
                 owner.close()

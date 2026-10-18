@@ -92,3 +92,10 @@ transaction. Servers using the query plugin need the matching updated plugin pac
 - Matching Templates keeps template rows inside their pane, reserves a scrollbar gutter, and moves
   secondary ordering actions into an overflow menu at narrow widths.
 - Empty files are valid check-in inputs: their size is saved as 0 for both versioned and latest snapshots. A missing file is still an error.
+
+## Template mappings
+
+Process mapping and Context mapping in Matching Templates accept both existing
+choices and typed custom values. An empty mapping applies to all processes or
+contexts. Mandatory templates remain locked. Test a filename before saving;
+changing templates rematches prepared Drop Plate files without publishing them.

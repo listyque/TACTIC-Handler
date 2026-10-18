@@ -1,7 +1,7 @@
 from pathlib import Path
 import unittest
 
-from PySide6.QtCore import QObject, QPoint, QPointF, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, QPoint, QPointF, Qt, QUrl, Signal, Slot, QEvent, Property
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem, QQuickWindow
@@ -11,6 +11,22 @@ from thlib.ui.localization import CatalogTranslator
 
 
 ROOT = Path(__file__).resolve().parents[1]
+QML = ROOT / "thlib/ui/qml"
+
+
+def visual(item, name):
+    if item.objectName() == name:
+        return item
+    for child in item.childItems():
+        result = visual(child, name)
+        if result is not None:
+            return result
+
+
+class _Locale(QObject):
+    @Property(str, constant=True)
+    def current_language(self):
+        return "ru"
 
 
 class _CheckinDialogController(QObject):
@@ -21,14 +37,15 @@ class _CheckinDialogController(QObject):
     def __init__(self):
         super().__init__()
         self.multi_file_choices = []
+        self.revision_choices = []
 
     @Slot("QVariantList")
     def submit_checkin_files(self, _values):
         pass
 
     @Slot(bool)
-    def resolve_revision_checkin(self, _accepted):
-        pass
+    def resolve_revision_checkin(self, accepted):
+        self.revision_choices.append(accepted)
 
     @Slot(str)
     def resolve_multi_file_checkin(self, mode):
@@ -41,17 +58,24 @@ class ItemCheckinDialogsTest(unittest.TestCase):
         cls.app = QGuiApplication.instance() or QGuiApplication([])
 
     def setUp(self):
-        qml_dir = ROOT / "thlib" / "ui" / "qml"
+        qml_dir = QML
         self.translator = CatalogTranslator(
-            qml_dir.parent / "translations" / "ru.json"
+            ROOT / "thlib/ui/translations/ru.json"
         )
         self.app.installTranslator(self.translator)
         self.engine = QQmlEngine()
+        self.warnings = []
+        self.engine.warnings.connect(lambda errors: self.warnings.extend(str(error) for error in errors))
+        self.locale = _Locale()
+        self.locale.setParent(self.engine)
+        self.engine.rootContext().setContextProperty("localizationController", self.locale)
         self.controller = _CheckinDialogController()
+        self.controller.setParent(self.engine)
         theme_component = QQmlComponent(
             self.engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
         )
         self.theme = theme_component.createWithInitialProperties({"dark": True})
+        self.theme.setParent(self.engine)
         self.component = QQmlComponent(
             self.engine,
             QUrl.fromLocalFile(str(qml_dir / "ItemCheckinDialogs.qml")),
@@ -73,14 +97,18 @@ class ItemCheckinDialogsTest(unittest.TestCase):
         QTest.qWait(30)
 
     def tearDown(self):
-        self.window.close()
-        self.dialogs.deleteLater()
-        self.window.deleteLater()
-        self.app.processEvents()
-        self.app.removeTranslator(self.translator)
+        try:
+            self.assertEqual(self.warnings, [])
+        finally:
+            self.window.close()
+            for value in (self.dialogs, self.window, self.theme, self.engine):
+                value.deleteLater()
+            self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+            self.app.processEvents()
+            self.app.removeTranslator(self.translator)
 
     def _click(self, object_name):
-        button = self.dialogs.findChild(QQuickItem, object_name)
+        button = visual(self.window.contentItem(), object_name)
         self.assertIsNotNone(button)
         center = button.mapToScene(QPointF(
             button.width() / 2, button.height() / 2
@@ -119,6 +147,20 @@ class ItemCheckinDialogsTest(unittest.TestCase):
             ["group", "individual", "cancel"],
         )
 
+    def test_revision_confirmation_requires_a_choice(self):
+        self.controller.revisionCheckinConfirmationRequested.emit()
+        QTest.qWait(20)
+        dialog = self.dialogs.findChild(QObject, "revisionCheckinDialog")
+        self.assertTrue(dialog.property("opened"))
+        QTest.keyClick(self.window, Qt.Key_Escape)
+        self.assertTrue(dialog.property("opened"))
+        self._click("revisionCheckinCancel")
+        self.assertEqual(self.controller.revision_choices, [False])
+        self.controller.revisionCheckinConfirmationRequested.emit()
+        QTest.qWait(20)
+        self._click("revisionCheckinAccept")
+        self.assertEqual(self.controller.revision_choices, [False, True])
+
     def test_question_stays_inside_narrow_and_wide_windows(self):
         dialog = self.dialogs.findChild(QObject, "multiFileCheckinDialog")
         for width in (360, 720):
@@ -134,7 +176,7 @@ class ItemCheckinDialogsTest(unittest.TestCase):
                     "multiFileCheckinSeparateButton",
                     "multiFileCheckinCancelButton",
                 ):
-                    button = self.dialogs.findChild(QQuickItem, object_name)
+                    button = visual(self.window.contentItem(), object_name)
                     top_left = button.mapToScene(QPointF(0, 0))
                     bottom_right = button.mapToScene(QPointF(
                         button.width(), button.height()

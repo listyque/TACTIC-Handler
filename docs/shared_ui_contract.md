@@ -324,3 +324,14 @@ Save требует серверной проверки именно текущ�
 Каталог Layout при сбросе проекта читается только из памяти. Если проект ещё не
 кэширован, открытие редактора запускает штатную read-only процедуру discovery
 в worker с захваченным server/ticket; запоздалый ответ не меняет другой проект.
+
+## B12 files and queues
+
+Handler 0.6.0.116 / Stream 0.112.165 use the shared `features/files` descriptions
+for Workspace, check-in/ingest, matching, Drop Plate and queues. Native adapters
+are organized in `qml/features/files`; the independent portable copy remains
+under `qml/tactic_frame`. Native files/DCC and browser inspection/admin remain
+explicit capabilities. The source map, 121-stage gate, connected workflows,
+comparisons and deployment limits are documented in [frame_files.md](frame_files.md).
+The combined 137-case owner suite includes correct fake-pool shutdown; never
+disable GC to make lifecycle tests pass.

@@ -44,3 +44,10 @@ transfers are verified against response metadata.
 - Cancellation is a normal terminal state, not an application error.
 - A temporary network failure keeps the source identity for retry.
 - Credentials and tokens never appear in the visible detail or Debug Log.
+
+## Presets on the server
+
+Create and save stores the selected process tree as a server preset. Save
+updates the selected preset; it does not create a second record. Delete asks
+for confirmation and removes that preset. Partial scope and chunk size control
+the current run and are not written into the preset's process tree.

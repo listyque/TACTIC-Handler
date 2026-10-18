@@ -192,6 +192,7 @@ class RecordListModel(QAbstractListModel):
     def count(self) -> int:
         return len(self._records)
 
+    @Slot(result="QVariantList")
     def records(self) -> list[dict]:
         """Return a detached snapshot for Python-side feature composition."""
         return [dict(record) for record in self._records]

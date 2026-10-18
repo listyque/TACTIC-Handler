@@ -1,9 +1,8 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
 import "tactic_frame" as Frame
 import "tactic_frame/features/configuration/repository.ui.mjs" as UI
+import "tactic_frame/features/files/repository_prompts.ui.mjs" as Prompts
 
 Item {
     id: root
@@ -12,6 +11,8 @@ Item {
     property int selectedRow: 0
     property int modelRevision: 0
     property bool editing: false
+    property string pendingTeamPath: ""
+    property string pendingTeamCode: ""
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     readonly property var record: {
         modelRevision;
@@ -38,6 +39,13 @@ Item {
             root.modelRevision++;
         }
     }
+    function askTeamRepository() {
+        if (repositoryEditorController.busy)
+            return;
+        pendingTeamPath = repositoryEditorController.current_path;
+        pendingTeamCode = repositoryEditorController.current_code;
+        teamRepositoryDialog.open();
+    }
     function dispatch(action) {
         if (action.type === "field")
             repositoryEditorModel.set_value(selectedRow, action.field, action.value);
@@ -58,10 +66,10 @@ Item {
         else if (action.type === "check")
             repositoryEditorController.check_paths();
         else if (action.type === "sync")
-            teamRepositoryDialog.open();
+            askTeamRepository();
         else if (action.type === "save") {
             if (repositoryEditorController.save() && repositoryEditorController.team_local_repository)
-                teamRepositoryDialog.open();
+                askTeamRepository();
         } else if (action.type === "close" && !repositoryEditorController.busy)
             windowModel.close_window("repository_editor");
         else if (action.type === "back")
@@ -85,29 +93,24 @@ Item {
         modal: true
         anchors.centerIn: parent
         width: Math.min(480, root.width - 32)
-        onAccepted: repositoryEditorController.sync_team_repository_path()
-
-        contentItem: Label {
-            width: teamRepositoryDialog.width - teamRepositoryDialog.leftPadding - teamRepositoryDialog.rightPadding
-            text: qsTr("TACTIC's server-wide repository path will be set to:") + "\n" + repositoryEditorController.current_code + " → " + repositoryEditorController.current_path + "\n\n" + qsTr("This affects every TACTIC client. Confirm only if the server can access this folder.")
-            color: root.theme.primaryText
-            font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.body
-            wrapMode: Text.WrapAnywhere
+        onAccepted: {
+            if (!repositoryEditorController.busy && !repositoryEditorController.dirty && root.pendingTeamPath === repositoryEditorController.current_path && root.pendingTeamCode === repositoryEditorController.current_code)
+                repositoryEditorController.sync_team_repository_path();
         }
-        footer: Controls.DialogActions {
+        contentItem: Frame.FrameView {
             theme: root.theme
-            Controls.Button {
-                theme: root.theme
-                text: qsTr("Cancel")
-                flat: true
-                onClicked: teamRepositoryDialog.reject()
-            }
-            Controls.Button {
-                theme: root.theme
-                text: qsTr("Update server path")
-                highlighted: true
-                onClicked: teamRepositoryDialog.accept()
+            implicitHeight: Math.max(170, Math.min(300, root.height - 180))
+            scene: Prompts.team({
+                path: root.pendingTeamPath,
+                code: root.pendingTeamCode,
+                busy: repositoryEditorController.busy,
+                changed: repositoryEditorController.dirty || root.pendingTeamPath !== repositoryEditorController.current_path || root.pendingTeamCode !== repositoryEditorController.current_code
+            }, width, height, root.language)
+            onEvent: action => {
+                if (action.type === "accept")
+                    teamRepositoryDialog.accept();
+                else if (action.type === "reject")
+                    teamRepositoryDialog.reject();
             }
         }
     }

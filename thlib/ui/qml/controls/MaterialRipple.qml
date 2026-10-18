@@ -44,7 +44,7 @@ Item {
         // animation graph while QUnifiedTimer is still stopping its driver.
         // Release it on the next event-loop turn, after the stop completed.
         Qt.callLater(function() {
-            if (root.animationGeneration !== generation)
+            if (!root || root.animationGeneration !== generation)
                 return
             root.rendering = false
         })

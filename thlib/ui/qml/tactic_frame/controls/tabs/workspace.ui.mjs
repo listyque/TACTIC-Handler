@@ -8,6 +8,10 @@ export const dimensions = {
     dragThreshold: 10
 };
 
+export function viewTabWidth(labelAdvance) {
+    return Math.max(140, Math.ceil(labelAdvance) + 96);
+}
+
 export function tab(width, height, record, state = {}) {
     const selected = !!record.current,
         color = selected ? 'action' : 'secondaryText';

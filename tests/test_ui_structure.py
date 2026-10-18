@@ -361,13 +361,13 @@ class UiStructureTests(unittest.TestCase):
             FloatingWindowModel._context_required_windows,
         )
         commit_queue_menu = (
-            QML / "CommitQueueActionMenus.qml"
+            QML / "features/files/queue/QueueView.qml"
         ).read_text(encoding="utf-8")
         self.assertIn(
-            "root.screenshot.prepare_for_operation", commit_queue_menu
+            "screenshotController.prepare_for_operation", commit_queue_menu
         )
         self.assertIn(
-            'root.windows.show_child_window(',
+            'windowModel.show_child_window(',
             commit_queue_menu,
         )
         self.assertIn(
@@ -713,7 +713,7 @@ class UiStructureTests(unittest.TestCase):
 
     def test_process_filter_window_keeps_legacy_compact_density(self):
         source = (QML / "ProcessFilterEditorView.qml").read_text(encoding="utf-8")
-        sync_source = (QML / "RepositorySyncEditorView.qml").read_text(encoding="utf-8")
+        sync_source = (QML / "features/files/sync/SyncEditorView.qml").read_text(encoding="utf-8")
         tree_source = (QML / "controls" / "ProcessSelectionTree.qml").read_text(
             encoding="utf-8"
         )
@@ -1295,15 +1295,22 @@ class UiStructureTests(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_all_split_views_use_the_shared_resize_grip(self):
-        for path in QML.glob('*.qml'):
+        for path in list(QML.glob('*.qml')) + list((QML / 'features/files').rglob('*.qml')):
             source = path.read_text(encoding='utf-8')
             self.assertEqual(
                 len(re.findall(r'\bSplitView\s*\{', source)),
                 source.count('handle: Controls.SplitterHandle {'),
                 path.name,
             )
+        queue = (QML / 'features/files/queue/QueueView.qml').read_text(encoding='utf-8')
+        scene = (QML / 'tactic_frame/features/files/queue/queue.ui.mjs').read_text(encoding='utf-8')
+        renderer = (QML / 'tactic_frame/core/FrameView.qml').read_text(encoding='utf-8')
+        handle = (QML / 'controls/SplitterHandle.qml').read_text(encoding='utf-8')
+        self.assertIn('scene: UI.describe(', queue)
+        self.assertIn("'Splitter'", scene)
+        self.assertIn('Controls.ResizeGripVisual {', renderer)
+        self.assertIn('ResizeGripVisual {', handle)
         for filename in (
-            'CommitQueueView.qml',
             'SearchResultsPane.qml',
             'SnapshotBrowser.qml',
         ):

@@ -234,8 +234,10 @@ class DownloadOperation:
                     self.signals.cancelled.emit(task.task_id)
                     return
                 except Exception as error:
-                    last_error = error
+                    last_error = str(error)
                     last_traceback = traceback.format_exc()
+                    if isinstance(error, urllib.error.HTTPError):
+                        error.close()
                     try:
                         partial.unlink(missing_ok=True)
                     except OSError:

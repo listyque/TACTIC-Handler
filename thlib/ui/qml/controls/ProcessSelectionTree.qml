@@ -138,7 +138,7 @@ Rectangle {
                 }
                 Label {
                     objectName: "processSelectionTitle_" + treeRow.kind
-                    readonly property var node: treeRow.parts[objectName]
+                    readonly property var node: treeRow.parts["processSelectionTitle_" + treeRow.kind]
                     x: node.x
                     y: node.y
                     width: node.width

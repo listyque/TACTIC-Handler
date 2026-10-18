@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QPoint, QPointF, Qt, QUrl, Slot
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, QUrl, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickWindow
@@ -25,6 +25,16 @@ from thlib.ui.localization import CatalogTranslator
 
 ROOT = Path(__file__).resolve().parents[1]
 QML = ROOT / "thlib" / "ui" / "qml"
+
+
+def _visual_child(item, name):
+    if item.objectName() == name:
+        return item
+    for child in item.childItems():
+        found = _visual_child(child, name)
+        if found is not None:
+            return found
+    return None
 
 
 class _WindowModel(QObject):
@@ -631,20 +641,23 @@ class IngestFilesControllerTests(unittest.TestCase):
             view.setProperty("width", 760)
             view.setProperty("height", 560)
             self.app.processEvents()
-            files_panel = view.findChild(QObject, "ingestFilesPanel")
-            rule_panel = view.findChild(QObject, "ingestRulePanel")
+            files_panel = _visual_child(view, "ingestFilesPanel")
+            rule_panel = _visual_child(view, "ingestRulePanel")
             self.assertIsNotNone(files_panel)
             self.assertIsNotNone(rule_panel)
-            self.assertTrue(view.property("wideLayout"))
+            self.assertEqual(files_panel.mapToScene(QPointF()).y(), rule_panel.mapToScene(QPointF()).y())
 
             view.setProperty("width", 680)
             view.setProperty("height", 760)
             self.app.processEvents()
-            self.assertFalse(view.property("wideLayout"))
+            self.assertGreater(rule_panel.mapToScene(QPointF()).y(), files_panel.mapToScene(QPointF()).y())
         finally:
             if view is not None:
                 view.deleteLater()
             theme.deleteLater()
+            engine.deleteLater()
+            self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+            self.app.processEvents()
 
     def test_conflict_dialog_cancels_through_a_real_pointer_click(self):
         application = _Application()
@@ -693,7 +706,7 @@ class IngestFilesControllerTests(unittest.TestCase):
             controller.stateChanged.emit()
             self.app.processEvents()
             dialog = view.findChild(QObject, "ingestConflictDialog")
-            button = view.findChild(QObject, "cancelIngestConflictButton")
+            button = _visual_child(window.contentItem(), "ingestConflict_cancel")
             self.assertIsNotNone(dialog)
             self.assertIsNotNone(button)
             self.assertTrue(dialog.property("opened"))
@@ -703,12 +716,12 @@ class IngestFilesControllerTests(unittest.TestCase):
                 self.app.processEvents()
                 self.assertLessEqual(dialog.property("width"), width - 24)
                 for object_name in (
-                    "cancelIngestConflictButton",
-                    "duplicateIngestConflictButton",
-                    "skipIngestConflictButton",
-                    "updateIngestConflictButton",
+                    "ingestConflict_cancel",
+                    "ingestConflict_duplicates",
+                    "ingestConflict_skip",
+                    "ingestConflict_update",
                 ):
-                    action = view.findChild(QObject, object_name)
+                    action = _visual_child(window.contentItem(), object_name)
                     top_left = action.mapToScene(QPointF(0, 0))
                     bottom_right = action.mapToScene(QPointF(
                         action.property("width"), action.property("height"),
@@ -732,6 +745,9 @@ class IngestFilesControllerTests(unittest.TestCase):
             if view is not None:
                 view.deleteLater()
             theme.deleteLater()
+            engine.deleteLater()
+            self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+            self.app.processEvents()
             self.app.removeTranslator(translator)
 
 

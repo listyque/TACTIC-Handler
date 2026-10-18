@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QPoint, Qt, QUrl, Slot
+from PySide6.QtCore import QObject, QPoint, Qt, QUrl, Slot, QEvent
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtQml import QQmlComponent, QQmlEngine
@@ -17,6 +17,15 @@ from thlib.ui.editor_tools import ScreenshotController
 
 
 QML = Path(__file__).resolve().parents[1] / "thlib" / "ui" / "qml"
+
+
+def _visual(item, name):
+    if item.objectName() == name:
+        return item
+    for child in item.childItems():
+        result = _visual(child, name)
+        if result is not None:
+            return result
 
 
 class _WindowModel(QObject):
@@ -144,9 +153,7 @@ class ScreenshotControllerTests(unittest.TestCase):
             self.assertEqual(selection.property("width"), 128.0)
             self.assertEqual(selection.property("height"), 128.0)
             self.assertTrue(
-                capture_window.findChild(
-                    QObject, "screenshotCaptureButton"
-                ).property("visible")
+                _visual(capture_window.contentItem(), "screenshotCaptureButton").property("visible")
             )
 
             QTest.keyClick(capture_window, Qt.Key.Key_Escape)
@@ -164,6 +171,9 @@ class ScreenshotControllerTests(unittest.TestCase):
             view.deleteLater()
             theme.deleteLater()
             engine.deleteLater()
+            host_window.deleteLater()
+            source_window.deleteLater()
+            self.app.sendPostedEvents(None, QEvent.DeferredDelete)
             self.app.processEvents()
 
 

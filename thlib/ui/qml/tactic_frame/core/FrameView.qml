@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Window
 import ".."
 import "../controls/forms" as Forms
 import "frame.mjs" as Contract
@@ -190,6 +191,8 @@ Item {
                     easing.type: Easing.OutCubic
                 }
             }
+            scale: node.scale === undefined ? 1 : node.scale
+            transformOrigin: Item.TopLeft
             x: node.x
             y: node.y
             width: node.width
@@ -255,7 +258,7 @@ Item {
                     case "Icon":
                         return iconBrick;
                     case "Button":
-                        return wrapper.node.filledAction ? filledActionBrick : wrapper.node.iconAction ? iconActionBrick : buttonBrick;
+                        return wrapper.node.tab ? tabBrick : wrapper.node.filledAction ? filledActionBrick : wrapper.node.iconAction ? iconActionBrick : buttonBrick;
                     case "Action":
                         return actionBrick;
                     case "CheckBox":
@@ -314,6 +317,14 @@ Item {
                         radius: wrapper.node.radiusRole ? root.effectiveTheme[wrapper.node.radiusRole] : wrapper.node.radius === undefined ? root.effectiveTheme.surfaceRadius : wrapper.node.radius
                         bottomRightRadius: wrapper.node.bottomRightRadius === undefined ? radius : wrapper.node.bottomRightRadius
                         clip: true
+                        TapHandler {
+                            acceptedButtons: Qt.RightButton
+                            enabled: !!wrapper.node.contextAction && root.interactive
+                            onTapped: point => root.send(wrapper.node.contextAction, {
+                                    x: point.position.x,
+                                    y: point.position.y
+                                }, parent)
+                        }
                         FrameBranch {
                             id: boxContent
                             anchors.fill: parent
@@ -362,7 +373,7 @@ Item {
                         font: root.controlFont(wrapper.node)
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: wrapper.node.align === "center" ? Text.AlignHCenter : wrapper.node.align === "right" ? Text.AlignRight : Text.AlignLeft
-                        wrapMode: wrapper.node.wrap ? Text.WordWrap : Text.NoWrap
+                        wrapMode: wrapper.node.wrapAnywhere ? Text.WrapAnywhere : wrapper.node.wrap ? Text.WordWrap : Text.NoWrap
                         maximumLineCount: wrapper.node.maxLines || 2147483647
                         elide: wrapper.node.elide === false ? Text.ElideNone : wrapper.node.elideMiddle ? Text.ElideMiddle : wrapper.node.maxLines ? Text.ElideRight : wrapper.node.wrap ? Text.ElideNone : Text.ElideRight
 
@@ -517,6 +528,20 @@ Item {
                     }
                 }
                 Component {
+                    id: tabBrick
+                    Controls.TabButton {
+                        id: tabControl
+                        objectName: wrapper.node.id
+                        theme: root.effectiveTheme
+                        text: wrapper.node.text
+                        checked: !!wrapper.node.selected
+                        enabled: !!wrapper.node.enabled
+                        font: root.controlFont(wrapper.node)
+                        Accessible.name: wrapper.node.label || wrapper.node.text
+                        onClicked: root.send(wrapper.node.action, undefined, tabControl)
+                    }
+                }
+                Component {
                     id: buttonBrick
                     Controls.Button {
                         id: buttonControl
@@ -591,6 +616,10 @@ Item {
                                     nodes: wrapper.node.children
                                 })
                             interactive: false
+                            models: root.models
+                            views: root.views
+                            describeRow: root.describeRow
+                            describeCell: root.describeCell
                             enabled: false
                         }
                         onClicked: root.send(wrapper.node.action, undefined, actionControl)
@@ -626,6 +655,8 @@ Item {
                     id: checkBrick
                     Controls.CheckBox {
                         id: checkControl
+                        onActiveFocusChanged: if (activeFocus)
+                            root.reveal(checkControl)
                         compact: !!wrapper.node.compact
                         prominent: !!wrapper.node.prominent
                         objectName: wrapper.node.id
@@ -676,7 +707,8 @@ Item {
                                 font: checkControl.font
                                 color: checkControl.enabled ? root.effectiveTheme.primaryText : root.effectiveTheme.disabledText
                                 verticalAlignment: Text.AlignVCenter
-                                elide: Text.ElideRight
+                                elide: wrapper.node.wrapText ? Text.ElideNone : Text.ElideRight
+                                wrapMode: wrapper.node.wrapText ? Text.Wrap : Text.NoWrap
                             }
                             FrameBranch {
                                 anchors.fill: parent
@@ -897,13 +929,20 @@ Item {
                     Controls.ComboBox {
                         objectName: wrapper.node.id
                         theme: root.effectiveTheme
-                        model: wrapper.node.options || []
+                        // Replacing an unchanged model makes Qt reset an in-progress edit.
+                        property string optionsJson: JSON.stringify(wrapper.node.options || [])
+                        model: JSON.parse(optionsJson)
                         textRole: "label"
                         valueRole: "value"
                         iconRole: "icon"
+                        editable: !!wrapper.node.editable
+                        editText: String(wrapper.node.value ?? "")
+                        placeholderText: wrapper.node.placeholder || ""
+                        onTextEdited: value => root.send(wrapper.node.action, value)
+                        onAccepted: root.send(wrapper.node.commitAction, editText)
                         translateDisplayText: false
                         enabled: !!wrapper.node.enabled
-                        currentIndex: (wrapper.node.options || []).findIndex(item => item.value === wrapper.node.value)
+                        currentIndex: editable ? -1 : (wrapper.node.options || []).findIndex(item => item.value === wrapper.node.value)
                         displayText: currentIndex < 0 ? String(wrapper.node.value ?? "") : (wrapper.node.displayPrefix || "") + currentText
                         Accessible.name: wrapper.node.label || ""
                         font: root.controlFont(wrapper.node)
@@ -925,6 +964,11 @@ Item {
                         leftPadding: 0
                         rightPadding: 0
                         Accessible.name: wrapper.node.text
+                        Controls.ToolTip {
+                            theme: root.effectiveTheme
+                            visible: parent.hovered && !!wrapper.node.toolTip && !root.effectiveTheme.suppressToolTips
+                            text: wrapper.node.toolTip || ""
+                        }
                         onToggled: root.send(wrapper.node.action, checked)
                     }
                 }
@@ -943,17 +987,19 @@ Item {
                     id: splitterBrick
                     Item {
                         id: splitter
+                        readonly property var ownerWindow: splitter.Window.window
                         objectName: wrapper.node.id
                         enabled: !!wrapper.node.enabled
                         activeFocusOnTab: enabled
                         Accessible.role: Accessible.Separator
                         Accessible.name: wrapper.node.text
-                        function set(value) {
-                            root.send(wrapper.node.action, Math.max(wrapper.node.min, Math.min(wrapper.node.max, value)));
+                        function set(value, commit) {
+                            const action = commit && wrapper.node.commitAction ? wrapper.node.commitAction : wrapper.node.action;
+                            root.send(action, Math.max(wrapper.node.min, Math.min(wrapper.node.max, value)));
                         }
                         Keys.onPressed: event => {
                             if ((wrapper.node.horizontal ? event.key === Qt.Key_Up || event.key === Qt.Key_Down : event.key === Qt.Key_Left || event.key === Qt.Key_Right) || event.key === Qt.Key_Home || event.key === Qt.Key_End) {
-                                set(event.key === Qt.Key_Home ? wrapper.node.min : event.key === Qt.Key_End ? wrapper.node.max : wrapper.node.value + (event.key === Qt.Key_Left || event.key === Qt.Key_Up ? -10 : 10) * (wrapper.node.reverse ? -1 : 1));
+                                set(event.key === Qt.Key_Home ? wrapper.node.min : event.key === Qt.Key_End ? wrapper.node.max : wrapper.node.value + (event.key === Qt.Key_Left || event.key === Qt.Key_Up ? -10 : 10) * (wrapper.node.reverse ? -1 : 1), true);
                                 event.accepted = true;
                             }
                         }
@@ -963,6 +1009,18 @@ Item {
                             hovered: splitterMouse.containsMouse
                             pressed: splitterMouse.pressed
                         }
+                        Connections {
+                            id: splitterWindow
+                            target: splitter.ownerWindow
+                            function onVisibleChanged() {
+                                if (splitter.ownerWindow && !splitter.ownerWindow.visible)
+                                    splitterMouse.cancelResize();
+                            }
+                            function onActiveChanged() {
+                                if (splitter.ownerWindow && !splitter.ownerWindow.active)
+                                    splitterMouse.cancelResize();
+                            }
+                        }
                         MouseArea {
                             id: splitterMouse
                             anchors.fill: parent
@@ -970,15 +1028,33 @@ Item {
                             cursorShape: wrapper.node.horizontal ? Qt.SplitVCursor : Qt.SplitHCursor
                             property real start: 0
                             property real value: 0
+                            property bool resizing: false
+                            function cancelResize() {
+                                if (!resizing)
+                                    return;
+                                resizing = false;
+                                if (root && wrapper && wrapper.node.cancelAction)
+                                    root.send(wrapper.node.cancelAction, value);
+                            }
                             onPressed: mouse => {
+                                resizing = true;
                                 start = wrapper.node.horizontal ? mapToItem(root, mouse.x, mouse.y).y : mapToItem(root, mouse.x, mouse.y).x;
                                 value = wrapper.node.value;
                                 splitter.forceActiveFocus();
                             }
-                            onPositionChanged: mouse => {
-                                if (pressed)
-                                    splitter.set(value + ((wrapper.node.horizontal ? mapToItem(root, mouse.x, mouse.y).y : mapToItem(root, mouse.x, mouse.y).x) - start) * (wrapper.node.reverse ? -1 : 1));
+                            function positionValue(mouse) {
+                                return value + ((wrapper.node.horizontal ? mapToItem(root, mouse.x, mouse.y).y : mapToItem(root, mouse.x, mouse.y).x) - start) * (wrapper.node.reverse ? -1 : 1);
                             }
+                            onPositionChanged: mouse => {
+                                if (pressed && resizing)
+                                    splitter.set(positionValue(mouse), false);
+                            }
+                            onReleased: mouse => {
+                                if (resizing && wrapper.node.commitAction)
+                                    splitter.set(positionValue(mouse), true);
+                                resizing = false;
+                            }
+                            onCanceled: cancelResize()
                         }
                     }
                 }
@@ -1048,7 +1124,7 @@ Item {
                             views: root.views
                             describeRow: root.describeRow
                             describeCell: root.describeCell
-                            scene: record ? root.describeRow(wrapper.node, record) : ({
+                            scene: record ? root.describeRow(wrapper.node, record, index) : ({
                                     nodes: []
                                 })
                             interactive: root.interactive

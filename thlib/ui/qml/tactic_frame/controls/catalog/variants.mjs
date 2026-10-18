@@ -146,6 +146,17 @@ export const examples = [
         text: 'Enabled',
         value: true
     }),
+    sample(
+        'checkbox-wrapped',
+        'toggles',
+        'CheckBox',
+        {
+            text: 'Very long example item title that wraps in a narrow viewport',
+            wrapText: true,
+            value: true
+        },
+        64
+    ),
     sample('checkbox-mixed', 'toggles', 'CheckBox', {
         text: 'Enabled',
         value: true,
@@ -224,6 +235,10 @@ export const examples = [
     }),
     sample('choice', 'choices', 'Choice', { value: 'model' }),
     sample('choice-empty', 'choices', 'Choice', { value: '' }),
+    sample('choice-editable', 'choices', 'Choice', {
+        value: 'custom_process',
+        editable: true
+    }),
     sample('choice-disabled-option', 'choices', 'Choice', {
         value: 'model',
         disabledOption: true
@@ -778,6 +793,7 @@ export function describe(
                 values.text,
                 {
                     fontRole: values.compact ? 'secondary' : 'body',
+                    wrap: !!values.wrapText,
                     color: values.enabled ? 'primaryText' : 'disabledText'
                 }
             )

@@ -171,3 +171,17 @@ Automatic background server polling pauses during queue execution, including act
 ## Versionless behavior
 
 For `multi_file`, `dir` and `sequence` check-ins, and grouped Drop Plate operations, both versionless controls are disabled. Only the numbered snapshot and its files are saved, in both legacy and server queue modes. Ordinary file check-ins keep the selected versionless preferences. Editing all checked items cannot enable versionless on an incompatible operation. Previously submitted server work keeps its original contract.
+
+## Narrow docks and session changes
+
+In a narrow dock, switch between **QUEUE** and **Operation details**. The QUEUE
+page contains the selected operation's source files, **Choose source files
+again** and **Directory**. After a browser reload, choose the same paths and
+file sizes before returning to Operation details to send the operation.
+
+A delayed clipboard, screen-capture or validation result belongs to the session
+and operation that started it. It cannot change another account's queue. A
+renewed browser session retains the same user's selected local files; an
+interrupted upload can be retried. If the session changes while a publication
+reply is pending, its result is unknown: inspect Snapshot Browser before
+preparing another publication. The queue does not automatically repeat that write.

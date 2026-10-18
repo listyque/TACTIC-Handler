@@ -242,7 +242,7 @@ class RepositorySyncEditorController(QObject):
                 ("key", "like", f"search_type:{stype_code}%"),
                 ("project_code", project_code),
             ],
-            ["code", "key", "data", "project_code"],
+            ["id", "key", "data", "project_code"],
         )
         result = []
         for row in rows or []:
@@ -263,7 +263,7 @@ class RepositorySyncEditorController(QObject):
                 "getVersions": bool(data.get("get_versions")),
                 "onlyUpdates": bool(data.get("only_updates")),
                 "data": data,
-                "code": str(row.get("code") or ""),
+                "code": str(row.get("code") or row.get("id") or ""),
             })
         if not result:
             default = {
@@ -572,7 +572,7 @@ class RepositorySyncEditorController(QObject):
         current = server.query(
             "sthpw/wdg_settings",
             [("key", key), ("project_code", project_code)],
-            ["code", "project"], single=True,
+            single=True,
         )
         values = {
             "data": gf.to_json(data),
@@ -581,10 +581,7 @@ class RepositorySyncEditorController(QObject):
             "project_code": project_code,
         }
         if current:
-            search_key = server.build_search_key(
-                "sthpw/wdg_settings", current["code"], current.get("project")
-            )
-            server.insert_update(search_key, values, triggers=False)
+            server.update(current["__search_key__"], values, triggers=False)
         else:
             server.insert("sthpw/wdg_settings", values, triggers=False)
         return name

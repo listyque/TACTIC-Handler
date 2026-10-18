@@ -57,6 +57,14 @@ export const textStyles = Object.freeze({
 
 // House-control geometry comes from Handler; hosts supply native input and paint.
 export const controls = {
+    dialog: {
+        padding: 20,
+        spacing: 12,
+        headerHeight: 62,
+        titleSize: 16,
+        shadowY: 6,
+        shadowBlur: 14
+    },
     document: {
         bodySize: 12,
         lineHeight: 17,
@@ -67,7 +75,17 @@ export const controls = {
         cellPadding: 4
     },
     field: { padding: 12, areaPadding: 10 },
-    choice: { rowHeight: 34, visibleRows: 8, popupPadding: 4, popupGap: 4 },
+    choice: {
+        rowHeight: 34,
+        visibleRows: 8,
+        popupPadding: 4,
+        popupGap: 4,
+        paddingLeft: 11,
+        paddingRight: 32,
+        indicatorSize: 17,
+        indicatorRight: 9,
+        indicatorHit: 40
+    },
     tooltip: {
         delay: 500,
         timeout: 5000,
@@ -534,7 +552,8 @@ export const cssRoles = {
     onError: '--on-error',
     ripple: '--ripple-color',
     popupShadow: '--shadow-color',
-    scrim: '--scrim'
+    scrim: '--scrim',
+    dialogShadow: '--dialog-shadow'
 };
 
 export function cssColor(channels) {

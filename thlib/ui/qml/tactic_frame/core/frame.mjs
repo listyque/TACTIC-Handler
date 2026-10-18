@@ -186,6 +186,11 @@ export function validateScene(scene, models, views) {
             throw Error('Duplicate/missing Frame id: ' + value.id);
         ids.add(value.id);
         if (
+            value.scale !== undefined &&
+            (!Number.isFinite(value.scale) || value.scale <= 0)
+        )
+            throw Error('Invalid Frame scale: ' + value.id);
+        if (
             !Object.prototype.hasOwnProperty.call(textStyles, value.fontRole) ||
             value.fontSize !== textStyles[value.fontRole]
         )
@@ -200,8 +205,10 @@ export function validateScene(scene, models, views) {
         for (const key of [
             'action',
             'doubleAction',
+            'contextAction',
             'activateAction',
             'commitAction',
+            'cancelAction',
             'dropAction',
             'dragStartAction'
         ])

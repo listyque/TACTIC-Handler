@@ -19,6 +19,7 @@ Neither product imports the other checkout at runtime.
 | `features/objects` | Object reports, descriptions, configured field cards/forms, operations, snapshots, watch and inspector fragments | Core and neutral controls; existing drafts, revisions, ACL, write and filesystem owners remain outside descriptions |
 | `features/messages` | Conversations, message header/body/reference/pins, composer input rules, forms, members/history/files and attachment drafts | Core and neutral controls; requests, permissions, drafts, receipts, uploads and retained identities stay in the hosts |
 | `features/activity` | Feed toolbar, event card, calendar, notification history and toasts | Core and neutral controls; activity queries, paging, notification timers and writes stay in the hosts |
+| `features/files` | Matching templates, ingest, Drop Plate, object check-in, commit/sync queues, repository prompts, screenshot selection and File Workspace | Core and neutral controls; native/browser capabilities, filesystem identities, requests, drafts, journals and mutations retain their existing owners |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
 | `features/support/diagnostics` | Debug sessions, event details, measurements and selection | Core and controls |

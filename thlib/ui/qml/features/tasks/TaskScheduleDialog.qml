@@ -19,7 +19,7 @@ Controls.Dialog {
         progressField: controller.progressSupported,
         workingDays: controller.ganttWorkingDays,
         multi: record.checked && controller.advancedCheckedCount > 1
-    }), availableWidth, language)
+    }), Math.max(0, width - leftPadding - rightPadding), language)
     title: qsTr("Edit schedule")
     modal: true
     draggable: true

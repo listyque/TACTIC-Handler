@@ -4,15 +4,24 @@ import unittest
 from unittest.mock import Mock, patch
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QPointF, QUrl
+from PySide6.QtCore import QObject, QPointF, QUrl, QEvent, Slot
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlPropertyMap
+from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTest import QTest
 
 from thlib.ui.process_filter_editor import ProcessFilterEditorController
 from thlib.ui.repository_sync_editor import RepositorySyncEditorController
 from thlib.ui.workspace import RecordListModel
+from thlib.ui.repository_sync import RepositorySyncController
+from tests.frame_files_fixture import Windows
+
+
+# QML retains this meta type beyond an individual test engine.
+class _MenuActions(QObject):
+    @Slot(str, result="QVariantList")
+    def menu_actions(self, _name):
+        return []
 
 
 class _Pipeline:
@@ -465,70 +474,36 @@ class RepositorySyncEditorQmlTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QGuiApplication.instance() or QGuiApplication([])
 
-    @staticmethod
-    def _property_map(values):
-        result = QQmlPropertyMap()
-        for key, value in values.items():
-            result.insert(key, value)
-        return result
+    def test_shared_left_and_queue_right_layout_instantiates(self):
+        from tests.profile_ui_responsiveness import frame
 
-    def test_legacy_left_and_queue_right_layout_instantiates(self):
+        def visual(item, name):
+            if item.objectName() == name:
+                return item
+            for child in item.childItems():
+                result = visual(child, name)
+                if result is not None:
+                    return result
+
         qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
         engine = QQmlEngine()
-        editor = self._property_map({
-            "contextTitle": "Asset A", "busy": False,
-            "selectedPreset": 0, "validContext": True,
-            "fullSync": False, "onlyUpdates": False,
-            "scopeMode": "full", "partialChunkSize": 10,
-            "error": "", "dirty": False,
-        })
-        sync = self._property_map({
-            "discovery_active": False, "discovery_state": "idle",
-            "discovery_mode": "full", "active_count": 0,
-            "queue_count": 0, "auto_clean": False,
-            "batch_file_count": 0, "failed_file_count": 0,
-            "processed_file_count": 0, "completed_file_count": 0,
-            "overall_progress": 0.0, "discovery_total_roots": 0,
-            "discovery_processed_roots": 0, "active_row": -1,
-            "total_size_text": "0 B", "transferred_size_text": "0 B",
-            "remaining_size_text": "0 B", "aggregate_speed_text": "0 B/s",
-            "elapsed_text": "00:00", "eta_text": "--",
-            "discovery_error": "",
-        })
-        presets = RecordListModel((
-            "name", "title", "getVersions", "onlyUpdates", "data", "code",
-        ))
-        presets.reset_records([{
-            "name": "default", "title": "Default",
-            "getVersions": False, "onlyUpdates": False,
-            "data": {}, "code": "",
-        }])
-        tree = RecordListModel((
-            "nodeId", "parentId", "dataKey", "title", "subtitle", "kind",
-            "depth", "checkable", "checked", "expanded", "rowVisible",
-            "selected", "accent", "hasChildren",
-        ))
-        tree.reset_records([{
-            "nodeId": "builtin:publish", "parentId": "",
-            "dataKey": "publish:{b}", "title": "Publish",
-            "subtitle": "Built-in process", "kind": "builtin",
-            "depth": 0, "checkable": True, "checked": True,
-            "expanded": True, "rowVisible": True, "selected": False,
-            "accent": "", "hasChildren": False,
-        }])
-        queue = RecordListModel((
-            "taskId", "title", "process", "progress", "progressValue",
-            "status", "checked", "bytesDone", "bytesTotal", "speed",
-            "localPath", "webPath", "attempt", "error", "active",
-            "phase", "alreadyExists",
-        ))
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(str(error) for error in errors))
+        menu_actions = _MenuActions()
+        editor, requests = RepositorySyncEditorTests().make_controller()
+        editor.presets.replace([{"name": "default", "title": "Default", "data": {}}])
+        editor.select_preset(0)
+        sync = RepositorySyncController()
+        presets, tree, queue = editor.presets, editor.model, sync.model
         context = engine.rootContext()
+        context.setContextProperty("appController", menu_actions)
         context.setContextProperty("repositorySyncEditorController", editor)
         context.setContextProperty("repositorySync", sync)
         context.setContextProperty("repositorySyncPresetModel", presets)
         context.setContextProperty("repositorySyncTreeModel", tree)
         context.setContextProperty("repoSyncModel", queue)
-        context.setContextProperty("windowModel", self._property_map({}))
+        windows = Windows()
+        context.setContextProperty("windowModel", windows)
 
         theme_component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
@@ -550,43 +525,43 @@ class RepositorySyncEditorQmlTests(unittest.TestCase):
         view.setParentItem(window.contentItem())
         view.setSize(window.size())
         window.show()
-        QTest.qWait(40)
+        try:
+            frame(window)
+            process_panel = visual(view, "repositorySyncProcessPanel")
+            queue_panel = visual(view, "repositorySyncQueuePanel")
+            process_tree = visual(view, "repositorySyncProcessTree")
+            self.assertIsNotNone(process_panel)
+            self.assertIsNotNone(queue_panel)
+            self.assertIsNotNone(process_tree)
+            self.assertGreater(process_tree.property("count"), 0)
+            self.assertLess(process_panel.mapToScene(QPointF()).x(), queue_panel.mapToScene(QPointF()).x())
+            self.assertIsNone(visual(view, "repositorySyncPresetDeleteButton"))
+            process_panel.setProperty("togglersExpanded", True)
+            frame(window)
+            delete_button = visual(view, "repositorySyncPresetDeleteButton")
+            self.assertIsNotNone(delete_button)
+            self.assertTrue(delete_button.isVisible())
+            sync._discovery_active = True
+            sync._discovery_state = "processing"
+            sync._discovery_total_roots = 300
+            sync.state_changed.emit()
+            frame(window)
+            status_label = visual(view, "repositorySyncStatusLabel")
+            self.assertIsNotNone(status_label)
+            self.assertEqual(status_label.property("text"), "Processing server response: 300 objects")
+            self.assertEqual(warnings, [])
+        finally:
+            sync.shutdown()
+            window.close()
+            view.deleteLater()
+            window.deleteLater()
+            theme.deleteLater()
+            engine.deleteLater()
+            for resource in (editor, sync, windows, menu_actions):
+                resource.deleteLater()
+            self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+            self.app.processEvents()
 
-        process_panel = view.findChild(QObject, "repositorySyncProcessPanel")
-        queue_panel = view.findChild(QObject, "repositorySyncQueuePanel")
-        delete_button = view.findChild(
-            QObject, "repositorySyncPresetDeleteButton"
-        )
-        process_tree = view.findChild(
-            QObject, "repositorySyncProcessTree"
-        )
-        status_label = view.findChild(QObject, "repositorySyncStatusLabel")
-        self.assertIsNotNone(process_panel)
-        self.assertIsNotNone(queue_panel)
-        self.assertIsNotNone(process_tree)
-        self.assertIsNotNone(status_label)
-        self.assertEqual(process_tree.property("count"), 1)
-        self.assertLess(
-            process_panel.mapToScene(QPointF()).x(),
-            queue_panel.mapToScene(QPointF()).x(),
-        )
-        self.assertFalse(delete_button.property("visible"))
-        process_panel.setProperty("togglersExpanded", True)
-        QTest.qWait(20)
-        self.assertTrue(delete_button.property("visible"))
-        sync.insert("discovery_active", True)
-        sync.insert("discovery_state", "processing")
-        sync.insert("discovery_total_roots", 300)
-        QTest.qWait(20)
-        self.assertEqual(
-            status_label.property("text"),
-            "Processing server response: 300 objects",
-        )
-
-        window.close()
-        window.deleteLater()
-        view.deleteLater()
-        theme.deleteLater()
 
 
 if __name__ == "__main__":

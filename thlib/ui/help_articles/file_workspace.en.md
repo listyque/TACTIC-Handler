@@ -531,3 +531,14 @@ provides inspection and does not run local Reconcile.
 
 In full Task Manager, + also works when no object is selected. It creates a task owned only by the current project; no asset, shot or other work object is needed. The task uses the standard task status workflow and initially assigns the current user, so it appears in My tasks. Edit and save it using the existing task controls, then open Task Inspector as usual. In a Perforce-like file project, select it under Link tasks to changelist in the submit dialog. With an object selected, + keeps creating a task for that object.
 
+## Work views and metadata
+
+Work-view tabs keep their natural caption widths. When they do not fit, use the
+horizontal scrollbar; closing a tab remains separate from selecting it. The
+View menu opens the available file, changelist, history and metadata views.
+
+Select a workspace in its metadata list to inspect its server record. Handler
+also provides Switch workspace, Edit workspace and Workspace setup. Stream's
+browser view is inspection and administration: local workspace switching,
+mappings, checkout and Submit remain Handler operations. Stream Graph supports
+inspection and zoom; native stream creation/editing stay in Handler.

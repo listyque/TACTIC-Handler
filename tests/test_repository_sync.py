@@ -540,7 +540,16 @@ class RepositorySyncTests(unittest.TestCase):
                 self.started.append(runnable)
 
         controller = RepositorySyncController()
+        native_pool = controller.pool
         controller.pool = Pool()
+
+        def close_controller():
+            # The fake pool never executes work; restore the real shutdown owner.
+            controller.pool = native_pool
+            controller.shutdown()
+            controller.deleteLater()
+
+        self.addCleanup(close_controller)
         for index in range(9):
             controller._schedule_prepared_entry(PreparedSyncEntry(
                 file_object=Mock(),

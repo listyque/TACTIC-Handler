@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Controls.Basic as Basic
@@ -13,8 +14,8 @@ Basic.Dialog {
     property real headerPadding: leftPadding
 
     modal: false
-    spacing: 12
-    padding: 20
+    spacing: Foundation.controls.dialog.spacing
+    padding: Foundation.controls.dialog.padding
     leftPadding: padding
     rightPadding: padding
     topPadding: padding
@@ -24,10 +25,12 @@ Basic.Dialog {
     topInset: 0
     bottomInset: 0
 
-    Overlay.modal: Controls.PopupScrim { theme: control.theme }
+    Overlay.modal: Controls.PopupScrim {
+        theme: control.theme
+    }
 
     header: Item {
-        implicitHeight: control.title.length > 0 ? 62 : 0
+        implicitHeight: control.title.length > 0 ? Foundation.controls.dialog.headerHeight : 0
         visible: implicitHeight > 0
         clip: true
         DragHandler {
@@ -36,13 +39,13 @@ Basic.Dialog {
             property point startPointer
             property point startPosition
             onActiveChanged: if (active) {
-                startPointer=control.parent.mapFromItem(null,centroid.scenePosition.x,centroid.scenePosition.y)
-                startPosition=Qt.point(control.x,control.y)
+                startPointer = control.parent.mapFromItem(null, centroid.scenePosition.x, centroid.scenePosition.y);
+                startPosition = Qt.point(control.x, control.y);
             }
             onCentroidChanged: if (active) {
-                const point=control.parent.mapFromItem(null,centroid.scenePosition.x,centroid.scenePosition.y)
-                control.x=Math.max(0,Math.min(control.parent.width-control.width,startPosition.x+point.x-startPointer.x))
-                control.y=Math.max(0,Math.min(control.parent.height-control.height,startPosition.y+point.y-startPointer.y))
+                const point = control.parent.mapFromItem(null, centroid.scenePosition.x, centroid.scenePosition.y);
+                control.x = Math.max(0, Math.min(control.parent.width - control.width, startPosition.x + point.x - startPointer.x));
+                control.y = Math.max(0, Math.min(control.parent.height - control.height, startPosition.y + point.y - startPointer.y));
             }
         }
 
@@ -66,7 +69,7 @@ Basic.Dialog {
             text: control.translateTitle ? qsTr(control.title) : control.title
             color: control.theme.primaryText
             font.family: control.theme.fontFamily
-            font.pixelSize: 16
+            font.pixelSize: Foundation.controls.dialog.titleSize
             font.weight: Font.DemiBold
             elide: Text.ElideRight
         }
@@ -85,8 +88,8 @@ Basic.Dialog {
             anchors.fill: surface
             source: surface
             horizontalOffset: 0
-            verticalOffset: 6
-            radius: 14
+            verticalOffset: Foundation.controls.dialog.shadowY
+            radius: Foundation.controls.dialog.shadowBlur
             samples: 29
             color: control.theme.dialogShadow
             transparentBorder: true

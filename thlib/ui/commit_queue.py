@@ -409,6 +409,10 @@ class CommitQueueController(QObject):
             self._save()
         self.stateChanged.emit()
 
+    @Slot(str, result=int)
+    def row_for_id(self, operation_id: str) -> int:
+        return self._row_for_id(operation_id)
+
     def _row_for_id(self, operation_id: str) -> int:
         return next(
             (

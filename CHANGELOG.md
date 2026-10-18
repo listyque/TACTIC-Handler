@@ -3,6 +3,14 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.116 - 2026-10-18
+
+- Move File Workspace panes, metadata, inspectors and operation dialogs, Matching Templates, Drop Plate, ingest, Commit Queue, Repository Sync, repository confirmations and screenshot selection onto independent Tactic Frame descriptions shared with Stream. Retain native Qt controls, filesystem/DCC capabilities and existing ACL, revision, transfer, cancellation and mutation owners.
+- Keep natural workspace-tab widths and horizontal scrolling, editable template mappings, complete narrow forms and virtualized large queues. Remove superseded queue and workspace presenters.
+- Fix Repository Sync preset updates to address real settings records by their returned search keys. Guard delayed clipboard/capture/intake and validation results by their queue, account and operation lifetime; uncertain check-in results require inspection before retry.
+- Add pinned original/current visual comparisons, native/browser input and authenticated file/check-in/preset journeys; extend the platform gate and EN/RU Help. Browser local-file reselection and native-only operations remain explicit capabilities.
+- Restore Escape focus in native Screenshot Maker and stop fake-pool fixture timers through the real shutdown owner. The combined 137-case owner suite and the 121-stage platform gate pass.
+
 ## 0.6.0.115 - 2026-10-18
 
 - Move conversations, message metadata/body/reference/pins, composer rules, membership/search/history/file forms, attachment staging, activity cards/calendar, notification history and toast content to independent shared Tactic Frame descriptions with Stream. Keep native Qt controls and existing request, permission, draft, receipt, upload and notification owners.

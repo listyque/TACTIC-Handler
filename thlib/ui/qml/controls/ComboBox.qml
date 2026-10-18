@@ -14,6 +14,10 @@ QtControls.ComboBox {
         popup.close()
 
     required property var theme
+    property string placeholderText: ""
+    signal textEdited(string text)
+    onActiveFocusChanged: if (activeFocus && editable)
+        comboEditor.forceActiveFocus()
     property string colorRole: ""
     property string currentColorFallback: ""
     property bool instantHover: false
@@ -207,8 +211,8 @@ QtControls.ComboBox {
 
     implicitWidth: 140
     implicitHeight: theme.compactControlHeight
-    leftPadding: 11
-    rightPadding: showIndicator ? 32 : 12
+    leftPadding: Foundation.controls.choice.paddingLeft
+    rightPadding: showIndicator ? Foundation.controls.choice.paddingRight : Foundation.controls.field.padding
     topPadding: 0
     bottomPadding: 0
     font: Qt.font({
@@ -219,6 +223,8 @@ QtControls.ComboBox {
 
     Keys.priority: Keys.BeforeItem
     Keys.onPressed: event => {
+        if (control.editable && comboEditor.inputMethodComposing)
+            return;
         if (!control.popup.visible) {
             if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
                 if (!control.editable && control.count > 0) {
@@ -283,8 +289,36 @@ QtControls.ComboBox {
             radius: 4.5
             color: control.optionValue(control.currentIndex, control.colorRole) || control.currentColorFallback
         }
+        Controls.TextField {
+            id: comboEditor
+            objectName: "comboBoxEditor"
+            visible: control.editable
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            theme: control.theme
+            background: null
+            padding: 0
+            leftPadding: 0
+            rightPadding: 0
+            text: control.editText
+            placeholderText: control.placeholderText
+            font: control.font
+            Accessible.name: control.Accessible.name
+            onTextEdited: {
+                control.editText = text;
+                control.textEdited(text);
+            }
+            onAccepted: control.accepted()
+            Keys.onPressed: event => {
+                if (!inputMethodComposing && (event.key === Qt.Key_Down || event.key === Qt.Key_Up)) {
+                    control.openPopupFromKeyboard();
+                    event.accepted = true;
+                }
+            }
+        }
         Label {
             objectName: "comboBoxDisplayLabel"
+            visible: !control.editable
             Layout.fillWidth: true
             text: control.translateDisplayText ? qsTr(control.displayText) : control.displayText
             color: control.enabled ? control.theme.primaryText : control.theme.disabledText
@@ -296,10 +330,10 @@ QtControls.ComboBox {
 
     indicator: Controls.MaterialIcon {
         visible: control.showIndicator
-        x: control.width - width - 9
+        x: control.width - width - Foundation.controls.choice.indicatorRight
         y: (control.height - height) / 2
         name: control.popup.opened ? "expand_less" : "expand_more"
-        size: 17
+        size: Foundation.controls.choice.indicatorSize
         color: control.enabled ? control.theme.secondaryText : control.theme.disabledText
     }
 
@@ -328,7 +362,7 @@ QtControls.ComboBox {
         id: pointerActivation
         x: control.editable ? control.width - width : 0
         y: 0
-        width: control.editable ? (control.showIndicator ? 40 : 0) : control.width
+        width: control.editable ? (control.showIndicator ? Foundation.controls.choice.indicatorHit : 0) : control.width
         height: control.height
         z: 10
         enabled: control.enabled && (!control.editable || control.showIndicator)
@@ -423,7 +457,8 @@ QtControls.ComboBox {
             optionsPopup.preparePositionAtItem(control, 0, control.height + 4);
         }
         onOpened: {
-            optionsList.currentIndex = control.optionEnabled(control.currentIndex) ? control.currentIndex : control.nextEnabled(-1, 1);
+            const selected = control.editable ? control.find(control.editText) : control.currentIndex;
+            optionsList.currentIndex = control.optionEnabled(selected) ? selected : control.nextEnabled(-1, 1);
         }
         onClosed: {
             control.handlePopupClosed();

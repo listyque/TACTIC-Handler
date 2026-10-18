@@ -1,0 +1,144 @@
+{
+  "templates": [
+    {
+      "templateId": "filename",
+      "enabled": true,
+      "pattern": "$FILENAME",
+      "process": "",
+      "context": "",
+      "locked": true
+    },
+    {
+      "templateId": "file",
+      "enabled": true,
+      "pattern": "$FILENAME.$EXT",
+      "process": "",
+      "context": "",
+      "locked": true
+    },
+    {
+      "templateId": "sequence",
+      "enabled": true,
+      "pattern": "$FILENAME.$FRAME.$EXT",
+      "process": "publish",
+      "context": "review",
+      "locked": false
+    },
+    {
+      "templateId": "udim",
+      "enabled": true,
+      "pattern": "$FILENAME_$UDIM.$EXT",
+      "process": "",
+      "context": "",
+      "locked": false
+    },
+    {
+      "templateId": "uv",
+      "enabled": false,
+      "pattern": "$FILENAME_$UV.$EXT",
+      "process": "",
+      "context": "",
+      "locked": false
+    },
+    {
+      "templateId": "layer",
+      "enabled": false,
+      "pattern": "$FILENAME_$LAYER.$EXT",
+      "process": "",
+      "context": "",
+      "locked": false
+    }
+  ],
+  "processes": ["publish", "render"],
+  "contexts": ["review"],
+  "ingest": {
+    "parentTitle": "Episode 01",
+    "targetTitle": "Shots",
+    "searchType": "cg/shot",
+    "rules": [
+      {
+        "code": "plates",
+        "__search_key__": "config/ingest_rule?code=plates",
+        "title": "Plate ingest",
+        "data": {
+          "search_type": "cg/shot",
+          "process": "publish",
+          "context": "plates",
+          "filter": ".exr",
+          "ignore": ".tmp",
+          "keywords": "plate review",
+          "create_icon": true
+        }
+      },
+      {
+        "code": "models",
+        "__search_key__": "config/ingest_rule?code=models",
+        "title": "Model ingest",
+        "data": {
+          "search_type": "cg/asset",
+          "process": "model",
+          "context": "model"
+        }
+      }
+    ],
+    "files": [
+      {
+        "path": "shot_010.exr",
+        "title": "shot_010.exr",
+        "extension": "exr",
+        "status": "Ready",
+        "error": ""
+      },
+      {
+        "path": "shot_020.exr",
+        "title": "shot_020.exr",
+        "extension": "exr",
+        "status": "Conflict",
+        "error": "Matching item already exists"
+      },
+      {
+        "path": "shot_030.mov",
+        "title": "shot_030.mov",
+        "extension": "mov",
+        "status": "Skipped",
+        "error": "Excluded by the file filter"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "groupId": "0",
+      "title": "beauty.[0001-0003].exr",
+      "path": "plates/beauty.0001.exr",
+      "fileCount": 3,
+      "size": "10.0 KB",
+      "process": "publish",
+      "context": "review",
+      "checked": true,
+      "status": "Matched",
+      "matchingType": "sequence",
+      "sequenceInfo": "0001–0003",
+      "extension": "exr",
+      "mappedTarget": false,
+      "error": "",
+      "sizeBytes": 10240
+    },
+    {
+      "groupId": "1",
+      "title": "diffuse_1001.exr",
+      "path": "textures/diffuse_1001.exr",
+      "fileCount": 2,
+      "size": "4.0 KB",
+      "process": "publish",
+      "context": "review",
+      "checked": false,
+      "status": "Matched",
+      "matchingType": "udim",
+      "sequenceInfo": "1001–1002",
+      "extension": "exr",
+      "mappedTarget": false,
+      "error": "",
+      "sizeBytes": 4096
+    }
+  ]
+}
