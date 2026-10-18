@@ -271,6 +271,7 @@ Item {
         return window, view
 
     def test_hidden_section_keeps_loaded_task_model_and_delegate(self):
+        self.application.dock_model.show_panel("tasks")
         visible_layout = self.application.dock_model.capture_layout()
         hidden_model = DockPanelModel({})
         self.assertTrue(hidden_model.apply_layout(visible_layout))

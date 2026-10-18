@@ -615,8 +615,7 @@ class TasksController(QObject):
 
     def _workspace_session_payload(self):
         target_keys = [
-            self.task_store._target_token(target)
-            for target in self._multiple_targets
+            self.task_store._target_token(target) for target in self._multiple_targets
         ]
         target_keys = [key for key in target_keys if key]
         return {
@@ -631,10 +630,10 @@ class TasksController(QObject):
                 for key, values in self._quick_filters.items()
             },
             "sortDescending": self._sort_descending,
+            "pageSize": self.task_store.page_size,
             "collapsedGroups": sorted(self._collapsed_groups)[:256],
             "selectedTaskCode": (
-                self._selected_advanced_code
-                or self._pending_restored_task_code
+                self._selected_advanced_code or self._pending_restored_task_code
             ),
             "calendarYear": self._calendar_year,
             "calendarMonth": self._calendar_month,
@@ -681,9 +680,7 @@ class TasksController(QObject):
 
     def _restore_workspace_session(self, project_code):
         self._reset_workspace_session()
-        state = self._workspace_session_states().get(
-            str(project_code or "")
-        )
+        state = self._workspace_session_states().get(str(project_code or ""))
         if not state:
             return False
 
@@ -712,7 +709,8 @@ class TasksController(QObject):
             if key not in restored_filters:
                 continue
             self._filters[key] = (
-                bool(restored_filters[key]) if key == "hasNotes"
+                bool(restored_filters[key])
+                if key == "hasNotes"
                 else str(restored_filters[key] or "")[:2048]
             )
         restored_quick_filters = state.get("quickFilters") or {}
@@ -725,28 +723,35 @@ class TasksController(QObject):
                     str(value)[:512] for value in list(values)[:64] if value
                 }
         self._sort_descending = bool(state.get("sortDescending", False))
+        page_size = state.get("pageSize", 500)
+        self.task_store.page_size = (
+            page_size
+            if type(page_size) is int and page_size in {20, 50, 100, 500}
+            else 500
+        )
         collapsed = state.get("collapsedGroups") or []
         if isinstance(collapsed, (list, tuple, set)):
             self._collapsed_groups = {
-                str(value)[:1024]
-                for value in list(collapsed)[:256] if value
+                str(value)[:1024] for value in list(collapsed)[:256] if value
             }
         try:
             year = int(state.get("calendarYear"))
             month = int(state.get("calendarMonth"))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             year, month = self._calendar_year, self._calendar_month
         if 1900 <= year <= 3000 and 1 <= month <= 12:
             self._calendar_year, self._calendar_month = year, month
-        self._pending_restored_task_code = str(
-            state.get("selectedTaskCode") or ""
-        )[:256]
+        self._pending_restored_task_code = str(state.get("selectedTaskCode") or "")[
+            :256
+        ]
 
         if scope == "multiple":
             self.task_store.set_scope("multiple", targets=target_keys)
         else:
             self.task_store.set_scope(
-                scope, user=user, target_key=target_key,
+                scope,
+                user=user,
+                target_key=target_key,
                 target_title=target_title,
             )
         return True
@@ -1047,6 +1052,20 @@ class TasksController(QObject):
         return self.task_store.has_more
 
     @Property(int, notify=advancedChanged)
+    def advancedPageSize(self):
+        return self.task_store.page_size
+
+    @Slot(int)
+    def set_advanced_page_size(self, value):
+        if value not in {20, 50, 100, 500} or value == self.task_store.page_size:
+            return
+        if not self._allow_advanced_scope_change():
+            return
+        self.task_store.page_size = value
+        self._store_workspace_preferences()
+        self.reload_advanced()
+
+    @Property(int, notify=advancedChanged)
     def advancedLoadedCount(self):
         return len(self.task_store.tasks)
 
@@ -1291,6 +1310,14 @@ class TasksController(QObject):
         return [
             dict(item) for item in catalog.get("priorityChoices") or []
         ]
+
+    @Slot()
+    def reset_task_columns(self):
+        columns = self._default_task_columns()
+        if columns != self._task_columns:
+            self._task_columns = columns
+            self._store_workspace_preferences()
+            self.advancedChanged.emit()
 
     @Slot(str)
     def toggle_task_column(self, key):
@@ -3643,6 +3670,15 @@ class TasksController(QObject):
         self._bulk = {}
         self.bulkChanged.emit()
 
+    def _allow_advanced_scope_change(self):
+        if not self._advanced_drafts:
+            return True
+        self._advanced_error = (
+            "Save or discard task changes before changing the task scope."
+        )
+        self.advancedChanged.emit()
+        return False
+
     def _scope_will_change(self, scope, user="", target_key="", targets=None):
         target_tokens = [
             self.task_store._target_token(target)
@@ -3898,9 +3934,13 @@ class TasksController(QObject):
         if not search_key:
             return
         if self._scope_will_change("object", target_key=search_key):
+            if not self._allow_advanced_scope_change():
+                return
             self._reset_advanced_interaction()
         self.task_store.set_scope(
-            "object", target_key=search_key, target_title=search_key,
+            "object",
+            target_key=search_key,
+            target_title=search_key,
         )
         self.refresh_advanced()
 
@@ -3910,6 +3950,11 @@ class TasksController(QObject):
         """Open Task Manager for one sObject and select its task when loaded."""
         search_key = str(search_key or "").strip()
         if not search_key:
+            return
+        if (
+            self._scope_will_change("object", target_key=search_key)
+            and not self._allow_advanced_scope_change()
+        ):
             return
         self._pending_context_task_code = str(task_code or "").strip()
         if self.advancedFiltersActive:
@@ -3926,6 +3971,11 @@ class TasksController(QObject):
         field = str(field or "").strip()
         value = str(value or "")
         if not search_key or field not in {"process", "status"}:
+            return
+        if (
+            self._scope_will_change("object", target_key=search_key)
+            and not self._allow_advanced_scope_change()
+        ):
             return
         self._pending_context_task_code = ""
         self.clear_filters()
@@ -3990,9 +4040,7 @@ class TasksController(QObject):
     @Slot(str)
     def open_for_team(self, group_code):
         group_code = str(group_code or "")
-        available = {
-            option["value"] for option in self._team_options()
-        }
+        available = {option["value"] for option in self._team_options()}
         if not group_code or group_code not in available:
             self._advanced_error = (
                 "This team is not available through your TACTIC login groups."
@@ -4000,6 +4048,8 @@ class TasksController(QObject):
             self.advancedChanged.emit()
             return
         if self._scope_will_change("team", user=group_code):
+            if not self._allow_advanced_scope_change():
+                return
             self._reset_advanced_interaction()
         self.task_store.set_scope("team", user=group_code)
         self._show_workspace_surface("browser")
@@ -4031,6 +4081,8 @@ class TasksController(QObject):
     @Slot()
     def use_project(self):
         if self._scope_will_change("project"):
+            if not self._allow_advanced_scope_change():
+                return
             self._reset_advanced_interaction()
         self.task_store.set_scope("project")
         self.refresh_advanced()
@@ -5575,6 +5627,29 @@ class TasksController(QObject):
             self._rebuild_advanced_models()
         return before != dict(self._advanced_drafts.get(task_code) or {})
 
+    @Slot(str, str)
+    def stage_advanced_description_input(self, task_code, value):
+        # Keep context guards current without rebuilding every row on each keystroke.
+        if self._stage_advanced_values(
+            task_code, {"description": value}, rebuild=False
+        ):
+            self.advancedChanged.emit()
+
+    @Slot(str, str, str, "QVariant", result=bool)
+    def stage_advanced_context_value(self, task_code, parent_key, key, value):
+        source = next(
+            (
+                record
+                for record in self._advanced_raw
+                if str(record.get("taskCode") or "") == str(task_code)
+            ),
+            None,
+        )
+        if source is None or str(source.get("parentKey") or "") != str(parent_key):
+            return False
+        self.stage_advanced_value(task_code, key, value)
+        return True
+
     @Slot(str, str, "QVariant")
     def stage_advanced_value(self, task_code, key, value):
         task_code = str(task_code or "")
@@ -6260,6 +6335,17 @@ class TasksController(QObject):
             self._regroup_advanced_models()
             self._queue_query_reload()
 
+    @Slot(bool)
+    def set_sort_descending(self, value):
+        if bool(value) == self._sort_descending:
+            return
+        self._gantt_resource_mode = False
+        self._gantt_resource_previous = None
+        self._sort_descending = bool(value)
+        self._store_workspace_preferences()
+        self._regroup_advanced_models()
+        self._queue_query_reload()
+
     @Slot(str)
     def set_group_mode(self, value):
         if value in {
@@ -6894,6 +6980,32 @@ class TasksController(QObject):
     def cancel_bulk(self):
         if not self._bulk_busy:
             self.clear_advanced_checked()
+
+    @Slot(result=bool)
+    def stage_bulk_changes(self):
+        if not self.bulkCanApply:
+            return False
+        _preview, edits, errors = self._bulk_plan()
+        if errors:
+            self._advanced_row_errors.update(errors)
+            self._rebuild_advanced_models()
+            return False
+        aliases = {
+            "bid_start_date": "start",
+            "bid_end_date": "end",
+            "milestone_code": "milestoneCode",
+        }
+        progress_column = self._progress_column()
+        if progress_column:
+            aliases[progress_column] = "progress"
+        for code, _task, changes in edits:
+            self._stage_advanced_values(
+                code,
+                {aliases.get(key, key): value for key, value in changes.items()},
+                rebuild=False,
+            )
+        self._rebuild_advanced_models()
+        return bool(edits)
 
     @Slot(result=bool)
     def apply_bulk(self):

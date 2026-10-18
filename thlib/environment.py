@@ -463,7 +463,7 @@ class Inst(object):
         if not project_code:
             project_code = self.current_project
 
-        return self.projects.get(project_code)
+        return (self.projects or {}).get(project_code)
 
     def get_current_login(self):
         return env_server.get_user()

@@ -12,8 +12,12 @@ export const typography = {
 
 export const fontFamily = 'Segoe UI';
 
+export function fontMetricHeight(pixelSize) {
+    return pixelSize * 1.328125;
+}
+
 export function fontLineHeight(pixelSize) {
-    return Math.ceil(pixelSize * 1.328125);
+    return Math.ceil(fontMetricHeight(pixelSize));
 }
 
 // Segoe UI, Qt Label at 96 logical DPI with vertical hinting; both hosts use these line boxes.

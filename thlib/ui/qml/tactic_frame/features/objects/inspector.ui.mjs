@@ -465,7 +465,8 @@ export function related(model, width, language) {
                     keyField: 'key',
                     rowHeight: 31,
                     rowGap: 3,
-                    label: tr('Related object tasks')
+                    label: tr('Related object tasks'),
+                    scrollbarId: 'taskInspectorRelatedScrollbar'
                 }
             )
         );

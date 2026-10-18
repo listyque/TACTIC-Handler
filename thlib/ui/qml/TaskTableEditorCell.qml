@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "features/tasks" as Tasks
 
 Item {
     id: root
@@ -37,30 +38,30 @@ Item {
     implicitHeight: 29
 
     function cancelEditorRelease() {
-        releaseCoordinator.cancel(root)
+        releaseCoordinator.cancel(root);
     }
 
     function scheduleEditorRelease() {
-        releaseCoordinator.schedule(root)
+        releaseCoordinator.schedule(root);
     }
 
     function resetEditor() {
-        const editor = editorLoader.item
+        const editor = editorLoader.item;
         if (editor && editor.popup)
-            editor.popup.close()
-        cancelEditorRelease()
-        editRequested = false
-        editorPopupOpen = false
-        editorResident = false
-        editorPressPending = false
+            editor.popup.close();
+        cancelEditorRelease();
+        editRequested = false;
+        editorPopupOpen = false;
+        editorResident = false;
+        editorPressPending = false;
     }
 
     function releaseEditorIfIdle() {
-        const editor = editorLoader.item
-        const popup = editor && editor.popup ? editor.popup : null
+        const editor = editorLoader.item;
+        const popup = editor && editor.popup ? editor.popup : null;
         if (!popup || (!popup.visible && !popup.opened)) {
-            root.editRequested = false
-            root.editorResident = false
+            root.editRequested = false;
+            root.editorResident = false;
         }
     }
 
@@ -69,117 +70,62 @@ Item {
             // Keep the lazy editor alive from pointer press until its native
             // popup owns the interaction. Otherwise a fast pointer move can
             // remove row hover before the deferred ComboBox open runs.
-            cancelEditorRelease()
-            editorPressPending = true
-            editRequested = true
+            cancelEditorRelease();
+            editorPressPending = true;
+            editRequested = true;
         } else if (editorPressPending) {
-            editorPressPending = false
+            editorPressPending = false;
             if (!editorPopupOpen)
-                scheduleEditorRelease()
+                scheduleEditorRelease();
         }
     }
 
     onEditorActiveChanged: {
         if (editorActive) {
-            editorResident = true
-            cancelEditorRelease()
+            editorResident = true;
+            cancelEditorRelease();
         } else if (editorLoader.active && editingAllowed && !scrolling) {
             // First layout can move rows under a stationary pointer. Keep an
             // already-created hover editor resident briefly, but never turn
             // that geometry-only hover change into a popup-open request.
-            scheduleEditorRelease()
+            scheduleEditorRelease();
         }
     }
     onScrollingChanged: {
         if (scrolling)
-            resetEditor()
+            resetEditor();
     }
     onEditingAllowedChanged: {
         if (!editingAllowed)
-            resetEditor()
+            resetEditor();
     }
     onEditorIdentityChanged: resetEditor()
 
     Component.onDestruction: cancelEditorRelease()
 
-    Rectangle {
+    Tasks.TaskCellDisplay {
         anchors.fill: parent
-        clip: true
         visible: !editorLoader.active
-        radius: root.actionField
-            ? Math.min(height / 2, root.theme.itemRadius)
-            : root.theme.fieldRadius
-        color: !root.editingAllowed
-            ? root.theme.surfaceContainerLow
-            : root.editorActive || cellHover.hovered
-                ? root.theme.surfaceContainerHigh
-                : root.theme.surfaceContainerLow
-        border.width: root.actionField ? 0 : 1
-        border.color: root.theme.outlineVariant
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 11
-            anchors.rightMargin: root.showIndicator ? 9 : 12
-            spacing: 7
-
-            Loader {
-                objectName: "taskTableCellAvatar"
-                active: root.showAvatar
-                visible: active
-                Layout.preferredWidth: active ? root.avatarSize : 0
-                Layout.preferredHeight: active ? root.avatarSize : 0
-                sourceComponent: UserAvatar {
-                    theme: root.theme
-                    userModel: root.userModel
-                    login: root.avatarLogin
-                    effectsEnabled: !root.scrolling
-                    avatarUrl: root.avatarSource
-                    initials: root.avatarInitials
-                    previewSize: root.avatarSize
-                }
-            }
-            Loader {
-                active: root.showAccent && String(root.accentColor).length > 0
-                visible: active
-                Layout.preferredWidth: active ? 9 : 0
-                Layout.preferredHeight: active ? 9 : 0
-                sourceComponent: Rectangle {
-                    width: 9
-                    height: 9
-                    radius: 4.5
-                    color: root.accentColor
-                }
-            }
-            Label {
-                objectName: "taskTableCellDisplayLabel"
-                Layout.fillWidth: true
-                text: root.displayText
-                color: root.editingAllowed
-                    ? root.theme.primaryText : root.theme.disabledText
-                font.family: root.theme.fontFamily
-                font.pointSize: root.textPointSize
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-            }
-            Loader {
-                active: root.showIndicator
-                visible: active
-                Layout.preferredWidth: active ? 17 : 0
-                Layout.preferredHeight: active ? 17 : 0
-                sourceComponent: Controls.MaterialIcon {
-                    name: "expand_more"
-                    size: 17
-                    color: root.editingAllowed
-                        ? root.theme.secondaryText : root.theme.disabledText
-                }
-            }
-        }
-
+        theme: root.theme
+        model: ({
+                text: root.showAvatar && !root.avatarLogin && ["Not assigned", "No supervisor"].includes(root.displayText) ? qsTr(root.displayText) : root.displayText,
+                enabled: root.editingAllowed,
+                hovered: root.editorActive || cellHover.hovered,
+                actionField: root.actionField,
+                indicator: root.showIndicator,
+                showAccent: root.showAccent,
+                accent: String(root.accentColor),
+                avatar: root.showAvatar,
+                fontRole: root.textPointSize <= Controls.Typography.caption ? "caption" : "body"
+            })
+        userModel: root.userModel
+        login: root.avatarLogin
+        avatarSource: root.avatarSource
+        avatarInitials: root.avatarInitials
+        scrolling: root.scrolling
         HoverHandler {
             id: cellHover
-            cursorShape: root.editingAllowed
-                ? Qt.PointingHandCursor : Qt.ArrowCursor
+            cursorShape: root.editingAllowed ? Qt.PointingHandCursor : Qt.ArrowCursor
         }
         Controls.ActivationHandler {
             anchors.fill: parent
@@ -192,18 +138,15 @@ Item {
     Loader {
         id: editorLoader
         anchors.fill: parent
-        active: root.editingAllowed
-            && !root.scrolling
-            && (root.editorResident || root.editRequested
-                || root.editorPopupOpen)
+        active: root.editingAllowed && !root.scrolling && (root.editorResident || root.editRequested || root.editorPopupOpen)
         sourceComponent: root.editorComponent
         onLoaded: {
             if (!root.editRequested || !item || !item.popup)
-                return
-            Qt.callLater(function() {
+                return;
+            Qt.callLater(function () {
                 if (editorLoader.item && editorLoader.item.popup)
-                    editorLoader.item.popup.open()
-            })
+                    editorLoader.item.popup.open();
+            });
         }
     }
 
@@ -212,41 +155,40 @@ Item {
         ignoreUnknownSignals: true
 
         function onDownChanged() {
-            const editor = editorLoader.item
+            const editor = editorLoader.item;
             if (!editor || editor.activationPressed !== undefined)
-                return
-            root.handleEditorPressState(editor.down)
+                return;
+            root.handleEditorPressState(editor.down);
         }
 
         function onActivationPressedChanged() {
-            const editor = editorLoader.item
+            const editor = editorLoader.item;
             if (!editor)
-                return
-            root.handleEditorPressState(editor.activationPressed)
+                return;
+            root.handleEditorPressState(editor.activationPressed);
         }
     }
 
     Connections {
-        target: editorLoader.item && editorLoader.item.popup
-            ? editorLoader.item.popup : null
+        target: editorLoader.item && editorLoader.item.popup ? editorLoader.item.popup : null
         function onAboutToShow() {
-            root.cancelEditorRelease()
-            root.editorPopupOpen = true
+            root.cancelEditorRelease();
+            root.editorPopupOpen = true;
         }
         function onOpened() {
-            root.cancelEditorRelease()
-            root.editorPopupOpen = true
+            root.cancelEditorRelease();
+            root.editorPopupOpen = true;
         }
         function onClosed() {
-            root.cancelEditorRelease()
-            root.editorPopupOpen = false
-            root.editRequested = false
-            root.editorPressPending = false
+            root.cancelEditorRelease();
+            root.editorPopupOpen = false;
+            root.editRequested = false;
+            root.editorPressPending = false;
             // A native popup can close while Qt transfers focus to its window.
             // Keep its editor alive for ComboBox's queued opening recovery.
-            root.editorResident = root.editingAllowed && !root.scrolling
+            root.editorResident = root.editingAllowed && !root.scrolling;
             if (root.editorResident && !root.editorActive)
-                root.scheduleEditorRelease()
+                root.scheduleEditorRelease();
         }
     }
 }

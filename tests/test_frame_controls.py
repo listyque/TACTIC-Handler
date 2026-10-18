@@ -17,7 +17,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QFont, QKeyEvent
 from PySide6.QtQml import QQmlEngine, QQmlComponent, QQmlExpression
 from PySide6.QtQuick import QQuickWindow
-from PySide6.QtTest import QTest
+from PySide6.QtTest import QSignalSpy, QTest
 from thlib.ui.icon_font import qml_icon_bindings
 from tests.qt_application import gui_test_application
 from tests.profile_ui_responsiveness import frame
@@ -243,14 +243,18 @@ class FrameControlsTests(unittest.TestCase):
 
     def test_searchable_user_choice_commits_from_the_native_popup_keyboard(self):
         chooser = self.item("user")
+        expression = QQmlExpression(self.engine.rootContext(), chooser, "popup")
+        popup, _ = expression.evaluate()
+        self.assertFalse(expression.hasError(), expression.error().toString())
+        self.assertIsNotNone(popup)
+        opened = QSignalSpy(popup.opened)
         point = chooser.mapToScene(chooser.boundingRect().center()).toPoint()
         QTest.mouseClick(self.window, Qt.LeftButton, pos=point)
         frame(self.window)
-        expression = QQmlExpression(
-            self.engine.rootContext(), chooser, "popup.contentItem"
-        )
-        content, _ = expression.evaluate()
-        self.assertFalse(expression.hasError(), expression.error().toString())
+        if not popup.property("opened"):
+            self.assertTrue(opened.wait(1000), "The real click must open the user popup")
+        self.assertTrue(popup.property("opened"))
+        content = popup.property("contentItem")
         popup_window = content.window()
         self.assertTrue(popup_window.isVisible())
         popup_window.requestActivate()

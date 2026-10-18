@@ -199,8 +199,8 @@ Item {
         task_list = self.view.findChild(QObject, "taskBrowserList")
         QMetaObject.invokeMethod(task_list, "forceLayout")
 
-    def visual_items(self):
-        items = [self.view]
+    def visual_items(self, root=None):
+        items = [self.view if root is None else root]
         for item in items:
             items.extend(item.childItems())
         return items
@@ -279,8 +279,8 @@ Item {
                     with self.subTest(avatar=cell.property("showAvatar")):
                         QTest.mouseMove(self.window, QPoint(width - 20, 600))
                         self.wait_for(lambda: not cell.property("editorLoaded"))
-                        preview = cell.findChild(
-                            QObject, "taskTableCellDisplayLabel")
+                        preview = next(item for item in self.visual_items(cell)
+                                       if item.objectName() == "taskTableCellDisplayLabel")
                         preview_x = preview.mapToScene(QPointF()).x()
                         center = cell.mapToScene(QPointF(
                             cell.width() / 2, cell.height() / 2)).toPoint()
@@ -332,10 +332,11 @@ Item {
         for cell in cells:
             with self.subTest(column=cell.property("displayText")):
                 self.wait_for(lambda: not cell.property("editorLoaded"))
-                avatar = next(item for item in cell.findChildren(QObject)
+                avatar = next(item for item in self.visual_items(cell)
                               if item.metaObject().indexOfProperty("previewSize") >= 0)
                 self.assertEqual(avatar.property("source").toString(), avatar_url)
                 self.assertEqual(avatar.property("accent"), QColor("#804bba"))
+                self.assertEqual(avatar.property("fallbackText"), "AR")
                 preview_image = avatar.findChild(QObject, "previewSourceImage")
                 self.wait_for(lambda: preview_image.property("progress") == 1.0)
                 before = [avatar.property(name) for name in

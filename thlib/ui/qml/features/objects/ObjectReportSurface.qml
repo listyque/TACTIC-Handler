@@ -1,3 +1,4 @@
+import "../../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import "../../tactic_frame" as Frame
 import "../../controls" as Controls
@@ -16,26 +17,26 @@ Frame.FrameView {
         id: captionMetrics
         font.family: root.theme.fontFamily
         font.hintingPreference: Font.PreferVerticalHinting
-        font.pixelSize: 11
+        font.pixelSize: Foundation.textStyles.caption
     }
     FontMetrics {
         id: bodyMetrics
         font.family: root.theme.fontFamily
         font.hintingPreference: Font.PreferVerticalHinting
-        font.pixelSize: 13
+        font.pixelSize: Foundation.textStyles.body
     }
     FontMetrics {
         id: chipMetrics
         font.family: root.theme.fontFamily
         font.hintingPreference: Font.PreferVerticalHinting
-        font.pixelSize: 11
+        font.pixelSize: Foundation.textStyles.caption
         font.weight: Font.DemiBold
     }
     FontMetrics {
         id: valueMetrics
         font.family: root.theme.fontFamily
         font.hintingPreference: Font.PreferVerticalHinting
-        font.pixelSize: 21
+        font.pixelSize: Foundation.textStyles.statistic
         font.weight: Font.DemiBold
     }
 
@@ -55,7 +56,7 @@ Frame.FrameView {
             color: frameNode && frameNode.empty ? root.theme.secondaryText : root.theme.primaryText
             font: Qt.font({
                 family: root.theme.fontFamily,
-                pixelSize: 13,
+                pixelSize: Foundation.textStyles.body,
                 hintingPreference: Font.PreferVerticalHinting
             })
             clip: true

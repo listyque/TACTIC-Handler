@@ -30,6 +30,7 @@ Item {
             family: definition.monospace ? "Consolas" : effectiveTheme.fontFamily,
             pixelSize: definition.fontSize,
             weight: definition.weight,
+            letterSpacing: definition.letterSpacing || 0,
             hintingPreference: Font.PreferVerticalHinting,
             strikeout: !!definition.strike
         });
@@ -254,7 +255,7 @@ Item {
                     case "Icon":
                         return iconBrick;
                     case "Button":
-                        return wrapper.node.iconAction ? iconActionBrick : buttonBrick;
+                        return wrapper.node.filledAction ? filledActionBrick : wrapper.node.iconAction ? iconActionBrick : buttonBrick;
                     case "Action":
                         return actionBrick;
                     case "CheckBox":
@@ -412,6 +413,21 @@ Item {
                     }
                 }
                 Component {
+                    id: filledActionBrick
+                    Controls.FilledActionButton {
+                        objectName: wrapper.node.id
+                        theme: root.effectiveTheme
+                        iconName: wrapper.node.icon || ""
+                        compact: !!wrapper.node.iconOnly
+                        text: wrapper.node.text
+                        toolTip: wrapper.node.label || wrapper.node.text
+                        enabled: !!wrapper.node.enabled
+                        Accessible.name: wrapper.node.label || wrapper.node.text
+                        onPressed: root.send(wrapper.node.pressAction, undefined, this)
+                        onClicked: root.send(wrapper.node.action, undefined, this)
+                    }
+                }
+                Component {
                     id: iconActionBrick
                     Controls.CompactIconButton {
                         id: iconActionControl
@@ -419,7 +435,9 @@ Item {
                         theme: root.effectiveTheme
                         iconName: wrapper.node.icon || ""
                         iconSize: wrapper.node.iconSize || 17
-                        iconColor: root.color(wrapper.node.iconColor || "primaryText")
+                        iconColor: root.color(wrapper.node.iconColor || (wrapper.node.highlighted ? "selectedText" : "primaryText"))
+                        backgroundColor: wrapper.node.highlighted ? (enabled ? root.effectiveTheme.action : root.effectiveTheme.surfaceContainerHigh) : "transparent"
+                        badgeCount: wrapper.node.badgeCount || 0
                         toolTip: wrapper.node.text
                         enabled: !!wrapper.node.enabled
                         Accessible.name: wrapper.node.label || wrapper.node.text
@@ -795,7 +813,7 @@ Item {
                         translateDisplayText: false
                         enabled: !!wrapper.node.enabled
                         currentIndex: (wrapper.node.options || []).findIndex(item => item.value === wrapper.node.value)
-                        displayText: currentIndex < 0 ? String(wrapper.node.value ?? "") : currentText
+                        displayText: currentIndex < 0 ? String(wrapper.node.value ?? "") : (wrapper.node.displayPrefix || "") + currentText
                         Accessible.name: wrapper.node.label || ""
                         font: root.controlFont(wrapper.node)
                         onActiveFocusChanged: if (activeFocus)

@@ -58,6 +58,10 @@ Controls.ComboBox {
         return popupUsers.count > 0 ? 0 : -1;
     }
 
+    function userLabel(login, label) {
+        return !login && ["Not assigned", "No supervisor"].includes(label) ? qsTr(label) : label;
+    }
+
     function rebuildPopupOptions() {
         const query = control.searchText.trim().toLowerCase();
         const options = [];
@@ -65,7 +69,7 @@ Controls.ComboBox {
         for (let index = 0; index < control.count; ++index) {
             const choice = control.modelRecord(control.model, index);
             const login = String(control.optionValue(index, control.valueRole) || "");
-            const label = String(control.textAt(index) || (login ? login : qsTr("Not assigned")));
+            const label = control.userLabel(login, String(control.textAt(index) || (login ? login : qsTr("Not assigned"))));
             const profile = control.profileFor(login);
             if (!UserSearch.matches(login, label + " " + String(profile.email || ""), profile.groups, query))
                 continue;
@@ -148,14 +152,14 @@ Controls.ComboBox {
             userModel: control.userModel
             login: String(control.currentValue || "")
             avatarUrl: control.currentAvatarUrl
-            initials: control.currentInitials
+            initials: profile.initials || control.currentInitials
             avatarColor: control.currentAvatarColor
             previewSize: 22
         }
         Label {
             objectName: "userComboBoxDisplayLabel"
             Layout.fillWidth: true
-            text: control.displayText || qsTr("Select user")
+            text: control.userLabel(String(control.currentValue || ""), control.displayText) || qsTr("Select user")
             color: control.enabled ? control.theme.primaryText : control.theme.disabledText
             font: control.font
             verticalAlignment: Text.AlignVCenter

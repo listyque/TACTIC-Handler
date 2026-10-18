@@ -23,6 +23,7 @@ from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtTest import QTest
 
 from tests.qt_application import gui_test_application
+from tests.profile_ui_responsiveness import frame
 from thlib.ui.columns_editor import ColumnsEditorController
 from thlib.ui.workspace_models.records import RecordListModel
 from thlib.ui.workspace_models.results import WorkspaceItemModel
@@ -2630,7 +2631,9 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(named["searchResultTableRow"].height(), 52)
             status = named["tableTaskStatus_0"]
             assignee = named["tableTaskAssignee_0"]
-            avatar = assignee.findChild(QQuickItem, "taskTableCellAvatar")
+            avatar = next((item for item in _visual_items(assignee)
+                           if item.objectName() == "taskTableCellAvatar"), None)
+            self.assertIsNotNone(avatar)
             self.assertLessEqual(status.y() + status.height(), assignee.y())
             self.assertLessEqual(avatar.height(), assignee.height() - 4)
             status_width = status.width()
@@ -3369,7 +3372,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             rows.setProperty("contentX", 700)
             table.setProperty("rowHeight", 104)
             QMetaObject.invokeMethod(rows, "forceLayout")
-            QTest.qWait(20)
+            frame(window)
             named_items = {
                 item.objectName(): item for item in _visual_items(table)
                 if item.objectName()
@@ -3400,13 +3403,10 @@ class ColumnsTableViewTests(unittest.TestCase):
                 ("asset", "tasks", "model", "TASK001"),
             )
             status_cell = named_items["tableTaskStatus_0"]
-            status_label = status_cell.findChild(
-                QObject, "taskTableCellDisplayLabel"
-            )
+            status_label = next((item for item in _visual_items(status_cell)
+                                 if item.objectName() == "taskTableCellDisplayLabel"), None)
             self.assertIsNotNone(status_label, warnings)
-            self.assertLessEqual(
-                status_label.property("font").pointSizeF(), 8.25
-            )
+            self.assertEqual(status_label.property("font").pixelSize(), 11)
             QTest.mouseClick(
                 window, Qt.LeftButton, Qt.NoModifier,
                 status_cell.mapToScene(QPointF(

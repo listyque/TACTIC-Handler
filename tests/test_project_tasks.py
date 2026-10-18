@@ -35,6 +35,15 @@ class ProjectTaskTests(unittest.TestCase):
         self.enterContext(patch.object(env_inst, 'get_project_by_code', return_value=self.project))
         self.controller = TasksController(self.application)
 
+    def test_empty_project_catalog_disables_creation_until_loaded(self):
+        lookup = type(env_inst).get_project_by_code.__get__(env_inst)
+        with patch.object(env_inst, 'get_project_by_code', lookup):
+            with patch.object(env_inst, 'projects', None):
+                self.assertIsNone(env_inst.get_project_by_code('test'))
+                self.assertFalse(self.controller.canCreateAdvancedTask)
+            with patch.object(env_inst, 'projects', {'test': self.project}):
+                self.assertTrue(self.controller.canCreateAdvancedTask)
+
     def test_create_save_reload_and_inspector(self):
         self.assertTrue(self.controller.canCreateAdvancedTask)
         self.assertTrue(self.controller.create_advanced_task_draft())
@@ -99,7 +108,8 @@ class ProjectTaskTests(unittest.TestCase):
         view.setSize(window.size())
         window.show()
         QTest.qWait(40)
-        button = view.findChild(QQuickItem, 'taskWorkspaceCreateButton')
+        button = fixture.TasksQmlTests.visual_find(view, 'taskWorkspaceCreateButton')
+        self.assertIsNotNone(button)
         self.assertTrue(button.isEnabled())
         point = button.mapToScene(QPointF(button.width()/2, button.height()/2)).toPoint()
         QTest.mouseClick(window, Qt.LeftButton, pos=point)

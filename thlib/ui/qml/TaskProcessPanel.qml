@@ -2,6 +2,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "features/tasks" as Tasks
+import "tactic_frame" as Frame
+import "tactic_frame/features/tasks/workspace.ui.mjs" as WorkspaceUI
+import "tactic_frame/features/tasks/process.ui.mjs" as UI
 
 Item {
     id: root
@@ -12,40 +16,51 @@ Item {
     function choiceIndex(values, selected) {
         for (let index = 0; index < values.length; ++index) {
             if (values[index].value === selected)
-                return index
+                return index;
         }
-        return -1
+        return -1;
     }
 
-    function openTaskMenu(
-        anchor, row, hasTask, currentTaskCode, taskChoices
-    ) {
-        const actions = [{
-            title: qsTr("Add task"), icon: "add_task", command: "add"
-        }]
+    function openTaskMenu(anchor, row, hasTask, currentTaskCode, taskChoices) {
+        const actions = [
+            {
+                title: qsTr("Add task"),
+                icon: "add_task",
+                command: "add"
+            }
+        ];
         if (hasTask) {
             actions.push({
-                title: qsTr("Edit task"), icon: "edit", command: "edit"
-            })
+                title: qsTr("Edit task"),
+                icon: "edit",
+                command: "edit"
+            });
             actions.push({
-                title: qsTr("Delete task"), icon: "delete", command: "delete"
-            })
+                title: qsTr("Delete task"),
+                icon: "delete",
+                command: "delete"
+            });
         }
         if (taskChoices.length > 1) {
-            actions.push({ separator: true })
-            actions.push({ title: qsTr("Tasks"), header: true })
+            actions.push({
+                separator: true
+            });
+            actions.push({
+                title: qsTr("Tasks"),
+                header: true
+            });
             for (let index = 0; index < taskChoices.length; ++index) {
                 actions.push({
                     title: taskChoices[index].label,
                     icon: "task_alt",
                     checked: taskChoices[index].value === currentTaskCode,
                     command: "select:" + taskChoices[index].value
-                })
+                });
             }
         }
-        contextRow = row
-        taskMenu.actions = actions
-        taskMenu.openBelow(anchor)
+        contextRow = row;
+        taskMenu.actions = actions;
+        taskMenu.openBelow(anchor);
     }
 
     Controls.DockWorkspaceFooter {
@@ -56,80 +71,17 @@ Item {
         color: root.theme.panelDeep
     }
 
-    Rectangle {
+    Tasks.TaskProcessToolbar {
         id: toolbar
-        anchors.top: parent.top
+        theme: root.theme
+        controller: tasksController
         width: parent.width
-        height: root.theme.dockWorkspaceHeaderHeight
-            - root.theme.dockTitleHeight
-        color: root.theme.toolBar
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 7
-            spacing: 4
-            Controls.MaterialIcon {
-                name: "task_alt"; size: 17; color: root.theme.action
-            }
-            Label {
-                Layout.fillWidth: true
-                text: tasksController.hasTarget
-                    ? tasksController.targetTitle : qsTr("Select an sObject")
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.bodyLarge
-                font.weight: Font.DemiBold
-                elide: Text.ElideRight
-            }
-            Controls.CompactIconButton {
-                theme: root.theme
-                iconName: "save"
-                iconColor: tasksController.dirtyProcessCount > 0
-                        && !tasksController.busy
-                    ? root.theme.action : root.theme.disabledText
-                toolTip: qsTr("Save all task changes")
-                enabled: tasksController.dirtyProcessCount > 0
-                    && !tasksController.busy
-                onClicked: tasksController.save_all_process_changes()
-            }
-            Controls.CompactIconButton {
-                theme: root.theme
-                iconName: "undo"
-                iconColor: tasksController.dirtyProcessCount > 0
-                        && !tasksController.busy
-                    ? root.theme.primaryText : root.theme.disabledText
-                toolTip: qsTr("Reset all task changes")
-                enabled: tasksController.dirtyProcessCount > 0
-                    && !tasksController.busy
-                onClicked: tasksController.discard_all_process_changes()
-            }
-            TaskWorkspaceSurfaceSwitcher {
-                objectName: "quickTaskWorkspaceSurfaceSwitcher"
-                theme: root.theme
-                Layout.minimumWidth: implicitWidth
-                Layout.preferredWidth: implicitWidth
-                Layout.maximumWidth: implicitWidth
-            }
-            RefreshIconButton {
-                objectName: "quickTaskRefreshButton"
-                theme: root.theme
-                Layout.minimumWidth: 38
-                Layout.preferredWidth: 38
-                Layout.maximumWidth: 38
-                Layout.preferredHeight: 38
-                toolTip: qsTr("Refresh tasks")
-                enabled: tasksController.hasTarget && !tasksController.busy
-                onClicked: tasksController.refresh()
-            }
-        }
+        height: implicitHeight
     }
 
     Item {
         id: contentArea
-        opacity: (
-            !tasksController.hasTarget
-            || initialQuickTaskPresentation.ready
-        ) ? 1 : 0
+        opacity: (!tasksController.hasTarget || initialQuickTaskPresentation.ready) ? 1 : 0
         anchors.top: toolbar.bottom
         anchors.left: parent.left
         anchors.right: parent.right
@@ -138,14 +90,14 @@ Item {
         GridView {
             id: cardGrid
             anchors.fill: parent
-            anchors.margins: 6
+            anchors.margins: UI.metrics.inset
             visible: tasksController.quickViewMode === "cards"
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             model: taskProcessModel
-            readonly property int columnCount: Math.max(1, Math.floor(width / 224))
+            readonly property int columnCount: UI.columns(width)
             cellWidth: width / columnCount
-            cellHeight: 126
+            cellHeight: UI.metrics.cardPitch
 
             delegate: Item {
                 id: taskCard
@@ -164,132 +116,17 @@ Item {
                 required property var userChoices
                 required property var taskChoices
                 required property bool dirty
-                width: cardGrid.cellWidth - 7
-                height: cardGrid.cellHeight - 7
+                width: cardGrid.cellWidth - UI.metrics.gap
+                height: UI.metrics.cardHeight
 
-                Rectangle {
+                Tasks.TaskProcessItem {
                     anchors.fill: parent
-                    radius: root.theme.surfaceRadius
-                    color: taskCard.hasTask
-                        ? root.theme.surfaceContainer
-                        : root.theme.surfaceContainerLow
-                    border.width: taskCard.dirty ? 1 : 0
-                    border.color: root.theme.action
-                }
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: 3
-                    radius: 1.5
-                    color: taskCard.color
-                }
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 8
-                    anchors.topMargin: 8
-                    anchors.bottomMargin: 8
-                    spacing: 5
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 5
-                        Rectangle {
-                            Layout.preferredWidth: 12
-                            Layout.preferredHeight: 12
-                            radius: 6
-                            color: taskCard.color
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: taskCard.taskCount > 1
-                                ? taskCard.label + " | " + taskCard.taskCount
-                                : taskCard.label
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.bodyLarge
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
-                        }
-                        Controls.CompactIconButton {
-                            visible: taskCard.dirty
-                            enabled: !tasksController.busy
-                            theme: root.theme
-                            iconName: "undo"
-                            toolTip: qsTr("Reset task changes")
-                            onClicked: tasksController.discard_process_changes(taskCard.index)
-                        }
-                        Controls.CompactIconButton {
-                            visible: taskCard.dirty
-                            enabled: !tasksController.busy
-                            theme: root.theme
-                            iconName: "save"
-                            iconColor: root.theme.action
-                            toolTip: taskCard.hasTask
-                                ? qsTr("Save task changes") : qsTr("Create task")
-                            onClicked: tasksController.save_process_changes(taskCard.index)
-                        }
-                        Controls.ItemCountActionButton {
-                            theme: root.theme
-                            iconName: "comment"
-                            count: taskCard.notes
-                            badgeColor: root.theme.error
-                            enabled: tasksController.hasTarget
-                            toolTip: qsTr("Open notes")
-                            onClicked: tasksController.open_notes(
-                                tasksController.targetSearchKey, taskCard.process,
-                                taskCard.currentTaskCode
-                            )
-                        }
-                        Controls.CompactIconButton {
-                            id: cardMenuButton
-                            theme: root.theme
-                            iconName: "more_vert"
-                            toolTip: qsTr("Task actions")
-                            onClicked: root.openTaskMenu(
-                                cardMenuButton, taskCard.index,
-                                taskCard.hasTask, taskCard.currentTaskCode,
-                                taskCard.taskChoices
-                            )
-                        }
-                    }
-                    Controls.ComboBox {
-                        theme: root.theme
-                        actionField: true
-                        enabled: !tasksController.busy
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 28
-                        model: taskCard.statusChoices
-                        textRole: "label"
-                        valueRole: "value"
-                        colorRole: "color"
-                        translateDisplayText: false
-                        currentIndex: root.choiceIndex(
-                            taskCard.statusChoices, taskCard.status
-                        )
-                        displayText: currentIndex >= 0
-                            ? currentText : qsTr("Select status")
-                        onActivated: tasksController.set_process_draft(
-                            taskCard.index, "status", currentValue
-                        )
-                    }
-                    UserComboBox {
-                        theme: root.theme
-                        actionField: true
-                        enabled: !tasksController.busy
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 28
-                        userModel: userListModel
-                        model: taskCard.userChoices
-                        textRole: "label"
-                        valueRole: "value"
-                        currentIndex: root.choiceIndex(
-                            taskCard.userChoices, taskCard.assigned
-                        )
-                        onActivated: tasksController.set_process_draft(
-                            taskCard.index, "assigned", currentValue
-                        )
-                    }
+                    theme: root.theme
+                    controller: tasksController
+                    users: userListModel
+                    record: taskCard
+                    mode: "cards"
+                    onMenuRequested: source => root.openTaskMenu(source, taskCard.index, taskCard.hasTask, taskCard.currentTaskCode, taskCard.taskChoices)
                 }
             }
             ScrollBar.vertical: Controls.ScrollBar {
@@ -299,13 +136,21 @@ Item {
         }
 
         Controls.SmoothListView {
-            theme: root.theme
             id: compactList
+            theme: root.theme
+            contentWidth: Math.max(width, UI.minimumWidth({
+                dirty: tasksController.dirtyProcessCount > 0
+            }))
+            flickableDirection: Flickable.AutoFlickDirection
+            ScrollBar.horizontal: Controls.ScrollBar {
+                theme: root.theme
+                flickableTarget: compactList
+            }
             anchors.fill: parent
-            anchors.margins: 6
+            anchors.margins: UI.metrics.inset
             visible: tasksController.quickViewMode === "compact"
             clip: true
-            spacing: 5
+            spacing: UI.metrics.compactGap
             model: taskProcessModel
 
             delegate: Item {
@@ -324,123 +169,17 @@ Item {
                 required property var userChoices
                 required property var taskChoices
                 required property bool dirty
-                width: compactList.width
-                height: 44
+                width: compactList.contentWidth
+                height: UI.metrics.compactHeight
 
-                Rectangle {
+                Tasks.TaskProcessItem {
                     anchors.fill: parent
-                    radius: root.theme.itemRadius
-                    color: root.theme.surfaceContainer
-                }
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 3
-                    height: parent.height - 12
-                    radius: 1.5
-                    color: taskRow.color
-                }
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 11
-                    anchors.rightMargin: 7
-                    spacing: 7
-                    Rectangle {
-                        Layout.preferredWidth: 11
-                        Layout.preferredHeight: 11
-                        radius: 5.5
-                        color: taskRow.color
-                    }
-                    Label {
-                        Layout.preferredWidth: 100
-                        text: taskRow.taskCount > 1
-                            ? taskRow.label + " | " + taskRow.taskCount
-                            : taskRow.label
-                        color: root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.body
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                    }
-                    Controls.ComboBox {
-                        theme: root.theme
-                        actionField: true
-                        enabled: !tasksController.busy
-                        Layout.preferredWidth: 112
-                        Layout.preferredHeight: 29
-                        model: taskRow.statusChoices
-                        textRole: "label"
-                        valueRole: "value"
-                        colorRole: "color"
-                        translateDisplayText: false
-                        currentIndex: root.choiceIndex(
-                            taskRow.statusChoices, taskRow.status
-                        )
-                        displayText: currentIndex >= 0
-                            ? currentText : qsTr("Status")
-                        onActivated: tasksController.set_process_draft(
-                            taskRow.index, "status", currentValue
-                        )
-                    }
-                    UserComboBox {
-                        theme: root.theme
-                        actionField: true
-                        enabled: !tasksController.busy
-                        userModel: userListModel
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 110
-                        Layout.preferredHeight: 29
-                        model: taskRow.userChoices
-                        textRole: "label"
-                        valueRole: "value"
-                        currentIndex: root.choiceIndex(
-                            taskRow.userChoices, taskRow.assigned
-                        )
-                        onActivated: tasksController.set_process_draft(
-                            taskRow.index, "assigned", currentValue
-                        )
-                    }
-                    Controls.CompactIconButton {
-                        visible: taskRow.dirty
-                        enabled: !tasksController.busy
-                        theme: root.theme
-                        iconName: "undo"
-                        toolTip: qsTr("Reset task changes")
-                        onClicked: tasksController.discard_process_changes(taskRow.index)
-                    }
-                    Controls.CompactIconButton {
-                        visible: taskRow.dirty
-                        enabled: !tasksController.busy
-                        theme: root.theme
-                        iconName: "save"
-                        iconColor: root.theme.action
-                        toolTip: taskRow.hasTask
-                            ? qsTr("Save task changes") : qsTr("Create task")
-                        onClicked: tasksController.save_process_changes(taskRow.index)
-                    }
-                    Controls.ItemCountActionButton {
-                        theme: root.theme
-                        iconName: "comment"
-                        count: taskRow.notes
-                        badgeColor: root.theme.error
-                        enabled: tasksController.hasTarget
-                            toolTip: qsTr("Open notes")
-                            onClicked: tasksController.open_notes(
-                                tasksController.targetSearchKey, taskRow.process,
-                                taskRow.currentTaskCode
-                            )
-                    }
-                    Controls.CompactIconButton {
-                        id: rowMenuButton
-                        theme: root.theme
-                        iconName: "more_vert"
-                        toolTip: qsTr("Task actions")
-                        onClicked: root.openTaskMenu(
-                            rowMenuButton, taskRow.index,
-                            taskRow.hasTask, taskRow.currentTaskCode,
-                            taskRow.taskChoices
-                        )
-                    }
+                    theme: root.theme
+                    controller: tasksController
+                    users: userListModel
+                    record: taskRow
+                    mode: "compact"
+                    onMenuRequested: source => root.openTaskMenu(source, taskRow.index, taskRow.hasTask, taskRow.currentTaskCode, taskRow.taskChoices)
                 }
             }
             ScrollBar.vertical: Controls.ScrollBar {
@@ -462,8 +201,7 @@ Item {
     Controls.InitialBatchPresentation {
         id: initialQuickTaskPresentation
         objectName: "initialQuickTaskPresentation"
-        view: tasksController.quickViewMode === "cards"
-            ? cardGrid : compactList
+        view: tasksController.quickViewMode === "cards" ? cardGrid : compactList
     }
 
     Controls.DockWorkspaceFooter {
@@ -473,41 +211,26 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        RowLayout {
+        Frame.FrameView {
             anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 10
-            spacing: 8
-            Controls.MaterialIcon {
-                name: "task-alt"
-                size: 16
-                color: root.theme.secondaryText
-            }
-            Label {
-                text: cardGrid.count + (
-                    cardGrid.count === 1
-                        ? qsTr(" process") : qsTr(" processes")
-                )
-                color: root.theme.secondaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: Font.Medium
-            }
-            Item { Layout.fillWidth: true }
-            Label {
-                visible: tasksController.dirtyProcessCount > 0
-                text: tasksController.dirtyProcessCount + qsTr(" unsaved")
-                color: root.theme.action
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.label
-                font.weight: Font.DemiBold
-            }
+            theme: root.theme
+            scene: WorkspaceUI.footer({
+                quick: true,
+                processes: cardGrid.count,
+                dirty: tasksController.dirtyProcessCount,
+                busy: tasksController.busy
+            }, width, typeof localizationController === "undefined" ? "en" : localizationController.current_language)
+            views: ({
+                    busy: {
+                        component: busyPort
+                    }
+                })
+        }
+        Component {
+            id: busyPort
             Controls.BusyIndicator {
                 uiTheme: root.theme
-                Layout.preferredWidth: 22
-                Layout.preferredHeight: 22
-                visible: tasksController.busy
-                running: visible
+                running: tasksController.busy
             }
         }
     }
@@ -518,15 +241,13 @@ Item {
         theme: root.theme
         onTriggered: command => {
             if (command === "add")
-                tasksController.begin_create_for_process(root.contextRow)
+                tasksController.begin_create_for_process(root.contextRow);
             else if (command === "edit")
-                tasksController.begin_edit_for_process(root.contextRow)
+                tasksController.begin_edit_for_process(root.contextRow);
             else if (command === "delete")
-                tasksController.remove_process_task(root.contextRow)
+                tasksController.remove_process_task(root.contextRow);
             else if (command.indexOf("select:") === 0) {
-                tasksController.activate_process_task(
-                    root.contextRow, command.substring(7)
-                )
+                tasksController.activate_process_task(root.contextRow, command.substring(7));
             }
         }
     }

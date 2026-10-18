@@ -28,3 +28,5 @@ discards the current draft. **Configure columns** in the task table opens this p
 Dock and window geometry is restored separately for each workspace. Task scope, filters, collapsed
 groups, calendar position, and selected task resume per project. Checked tasks and unsaved edits are
 never restored.
+
+Task Manager's shared table/field editors, virtual creation and opt-in bulk workflow are described in [Tasks and planning](tasks.en.md). Existing configuration and permission owners remain unchanged.

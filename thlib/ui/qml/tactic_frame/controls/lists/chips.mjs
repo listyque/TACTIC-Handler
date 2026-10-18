@@ -4,10 +4,13 @@ export function packTagRows(
     width,
     measure,
     allLabel,
-    maximumChipWidth = 260
+    maximumChipWidth = 260,
+    metrics = {}
 ) {
     if (!records.length || width <= 0) return [];
-    const rows = [];
+    const rows = [],
+        gapSize = metrics.gap === undefined ? 8 : metrics.gap,
+        rowHeight = metrics.rowHeight || 32;
     let row = { top: 0, height: 0, cells: [], width: 0 };
     for (
         let index = allLabel === undefined ? 0 : -1;
@@ -21,18 +24,21 @@ export function packTagRows(
             width,
             measure(record?.tag || allLabel, emphasis, record) + 24
         );
-        const gap = row.cells.length ? 8 : 0;
+        const gap = row.cells.length ? gapSize : 0;
         if (row.cells.length && row.width + gap + cellWidth > width) {
             rows.push(row);
             row = {
-                top: row.top + row.height + 8,
+                top: row.top + row.height + gapSize,
                 height: 0,
                 cells: [],
                 width: 0
             };
         }
-        row.width += (row.cells.length ? 8 : 0) + cellWidth;
-        row.height = Math.max(row.height, 32 + Math.round(emphasis * 12));
+        row.width += (row.cells.length ? gapSize : 0) + cellWidth;
+        row.height = Math.max(
+            row.height,
+            rowHeight + Math.round(emphasis * 12)
+        );
         row.cells.push({ index, width: cellWidth });
     }
     if (row.cells.length) rows.push(row);

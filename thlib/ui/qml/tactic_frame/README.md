@@ -15,6 +15,7 @@ Neither product imports the other checkout at runtime.
 | `features/projects` | Project catalogue, four-step creation, modal editor and templates | Core, controls and configuration settings/shell |
 | `features/search` | Query cards, presets, tag/quick headers and editors, process visibility, menus, paging and card geometry | Core and controls; query and mutation owners stay outside descriptions |
 | `features/table` | Table geometry/paint, column and view menus, typed cells, inline editor and widget catalogue | Core and controls; queries, XML revisions and writes stay with existing owners |
+| `features/tasks` | Task workspace/quick surfaces, scope/filters/options/columns, table and phone rows, typed editors, bulk selection, menus and native management summary; existing request, draft, revision and mutation owners stay outside descriptions | Core and neutral controls |
 | `features/objects` | Object reports, descriptions, configured field cards/forms, operations, snapshots, watch and inspector fragments | Core and neutral controls; existing drafts, revisions, ACL, write and filesystem owners remain outside descriptions |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |

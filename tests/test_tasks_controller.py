@@ -1,4 +1,5 @@
 import unittest
+import time
 import os
 import json
 from datetime import date, timedelta
@@ -619,6 +620,121 @@ class TasksControllerTests(unittest.TestCase):
     def setUp(self):
         self.application = FakeApplication()
         self.controller = TasksController(self.application)
+
+    def test_manual_scope_changes_keep_row_drafts_and_context(self):
+        operations = [
+            lambda owner: owner.use_project(),
+            lambda owner: owner.open_for_team("artists"),
+            lambda owner: owner.use_object("project/asset?code=OTHER"),
+            lambda owner: owner.open_object_context(
+                "project/asset?code=OTHER", "TASK_OTHER", "publish"
+            ),
+            lambda owner: owner.open_object_filter(
+                "project/asset?code=OTHER", "status", "Ready"
+            ),
+        ]
+        for operation in operations:
+            with self.subTest(operation=operation.__code__.co_firstlineno):
+                owner = TasksController(FakeApplication())
+                owner.open_workspace()
+                code = owner._advanced_raw[0]["taskCode"]
+                owner.stage_advanced_value(code, "description", "Retain me")
+                before = (
+                    owner.advancedScope,
+                    owner.advancedUser,
+                    owner._advanced_target_key,
+                    dict(owner._filters),
+                    dict(owner._advanced_drafts),
+                    owner._pending_context_task_code,
+                )
+                with (
+                    patch.object(
+                        owner,
+                        "_team_options",
+                        return_value=[
+                            {"value": "artists", "label": "Artists", "members": 1}
+                        ],
+                    ),
+                    patch.object(owner, "refresh_advanced") as refresh,
+                ):
+                    operation(owner)
+                    self.assertEqual(
+                        (
+                            owner.advancedScope,
+                            owner.advancedUser,
+                            owner._advanced_target_key,
+                            dict(owner._filters),
+                            dict(owner._advanced_drafts),
+                            owner._pending_context_task_code,
+                        ),
+                        before,
+                    )
+                    refresh.assert_not_called()
+                self.assertIn("Save or discard", owner.advancedError)
+
+    def test_inline_field_rejects_a_parent_from_an_old_context(self):
+        self.controller.open_workspace()
+        source = self.controller._advanced_raw[0]
+        code, parent = source["taskCode"], source["parentKey"]
+        self.assertFalse(
+            self.controller.stage_advanced_context_value(
+                code, parent + "-stale", "description", "Inline description"
+            )
+        )
+        self.assertNotIn(code, self.controller._advanced_drafts)
+        self.assertTrue(
+            self.controller.stage_advanced_context_value(
+                code, parent, "description", "Inline description"
+            )
+        )
+        self.assertEqual(
+            self.controller._advanced_drafts[code]["description"], "Inline description"
+        )
+
+    def test_page_size_persists_and_does_not_reload_a_dirty_scope(self):
+        application = FakeApplication()
+        application._settings = MemorySettings()
+        controller = TasksController(application)
+        controller.open_workspace()
+        with patch.object(controller, "reload_advanced") as reload:
+            controller.set_advanced_page_size(50)
+            self.assertEqual(controller.advancedPageSize, 50)
+            reload.assert_called_once()
+            controller.set_advanced_page_size(7)
+            self.assertEqual(controller.advancedPageSize, 50)
+            code = controller._advanced_raw[0]["taskCode"]
+            controller.stage_advanced_value(code, "description", "Do not drop me")
+            controller.set_advanced_page_size(100)
+            self.assertEqual(controller.advancedPageSize, 50)
+            self.assertEqual(reload.call_count, 1)
+        restored = TasksController(application)
+        self.assertEqual(restored.advancedPageSize, 50)
+
+    def test_description_input_updates_the_existing_draft_without_rebuilding_rows(self):
+        self.controller.open_workspace()
+        code = self.controller._advanced_raw[0]["taskCode"]
+        baseline = self.controller._advanced_raw[0].get("description", "")
+        notifications = QSignalSpy(self.controller.advancedChanged)
+        with patch.object(self.controller, "_rebuild_advanced_models") as rebuild:
+            self.controller.stage_advanced_description_input(code, "Typing")
+            self.assertEqual(
+                self.controller._advanced_drafts[code]["description"], "Typing"
+            )
+            self.assertEqual(self.controller.advancedDirtyCount, 1)
+            self.assertEqual(notifications.count(), 1)
+            rebuild.assert_not_called()
+            self.controller.stage_advanced_description_input(
+                "stale-task", "Wrong target"
+            )
+            self.assertNotIn("stale-task", self.controller._advanced_drafts)
+            self.controller._advanced_saving = True
+            self.controller.stage_advanced_description_input(code, "During save")
+            self.assertEqual(
+                self.controller._advanced_drafts[code]["description"], "Typing"
+            )
+            self.controller._advanced_saving = False
+            self.controller.stage_advanced_description_input(code, baseline)
+            self.assertNotIn(code, self.controller._advanced_drafts)
 
     def test_compact_model_contains_empty_pipeline_process(self):
         records = self.controller.process_model._records
@@ -1934,6 +2050,15 @@ class TasksControllerTests(unittest.TestCase):
         self.assertEqual(self.controller.sortMode, "due")
         self.assertEqual(self.controller.groupMode, "process")
 
+    def test_task_column_reset_restores_required_visibility_widths_and_order(self):
+        self.controller.set_task_column_visible("assignee", False)
+        self.controller.set_task_column_width("dates", 233)
+        self.controller.move_task_column("dates", -1)
+        self.controller.reset_task_columns()
+        self.assertEqual(
+            self.controller.taskColumns, self.controller._default_task_columns()
+        )
+
     def test_task_column_context_commands_share_controller_state(self):
         self.controller.open_workspace()
 
@@ -2154,6 +2279,25 @@ class TasksControllerTests(unittest.TestCase):
             self.controller.advancedError,
             "Save or discard task changes before deleting.",
         )
+
+    def test_bulk_changes_can_stage_without_writing_and_guard_scope_changes(self):
+        self.controller.use_current_object()
+        self.controller.toggle_advanced_checked("TASK0001")
+        self.controller.set_bulk_enabled("description", True)
+        self.controller.set_bulk_value("description", "Staged bulk description")
+        before = dict(self.controller._advanced_tasks["TASK0001"].get_info())
+        self.assertTrue(self.controller.stage_bulk_changes())
+        self.assertEqual(self.controller._advanced_tasks["TASK0001"].get_info(), before)
+        self.assertEqual(
+            self.controller._advanced_drafts["TASK0001"]["description"],
+            "Staged bulk description",
+        )
+        self.assertFalse(self.controller.bulkCanApply)
+        scope = self.controller.advancedScope
+        self.controller.use_project()
+        self.assertEqual(self.controller.advancedScope, scope)
+        self.controller.discard_advanced_changes("TASK0001")
+        self.assertNotIn("TASK0001", self.controller._advanced_drafts)
 
     def test_bulk_status_must_be_valid_for_every_checked_pipeline(self):
         workspace = self.application.workspace_state
@@ -3428,6 +3572,35 @@ class TasksControllerTests(unittest.TestCase):
 
 
 class TasksQmlTests(unittest.TestCase):
+    @staticmethod
+    def visual_find(root, name):
+        items = [root]
+        for item in items:
+            if item.objectName() == name:
+                loaded = item.property("item")
+                return loaded if isinstance(loaded, QQuickItem) else item
+            items.extend(item.childItems())
+        target = root.findChild(QObject, name)
+        if target is not None:
+            return target
+        for popup in root.findChildren(QObject):
+            content = popup.property("contentItem")
+            if not isinstance(content, QQuickItem) or not popup.property("opened"):
+                continue
+            items = [content]
+            for item in items:
+                if item.objectName() == name:
+                    loaded = item.property("item")
+                    return loaded if isinstance(loaded, QQuickItem) else item
+                items.extend(item.childItems())
+        return None
+
+    def wait_for(self, predicate):
+        deadline = time.monotonic() + 1
+        while not predicate() and time.monotonic() < deadline:
+            QTest.qWait(5)
+        self.assertTrue(predicate())
+
     @classmethod
     def setUpClass(cls):
         cls.app = QGuiApplication.instance() or QGuiApplication([])
@@ -3681,25 +3854,20 @@ class TasksQmlTests(unittest.TestCase):
             inspector_controller = _TaskInspectorController()
             inspector_controller.set_task(
                 status="Pending",
-                statusChoices=[{
-                    "label": "Pending", "value": "Pending",
-                    "color": "#25c2e8",
-                }],
+                statusChoices=[
+                    {
+                        "label": "Pending",
+                        "value": "Pending",
+                        "color": "#25c2e8",
+                    }
+                ],
             )
             tasks_controller = _TaskInspectorTasksController()
-            users = RecordListModel((
-                "login", "displayName", "initials", "avatarUrl"
-            ))
+            users = RecordListModel(("login", "displayName", "initials", "avatarUrl"))
             work_hours = WorkHoursController(FakeApplication())
-            engine.rootContext().setContextProperty(
-                "tasksController", tasks_controller
-            )
-            engine.rootContext().setContextProperty(
-                "userListModel", users
-            )
-            engine.rootContext().setContextProperty(
-                "workHoursController", work_hours
-            )
+            engine.rootContext().setContextProperty("tasksController", tasks_controller)
+            engine.rootContext().setContextProperty("userListModel", users)
+            engine.rootContext().setContextProperty("workHoursController", work_hours)
             theme_component = QQmlComponent(
                 engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
             )
@@ -3707,17 +3875,21 @@ class TasksQmlTests(unittest.TestCase):
             component = QQmlComponent(
                 engine, QUrl.fromLocalFile(str(qml_dir / "TaskInspector.qml"))
             )
-            inspector = component.createWithInitialProperties({
-                "theme": theme, "controller": inspector_controller,
-                "width": 620, "height": 310,
-            })
+            inspector = component.createWithInitialProperties(
+                {
+                    "theme": theme,
+                    "controller": inspector_controller,
+                    "width": 620,
+                    "height": 310,
+                }
+            )
             self.assertIsNotNone(inspector, component.errors())
             window = QQuickWindow()
             window.resize(620, 310)
             inspector.setParentItem(window.contentItem())
             window.show()
             QTest.qWait(30)
-            status = inspector.findChild(QQuickItem, "taskInspectorStatusField")
+            status = self.visual_find(inspector, "taskInspectorStatusField")
             self.assertIsNotNone(status)
             label = status.findChild(QQuickItem, "comboBoxDisplayLabel")
             self.assertIsNotNone(label)
@@ -3731,9 +3903,43 @@ class TasksQmlTests(unittest.TestCase):
             for child in children:
                 children.extend(child.childItems())
             self.assertIn(
-                "Pending", [child.property("text") for child in children],
+                "Pending",
+                [child.property("text") for child in children],
                 (popup.property("opened"), options.property("count")),
             )
+            QMetaObject.invokeMethod(popup, "close")
+            user_component = QQmlComponent(
+                engine, QUrl.fromLocalFile(str(qml_dir / "UserComboBox.qml"))
+            )
+            user = user_component.createWithInitialProperties(
+                {
+                    "theme": theme,
+                    "userModel": users,
+                    "model": [
+                        {"value": "", "label": "No supervisor"},
+                        {"value": "No supervisor", "label": "No supervisor"},
+                    ],
+                    "textRole": "label",
+                    "valueRole": "value",
+                    "currentIndex": 0,
+                }
+            )
+            self.assertIsNotNone(user, user_component.errors())
+            user.setParentItem(window.contentItem())
+            user.setWidth(240)
+            user.setHeight(36)
+            QTest.qWait(20)
+            user_label = user.findChild(QQuickItem, "userComboBoxDisplayLabel")
+            self.assertEqual(user_label.property("text"), "Без руководителя")
+            user.setProperty("currentIndex", 1)
+            QGuiApplication.processEvents()
+            self.assertEqual(
+                user_label.property("text"),
+                "No supervisor",
+                "Configured user names must not be translated",
+            )
+            user.deleteLater()
+
         finally:
             if window is not None:
                 window.close()
@@ -3750,16 +3956,17 @@ class TasksQmlTests(unittest.TestCase):
         inspector_controller = _TaskInspectorController()
         tasks_controller = _TaskInspectorTasksController()
         work_hours = WorkHoursController(application)
-        users = RecordListModel((
-            "login", "displayName", "initials", "avatarUrl",
-        ))
-        engine.rootContext().setContextProperty(
-            "tasksController", tasks_controller
+        users = RecordListModel(
+            (
+                "login",
+                "displayName",
+                "initials",
+                "avatarUrl",
+            )
         )
+        engine.rootContext().setContextProperty("tasksController", tasks_controller)
         engine.rootContext().setContextProperty("userListModel", users)
-        engine.rootContext().setContextProperty(
-            "workHoursController", work_hours
-        )
+        engine.rootContext().setContextProperty("workHoursController", work_hours)
         theme_component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
         )
@@ -3767,12 +3974,14 @@ class TasksQmlTests(unittest.TestCase):
         component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(qml_dir / "TaskInspector.qml"))
         )
-        inspector = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": inspector_controller,
-            "width": 620,
-            "height": 310,
-        })
+        inspector = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": inspector_controller,
+                "width": 620,
+                "height": 310,
+            }
+        )
         self.assertIsNotNone(
             inspector,
             "\n".join(error.toString() for error in component.errors()),
@@ -3784,7 +3993,7 @@ class TasksQmlTests(unittest.TestCase):
         QTest.qWait(50)
 
         def item(name):
-            result = inspector.findChild(QQuickItem, name)
+            result = self.visual_find(inspector, name)
             self.assertIsNotNone(result, name)
             return result
 
@@ -3805,10 +4014,10 @@ class TasksQmlTests(unittest.TestCase):
         title = item("taskInspectorTaskTitle")
         status = item("taskInspectorStatusField")
         assignee = item("taskInspectorAssigneeField")
-        save = item("taskInspectorSaveButton")
-        full_create = item("taskInspectorFullCreateButton")
-        edit = item("taskInspectorEditButton")
-        task_switch = item("taskInspectorTaskSwitchButton")
+        save = item("taskInspector_save")
+        full_create = item("taskInspector_create")
+        edit = self.visual_find(inspector, "taskInspector_edit")
+        task_switch = self.visual_find(inspector, "taskInspectorTaskSwitchButton")
 
         self.assertTrue(surface.property("visible"))
         self.assertEqual(title.property("text"), "Publish task")
@@ -3816,8 +4025,8 @@ class TasksQmlTests(unittest.TestCase):
         self.assertTrue(assignee.property("visible"))
         self.assertTrue(save.property("visible"))
         self.assertTrue(full_create.property("visible"))
-        self.assertFalse(edit.property("visible"))
-        self.assertFalse(task_switch.property("visible"))
+        self.assertIsNone(edit)
+        self.assertIsNone(task_switch)
 
         click(save)
         self.assertEqual(tasks_controller.saved_rows, [1])
@@ -3825,24 +4034,34 @@ class TasksQmlTests(unittest.TestCase):
         self.assertEqual(inspector_controller.full_create_count, 1)
 
         inspector_controller.set_task(code="TASK001", dirty=False)
-        inspector_controller.set_task_choices([
-            {
-                "value": "TASK001", "label": "publish",
-                "status": "Artist · Ready", "selected": True,
-                "primaryBranch": True, "noteCount": 2,
-            },
-            {
-                "value": "TASK002", "label": "review",
-                "status": "Lead · Review", "selected": False,
-                "primaryBranch": False, "noteCount": 1,
-            },
-        ])
+        inspector_controller.set_task_choices(
+            [
+                {
+                    "value": "TASK001",
+                    "label": "publish",
+                    "status": "Artist · Ready",
+                    "selected": True,
+                    "primaryBranch": True,
+                    "noteCount": 2,
+                },
+                {
+                    "value": "TASK002",
+                    "label": "review",
+                    "status": "Lead · Review",
+                    "selected": False,
+                    "primaryBranch": False,
+                    "noteCount": 1,
+                },
+            ]
+        )
         QTest.qWait(30)
+        edit = item("taskInspector_edit")
+        task_switch = item("taskInspectorTaskSwitchButton")
         self.assertTrue(edit.property("visible"))
         self.assertTrue(full_create.property("visible"))
         self.assertTrue(task_switch.property("visible"))
-        self.assertEqual(task_switch.property("iconName"), "swap_horiz")
-        self.assertFalse(save.property("visible"))
+        self.assertEqual(task_switch.property("iconName"), "swap-horiz")
+        self.assertIsNone(self.visual_find(inspector, "taskInspector_save"))
         edit_right = edit.mapToScene(QPointF(edit.width(), 0)).x()
         create_left = full_create.mapToScene(QPointF()).x()
         self.assertGreaterEqual(create_left, edit_right)
@@ -3852,19 +4071,11 @@ class TasksQmlTests(unittest.TestCase):
             window.resize(width, 310)
             inspector.setProperty("width", width)
             QTest.qWait(30)
-            surface_right = surface.mapToScene(
-                QPointF(surface.width(), 0)
-            ).x()
-            surface_bottom = surface.mapToScene(
-                QPointF(0, surface.height())
-            ).y()
+            surface_right = surface.mapToScene(QPointF(surface.width(), 0)).x()
+            surface_bottom = surface.mapToScene(QPointF(0, surface.height())).y()
             for control in (status, assignee, edit, full_create):
-                control_right = control.mapToScene(
-                    QPointF(control.width(), 0)
-                ).x()
-                control_bottom = control.mapToScene(
-                    QPointF(0, control.height())
-                ).y()
+                control_right = control.mapToScene(QPointF(control.width(), 0)).x()
+                control_bottom = control.mapToScene(QPointF(0, control.height())).y()
                 self.assertLessEqual(control_right, surface_right + 0.5)
                 self.assertLessEqual(control_bottom, surface_bottom + 0.5)
 
@@ -3874,19 +4085,27 @@ class TasksQmlTests(unittest.TestCase):
         self.assertTrue(task_switch.property("visible"))
 
         inspector_controller.set_expanded(True)
-        inspector_controller.set_progress({
-            "state": "ready", "objectCount": 1,
-            "items": [{
-                "parentTitle": "Asset A", "parentKey": "project/asset?code=A",
-                "process": "model", "status": "Ready", "assigned": "Artist",
-            }],
-        })
+        inspector_controller.set_progress(
+            {
+                "state": "ready",
+                "objectCount": 1,
+                "items": [
+                    {
+                        "parentTitle": "Asset A",
+                        "parentKey": "project/asset?code=A",
+                        "process": "model",
+                        "status": "Ready",
+                        "assigned": "Artist",
+                    }
+                ],
+            }
+        )
         QTest.qWait(30)
         related = item("taskInspectorRelatedTasks")
         related_list = item("taskInspectorRelatedTaskList")
         self.assertTrue(related.property("visible"))
         self.assertFalse(surface.property("visible"))
-        self.assertFalse(save.property("visible"))
+        self.assertIsNone(self.visual_find(inspector, "taskInspector_save"))
         self.assertEqual(related_list.property("count"), 1)
         for width in (360, 620):
             window.resize(width, 310)
@@ -3896,25 +4115,37 @@ class TasksQmlTests(unittest.TestCase):
                 related.mapToScene(QPointF(related.width(), 0)).x(),
                 window.width() + 0.5,
             )
-        inspector_controller.set_progress({
-            "state": "ready", "objectCount": 12,
-            "items": [{
-                "parentTitle": f"Asset {index}",
-                "parentKey": f"project/asset?code=A{index}",
-                "process": "model", "status": "Ready", "assigned": "Artist",
-            } for index in range(12)],
-        })
+        inspector_controller.set_progress(
+            {
+                "state": "ready",
+                "objectCount": 12,
+                "items": [
+                    {
+                        "parentTitle": f"Asset {index}",
+                        "parentKey": f"project/asset?code=A{index}",
+                        "process": "model",
+                        "status": "Ready",
+                        "assigned": "Artist",
+                    }
+                    for index in range(12)
+                ],
+            }
+        )
         QTest.qWait(30)
         scrollbar = item("taskInspectorRelatedScrollbar")
         self.assertTrue(scrollbar.property("visible"))
-        inspector_controller.set_progress({
-            "state": "unrelated", "items": [], "objectCount": 0,
-            "searchType": "project/asset",
-        })
+        inspector_controller.set_progress(
+            {
+                "state": "unrelated",
+                "items": [],
+                "objectCount": 0,
+                "searchType": "project/asset",
+            }
+        )
         QTest.qWait(20)
-        self.assertFalse(related_list.property("visible"))
+        self.assertIsNone(self.visual_find(inspector, "taskInspectorRelatedTaskList"))
         self.assertIn(
-            "No schema relationship to project/asset",
+            "No schema relationship to this Search Type: project/asset",
             item("taskInspectorRelatedEmpty").property("text"),
         )
 
@@ -3931,9 +4162,14 @@ class TasksQmlTests(unittest.TestCase):
         application.workspace_state._selected_sobject = None
         application.workspace_state._task_sobjects = []
         controller = TasksController(application)
-        users = RecordListModel((
-            "login", "displayName", "initials", "avatarUrl",
-        ))
+        users = RecordListModel(
+            (
+                "login",
+                "displayName",
+                "initials",
+                "avatarUrl",
+            )
+        )
         engine.rootContext().setContextProperty("tasksController", controller)
         engine.rootContext().setContextProperty(
             "advancedTaskModel", controller.advanced_model
@@ -3953,9 +4189,12 @@ class TasksQmlTests(unittest.TestCase):
             engine,
             QUrl.fromLocalFile(str(qml_dir / "TasksWorkspaceView.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme, "embedded": True,
-        })
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "embedded": True,
+            }
+        )
         self.assertIsNotNone(
             view,
             "\n".join(error.toString() for error in component.errors()),
@@ -3967,54 +4206,55 @@ class TasksQmlTests(unittest.TestCase):
         window.show()
         QTest.qWait(40)
 
-        menu_expression = QQmlExpression(
-            QQmlEngine.contextForObject(view), view,
-            "JSON.stringify(workspaceMenuActions())",
+        overflow_button = self.visual_find(view, "taskWorkspaceOverflowButton")
+        point = overflow_button.mapToScene(
+            QPointF(overflow_button.width() / 2, overflow_button.height() / 2)
         )
-        encoded_actions, _undefined = menu_expression.evaluate()
-        self.assertFalse(menu_expression.hasError())
-        actions = json.loads(encoded_actions)
+        QTest.mouseClick(
+            window,
+            Qt.LeftButton,
+            Qt.NoModifier,
+            QPoint(round(point.x()), round(point.y())),
+        )
+        menu = self.visual_find(view, "taskWorkspaceMenu")
+        self.wait_for(lambda: menu.property("opened"))
+        frame = self.visual_find(
+            menu.property("contentItem"), "taskWorkspaceOptionsFrame"
+        )
+        self.assertIsNotNone(frame)
+        nodes = frame.property("scene").toVariant()["nodes"]
+        actions = {
+            node.get("action", {}).get("type") for node in nodes if node.get("action")
+        }
+        self.assertTrue(
+            {
+                "mode",
+                "calendar",
+                "columns",
+                "clear-filters",
+                "filters",
+                "page-size",
+                "sort",
+            }
+            <= actions
+        )
+        sort_node = next(node for node in nodes if node["id"] == "taskOptionsSort")
+        self.assertEqual(
+            [row["value"] for row in sort_node["options"]],
+            [row["value"] for row in controller.sortOptions],
+        )
+        QMetaObject.invokeMethod(menu, "close")
+        self.wait_for(lambda: not menu.property("visible"))
 
-        def commands(records):
-            self.assertLessEqual(sum(not record.get("separator") for record in records), 8)
-            result = set()
-            for record in records:
-                if record.get("command"):
-                    result.add(record["command"])
-                if "children" in record:
-                    result.update(commands(record["children"]))
-            return result
-
-        available = commands(actions)
-        self.assertTrue({"view:list", "view:gantt", "calendar", "columns", "clear", "filters"} <= available)
-        self.assertTrue({"sort:" + option["value"] for option in controller.sortOptions} <= available)
-        self.assertTrue({"group:" + option["value"] for option in controller.groupOptions} <= available)
-
-        surface_slot = view.findChild(
-            QQuickItem, "taskWorkspaceSurfaceSlot"
-        )
-        surface_loader = view.findChild(
-            QObject, "taskWorkspaceSurfaceLoader"
-        )
-        empty_state = view.findChild(QQuickItem, "taskWorkspaceEmptyState")
-        persistent_footer = view.findChild(
-            QQuickItem, "taskWorkspacePersistentFooter"
-        )
-        empty_title = view.findChild(
-            QObject, "taskWorkspaceEmptyTitle"
-        )
-        empty_hint = view.findChild(
-            QObject, "taskWorkspaceEmptyHint"
-        )
-        empty_arrow = view.findChild(
-            QQuickItem, "taskWorkspaceEmptyArrow"
-        )
-        empty_message = view.findChild(
-            QQuickItem, "taskWorkspaceEmptyMessageBlock"
-        )
-        create_button = view.findChild(
-            QQuickItem, "taskWorkspaceCreateButton"
-        )
+        surface_slot = self.visual_find(view, "taskWorkspaceSurfaceSlot")
+        surface_loader = self.visual_find(view, "taskWorkspaceSurfaceLoader")
+        empty_state = self.visual_find(view, "taskWorkspaceEmptyState")
+        persistent_footer = self.visual_find(view, "taskWorkspacePersistentFooter")
+        empty_title = self.visual_find(view, "taskWorkspaceEmptyTitle")
+        empty_hint = self.visual_find(view, "taskWorkspaceEmptyHint")
+        empty_arrow = self.visual_find(view, "taskWorkspaceEmptyArrow")
+        empty_message = self.visual_find(view, "taskWorkspaceEmptyMessageBlock")
+        create_button = self.visual_find(view, "taskWorkspaceCreateButton")
         self.assertIsNotNone(surface_slot)
         self.assertIsNotNone(surface_loader)
         self.assertFalse(surface_loader.property("active"))
@@ -4022,14 +4262,15 @@ class TasksQmlTests(unittest.TestCase):
         self.assertIsNotNone(persistent_footer)
         self.assertIsNotNone(empty_title)
         self.assertIsNotNone(empty_hint)
-        self.assertIsNotNone(empty_arrow)
+        self.assertIsNone(empty_arrow)
         self.assertIsNotNone(empty_message)
         self.assertIsNotNone(create_button)
         self.assertTrue(empty_state.property("visible"))
         self.assertTrue(persistent_footer.property("visible"))
         self.assertEqual(empty_title.property("text"), "Create a task")
         self.assertEqual(
-            empty_hint.property("text"), "Use the + button above"
+            empty_hint.property("text"),
+            "Select a parent object before creating a task.",
         )
         self.assertAlmostEqual(
             empty_state.mapToScene(QPointF(0, 0)).x(),
@@ -4039,13 +4280,13 @@ class TasksQmlTests(unittest.TestCase):
         self.assertAlmostEqual(
             float(empty_state.property("height")),
             float(surface_slot.property("height"))
-                - float(persistent_footer.property("height")),
+            - float(persistent_footer.property("height")),
             delta=0.5,
         )
         self.assertAlmostEqual(
-            persistent_footer.mapToScene(QPointF(
-                0, float(persistent_footer.property("height"))
-            )).y(),
+            persistent_footer.mapToScene(
+                QPointF(0, float(persistent_footer.property("height")))
+            ).y(),
             float(view.property("height")),
             delta=0.5,
         )
@@ -4058,45 +4299,14 @@ class TasksQmlTests(unittest.TestCase):
             view.setProperty("width", arrow_width)
             QTest.qWait(20)
             self.assertLess(
-                empty_arrow.width() * empty_arrow.height(),
+                empty_message.width() * empty_message.height(),
                 empty_state.width() * empty_state.height(),
             )
-            arrow_target = empty_arrow.mapToScene(QPointF(
-                float(empty_arrow.property("targetX")),
-                float(empty_arrow.property("targetY")),
-            ))
-            button_bottom = create_button.mapToScene(QPointF(
-                create_button.width() / 2,
-                create_button.height(),
-            ))
-            arrow_source = empty_arrow.mapToScene(QPointF(
-                float(empty_arrow.property("sourceX")),
-                float(empty_arrow.property("sourceY")),
-            ))
-            message_left = empty_message.mapToScene(QPointF(
-                0, empty_message.height() / 2 + 8,
-            ))
-            self.assertAlmostEqual(
-                arrow_target.x(), button_bottom.x(), delta=0.5
-            )
-            self.assertAlmostEqual(
-                arrow_target.y(), button_bottom.y() + 4.0, delta=0.5
-            )
-            self.assertAlmostEqual(
-                arrow_source.x(), message_left.x() - 18.0, delta=0.5
-            )
-            self.assertAlmostEqual(
-                arrow_source.y(), message_left.y(), delta=0.5
-            )
-        quick_filter = view.findChild(
-            QQuickItem, "taskWorkspaceQuickFilterButton"
-        )
-        search_field = view.findChild(
-            QQuickItem, "taskWorkspaceSearchField"
-        )
-        overflow = view.findChild(
-            QQuickItem, "taskWorkspaceOverflowButton"
-        )
+        view.setWidth(720)
+        QGuiApplication.processEvents()
+        quick_filter = self.visual_find(view, "taskWorkspaceQuickFilterButton")
+        search_field = self.visual_find(view, "taskWorkspaceSearchField")
+        overflow = self.visual_find(view, "taskWorkspaceOverflowButton")
         self.assertIsNotNone(quick_filter)
         self.assertIsNotNone(search_field)
         self.assertIsNotNone(overflow)
@@ -4109,36 +4319,51 @@ class TasksQmlTests(unittest.TestCase):
         self.assertEqual(
             empty_title.property("text"), "No tasks match the current filters"
         )
-        self.assertFalse(empty_arrow.property("visible"))
+        self.assertIsNone(self.visual_find(view, "taskWorkspaceEmptyArrow"))
         view.setProperty("width", 380)
         QGuiApplication.processEvents()
         self.assertEqual(overflow.property("iconColor"), theme.property("green"))
         view.setProperty("width", 720)
-        filter_center = quick_filter.mapToScene(QPointF(
-            quick_filter.width() / 2, quick_filter.height() / 2,
-        ))
-        QTest.mouseClick(window, Qt.MouseButton.LeftButton,
-                         Qt.KeyboardModifier.NoModifier,
-                         QPoint(round(filter_center.x()), round(filter_center.y())))
         QGuiApplication.processEvents()
-        all_chip = view.findChild(QQuickItem, "taskQuickFilterAllChip")
+        quick_filter = self.visual_find(view, "taskWorkspaceQuickFilterButton")
+        filter_center = quick_filter.mapToScene(
+            QPointF(
+                quick_filter.width() / 2,
+                quick_filter.height() / 2,
+            )
+        )
+        QTest.mouseClick(
+            window,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            QPoint(round(filter_center.x()), round(filter_center.y())),
+        )
+        QGuiApplication.processEvents()
+        self.wait_for(
+            lambda: self.visual_find(view, "taskQuickFilterAllChip") is not None
+        )
+        all_chip = self.visual_find(view, "taskQuickFilterAllChip")
         self.assertIsNotNone(all_chip)
         self.assertFalse(all_chip.property("checked"))
-        chip_center = all_chip.mapToScene(QPointF(
-            all_chip.width() / 2, all_chip.height() / 2,
-        ))
-        QTest.mouseClick(all_chip.window(), Qt.MouseButton.LeftButton,
-                         Qt.KeyboardModifier.NoModifier,
-                         QPoint(round(chip_center.x()), round(chip_center.y())))
+        chip_center = all_chip.mapToScene(
+            QPointF(
+                all_chip.width() / 2,
+                all_chip.height() / 2,
+            )
+        )
+        QTest.mouseClick(
+            all_chip.window(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            QPoint(round(chip_center.x()), round(chip_center.y())),
+        )
         QGuiApplication.processEvents()
         self.assertEqual(empty_title.property("text"), "Create a task")
         self.assertEqual(search_field.property("text"), "")
-        self.assertIsNone(view.findChild(QObject, "taskBrowserTable"))
+        self.assertIsNone(self.visual_find(view, "taskBrowserTable"))
         self.assertIsNone(view.findChild(QObject, "ganttTaskList"))
-        self.assertIsNone(
-            view.findChild(QObject, "taskPendingChangesOverlaySlot")
-        )
-        self.assertIsNone(view.findChild(QObject, "taskColumnContextMenu"))
+        self.assertIsNone(self.visual_find(view, "taskPendingChangesOverlaySlot"))
+        self.assertIsNone(self.visual_find(view, "taskColumnContextMenu"))
 
         window.close()
         window.deleteLater()
@@ -4151,9 +4376,14 @@ class TasksQmlTests(unittest.TestCase):
         engine.addImportPath(str(qml_dir))
         controller = TasksController(FakeApplication())
         controller.use_current_object()
-        users = RecordListModel((
-            "login", "displayName", "initials", "avatarUrl",
-        ))
+        users = RecordListModel(
+            (
+                "login",
+                "displayName",
+                "initials",
+                "avatarUrl",
+            )
+        )
         engine.rootContext().setContextProperty("tasksController", controller)
         engine.rootContext().setContextProperty(
             "taskProcessModel", controller.process_model
@@ -4179,19 +4409,15 @@ class TasksQmlTests(unittest.TestCase):
         window.show()
         QTest.qWait(40)
 
-        switcher = panel.findChild(QQuickItem, "quickTaskViewSwitcher")
-        refresh = panel.findChild(QQuickItem, "quickTaskRefreshButton")
-        background_surface = panel.findChild(
-            QQuickItem, "quickTaskBackgroundSurface"
-        )
+        switcher = self.visual_find(panel, "quickTaskViewSwitcher")
+        refresh = self.visual_find(panel, "quickTaskRefreshButton")
+        background_surface = panel.findChild(QQuickItem, "quickTaskBackgroundSurface")
         footer = panel.findChild(QQuickItem, "quickTaskFooter")
         self.assertIsNotNone(switcher)
         self.assertIsNotNone(refresh)
         self.assertIsNotNone(background_surface)
         self.assertIsNotNone(footer)
-        self.assertEqual(
-            footer.height(), theme.property("dockWorkspaceFooterHeight")
-        )
+        self.assertEqual(footer.height(), theme.property("dockWorkspaceFooterHeight"))
         self.assertEqual(
             footer.property("bottomLeftRadius"),
             background_surface.property("bottomLeftRadius"),
@@ -4203,27 +4429,37 @@ class TasksQmlTests(unittest.TestCase):
         image = window.grabWindow()
         self.assertFalse(image.isNull())
         bottom_corner = image.pixelColor(0, image.height() - 1)
-        bottom_center = image.pixelColor(
-            image.width() // 2, image.height() - 1
-        )
+        bottom_center = image.pixelColor(image.width() // 2, image.height() - 1)
         self.assertGreater(bottom_corner.red(), 200)
         self.assertGreater(bottom_corner.blue(), 200)
         self.assertNotEqual(bottom_center.name(), bottom_corner.name())
         segments = [switcher]
         for item in segments:
             segments.extend(item.childItems())
-        cards = next((
-            item for item in segments
-            if item.objectName() == "segmentedButtonSegment_cards"
-        ), None)
-        compact = next((
-            item for item in segments
-            if item.objectName() == "segmentedButtonSegment_compact"
-        ), None)
-        workspace = next((
-            item for item in segments
-            if item.objectName() == "segmentedButtonSegment_workspace"
-        ), None)
+        cards = next(
+            (
+                item
+                for item in segments
+                if item.objectName() == "quickTaskViewSwitcher_cards"
+            ),
+            None,
+        )
+        compact = next(
+            (
+                item
+                for item in segments
+                if item.objectName() == "quickTaskViewSwitcher_compact"
+            ),
+            None,
+        )
+        workspace = next(
+            (
+                item
+                for item in segments
+                if item.objectName() == "quickTaskViewSwitcher_workspace"
+            ),
+            None,
+        )
         self.assertIsNotNone(cards)
         self.assertIsNotNone(compact)
         self.assertIsNotNone(workspace)
@@ -4231,28 +4467,22 @@ class TasksQmlTests(unittest.TestCase):
         self.assertLess(compact.property("x"), workspace.property("x"))
         switcher_width = switcher.width()
         segment_positions = [
-            item.mapToScene(QPointF(0, 0)).x()
-            for item in (cards, compact, workspace)
+            item.mapToScene(QPointF(0, 0)).x() for item in (cards, compact, workspace)
         ]
-        switcher_right = switcher.mapToScene(QPointF(
-            switcher.width(), 0
-        )).x()
+        switcher_right = switcher.mapToScene(QPointF(switcher.width(), 0)).x()
         refresh_left = refresh.mapToScene(QPointF(0, 0)).x()
-        refresh_right = refresh.mapToScene(QPointF(
-            refresh.width(), 0
-        )).x()
+        refresh_right = refresh.mapToScene(QPointF(refresh.width(), 0)).x()
         self.assertLess(switcher_right, refresh_left)
         self.assertLess(refresh_left - switcher_right, 12)
         self.assertLess(panel.width() - refresh_right, 12)
-        self.assertAlmostEqual(
-            panel.width() - switcher_right, 49.0, delta=1.0
-        )
+        self.assertAlmostEqual(panel.width() - switcher_right, 49.0, delta=1.0)
         self.assertTrue(cards.property("selected"))
-        compact_center = compact.mapToScene(QPointF(
-            compact.width() / 2, compact.height() / 2
-        ))
+        compact_center = compact.mapToScene(
+            QPointF(compact.width() / 2, compact.height() / 2)
+        )
         QTest.mouseClick(
-            window, Qt.MouseButton.LeftButton,
+            window,
+            Qt.MouseButton.LeftButton,
             Qt.KeyboardModifier.NoModifier,
             QPoint(round(compact_center.x()), round(compact_center.y())),
         )
@@ -4260,16 +4490,20 @@ class TasksQmlTests(unittest.TestCase):
         self.assertEqual(controller.quickViewMode, "compact")
         self.assertTrue(compact.property("selected"))
         self.assertEqual(switcher.width(), switcher_width)
-        self.assertEqual([
-            item.mapToScene(QPointF(0, 0)).x()
-            for item in (cards, compact, workspace)
-        ], segment_positions)
+        self.assertEqual(
+            [
+                item.mapToScene(QPointF(0, 0)).x()
+                for item in (cards, compact, workspace)
+            ],
+            segment_positions,
+        )
 
-        workspace_center = workspace.mapToScene(QPointF(
-            workspace.width() / 2, workspace.height() / 2
-        ))
+        workspace_center = workspace.mapToScene(
+            QPointF(workspace.width() / 2, workspace.height() / 2)
+        )
         QTest.mouseClick(
-            window, Qt.MouseButton.LeftButton,
+            window,
+            Qt.MouseButton.LeftButton,
             Qt.KeyboardModifier.NoModifier,
             QPoint(round(workspace_center.x()), round(workspace_center.y())),
         )
@@ -4277,10 +4511,13 @@ class TasksQmlTests(unittest.TestCase):
         self.assertEqual(controller.workspaceSurface, "browser")
         self.assertTrue(workspace.property("selected"))
         self.assertEqual(switcher.width(), switcher_width)
-        self.assertEqual([
-            item.mapToScene(QPointF(0, 0)).x()
-            for item in (cards, compact, workspace)
-        ], segment_positions)
+        self.assertEqual(
+            [
+                item.mapToScene(QPointF(0, 0)).x()
+                for item in (cards, compact, workspace)
+            ],
+            segment_positions,
+        )
 
         window.close()
         window.deleteLater()
@@ -5294,15 +5531,15 @@ class TasksQmlTests(unittest.TestCase):
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(
-                qml_dir / "controls" / "FilledActionButton.qml"
-            )),
+            QUrl.fromLocalFile(str(qml_dir / "controls" / "FilledActionButton.qml")),
         )
-        button = component.createWithInitialProperties({
-            "theme": theme,
-            "iconName": "add",
-            "text": "Create",
-        })
+        button = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "iconName": "add",
+                "text": "Create",
+            }
+        )
         self.assertIsNotNone(
             button,
             "\n".join(error.toString() for error in component.errors()),
@@ -5318,6 +5555,15 @@ class TasksQmlTests(unittest.TestCase):
         label = button.findChild(QObject, "filledActionLabel")
         self.assertIsNotNone(label)
         self.assertFalse(label.property("truncated"))
+        hover = button.findChild(QObject, "filledActionCursorArea")
+        tooltip = button.findChild(QObject, "filledActionToolTip")
+        QTest.mouseMove(window, QPoint(20, 20))
+        self.wait_for(lambda: hover.property("hovered"))
+        self.assertFalse(tooltip.property("visible"))
+        button.setProperty("toolTip", "Create task")
+        self.wait_for(lambda: tooltip.property("visible"))
+        theme.setProperty("suppressToolTips", True)
+        self.wait_for(lambda: not tooltip.property("visible"))
         window.close()
         window.deleteLater()
         button.deleteLater()
@@ -5716,72 +5962,89 @@ class TasksQmlTests(unittest.TestCase):
         engine = QQmlEngine()
         qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
         engine.addImportPath(str(qml_dir))
-        users = RecordListModel((
-            "login", "displayName", "initials", "avatarUrl",
-        ))
+        users = RecordListModel(
+            (
+                "login",
+                "displayName",
+                "initials",
+                "avatarUrl",
+            )
+        )
         engine.rootContext().setContextProperty("userListModel", users)
         theme_component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
         )
         theme = theme_component.createWithInitialProperties({"dark": True})
         controller = TasksController(FakeApplication())
-        controller._advanced_raw = [{
-            "taskCode": "TASK00001", "plannedHours": 12.5,
-        }]
+        controller._advanced_raw = [
+            {
+                "taskCode": "TASK00001",
+                "plannedHours": 12.5,
+            }
+        ]
         component = QQmlComponent(
             engine,
             QUrl.fromLocalFile(str(qml_dir / "TaskHiddenDetails.qml")),
         )
-        editor = component.createWithInitialProperties({
-            "theme": theme,
-            "controller": controller,
-            "taskCode": "TASK00001",
-            "parentKey": "skey://demo/asset?code=ASSET00001",
-            "process": "publish",
-            "processChoices": [],
-            "isNew": False,
-            "status": "",
-            "statusChoices": [],
-            "assigned": "",
-            "assignedLabel": "Not assigned",
-            "assignedAvatar": "",
-            "userChoices": [],
-            "supervisor": "",
-            "supervisorLabel": "No supervisor",
-            "supervisorChoices": [],
-            "priority": "3",
-            "priorityLabel": "Important",
-            "priorityChoices": [
-                {"value": "", "label": "No priority"},
-                {"value": "3", "label": "Important"},
-            ],
-            "milestoneCode": "",
-            "milestoneLabel": "No milestone",
-            "milestoneChoices": [],
-            "start": "",
-            "end": "",
-            "progress": 0,
-            "description": "",
-            "plannedHours": 12.5,
-            "processColor": "#42a5f5",
-            "notes": 0,
-            "showPriority": True,
-            "showMilestone": True,
-            "showSupervisor": True,
-        })
+        editor = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "controller": controller,
+                "taskCode": "TASK00001",
+                "parentKey": "skey://demo/asset?code=ASSET00001",
+                "process": "publish",
+                "processChoices": [],
+                "isNew": False,
+                "status": "",
+                "statusChoices": [],
+                "assigned": "",
+                "assignedLabel": "Not assigned",
+                "assignedAvatar": "",
+                "userChoices": [],
+                "supervisor": "",
+                "supervisorLabel": "No supervisor",
+                "supervisorChoices": [],
+                "priority": "3",
+                "priorityLabel": "Important",
+                "priorityChoices": [
+                    {"value": "", "label": "No priority"},
+                    {"value": "3", "label": "Important"},
+                ],
+                "milestoneCode": "",
+                "milestoneLabel": "No milestone",
+                "milestoneChoices": [],
+                "start": "",
+                "end": "",
+                "progress": 0,
+                "description": "",
+                "plannedHours": 12.5,
+                "processColor": "#42a5f5",
+                "notes": 0,
+                "showHours": True,
+                "showPriority": True,
+                "showMilestone": True,
+                "showSupervisor": True,
+            }
+        )
         self.assertIsNotNone(
             editor,
             "\n".join(error.toString() for error in component.errors()),
         )
-        priority_editor = editor.findChild(QObject, "taskPriorityEditor")
-        milestone_editor = editor.findChild(QObject, "taskMilestoneEditor")
-        supervisor_editor = editor.findChild(QObject, "taskSupervisorEditor")
-        expected_hours_editor = editor.findChild(
-            QObject, "taskExpectedHoursEditor"
-        )
-        details_background = editor.findChild(
-            QObject, "taskDetailsBackground"
-        )
+        QGuiApplication.processEvents()
+        visual_items = [editor]
+        for item in visual_items:
+            visual_items.extend(item.childItems())
+
+        def field(name):
+            return next(
+                (item for item in visual_items if item.objectName() == name), None
+            )
+
+        priority_editor = field("taskPriorityEditor")
+        milestone_editor = field("taskMilestoneEditor")
+        supervisor_editor = field("taskSupervisorEditor")
+        expected_hours_editor = field("taskExpectedHoursEditor")
+        details_background = field("taskDetailsBackground")
         self.assertIsNotNone(priority_editor)
         self.assertIsNotNone(milestone_editor)
         self.assertIsNotNone(supervisor_editor)
@@ -5796,9 +6059,7 @@ class TasksQmlTests(unittest.TestCase):
             theme.property("panelDeep"),
         )
         self.assertEqual(expected_hours_editor.property("realValue"), 12.5)
-        self.assertIn(
-            expected_hours_editor.property("displayText"), {"12.5", "12,5"}
-        )
+        self.assertIn(expected_hours_editor.property("displayText"), {"12.5", "12,5"})
         self.assertIn(expected_hours_input.property("text"), {"12.5", "12,5"})
         self.assertNotIn("TASK00001", controller._advanced_drafts)
         editor.setProperty("plannedHours", 24.0)
@@ -5829,18 +6090,30 @@ class TasksQmlTests(unittest.TestCase):
         QTest.qWait(20)
         self.assertEqual(editor.property("detailColumnCount"), 2)
         self.assertGreater(priority_editor.property("width"), 270)
-        description_editor = editor.findChild(
-            QObject, "taskDescriptionEditor"
-        )
-        description_button = editor.findChild(
-            QObject, "taskDescriptionEditButton"
-        )
-        details_background = editor.findChild(
-            QObject, "taskDetailsBackground"
-        )
+        description_editor = field("taskDescriptionEditor")
+        description_button = field("taskDescriptionEditButton")
+        details_background = field("taskDetailsBackground")
         self.assertIsNotNone(details_background)
         self.assertTrue(description_editor.property("readOnly"))
         self.assertTrue(description_button.property("visible"))
+        editor.setProperty("descriptionEditing", True)
+        description_editor.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_X)
+        self.assertEqual(controller._advanced_drafts["TASK00001"]["description"], "x")
+        QTest.keyClick(window, Qt.Key_Escape)
+        self.assertNotIn("TASK00001", controller._advanced_drafts)
+        editor.setProperty("descriptionEditing", True)
+        description_editor.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_Y)
+        controller._advanced_raw.append(
+            {"taskCode": "TASK00002", "description": "Second task"}
+        )
+        editor.setProperty("taskCode", "TASK00002")
+        editor.setProperty("description", "Second task")
+        QGuiApplication.processEvents()
+        self.assertEqual(controller._advanced_drafts["TASK00001"]["description"], "y")
+        self.assertNotIn("TASK00002", controller._advanced_drafts)
+        self.assertEqual(description_editor.property("text"), "Second task")
         editor.setProperty("isNew", True)
         QGuiApplication.processEvents()
         self.assertEqual(
@@ -5849,6 +6122,13 @@ class TasksQmlTests(unittest.TestCase):
         )
         self.assertFalse(description_editor.property("readOnly"))
         self.assertFalse(description_button.property("visible"))
+        context_editor = self.visual_find(editor, "taskContextEditor")
+        self.assertIsNotNone(context_editor)
+        context_editor.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(window, Qt.Key_C)
+        self.assertEqual(controller._advanced_drafts["TASK00002"]["context"], "c")
+
         window.close()
         window.deleteLater()
         editor.deleteLater()
@@ -5967,26 +6247,31 @@ class TasksQmlTests(unittest.TestCase):
         records = []
         for index in range(240):
             record = dict(base)
-            record.update({
-                "taskCode": f"TASK{index:05d}",
-                "parentTitle": f"Asset {index:05d}",
-                "selected": False,
-                "checked": False,
-                "group": "",
-                "groupKey": "",
-                "groupCount": 0,
-                "groupFirst": False,
-                "groupCollapsed": False,
-            })
+            record.update(
+                {
+                    "taskCode": f"TASK{index:05d}",
+                    "parentTitle": f"Asset {index:05d}",
+                    "selected": False,
+                    "checked": False,
+                    "group": "",
+                    "groupKey": "",
+                    "groupCount": 0,
+                    "groupFirst": False,
+                    "groupCollapsed": False,
+                }
+            )
             records.append(record)
         controller.table_model.reset_records(records)
 
-        users = RecordListModel((
-            "login", "displayName", "initials", "avatarUrl",
-        ))
-        engine.rootContext().setContextProperty(
-            "tasksController", controller
+        users = RecordListModel(
+            (
+                "login",
+                "displayName",
+                "initials",
+                "avatarUrl",
+            )
         )
+        engine.rootContext().setContextProperty("tasksController", controller)
         engine.rootContext().setContextProperty(
             "advancedTaskModel", controller.advanced_model
         )
@@ -6016,18 +6301,16 @@ class TasksQmlTests(unittest.TestCase):
         window.show()
         QTest.qWait(80)
 
-        task_list = table.findChild(QObject, "taskBrowserList")
+        task_list = self.visual_find(table, "taskBrowserList")
         self.assertIsNotNone(task_list)
         self.assertEqual(task_list.property("count"), 240)
         self.assertGreater(float(task_list.property("height")), 0)
         self.assertGreater(float(task_list.property("contentHeight")), 0)
         self.assertGreater(task_list.property("liveDelegateCount"), 0)
         self.assertLess(task_list.property("liveDelegateCount"), 40)
-        presentation = table.findChild(
-            QObject, "initialTaskTablePresentation"
-        )
+        presentation = table.findChild(QObject, "initialTaskTablePresentation")
         self.assertIsNotNone(presentation)
-        self.assertTrue(presentation.property("ready"))
+        self.wait_for(lambda: bool(presentation.property("ready")))
         self.assertTrue(table.property("initialPresentationReady"))
         controller._advanced_busy = True
         controller.advancedChanged.emit()
@@ -6038,7 +6321,7 @@ class TasksQmlTests(unittest.TestCase):
         controller._advanced_busy = False
         controller.advancedChanged.emit()
         QTest.qWait(30)
-        self.assertTrue(presentation.property("ready"))
+        self.wait_for(lambda: bool(presentation.property("ready")))
         self.assertTrue(table.property("initialPresentationReady"))
         self.assertEqual(task_list.property("opacity"), 1)
         timer_count = sum(
@@ -6054,17 +6337,19 @@ class TasksQmlTests(unittest.TestCase):
         window.resize(1000, 640)
         table.setProperty("width", 1000)
         QTest.qWait(20)
-        status_header = table.findChild(QObject, "taskStatusHeader")
-        assignee_header = table.findChild(QObject, "taskAssigneeHeader")
-        progress_header = table.findChild(QObject, "taskProgressHeader")
+        status_header = self.visual_find(table, "taskStatusHeader")
+        assignee_header = self.visual_find(table, "taskAssigneeHeader")
+        progress_header = self.visual_find(table, "taskProgressHeader")
         self.assertIsNotNone(status_header)
         self.assertIsNotNone(assignee_header)
         self.assertIsNotNone(progress_header)
         context_spy = QSignalSpy(table.columnContextRequested)
-        status_center = status_header.mapToScene(QPointF(
-            float(status_header.property("width")) / 2.0,
-            float(status_header.property("height")) / 2.0,
-        ))
+        status_center = status_header.mapToScene(
+            QPointF(
+                float(status_header.property("width")) / 2.0,
+                float(status_header.property("height")) / 2.0,
+            )
+        )
         QTest.mouseClick(
             window,
             Qt.MouseButton.RightButton,
@@ -6114,12 +6399,16 @@ class TasksQmlTests(unittest.TestCase):
         application.dock_model = DockPanelModel({})
         controller = TasksController(application)
         controller.open_workspace()
-        users = RecordListModel((
-            "login", "displayName", "initials", "avatarUrl",
-        ))
-        engine.rootContext().setContextProperty(
-            "tasksController", controller
+        application.dock_model.show_panel("notes")
+        users = RecordListModel(
+            (
+                "login",
+                "displayName",
+                "initials",
+                "avatarUrl",
+            )
         )
+        engine.rootContext().setContextProperty("tasksController", controller)
         engine.rootContext().setContextProperty(
             "advancedTaskModel", controller.advanced_model
         )
@@ -6148,7 +6437,7 @@ class TasksQmlTests(unittest.TestCase):
         table.setProperty("height", 640)
         window.show()
         QTest.qWait(80)
-        task_list = table.findChild(QQuickItem, "taskBrowserList")
+        task_list = self.visual_find(table, "taskBrowserList")
         self.assertIsNotNone(task_list)
         QMetaObject.invokeMethod(task_list, "forceLayout")
         QTest.qWait(40)
@@ -6157,43 +6446,51 @@ class TasksQmlTests(unittest.TestCase):
         for item in visual_items:
             visual_items.extend(item.childItems())
         note_buttons = [
-            item for item in visual_items
-            if item.objectName() == "itemCountCompactButton"
+            item for item in visual_items if item.objectName() == "taskNotes"
         ]
-        note_button = next((
-            button for button in note_buttons
-            if button.property("visible")
-            and button.property("enabled")
-            and button.property("toolTip") == "Open notes"
-        ), None)
-        self.assertIsNotNone(note_button, {
-            "list": {
-                "count": task_list.property("count"),
-                "width": task_list.width(),
-                "height": task_list.height(),
-                "contentHeight": task_list.property("contentHeight"),
+        note_button = next(
+            (
+                button
+                for button in note_buttons
+                if button.property("visible")
+                and button.property("enabled")
+                and str(button.property("toolTip")).startswith("Open notes")
+            ),
+            None,
+        )
+        self.assertIsNotNone(
+            note_button,
+            {
+                "list": {
+                    "count": task_list.property("count"),
+                    "width": task_list.width(),
+                    "height": task_list.height(),
+                    "contentHeight": task_list.property("contentHeight"),
+                },
+                "buttons": [
+                    {
+                        "class": button.metaObject().className(),
+                        "visible": button.property("visible"),
+                        "enabled": button.property("enabled"),
+                        "toolTip": button.property("toolTip"),
+                    }
+                    for button in note_buttons
+                ],
             },
-            "buttons": [{
-                "class": button.metaObject().className(),
-                "visible": button.property("visible"),
-                "enabled": button.property("enabled"),
-                "toolTip": button.property("toolTip"),
-            }
-            for button in note_buttons
-        ]})
+        )
         before = application.dock_model.capture_layout()
-        layout_changes = QSignalSpy(
-            application.dock_model.minimumHostSizeChanged
+        layout_changes = QSignalSpy(application.dock_model.minimumHostSizeChanged)
+        selection_changes = QSignalSpy(application.workspace_state.selection_changed)
+        center = note_button.mapToScene(
+            QPointF(
+                note_button.width() / 2.0,
+                note_button.height() / 2.0,
+            )
         )
-        selection_changes = QSignalSpy(
-            application.workspace_state.selection_changed
-        )
-        center = note_button.mapToScene(QPointF(
-            note_button.width() / 2.0, note_button.height() / 2.0,
-        ))
 
         QTest.mouseClick(
-            window, Qt.MouseButton.LeftButton,
+            window,
+            Qt.MouseButton.LeftButton,
             Qt.KeyboardModifier.NoModifier,
             QPoint(round(center.x()), round(center.y())),
         )
@@ -6216,7 +6513,8 @@ class TasksQmlTests(unittest.TestCase):
         )
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(engine)
-        component.setData(b"""
+        component.setData(
+            b"""
             import QtQuick
             import "controls" as Controls
             Item {
@@ -6266,7 +6564,9 @@ class TasksQmlTests(unittest.TestCase):
                     }
                 }
             }
-        """, QUrl.fromLocalFile(str(qml_dir / "LazyTaskEditorProbe.qml")))
+        """,
+            QUrl.fromLocalFile(str(qml_dir / "LazyTaskEditorProbe.qml")),
+        )
         probe = component.createWithInitialProperties({"theme": theme})
         self.assertIsNotNone(
             probe,
@@ -6281,27 +6581,27 @@ class TasksQmlTests(unittest.TestCase):
         self.assertIsNone(probe.findChild(QObject, "lazyTaskEditorProbe"))
         cell = probe.findChild(QObject, "taskTableEditorCell")
         self.assertIsNotNone(cell)
-        display_label = probe.findChild(
-            QQuickItem, "taskTableCellDisplayLabel"
+        visual_items = [probe]
+        for item in visual_items:
+            visual_items.extend(item.childItems())
+        display_label = next(
+            (
+                item
+                for item in visual_items
+                if item.objectName() == "taskTableCellDisplayLabel"
+            ),
+            None,
         )
         self.assertIsNotNone(display_label)
         display_position = display_label.mapToScene(QPointF(0, 0))
         probe.setProperty("editorActive", True)
         QGuiApplication.processEvents()
-        self.assertIsNotNone(
-            probe.findChild(QObject, "lazyTaskEditorProbe")
-        )
-        editor_label = probe.findChild(
-            QQuickItem, "comboBoxDisplayLabel"
-        )
+        self.assertIsNotNone(probe.findChild(QObject, "lazyTaskEditorProbe"))
+        editor_label = probe.findChild(QQuickItem, "comboBoxDisplayLabel")
         self.assertIsNotNone(editor_label)
         editor_position = editor_label.mapToScene(QPointF(0, 0))
-        self.assertAlmostEqual(
-            editor_position.x(), display_position.x()
-        )
-        self.assertAlmostEqual(
-            editor_position.y(), display_position.y()
-        )
+        self.assertAlmostEqual(editor_position.x(), display_position.x())
+        self.assertAlmostEqual(editor_position.y(), display_position.y())
         probe.setProperty("editorActive", False)
         QGuiApplication.processEvents()
         self.assertTrue(QMetaObject.invokeMethod(probe, "clearEditorSource"))
@@ -6309,19 +6609,18 @@ class TasksQmlTests(unittest.TestCase):
         self.assertTrue(QMetaObject.invokeMethod(probe, "restoreEditorSource"))
         QGuiApplication.processEvents()
         QGuiApplication.processEvents()
-        editor_popup = probe.findChild(
-            QObject, "lazyTaskEditorPopupProbe"
-        )
+        editor_popup = probe.findChild(QObject, "lazyTaskEditorPopupProbe")
         self.assertIsNotNone(editor_popup)
         self.assertFalse(editor_popup.property("visible"))
         probe.setProperty("editorActive", True)
         QTest.qWait(20)
         editor = probe.findChild(QQuickItem, "lazyTaskEditorProbe")
-        editor_position = editor.mapToScene(QPointF(
-            editor.width() / 2, editor.height() / 2
-        ))
+        editor_position = editor.mapToScene(
+            QPointF(editor.width() / 2, editor.height() / 2)
+        )
         QTest.mousePress(
-            window, Qt.MouseButton.LeftButton,
+            window,
+            Qt.MouseButton.LeftButton,
             Qt.KeyboardModifier.NoModifier,
             QPoint(round(editor_position.x()), round(editor_position.y())),
         )
@@ -6329,7 +6628,8 @@ class TasksQmlTests(unittest.TestCase):
         QGuiApplication.processEvents()
         self.assertTrue(cell.property("editorLoaded"))
         QTest.mouseRelease(
-            window, Qt.MouseButton.LeftButton,
+            window,
+            Qt.MouseButton.LeftButton,
             Qt.KeyboardModifier.NoModifier,
             QPoint(round(editor_position.x()), round(editor_position.y())),
         )
@@ -6347,28 +6647,43 @@ class TasksQmlTests(unittest.TestCase):
 
     def test_task_workspace_creates_with_a_real_record(self):
         engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(
+            lambda errors: warnings.extend(error.toString() for error in errors)
+        )
         qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
         engine.addImportPath(str(qml_dir))
         application = FakeApplication()
-        application.workspace_state._task_sobjects[0].get_info().update({
-            "bid_start_date": "",
-            "bid_end_date": "",
-        })
+        application.workspace_state._task_sobjects[0].get_info().update(
+            {
+                "bid_start_date": "",
+                "bid_end_date": "",
+            }
+        )
         controller = TasksController(application)
         controller.open_workspace()
         self.assertEqual(controller.advancedDockTitle, "Tasks for: Robot")
         self.assertEqual(controller.advancedDockSubject, "Robot")
         self.assertEqual(controller.advancedProcessCount, 1)
-        users = RecordListModel((
-            "login", "displayName", "initials", "avatarUrl",
-        ))
-        users.replace([{
-            "login": "artist", "displayName": "Artist",
-            "initials": "AR", "avatarUrl": "",
-        }])
-        engine.rootContext().setContextProperty(
-            "tasksController", controller
+        users = RecordListModel(
+            (
+                "login",
+                "displayName",
+                "initials",
+                "avatarUrl",
+            )
         )
+        users.replace(
+            [
+                {
+                    "login": "artist",
+                    "displayName": "Artist",
+                    "initials": "AR",
+                    "avatarUrl": "",
+                }
+            ]
+        )
+        engine.rootContext().setContextProperty("tasksController", controller)
         engine.rootContext().setContextProperty(
             "advancedTaskModel", controller.advanced_model
         )
@@ -6394,9 +6709,12 @@ class TasksQmlTests(unittest.TestCase):
             engine,
             QUrl.fromLocalFile(str(qml_dir / "TasksWorkspaceView.qml")),
         )
-        view = component.createWithInitialProperties({
-            "theme": theme, "embedded": True,
-        })
+        view = component.createWithInitialProperties(
+            {
+                "theme": theme,
+                "embedded": True,
+            }
+        )
         self.assertIsNotNone(
             view,
             "\n".join(error.toString() for error in component.errors()),
@@ -6407,596 +6725,192 @@ class TasksQmlTests(unittest.TestCase):
         view.setSize(window.size())
         window.show()
         QTest.qWait(40)
-        self.assertFalse(view.property("compactScopeControls"))
-        background_surface = view.findChild(
-            QObject, "taskWorkspaceBackgroundSurface"
-        )
-        self.assertIsNotNone(background_surface)
-        expected_corner = theme.property("surfaceRadius") - 1
+
+        def item(name):
+            target = self.visual_find(view, name)
+            self.assertIsNotNone(target, name)
+            return target
+
+        def click(target, button=Qt.LeftButton):
+            point = target.mapToScene(QPointF(target.width() / 2, target.height() / 2))
+            QTest.mouseClick(
+                target.window(),
+                button,
+                Qt.NoModifier,
+                QPoint(round(point.x()), round(point.y())),
+            )
+            QGuiApplication.processEvents()
+
+        toolbar = item("taskWorkspaceToolbar")
+        surface = item("taskToolbarSurface")
+        self.assertEqual(surface.property("radius"), 0)
+        self.assertEqual(toolbar.height(), 58)
+        scope = item("embeddedScopeSwitcher")
+        self.assertEqual(scope.property("currentValue"), "selected")
         self.assertEqual(
-            background_surface.property("bottomLeftRadius"), expected_corner
+            [row["label"] for row in scope.property("model").toVariant()],
+            ["Selected", "All Asset", "Project tasks", "Teams", "My tasks"],
         )
-        self.assertEqual(
-            background_surface.property("bottomRightRadius"), expected_corner
-        )
-        toolbar = view.findChild(QObject, "taskWorkspaceToolbar")
-        self.assertIsNotNone(toolbar)
-        self.assertEqual(toolbar.property("radius"), 0.0)
-        self.assertIsNone(view.findChild(QObject, "taskWorkspaceTargetLabel"))
-        scope_switcher = view.findChild(QObject, "embeddedScopeSwitcher")
-        self.assertIsNotNone(scope_switcher)
-        self.assertTrue(scope_switcher.property("visible"))
-        self.assertEqual(scope_switcher.property("currentValue"), "object")
-        scope_model = scope_switcher.property("model").toVariant()
-        self.assertEqual(
-            [item["label"] for item in scope_model],
-            ["Selected", "All Asset", "Project", "Teams", "My Tasks"],
-        )
-        workspace_surface_switcher = view.findChild(
-            QQuickItem, "taskWorkspaceSurfaceSwitcher"
-        )
-        sort_combo = view.findChild(QObject, "taskSortModeCombo")
-        group_combo = view.findChild(QObject, "taskGroupModeCombo")
-        view_switcher = view.findChild(
-            QObject, "taskWorkspaceTopViewSwitcher"
-        )
-        clear_filters_button = view.findChild(
-            QObject, "taskWorkspaceClearFiltersButton"
-        )
-        refresh_button = view.findChild(
-            QObject, "taskWorkspaceRefreshButton"
-        )
-        overflow_button = view.findChild(
-            QObject, "taskWorkspaceOverflowButton"
-        )
-        self.assertIsNotNone(workspace_surface_switcher)
-        self.assertIsNotNone(sort_combo)
-        self.assertIsNotNone(group_combo)
-        self.assertEqual(sort_combo.property("iconRole"), "icon")
-        self.assertEqual(group_combo.property("iconRole"), "icon")
-        self.assertIsNone(view_switcher)
-        self.assertIsNotNone(clear_filters_button)
-        self.assertIsNotNone(refresh_button)
-        self.assertIsNotNone(overflow_button)
-        self.assertTrue(workspace_surface_switcher.property("visible"))
-        self.assertTrue(sort_combo.property("visible"))
-        self.assertTrue(group_combo.property("visible"))
-        self.assertTrue(clear_filters_button.property("visible"))
-        self.assertTrue(refresh_button.property("visible"))
-        self.assertFalse(overflow_button.property("visible"))
-        surface_items = [workspace_surface_switcher]
-        for item in surface_items:
-            surface_items.extend(item.childItems())
-        compact_surface = next((
-            item for item in surface_items
-            if item.objectName() == "segmentedButtonSegment_compact"
-        ), None)
-        self.assertIsNotNone(compact_surface)
-        compact_surface_center = compact_surface.mapToScene(QPointF(
-            compact_surface.width() / 2,
-            compact_surface.height() / 2,
-        ))
-        QTest.mouseClick(
-            window, Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-            QPoint(
-                round(compact_surface_center.x()),
-                round(compact_surface_center.y()),
-            ),
-        )
-        QGuiApplication.processEvents()
+        self.assertEqual(item("taskSortModeCombo").property("iconRole"), "icon")
+        self.assertEqual(item("taskGroupModeCombo").property("iconRole"), "icon")
+        click(item("quickTaskViewSwitcher_compact"))
         self.assertEqual(controller.quickViewMode, "compact")
         self.assertEqual(controller.workspaceSurface, "quick")
         controller.open_workspace()
         QGuiApplication.processEvents()
-        search_field = view.findChild(QObject, "taskWorkspaceSearchField")
-        quick_filter = view.findChild(
-            QObject, "taskWorkspaceQuickFilterButton"
-        )
-        create_task_button = view.findChild(
-            QObject, "taskWorkspaceCreateButton"
-        )
-        self.assertIsNotNone(search_field)
-        self.assertIsNotNone(quick_filter)
-        self.assertIsNotNone(create_task_button)
-        with patch.object(controller, "_current_login", return_value="owner"), \
-                patch.object(controller, "refresh_advanced",
-                             side_effect=controller.advancedChanged.emit):
-            controller.open_for_user("artist")
-            QGuiApplication.processEvents()
-            self.assertTrue(clear_filters_button.property("enabled"))
-            self.assertEqual(
-                quick_filter.property("iconColor"), theme.property("green")
-            )
+        with (
+            patch.object(controller, "_current_login", return_value="owner"),
+            patch.object(
+                controller,
+                "refresh_advanced",
+                side_effect=controller.advancedChanged.emit,
+            ),
+        ):
             controller.open_for_user_filter("artist", "status", "Paid")
             QGuiApplication.processEvents()
-            self.assertEqual(controller.advancedScope, "user")
-            self.assertTrue(clear_filters_button.property("enabled"))
+            self.assertTrue(item("taskWorkspaceClearFiltersButton").property("enabled"))
             self.assertEqual(
-                quick_filter.property("iconColor"), theme.property("green")
+                item("taskWorkspaceQuickFilterButton").property("iconColor"),
+                theme.property("green"),
             )
-            reset_button = view.findChild(
-                QQuickItem, "taskWorkspaceClearFiltersButton"
-            )
-            reset_center = reset_button.mapToScene(QPointF(
-                reset_button.width() / 2, reset_button.height() / 2,
-            ))
-            QTest.mouseClick(
-                window, Qt.MouseButton.LeftButton,
-                Qt.KeyboardModifier.NoModifier,
-                QPoint(round(reset_center.x()), round(reset_center.y())),
-            )
-            QGuiApplication.processEvents()
+            click(item("taskWorkspaceClearFiltersButton"))
             self.assertEqual(controller.advancedScope, "object")
             self.assertFalse(controller.advancedFiltersActive)
-        self.assertGreater(
-            clear_filters_button.property("x"), quick_filter.property("x")
-        )
-        self.assertLess(
-            clear_filters_button.property("x")
-                - quick_filter.property("x")
-                - quick_filter.property("width"),
-            12,
-        )
-        self.assertTrue(create_task_button.property("visible"))
-        self.assertTrue(create_task_button.property("enabled"))
-        self.assertEqual(
-            create_task_button.property("cornerRadius"),
-            theme.property("itemRadius"),
-        )
-        view.setProperty("width", 1250)
-        QGuiApplication.processEvents()
-        self.assertTrue(sort_combo.property("visible"))
-        self.assertTrue(group_combo.property("visible"))
-        self.assertTrue(clear_filters_button.property("visible"))
-        self.assertFalse(overflow_button.property("visible"))
-        view.setProperty("width", 1180)
-        QTest.qWait(40)
-        browser = view.findChild(QQuickItem, "taskBrowserTable")
-        self.assertIsNotNone(browser)
-        surface_slot = view.findChild(
-            QQuickItem, "taskWorkspaceSurfaceSlot"
-        )
-        surface_loader = view.findChild(
-            QQuickItem, "taskWorkspaceSurfaceLoader"
-        )
-        table_header = browser.findChild(QQuickItem, "taskTableHeader")
-        persistent_footer = view.findChild(
-            QQuickItem, "taskWorkspacePersistentFooter"
-        )
-        self.assertIsNotNone(surface_slot)
-        self.assertIsNotNone(surface_loader)
-        self.assertIsNotNone(table_header)
-        self.assertIsNotNone(persistent_footer)
-        loading_overlay = view.findChild(
-            QQuickItem, "taskWorkspaceLoadingOverlay"
-        )
-        self.assertIsNotNone(loading_overlay)
-        self.assertTrue(browser.property("initialPresentationReady"))
-        self.assertTrue(surface_loader.property("visible"))
-        controller._advanced_busy = True
-        controller.advancedChanged.emit()
-        QGuiApplication.processEvents()
-        self.assertFalse(browser.property("initialPresentationReady"))
-        self.assertFalse(surface_loader.property("visible"))
-        controller._advanced_busy = False
-        controller.advancedChanged.emit()
-        QGuiApplication.processEvents()
-        self.assertTrue(loading_overlay.property("visible"))
-        self.assertFalse(loading_overlay.property("cancellable"))
-        QTest.qWait(40)
-        self.assertTrue(browser.property("initialPresentationReady"))
-        self.assertTrue(surface_loader.property("visible"))
-        toolbar_top = toolbar.mapToScene(QPointF(0, 0)).y()
-        toolbar_bottom = toolbar.mapToScene(QPointF(
-            0, float(toolbar.property("height"))
-        )).y()
-        slot_top = surface_slot.mapToScene(QPointF(0, 0)).y()
-        browser_top = browser.mapToScene(QPointF(0, 0)).y()
-        self.assertAlmostEqual(toolbar_top, 0.0, delta=0.5)
-        self.assertAlmostEqual(slot_top, toolbar_bottom + 5.0, delta=0.5)
-        self.assertAlmostEqual(browser_top, slot_top, delta=0.5)
-        self.assertAlmostEqual(
-            float(browser.property("width")),
-            float(surface_slot.property("width")),
-            delta=0.5,
-        )
-        self.assertAlmostEqual(
-            float(browser.property("height")),
-            float(surface_slot.property("height")),
-            delta=0.5,
-        )
-        self.assertTrue(table_header.property("visible"))
-        self.assertEqual(float(table_header.property("height")), 34.0)
-        self.assertIsNone(view.findChild(QObject, "taskWorkspaceColumnsButton"))
-        header_columns_button = browser.findChild(
-            QQuickItem, "taskTableColumnsButton"
-        )
-        self.assertIsNotNone(header_columns_button)
-        button_center = header_columns_button.mapToScene(QPointF(
-            header_columns_button.width() / 2,
-            header_columns_button.height() / 2,
-        ))
-        columns_requested = QSignalSpy(browser.columnsRequested)
-        QTest.mouseClick(
-            window, Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-            QPoint(round(button_center.x()), round(button_center.y())),
-        )
-        self.assertEqual(columns_requested.count(), 1)
-        visibility_menu = view.findChild(QObject, "taskColumnsMenu")
-        self.assertIsNotNone(visibility_menu)
-        if not visibility_menu.property("opened"):
-            self.assertTrue(QSignalSpy(visibility_menu.opened).wait(1000))
-        self.assertTrue(visibility_menu.property("opened"))
-        QTest.mouseClick(
-            window, Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-            QPoint(round(button_center.x()), round(button_center.y())),
-        )
-        QGuiApplication.processEvents()
-        self.assertFalse(visibility_menu.property("opened"))
-        stable_slot_geometry = (
-            slot_top,
-            float(surface_slot.property("width")),
-            float(surface_slot.property("height")),
-        )
-        stable_footer_top = persistent_footer.mapToScene(
-            QPointF(0, 0)
-        ).y()
-        self.assertIsNone(
-            view.findChild(QObject, "taskDeleteConfirmationDialog")
-        )
-        self.assertIsNotNone(
-            browser.findChild(QObject, "taskBulkDeleteButton")
-        )
-        self.assertIsNone(
-            view.findChild(QObject, "ganttDeleteSelectedTasksButton")
-        )
-        status_context_area = browser.findChild(
-            QObject, "taskColumnContextArea_status"
-        )
-        self.assertIsNotNone(status_context_area)
-        status_header = browser.findChild(QObject, "taskStatusHeader")
-        self.assertIsNotNone(status_header)
-        status_center = status_header.mapToScene(QPointF(
-            float(status_header.property("width")) / 2.0,
-            float(status_header.property("height")) / 2.0,
-        ))
-        QTest.mouseClick(
-            window,
-            Qt.MouseButton.RightButton,
-            Qt.KeyboardModifier.NoModifier,
-            QPoint(round(status_center.x()), round(status_center.y())),
-        )
-        column_menu = view.findChild(QObject, "taskColumnContextMenu")
-        self.assertIsNotNone(column_menu)
-        opened = QSignalSpy(column_menu.opened)
-        if not column_menu.property("opened"):
-            self.assertTrue(opened.wait(1000))
+        browser = item("taskBrowserTable")
+        self.wait_for(lambda: browser.property("initialPresentationReady"))
+        cell = item("taskCellInput_hours")
+        self.assertIsNotNone(cell)
+        clicked = QSignalSpy(cell.clicked)
+        click(cell)
+        self.assertEqual(clicked.count(), 1)
+        parent = cell
+        while parent is not None:
+            if parent.property("inlineField") is not None:
+                loader = parent.findChild(QObject, "taskInlineLoader")
+                popup = loader.property("item")
+                break
+            parent = parent.parentItem()
+        self.wait_for(lambda: popup.property("opened"))
+        content = popup.property("contentItem")
+        hours = self.visual_find(content, "taskInlineHours")
+        self.assertIsNotNone(hours)
+        text = hours.property("contentItem")
+        text.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(window, Qt.Key_6)
+        QTest.keyClick(window, Qt.Key_Return)
+        self.wait_for(lambda: controller.advancedDirtyCount == 1)
+        code = controller._advanced_raw[0]["taskCode"]
+        self.assertEqual(float(controller._advanced_drafts[code]["plannedHours"]), 6)
+        click(item("taskCellInput_dates"))
+        self.wait_for(lambda: loader.property("item") is not popup)
+        popup = loader.property("item")
+        self.wait_for(lambda: popup.property("opened"))
+        content = popup.property("contentItem")
+        self.assertIsNotNone(self.visual_find(content, "taskInlineStart"))
+        click(self.visual_find(content, "taskInlineClose"))
+        self.wait_for(lambda: not loader.property("active"))
+        controller.discard_advanced_changes(code)
+        QTest.qWait(20)
+        requested = QSignalSpy(browser.columnsRequested)
+        click(item("taskTableColumnsButton"))
+        self.assertEqual(requested.count(), 1)
+        columns = item("taskColumnsMenu")
+        self.wait_for(lambda: columns.property("opened"))
+        click(item("taskTableColumnsButton"))
+        self.assertFalse(columns.property("opened"))
+        click(item("taskStatusHeader"), Qt.RightButton)
         self.assertEqual(view.property("taskColumnContextKey"), "status")
-        self.assertTrue(column_menu.property("opened"))
-        column_actions = column_menu.property("actions").toVariant()
-        commands = {
-            item.get("command") for item in column_actions
-            if isinstance(item, dict) and item.get("command")
-        }
-        self.assertTrue({
-            "sort:ascending", "sort:descending", "group",
-            "ungroup", "hide", "columns", "configure",
-        }.issubset(commands))
-        self.assertTrue(QMetaObject.invokeMethod(
-            column_menu, "triggered", Q_ARG(str, "configure")
-        ))
-        self.assertEqual(configuration.selected_page, "tasks_preferences")
-        self.assertEqual(configuration.opened, ["open_configuration"])
-        column_menu.close()
-        self.assertIsNone(browser.property("useSideBySideTaskDetails"))
-        self.assertTrue(browser.property("showDateColumn"))
-        self.assertTrue(browser.property("showProgressColumn"))
-        view.setProperty("width", 840)
+        context_menu = item("taskColumnContextMenu")
+        self.wait_for(lambda: context_menu.property("opened"))
+        QMetaObject.invokeMethod(context_menu, "close")
+        self.wait_for(lambda: not context_menu.property("visible"))
+        code = controller._advanced_raw[0]["taskCode"]
+        controller.toggle_advanced_checked(code)
         QGuiApplication.processEvents()
-        self.assertTrue(view.property("compactScopeControls"))
-        compact_scope = view.findChild(QObject, "embeddedScopeButton")
-        self.assertIsNotNone(compact_scope)
-        self.assertTrue(compact_scope.property("visible"))
-        self.assertFalse(sort_combo.property("visible"))
-        self.assertTrue(group_combo.property("visible"))
-        self.assertTrue(clear_filters_button.property("visible"))
-        self.assertTrue(refresh_button.property("visible"))
-        self.assertTrue(overflow_button.property("visible"))
-        self.assertTrue(browser.property("showDateColumn"))
-        self.assertTrue(browser.property("showProgressColumn"))
-        view.setProperty("width", 900)
-        QTest.qWait(60)
-        workspace_mode_switcher = view.findChild(
-            QQuickItem, "taskWorkspaceModeSwitcher"
+        self.assertIsNotNone(item("taskBulkCount"))
+        click(item("taskBulkMore"))
+        self.wait_for(
+            lambda: self.visual_find(view, "taskEditorEnable_description") is not None
         )
-        self.assertIsNotNone(workspace_mode_switcher)
-        self.assertTrue(workspace_mode_switcher.property("visible"))
-        calendar_button = view.findChild(QQuickItem, "taskCalendarButton")
-        self.assertIsNotNone(calendar_button)
-        surface_right = workspace_surface_switcher.mapToScene(QPointF(
-            workspace_surface_switcher.width(), 0
-        )).x()
-        refresh_left = refresh_button.mapToScene(QPointF(0, 0)).x()
-        refresh_right = refresh_button.mapToScene(QPointF(
-            refresh_button.property("width"), 0
-        )).x()
-        self.assertLess(surface_right, refresh_left)
-        self.assertLess(refresh_left - surface_right, 12)
-        self.assertAlmostEqual(
-            view.property("width") - surface_right, 49.0, delta=1.0
-        )
-        overflow_right = overflow_button.mapToScene(QPointF(
-            overflow_button.property("width"), 0
-        )).x()
-        surface_left = workspace_surface_switcher.mapToScene(
-            QPointF(0, 0)
-        ).x()
-        self.assertLess(overflow_right, surface_left)
-        mode_top = workspace_mode_switcher.mapToScene(QPointF(0, 0)).y()
-        self.assertGreater(
-            mode_top,
-            float(view.property("height"))
-                - float(theme.property("dockWorkspaceFooterHeight")) - 12,
-        )
-        mode_segments = [workspace_mode_switcher]
-        for item in mode_segments:
-            mode_segments.extend(item.childItems())
-        gantt_segment = next((
-            item for item in mode_segments
-            if item.objectName() == "segmentedButtonSegment_gantt"
-        ), None)
-        self.assertIsNotNone(gantt_segment)
-        gantt_center = gantt_segment.mapToScene(QPointF(
-            gantt_segment.width() / 2, gantt_segment.height() / 2
-        ))
-        gantt_surface_loader = view.findChild(
-            QQuickItem, "taskWorkspaceGanttSurfaceLoader"
-        )
-        self.assertIsNotNone(gantt_surface_loader)
-        QTest.mouseClick(
-            window, Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-            QPoint(round(gantt_center.x()), round(gantt_center.y())),
-        )
+        click(item("taskEditorEnable_description"))
+        self.assertTrue(controller.bulkEditor["descriptionEnabled"])
+        description = item("taskEditorValue_description").property("item")
+        self.assertIsNotNone(description)
+        description.forceActiveFocus()
+
+        for key in "BULK INPUT":
+            QTest.keyClick(description.window(), ord(key))
         QGuiApplication.processEvents()
-        self.assertGreaterEqual(
-            float(surface_loader.property("opacity"))
-                + float(gantt_surface_loader.property("opacity")),
-            0.95,
-        )
-        self.assertAlmostEqual(
-            persistent_footer.mapToScene(QPointF(0, 0)).y(),
-            stable_footer_top,
-            delta=0.5,
-        )
-        QTest.qWait(140)
-        calendar_center = calendar_button.mapToScene(QPointF(
-            calendar_button.width() / 2, calendar_button.height() / 2
-        ))
-        QTest.mouseClick(
-            window, Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-            QPoint(round(calendar_center.x()), round(calendar_center.y())),
-        )
-        self.assertEqual(
-            application.dock_model.opened[-1], "task_calendar"
-        )
-        view.setProperty("width", 720)
+        self.assertEqual(controller.bulkEditor["description"], "BULK INPUT")
+        self.assertNotIn(code, controller._advanced_drafts)
+        click(item("taskEditorApply"))
+        self.assertEqual(controller._advanced_drafts[code]["description"], "BULK INPUT")
+        controller.discard_advanced_changes(code)
+        controller.clear_advanced_checked()
         QGuiApplication.processEvents()
-        self.assertEqual(controller.viewMode, "gantt")
-        self.assertEqual(controller.gantt_model.count(), 1)
-        gantt_wheel_area = view.findChild(
-            QObject, "ganttTimelineWheelArea"
-        )
-        gantt_daily_grid = view.findChild(QObject, "ganttDailyGrid")
-        self.assertIsNotNone(gantt_wheel_area)
-        self.assertIsNotNone(gantt_daily_grid)
-        gantt_list = view.findChild(QQuickItem, "ganttTaskList")
-        self.assertIsNotNone(gantt_list)
-        self.assertIs(view.findChild(QQuickItem, "taskBrowserTable"), browser)
-        self.assertTrue(gantt_surface_loader.property("active"))
-        self.assertAlmostEqual(
-            float(gantt_surface_loader.property("opacity")), 1.0, delta=0.01
-        )
-        self.assertAlmostEqual(
-            float(surface_loader.property("opacity")), 0.0, delta=0.01
-        )
-        self.assertAlmostEqual(
-            persistent_footer.mapToScene(QPointF(0, 0)).y(),
-            stable_footer_top,
-            delta=0.5,
-        )
-        self.assertAlmostEqual(
-            toolbar.mapToScene(QPointF(0, 0)).y(), 0.0, delta=0.5
-        )
-        self.assertAlmostEqual(
-            surface_slot.mapToScene(QPointF(0, 0)).y(),
-            stable_slot_geometry[0],
-            delta=0.5,
-        )
-        self.assertGreater(float(gantt_list.property("width")), 0.0)
-        self.assertGreater(float(gantt_list.property("height")), 0.0)
-        QMetaObject.invokeMethod(gantt_list, "forceLayout")
-        QTest.qWait(40)
-        visual_items = [gantt_list]
-        for visual_item in visual_items:
-            visual_items.extend(visual_item.childItems())
-        unscheduled_chip = next((
-            item for item in visual_items
-            if item.objectName() == "ganttUnscheduledIssueChip"
-        ), None)
-        unscheduled_label = next((
-            item for item in visual_items
-            if item.objectName() == "ganttUnscheduledIssueLabel"
-        ), None)
-        self.assertIsNotNone(unscheduled_chip, {
-            "count": gantt_list.property("count"),
-            "visible": gantt_list.property("visible"),
-            "width": gantt_list.property("width"),
-            "height": gantt_list.property("height"),
-            "contentHeight": gantt_list.property("contentHeight"),
-            "records": list(controller.gantt_model._records),
-        })
-        self.assertIsNotNone(unscheduled_label)
-        self.assertTrue(unscheduled_chip.property("visible"))
-        self.assertEqual(
-            unscheduled_label.property("text"),
-            "Start and deadline are not set",
-        )
-        self.assertEqual(unscheduled_chip.property("height"), 30.0)
-        self.assertGreaterEqual(
-            float(unscheduled_label.property("width")) + 0.5,
-            float(unscheduled_label.property("implicitWidth")),
-        )
-        view.setProperty("width", 900)
-        QGuiApplication.processEvents()
-        self.assertTrue(workspace_surface_switcher.property("visible"))
-        view.setProperty("width", 720)
-        QGuiApplication.processEvents()
-        self.assertTrue(gantt_wheel_area.property("visible"))
-        self.assertTrue(view.property("compactScopeControls"))
-        self.assertFalse(scope_switcher.property("visible"))
-        self.assertFalse(sort_combo.property("visible"))
-        self.assertTrue(group_combo.property("visible"))
-        self.assertTrue(clear_filters_button.property("visible"))
-        self.assertTrue(refresh_button.property("visible"))
-        self.assertTrue(overflow_button.property("visible"))
-        self.assertFalse(view.property("minimalToolbar"))
-        view.setProperty("width", 320)
-        QGuiApplication.processEvents()
-        self.assertTrue(view.property("minimalToolbar"))
-        self.assertFalse(group_combo.property("visible"))
-        self.assertFalse(workspace_mode_switcher.property("visible"))
-        self.assertTrue(workspace_surface_switcher.property("visible"))
-        self.assertFalse(clear_filters_button.property("visible"))
-        self.assertTrue(search_field.property("visible"))
-        self.assertFalse(quick_filter.property("visible"))
-        self.assertTrue(refresh_button.property("visible"))
-        trailing_actions = view.findChild(
-            QQuickItem, "taskWorkspaceTrailingActions"
-        )
-        primary_actions = view.findChild(
-            QQuickItem, "taskWorkspacePrimaryActions"
-        )
-        compact_scope_button = view.findChild(
-            QQuickItem, "compactScopeButton"
-        )
-        self.assertIsNotNone(trailing_actions)
-        self.assertIsNotNone(primary_actions)
-        self.assertIsNotNone(compact_scope_button)
-        for toolbar_width in (
-                320, 380, 440, 500, 520, 720, 840, 1279, 1360, 1400):
-            view.setProperty("width", toolbar_width)
-            QTest.qWait(20)
-            self.assertLessEqual(
-                header_columns_button.mapToScene(QPointF(
-                    header_columns_button.width(), 0,
-                )).x(),
-                table_header.mapToScene(QPointF(
-                    table_header.width(), 0,
-                )).x() + 0.5,
-                f"column button escaped header at {toolbar_width}px",
-            )
-            refresh_right = refresh_button.mapToScene(QPointF(
-                refresh_button.width(), 0
-            )).x()
-            trailing_left = trailing_actions.mapToScene(QPointF(0, 0)).x()
-            primary_right = primary_actions.mapToScene(QPointF(
-                primary_actions.width(), 0
-            )).x()
-            self.assertLessEqual(
-                refresh_right,
-                float(toolbar_width),
-                f"refresh escaped at {toolbar_width}px",
-            )
-            self.assertGreaterEqual(
-                trailing_left, 0.0,
-                f"trailing actions escaped at {toolbar_width}px",
-            )
-            self.assertLessEqual(primary_right, trailing_left + 0.5)
-            self.assertTrue(search_field.property("visible"))
-            search_left = search_field.mapToScene(QPointF(0, 0)).x()
-            search_right = search_field.mapToScene(QPointF(
-                search_field.width(), 0
-            )).x()
-            create_right = create_task_button.mapToScene(QPointF(
-                create_task_button.width(), 0
-            )).x()
-            self.assertGreaterEqual(search_left, create_right)
-            self.assertLessEqual(
-                search_right, trailing_left + 0.5,
-                f"search overlapped trailing actions at {toolbar_width}px",
-            )
-            self.assertGreater(float(search_field.property("width")), 0.0)
-            if toolbar_width < 520:
-                self.assertEqual(
-                    compact_scope_button.property("visible"),
-                    toolbar_width >= 380,
+        for width in (1400, 1250, 1180, 1000, 760, 600, 520, 380, 320, 272):
+            view.setWidth(width)
+            window.resize(width, 720)
+            QGuiApplication.processEvents()
+            scene = toolbar.property("scene").toVariant()
+            interactive = [
+                node
+                for node in scene["nodes"]
+                if node["kind"] in ("View", "Button", "Choice", "Segmented")
+                and node.get("visible", True)
+            ]
+            for node in interactive:
+                self.assertGreaterEqual(node["x"], 0, (width, node["id"]))
+                self.assertLessEqual(
+                    node["x"] + node["width"], width, (width, node["id"])
                 )
-                if compact_scope_button.property("visible"):
-                    compact_left = compact_scope_button.mapToScene(
-                        QPointF(0, 0)
-                    ).x()
-                    compact_right = compact_scope_button.mapToScene(QPointF(
-                        compact_scope_button.width(), 0
-                    )).x()
-                    self.assertLessEqual(
-                        compact_left - create_right, 8.0
-                    )
-                    self.assertLessEqual(
-                        search_left - compact_right, 8.0
-                    )
+            ordered = sorted(interactive, key=lambda node: node["x"])
+            for left, right in zip(ordered, ordered[1:]):
+                self.assertLessEqual(
+                    left["x"] + left["width"],
+                    right["x"] + 0.5,
+                    (width, left["id"], right["id"]),
+                )
+            self.assertTrue(item("taskWorkspaceSearchField").isVisible())
+            self.assertGreater(item("taskWorkspaceSearchField").width(), 0)
+            self.assertTrue(item("taskWorkspaceCreateButton").isVisible())
+            self.assertTrue(item("taskWorkspaceRefreshButton").isVisible())
+            self.assertEqual(toolbar.height(), 58)
         view.setProperty("embedded", False)
-        for toolbar_width in (760, 900, 1180):
-            view.setProperty("width", toolbar_width)
-            QTest.qWait(20)
-            refresh_right = refresh_button.mapToScene(QPointF(
-                refresh_button.width(), 0
-            )).x()
-            trailing_left = trailing_actions.mapToScene(QPointF(0, 0)).x()
-            self.assertLessEqual(
-                refresh_right,
-                float(toolbar_width),
-                {
-                    "requestedWidth": toolbar_width,
-                    "viewWidth": view.property("width"),
-                    "trailingX": trailing_left,
-                    "trailingWidth": trailing_actions.width(),
-                    "refreshX": refresh_button.mapToScene(
-                        QPointF(0, 0)
-                    ).x(),
-                },
-            )
-            self.assertGreaterEqual(trailing_left, 0.0)
+        QGuiApplication.processEvents()
+        self.assertEqual(toolbar.property("scene").toVariant()["height"], 42)
+        self.wait_for(lambda: toolbar.height() == 42)
+        self.assertEqual(toolbar.height(), 42)
         view.setProperty("embedded", True)
-        controller.set_view_mode("list")
-        view.setProperty("width", 1400)
-        QTest.qWait(80)
-        browser = view.findChild(QObject, "taskBrowserTable")
-        self.assertIsNotNone(browser)
-        self.assertTrue(controller.create_advanced_task_draft())
+        view.setWidth(1400)
+        window.resize(1400, 720)
         QGuiApplication.processEvents()
-        draft_code = next(iter(controller._advanced_inserts))
-        expanded = browser.property("expandedTaskDetails").toVariant()
-        self.assertTrue(expanded[draft_code])
-        expanded_object_x = browser.property("expandedObjectLeft")
-        view.setProperty("width", 900)
+        create = item("taskWorkspaceCreateButton")
+        create.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_Space)
         QGuiApplication.processEvents()
-        self.assertEqual(
-            browser.property("expandedObjectLeft"), expanded_object_x
-        )
-        view.setProperty("width", 1400)
+        self.assertEqual(len(controller._advanced_inserts), 1)
+        code = next(iter(controller._advanced_inserts))
+        self.assertTrue(browser.property("expandedTaskDetails").toVariant()[code])
+        initial_left = browser.property("expandedObjectLeft")
+        view.setWidth(900)
         QGuiApplication.processEvents()
-        self.assertEqual(
-            browser.property("expandedObjectLeft"), expanded_object_x
-        )
-        controller.discard_advanced_changes(draft_code)
+        self.assertEqual(browser.property("expandedObjectLeft"), initial_left)
+        controller.discard_advanced_changes(code)
         QGuiApplication.processEvents()
-        expanded = browser.property("expandedTaskDetails").toVariant()
-        self.assertNotIn(draft_code, expanded)
+        self.assertNotIn(code, browser.property("expandedTaskDetails").toVariant())
+        view.setProperty("embedded", False)
+        view.setWidth(1000)
+        window.resize(1000, 720)
+        with patch.object(
+            controller, "refresh_advanced", side_effect=controller.advancedChanged.emit
+        ):
+            controller.use_project()
+        self.wait_for(lambda: self.visual_find(view, "taskSummaryWorkload") is not None)
+        self.assertIsNotNone(item("taskSummaryStatuses"))
+        self.assertIsNotNone(item("taskSummaryPresets"))
+        self.assertEqual(warnings, [])
         window.close()
         window.deleteLater()
         view.deleteLater()

@@ -1,3 +1,4 @@
+import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -32,33 +33,33 @@ Item {
     FontMetrics {
         id: captionMetrics
         font.family: root.theme.fontFamily
-        font.pixelSize: 11
+        font.pixelSize: Foundation.textStyles.caption
         font.hintingPreference: Font.PreferVerticalHinting
     }
     FontMetrics {
         id: badgeMetrics
         font.family: root.theme.fontFamily
-        font.pixelSize: 11
+        font.pixelSize: Foundation.textStyles.caption
         font.weight: Font.Bold
         font.hintingPreference: Font.PreferVerticalHinting
     }
     FontMetrics {
         id: secondaryMetrics
         font.family: root.theme.fontFamily
-        font.pixelSize: 12
+        font.pixelSize: Foundation.textStyles.secondary
         font.hintingPreference: Font.PreferVerticalHinting
     }
     FontMetrics {
         id: versionMetrics
         font.family: root.theme.fontFamily
-        font.pixelSize: 12
+        font.pixelSize: Foundation.textStyles.secondary
         font.weight: Font.DemiBold
         font.hintingPreference: Font.PreferVerticalHinting
     }
     FontMetrics {
         id: titleMetrics
         font.family: root.theme.fontFamily
-        font.pixelSize: 14
+        font.pixelSize: Foundation.textStyles.bodyLarge
         font.weight: Font.DemiBold
         font.hintingPreference: Font.PreferVerticalHinting
     }

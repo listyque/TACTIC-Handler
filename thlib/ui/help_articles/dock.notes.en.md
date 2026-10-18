@@ -72,3 +72,5 @@ Examples use test data and show the panel content. The surrounding window or doc
 ![Inspector quick fields](media/frame-objects-inspector-quick-en.png)
 
 ![Note text and attachments](media/frame-objects-note-files-en.png)
+
+Task Manager's shared table/field editors, virtual creation and opt-in bulk workflow are described in [Tasks and planning](tasks.en.md). Existing configuration and permission owners remain unchanged.

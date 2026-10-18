@@ -97,3 +97,38 @@ Gantt keeps its scroll viewport stable when a dock has fractional dimensions or 
 
 In full Task Manager, + also works when no object is selected. It creates a task owned only by the current project; no asset, shot or other work object is needed. The task uses the standard task status workflow and initially assigns the current user, so it appears in My tasks. Edit and save it using the existing task controls, then open Task Inspector as usual. In a Perforce-like file project, select it under Link tasks to changelist in the submit dialog. With an object selected, + keeps creating a task for that object.
 
+## Shared Task Manager controls
+
+The table, Quick Tasks cards/compact rows, scope and filter popovers, column
+chooser, task fields and selection bar use the same Tactic Frame descriptions
+in Handler and Stream. Each product ships its own copy and its own native controls.
+The separate Handler management window also retains its scope summary, workload,
+status distribution and preset chips. Stream keeps its phone list/detail/back
+navigation and its additional Inspector/timesheet commands.
+
+**Create task** adds an expanded virtual row. Choose its process/context and edit
+its fields; the task reaches TACTIC only after **Save**. **Discard** removes an
+unsaved row. Status, assignee, supervisor and date fields use the existing pickers.
+Click a date, progress or hours cell to open its anchored editor. Commit a numeric
+hours entry with Enter or by leaving the field; it becomes a pending row change.
+Hours retain the configured native hour/minute conversion.
+
+Select tasks with their checkboxes. The selection bar offers status and assignee;
+**More fields** opens the remaining fields. Check only the fields to replace.
+**Apply** on the selection bar saves the validated bulk operation. **Apply to draft**
+in More fields stages row changes for review with the regular Save/Discard bar;
+**Done** closes the field panel. Mixed values need an explicit replacement.
+The original task revisions stay attached to changes. Conflicts and uncertain
+write results require the existing reload/reconciliation path before another save.
+
+Save or discard pending changes before changing scope, team, user or page size.
+The Teams chooser does not change scope until a team is selected; an empty list
+explains that no team scopes are available. Quiet refresh never replaces an
+active field editor or an armed bulk edit. Column visibility, width/order, sort,
+group and page size use the existing workspace preferences. Object is required.
+Gantt and the separate Calendar remain available; their scheduling UI is a
+separate migration block.
+
+Permissions remain those of the existing executors. Stream's current task
+workspace API requires an administrator; this UI migration does not grant native
+Handler users additional server permissions or change its existing task ACL path.

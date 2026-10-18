@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.113 - 2026-10-18
+
+- Share Task Manager tables/expanded fields, Quick Tasks, scope/filter/options/columns, pending changes, bulk editors and task menus with Stream through independent Tactic Frame copies. Move the native management heading/summary/workload to the same description layer; retain native controls, virtualized models and existing revision/ACL/mutation owners.
+- Keep virtual creation, context-safe inline edits, hour/minute conversion, field opt-in and bulk preview/apply. Guard manual scope/page changes while dirty; preserve armed input during quiet refresh and keyboard activation for filled toolbar actions.
+- Preserve live profile avatars across lazy picker activation and honor tooltip suppression on hover and keyboard focus.
+- Add production original/native/browser comparisons, actual Qt/browser/server workflows, source freshness checks and EN/RU Help. Existing Gantt/Calendar scheduling remains B10; B07 legacy-widget gaps remain open.
+
 ## 0.6.0.112 - 2026-10-17
 
 - Share object description, configured forms/batch tools, report sections, dependency deletion, five-step duplication, two-list linking and snapshot/watch presentation with Stream through independent Frame copies. Retain native controls, file/DCC adapters, existing query/ACL/revision and mutation owners.
