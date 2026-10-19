@@ -169,7 +169,7 @@ Item {
                         Layout.preferredHeight: taskCard.editorHeight
                         theme: root.theme
                         releaseCoordinator: editorReleaseCoordinator
-                        editingAllowed: !root.columnsController.busy
+                        editingAllowed: Cells.taskEditable(taskCard.modelData, "assigned", !root.columnsController.busy)
                         scrolling: root.scrolling
                         actionField: true
                         displayText: Cells.assigneeLabel(taskCard.modelData, root.language)
@@ -221,7 +221,7 @@ Item {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: String(taskCard.modelData.bidStartLabel || "—") + " – " + String(taskCard.modelData.bidEndLabel || "—")
+                                text: taskCard.modelData.simpleDates === undefined ? String(taskCard.modelData.bidStartLabel || "—") + " – " + String(taskCard.modelData.bidEndLabel || "—") : Cells.taskDate(taskCard.modelData.bidStart, taskCard.modelData.simpleDates) + " – " + Cells.taskDate(taskCard.modelData.bidEnd, taskCard.modelData.simpleDates)
                                 color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
                                 font.family: root.theme.fontFamily
                                 font.pointSize: Controls.Typography.caption
@@ -235,8 +235,8 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                         }
                         Controls.ActivationHandler {
-                            enabled: !root.columnsController.busy && !root.scrolling
-                            cursorShape: Qt.PointingHandCursor
+                            enabled: Cells.taskEditable(taskCard.modelData, "bid_start_date", !root.columnsController.busy) && !root.scrolling
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onActivated: root.editDates(taskCard.modelData, taskDates)
                         }
                     }

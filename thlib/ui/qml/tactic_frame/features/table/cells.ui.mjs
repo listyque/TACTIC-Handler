@@ -126,6 +126,71 @@ export function assigneeLabel(task, language) {
         : translate('Not assigned', language);
 }
 
+export function taskDate(value, simple) {
+    const date = value ? String(value).slice(0, 10) : '—';
+    return simple && date.length === 10 ? date.slice(5) : date;
+}
+
+export function taskEditable(task, field, editable = true) {
+    if (!editable || task.processType === 'progress') return false;
+    if (field === 'assigned') return task.editAssigned !== false;
+    if (field === 'bid_start_date' || field === 'bid_end_date')
+        return task.editDates !== false;
+    return true;
+}
+
+export function message(cell, width, height, language) {
+    const inner = Math.max(0, width - 16);
+    const heading = [
+        cell.author || '',
+        cell.messageLabel ? translate(cell.messageLabel, language) : ''
+    ]
+        .filter(Boolean)
+        .join(' · ');
+    const top = heading ? 20 : 0;
+    const progress = cell.progress == null ? 0 : 14;
+    const bodyHeight = Math.max(20, height - top - progress - 8);
+    const children = [
+        label('tableMessageAuthor', rect(6, 0, inner, top), heading, {
+            fontRole: 'caption',
+            color: 'secondaryText',
+            tooltip: heading
+        }),
+        label(
+            'tableMessageBody',
+            rect(6, top, inner, bodyHeight),
+            cell.text || '',
+            { tooltip: cell.text || '', wrap: true }
+        )
+    ];
+    if (progress) {
+        const percent = Math.max(0, Math.min(100, Number(cell.progress) || 0));
+        children.push(
+            node(
+                'Box',
+                'tableMessageTrack',
+                rect(6, top + bodyHeight + 3, inner, 5),
+                { background: 'surfaceContainerHigh', radius: 2 }
+            ),
+            node(
+                'Box',
+                'tableMessageProgress',
+                rect(6, top + bodyHeight + 3, (inner * percent) / 100, 5),
+                { background: 'action', radius: 2 }
+            )
+        );
+    }
+    return {
+        nodes: [
+            node('Scroll', 'tableMessageScroll', rect(0, 0, width, height), {
+                contentHeight: top + bodyHeight + progress,
+                scrollbarId: 'tableMessageScrollBar',
+                children
+            })
+        ]
+    };
+}
+
 export function checked(cell, value) {
     return cell.checked !== undefined
         ? !!cell.checked

@@ -153,6 +153,10 @@ class TacticStatusFlagTableWidget(TacticBaseTableWidget):
     cell_kind = "status_flag"
 
 
+class TacticMessageTableWidget(TacticBaseTableWidget):
+    cell_kind = "message"
+
+
 class TacticUnsupportedTableWidget(TacticBaseTableWidget):
     cell_kind = "unsupported"
 
@@ -168,6 +172,7 @@ _adapters = {
     "link": TacticLinkTableWidget,
     "preview": TacticThumbTableWidget,
     "notes": TacticNotesTableWidget,
+    "message": TacticMessageTableWidget,
     "details": TacticSObjectDetailTableWidget,
     "checkin": TacticCheckinTableWidget,
     "tasks": TacticTaskTableWidget,

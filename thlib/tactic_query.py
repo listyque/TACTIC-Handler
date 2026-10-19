@@ -8061,10 +8061,10 @@ def query_table_layout(search_type, search_keys=None, view='table',
         value = sobject.get_value(name, no_exception=True)
         return '' if value is None else str(value)
 
-    def task_cell_records(widget):
+    def task_cell_records(widget, tasks=None):
         records = []
         colors = getattr(widget, 'status_colors', {}) or {}
-        for task in widget.get_tasks() or []:
+        for task in (widget.get_tasks() if tasks is None else tasks) or []:
             status = object_value(task, 'status')
             pipeline_code = object_value(task, 'pipeline_code') or 'task'
             status_colors = (
@@ -8087,6 +8087,66 @@ def query_table_layout(search_type, search_keys=None, view='table',
 
     def action_cell_values(class_name, column, sobject, widget):
         options = column.get('displayOptions') or {}
+        if class_name in (
+                'pyasm.widget.discussion_wdg.DiscussionWdg',
+                'pyasm.widget.task_wdg.SObjectTaskTableElement',
+                'pyasm.widget.task_wdg.TaskParentSpacingTableElement',
+                'tactic.ui.app.message_wdg.MessageTableElementWdg'):
+            native = getattr(widget, 'get_cell_value', None)
+            if native:
+                return native()
+            if class_name.endswith('.TaskParentSpacingTableElement'):
+                context = object_value(sobject, 'context')
+                return {'text': context.split('/', 1)[0], 'tooltip': context}
+            if class_name.endswith('.SObjectTaskTableElement'):
+                key = '%s|%s' % (sobject.get_search_type(), sobject.get_id())
+                tasks = task_cell_records(widget, widget.data.get(key, []))
+                for task in tasks:
+                    task['editAssigned'] = str(options.get('supe')).lower() == 'true'
+                    task['editDates'] = str(options.get('bid_edit')).lower() == 'true'
+                return {'text': '', 'tasks': tasks, 'count': len(tasks)}
+            if class_name.endswith('.DiscussionWdg'):
+                if str(options.get('include_submission')).lower() == 'true':
+                    raise ValueError('Legacy Submission notes belong to the excluded pyasm.prod subsystem')
+                counts = {}
+                key = '%s|%s' % (sobject.get_search_type(), sobject.get_id())
+                for note in widget.notes_dict.get(key, []):
+                    if not note.get_parent_id():
+                        process = note.get_process() or 'publish'
+                        counts[process] = counts.get(process, 0) + 1
+                return {'text': str(sum(counts.values())), 'count': sum(counts.values()),
+                        'search_key': SearchKey.get_by_sobject(sobject, use_id=False),
+                        'processes': [{'process': process, 'count': count} for process, count in counts.items()]}
+            # Read-only original message data; the shared scene renders it as plain text.
+            data = object_value(sobject, 'message')
+            category = object_value(sobject, 'category')
+            body, title, progress = data, '', None
+            if data.startswith('{') and data.endswith('}'):
+                data = json.loads(data)
+                update = data.get('update_data') or {}
+                record = data.get('sobject') or {}
+                if category == 'sobject':
+                    kind = data.get('search_type')
+                    title, body = {
+                        'sthpw/note': ('Note added', update.get('note') or ''),
+                        'sthpw/task': ('Task modified', update.get('process') or ''),
+                        'sthpw/snapshot': ('Files checked in', record.get('process') or ''),
+                    }.get(kind, ('Object modified', '\n'.join('%s – %s' % (key, value) for key, value in update.items())))
+                    if kind not in ('sthpw/note', 'sthpw/task', 'sthpw/snapshot'):
+                        if not update and data.get('mode') == 'retire':
+                            title = 'Retired'
+                        if record.get('code'):
+                            body = str(record['code']) + ('\n' + body if body else '')
+                else:
+                    body = data.get('message') or data.get('description') or ''
+                    if category == 'progress':
+                        import math
+                        progress = float(data.get('progress') or 0)
+                        if not math.isfinite(progress):
+                            raise ValueError('Message progress must be finite')
+                        progress = max(0, min(100, progress))
+            return {'text': str(body), 'messageLabel': title,
+                    'author': object_value(sobject, 'login'), 'progress': progress}
         if class_name.endswith((
                 '.ArrayTableElementWdg', '.XmlWdg', '.JsonElementWdg',
                 '.SnapshotVersionElementWdg')):

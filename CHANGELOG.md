@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.119 - 2026-10-19
+
+- Connect the four L02 legacy table classes to existing notes/task owners and independent Frame adapters. Add plain formatted messages with shared author/progress presentation; preserve the task context prefix and inline assignment/date options.
+- Use configured per-process note values (including empty branches) in native cells, retaining ordinary Inspector/notes navigation and task draft/save/discard owners. Do not introduce another Messages or Tasks application.
+- Extend native input and source-checked Qt/Vue table fixtures. Keep Submission excluded with pyasm.prod; legacy setting subcontexts/CGI state and the old HTML calendar/preview are not full presentation parity. The catalogue has 41 classes / 98 named aliases; B07 remains open.
+
 ## 0.6.0.118 - 2026-10-19
 
 - Move Knowledge Base workspace, navigation/outline, editor/viewer commands and formatting controls to independent Frame descriptions. Preserve native rich text, image tools, Markdown, attachments, revision/ACL and draft owners.

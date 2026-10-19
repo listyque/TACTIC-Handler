@@ -380,5 +380,48 @@
       "tactic.ui.widget.discussion_wdg.DiscussionWdg"
     ],
     "adapter": "notes"
+  },
+  {
+    "value": "pyasm.widget.discussion_wdg.DiscussionWdg",
+    "label": "Legacy discussion",
+    "class": "pyasm.widget.discussion_wdg.DiscussionWdg",
+    "aliases": [
+      "DiscussionWdg",
+      "pyasm.widget.DiscussionWdg",
+      "pyasm.widget.discussion_wdg.DiscussionWdg"
+    ],
+    "adapter": "notes"
+  },
+  {
+    "value": "pyasm.widget.task_wdg.SObjectTaskTableElement",
+    "label": "Object tasks",
+    "class": "pyasm.widget.task_wdg.SObjectTaskTableElement",
+    "aliases": [
+      "SObjectTaskTableElement",
+      "pyasm.widget.SObjectTaskTableElement",
+      "pyasm.widget.task_wdg.SObjectTaskTableElement"
+    ],
+    "adapter": "tasks"
+  },
+  {
+    "value": "pyasm.widget.task_wdg.TaskParentSpacingTableElement",
+    "label": "Task context",
+    "class": "pyasm.widget.task_wdg.TaskParentSpacingTableElement",
+    "aliases": [
+      "TaskParentSpacingTableElement",
+      "pyasm.widget.TaskParentSpacingTableElement",
+      "pyasm.widget.task_wdg.TaskParentSpacingTableElement"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.app.message_wdg.MessageTableElementWdg",
+    "label": "Formatted message",
+    "class": "tactic.ui.app.message_wdg.MessageTableElementWdg",
+    "aliases": [
+      "tactic.ui.app.MessageTableElementWdg",
+      "tactic.ui.app.message_wdg.MessageTableElementWdg"
+    ],
+    "adapter": "message"
   }
 ]

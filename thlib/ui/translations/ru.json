@@ -5107,5 +5107,13 @@
   "Frame tool example": "Пример инструмента Frame",
   "Script shelf help": "Справка по шелфу скриптов",
   "Enter hours between 0.01 and 24.": "Введите от 0,01 до 24 часов.",
-  "Existing columns and data are kept. Nothing is deleted. The schema changes affect every user of this server and project.": "Существующие столбцы и данные сохраняются. Ничего не удаляется. Изменения схемы затронут всех пользователей этого сервера и проекта."
+  "Existing columns and data are kept. Nothing is deleted. The schema changes affect every user of this server and project.": "Существующие столбцы и данные сохраняются. Ничего не удаляется. Изменения схемы затронут всех пользователей этого сервера и проекта.",
+  "Legacy discussion": "Обсуждение (legacy)",
+  "Object tasks": "Задачи объекта",
+  "Task context": "Контекст задачи",
+  "Formatted message": "Форматированное сообщение",
+  "Note added": "Добавлена заметка",
+  "Task modified": "Задача изменена",
+  "Files checked in": "Файлы опубликованы",
+  "Object modified": "Объект изменён"
 }

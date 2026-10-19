@@ -304,6 +304,60 @@ class FrameTableTests(unittest.TestCase):
         self.assertFalse(undefined)
         self.assertTrue(result)
 
+    def test_embedded_message_uses_plain_text_and_shared_progress(self):
+        from thlib.ui.workspace_models.records import RecordListModel
+        text = '<b>Literal message</b>'
+        window, view = self.create(
+            "TacticTableCellDisplay.qml",
+            dict(controller=_TableController(), columnsController=_TableColumns(),
+                 userModel=RecordListModel(["login", "displayName", "avatarUrl"]), nodeId="asset", kind="message",
+                 cell={"text": text, "author": "artist", "messageLabel": "Note added", "progress": 37},
+                 textValue=text, columnIndex=1, previewActive=False, previewUrl="",
+                 previewRevealed=False, title="Message", accent="#78a6c4", comments=0,
+                 tasks=0, displayOptions={}),
+        )
+        body = self.item(view, "tableMessageBody")
+        self.assertEqual(body.property("text"), text)
+        self.click(window, body)
+        track = self.item(view, "tableMessageTrack")
+        fill = self.item(view, "tableMessageProgress")
+        self.assertAlmostEqual(fill.width() / track.width(), 0.37, places=4)
+        expression = QQmlExpression(QQmlEngine.contextForObject(body), body, "Number(textFormat) === 0")
+        self.assertTrue(expression.evaluate()[0])
+
+    def test_legacy_task_assignment_and_dates_respect_cell_options(self):
+        from thlib.ui.workspace_models.records import RecordListModel
+        window, view = self.create(
+            "TacticTaskCards.qml",
+            dict(controller=_TableController(), columnsController=_TableColumns(),
+                 userModel=RecordListModel(["login", "displayName", "avatarUrl"]), nodeId="asset", records=[
+                     {"taskCode":"L02_TASK", "process":"model", "assigned":"admin",
+                      "editAssigned":False, "editDates":False, "simpleDates":True,
+                      "bidStart":"2030-01-01", "bidEnd":"2030-01-03"}]),
+            height=90,
+        )
+        assignee = self.item(view, "tableTaskAssignee_0")
+        self.assertFalse(assignee.property("editingAllowed"))
+        self.click(window, assignee)
+        self.assertFalse(any(item.objectName() == "tableTaskAssigneeEditor_0" for item in _visual_items(view)))
+        self.click(window, self.item(view, "tableTaskDates_0"))
+        self.assertFalse(any(item.objectName() == "tableTaskDateEditor" for item in _visual_items(view)))
+
+    def test_empty_configured_note_context_opens_on_first_click(self):
+        from thlib.ui.workspace_models.records import RecordListModel
+        controller = _TableController()
+        window, view = self.create(
+            "TacticTableCellDisplay.qml",
+            dict(controller=controller, columnsController=_TableColumns(),
+                 userModel=RecordListModel(["login"]), nodeId="asset", kind="notes",
+                 cell={"text":"0", "count":0, "processes":[{"process":"review", "label":"Review phase", "count":0}]},
+                 textValue="0", columnIndex=1, previewActive=False, previewUrl="",
+                 previewRevealed=False, title="Notes", accent="#78a6c4", comments=99,
+                 tasks=0, displayOptions={}),
+        )
+        self.click(window, self.item(view, "tableNoteRecord_0"))
+        self.assertEqual(controller.process_details, [("asset", "notes", "review")])
+
     def test_unknown_widget_is_explicitly_unsupported(self):
         widget = tactic_table_widgets.create_widget(
             {"resolvedClass": "custom.UnknownWdg"}

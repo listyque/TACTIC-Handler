@@ -1,5 +1,14 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Legacy discussion': 'Обсуждение (legacy)',
+    'Object tasks': 'Задачи объекта',
+    'Task context': 'Контекст задачи',
+    'Formatted message': 'Форматированное сообщение',
+    'Note added': 'Добавлена заметка',
+    'Task modified': 'Задача изменена',
+    'Files checked in': 'Файлы опубликованы',
+    'Object modified': 'Объект изменён',
+    Retired: 'Архивные',
     'Adds the text column metadata to sthpw/message and sthpw/message_log. It stores conversation summaries, replies, reactions, pins, forwarding and delivery state.':
         'Добавит текстовую колонку metadata в sthpw/message и sthpw/message_log. В ней хранятся сводки диалогов, ответы, реакции, закрепления, пересылка и состояние доставки.',
     'Creates PROJECT/th_knowledge_article when it is missing, then adds kind, parent_code, content, content_text, sort_order, updated_by and linked_skeys.':

@@ -45,6 +45,8 @@ Item {
                 return unsupportedCell;
             if (root.kind === "group_completion")
                 return groupedCompletionCell;
+            if (root.kind === "message")
+                return messageCell;
             if (root.kind === "fields")
                 return fieldsCell;
             if (root.kind === "status_flag")
@@ -184,6 +186,19 @@ Item {
             id: noteCell
             readonly property var noteRecords: {
                 const countRevision = root.comments;
+                if (root.cell.processes !== undefined) {
+                    const records = [];
+                    for (let index = 0; index < root.cell.processes.length; index++) {
+                        const record = root.cell.processes[index];
+                        records.push({
+                            process: record.process,
+                            title: record.label || record.process,
+                            badgeCount: Number(record.count || 0),
+                            accent: record.accent || ""
+                        });
+                    }
+                    return records;
+                }
                 return root.controller.process_count_actions(root.nodeId, "notes").filter(record => Number(record.badgeCount || 0) > 0);
             }
             ListView {
@@ -282,7 +297,7 @@ Item {
                 height: 34
                 theme: root.theme
                 iconName: "comment"
-                count: root.comments
+                count: root.cell.count === undefined ? root.comments : Number(root.cell.count)
                 activeColor: root.theme.error
                 toolTip: qsTr("Add note")
                 onClicked: root.processCountMenuRequested("notes", noteButton)
@@ -298,6 +313,17 @@ Item {
             kind: root.kind
             cell: root.cell
             onClicked: root.controller.invoke_table_widget_action(root.kind, root.nodeId, root.cell)
+        }
+    }
+
+    Component {
+        id: messageCell
+        Table.MessageCell {
+            anchors.fill: parent
+            anchors.topMargin: 4
+            anchors.bottomMargin: 4
+            theme: root.theme
+            cell: root.cell
         }
     }
 
