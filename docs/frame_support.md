@@ -113,3 +113,48 @@ this batch does not claim identical rasterized text. Browser animation callbacks
 bound a paint opportunity rather than prove GPU presentation. Automated Qt and
 browser input does not replace physical touch/IME/compositor checks or a production
 PostgreSQL deployment check.
+
+## Profile activity render correction — 2026-10-19
+
+Handler's collapsed profile now activates only six ActivityEventCard delegates,
+matching Stream's existing records.slice(0, 6). Previously its Repeater built
+all 25 cards and merely hid 19. Three actual snapshot events carried roughly
+24–27 KB of rich linked filenames. Their hidden TextEdit documents had zero
+width and repeatedly performed expensive layout during otherwise idle frames.
+No Frame scene changes or network requests occurred during the measured scroll.
+
+Keep the existing card component behind the row Loader, inactive outside the
+preview. Show more creates the remaining cards at their assigned layout width;
+Show less releases them. The record model and first six cards remain intact.
+No titles, actions or server records are truncated or removed.
+
+On the same 25 locally replayed admin events, software rendering fell from
+1034–1056 ms per scroll frame to 5–8 ms; profile population fell from about
+2350 ms to 83 ms. Expanded scrolling measured 18–20 ms. A separate Windows /
+OpenGL run measured about 16–17 ms after warm-up (one 34 ms frame), and 27–31 ms
+with all events expanded; opening all 25 took about 697 ms. These are local
+measurements with avatars disabled, not a general frame-rate guarantee.
+
+The native regression fails before the fix (25 versus six instantiated cards)
+and verifies real Show more/less clicks, retained first-card identities, full
+long filenames and model rows. The actual browser UserProfile fixture verifies
+the same 6/25/6 lifecycle, narrow layout, retained cards and no extra requests.
+Run Handler's tests.test_user_profile_qml, test_frame_support,
+test_activity_feed_qml, test_user_profile_completion and test_qml_smoke_harness
+(37 tests), plus Stream's node frontend/tests/profile_activity.mjs.
+The portable descriptions and Frame renderers are unchanged; the complete Frame
+platform gate was not rerun for this native adapter fix.
+
+### JavaScript compilation boundary
+
+Frame .mjs modules are ordinary static QML imports; the small native docks
+projection imports its module once via QJSEngine.importModule. The current
+application does not feed a new generated Frame script to evaluate on every
+scroll. Qt compiles loaded QML/JavaScript to bytecode and supports automatic
+.qmlc/.jsc/.mjsc disk caches. Ahead-of-time compilation belongs to release
+packaging with Qt's compatible module/resource toolchain, and can also compile
+eligible QML bindings/functions to native code. It is not a fix for repeatedly
+laying out an invisible text document. Keep dynamic user scripts supported and
+measure cold-start and steady-state costs separately before changing packaging.
+See [Qt disk cache](https://doc.qt.io/qt-6/qmldiskcache.html) and
+[QML script compiler](https://doc.qt.io/qt-6/qtqml-qml-script-compiler.html).

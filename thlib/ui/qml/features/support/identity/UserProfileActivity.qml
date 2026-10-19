@@ -19,7 +19,7 @@ Item {
             id: recentActivityRepeater
 
             model: root.records
-            delegate: Item {
+            delegate: Loader {
                 id: activityRow
 
                 required property int index
@@ -67,11 +67,12 @@ Item {
                 required property bool serverGenerated
                 readonly property bool inPreview: index < 6 || root.expanded
 
+                active: inPreview
                 visible: inPreview
                 Layout.fillWidth: true
-                Layout.preferredHeight: inPreview ? activityCard.implicitHeight : 0
+                Layout.preferredHeight: item ? item.implicitHeight : 0
 
-                TH.ActivityEventCard {
+                sourceComponent: TH.ActivityEventCard {
                     id: activityCard
                     anchors.fill: parent
                     theme: root.theme

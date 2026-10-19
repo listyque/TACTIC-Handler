@@ -23,6 +23,73 @@ class UserProfileQmlTests(unittest.TestCase):
             if item.objectName() == name
         )
 
+    def test_collapsed_activity_does_not_create_hidden_rich_text_cards(self):
+        from unittest.mock import patch
+        from tests import frame_support_fixture
+        from tests.test_activity_feed_qml import ACTIVITY_ROLES
+        from thlib.ui.activity import activity_record
+        from thlib.ui.workspace_models.records import RecordListModel
+
+        original = frame_support_fixture.RecordListModel
+
+        def activity_model(roles):
+            if roles != ("searchKey",):
+                return original(roles)
+            return RecordListModel(ACTIVITY_ROLES)
+
+        with patch.object(frame_support_fixture, "RecordListModel", activity_model):
+            surface = self.surface()
+        title = ", ".join("render/frame%04d.exr" % i for i in range(1000))
+        records = [
+            activity_record(dict(
+                searchKey="sthpw/snapshot?code=SNAP" + str(index),
+                kind="publication",
+                itemTitle=title if index in (9, 10, 11) else "frame.exr",
+                targetTitle="Shot", targetSearchKey="demo/shot?code=SHOT",
+                actor="artist", process="publish", version="001",
+            ))
+            for index in range(25)
+        ]
+        surface.activity.replace(records)
+        surface.settle()
+
+        def cards():
+            return [
+                item
+                for item in sidebar_fixture.SidebarEditorQmlTests.descendants(
+                    surface.window.contentItem()
+                )
+                if item.objectName() == "activityEventCard"
+            ]
+
+        def toggle():
+            button = self.item(surface, "profileExpandActivity")
+            scroll = self.item(surface, "profileScroll")
+            top = button.mapToItem(scroll.property("contentItem"), QPointF()).y()
+            scroll.setProperty("contentY", max(0, min(
+                scroll.property("contentHeight") - scroll.height(), top - 80
+            )))
+            surface.settle()
+            point = button.mapToScene(
+                QPointF(button.width() / 2, button.height() / 2)
+            ).toPoint()
+            QTest.mouseClick(surface.window, Qt.LeftButton, pos=point)
+            surface.settle()
+
+        self.assertEqual(len(cards()), 6)
+        first_cards = cards()
+        toggle()
+        self.assertTrue(surface.view.property("activityExpanded"))
+        self.assertEqual(len(cards()), 25)
+        self.assertEqual(cards()[:6], first_cards)
+        self.assertEqual(cards()[9].property("itemTitle"), title)
+        self.assertTrue(all(item.width() > 0 for item in cards()))
+        toggle()
+        self.assertFalse(surface.view.property("activityExpanded"))
+        self.assertEqual(cards(), first_cards)
+        self.assertEqual(surface.activity.rowCount(), 25)
+        self.assertFalse(surface.warnings, surface.warnings)
+
     def test_summary_chip_keeps_short_caption_and_count_centered(self):
         surface = self.surface()
         chip = self.item(surface, "profileTask_statusSummary_0")

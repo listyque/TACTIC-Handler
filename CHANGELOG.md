@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.120 - 2026-10-19
+
+- Activate only the first six profile activity cards until Show more. Hidden rich-text snapshot filename lists no longer lay out at zero width on every frame; keep loaded records, full titles, actions and the first cards intact across expansion/collapse.
+- Reproduce the one-second scroll stall with actual locally replayed profile events and verify the fix with software and Windows/OpenGL rendering. Add real native/browser lifecycle input regressions and synchronized profile Help; document the existing Qt bytecode/cache path separately from possible release AOT compilation.
+
 ## 0.6.0.119 - 2026-10-19
 
 - Connect the four L02 legacy table classes to existing notes/task owners and independent Frame adapters. Add plain formatted messages with shared author/progress presentation; preserve the task context prefix and inline assignment/date options.
