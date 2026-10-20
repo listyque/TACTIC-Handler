@@ -43,6 +43,7 @@ class AdministrationController(QObject):
         self._query = ''
         self._group_catalog_loaded = False
         self._group_uncertain = False
+        self._requested_group = ''
         self._group_message = ''
         self._group_saving = False
         self._group_save_acknowledged = False
@@ -298,6 +299,15 @@ class AdministrationController(QObject):
         else:
             self._application._notify(self.tr('Administration requires administrator or supervisor access'))
 
+    @Slot(str)
+    def open_group_security(self, group_code):
+        if self.projectLocked:
+            self._application._notify(self.tr('Apply or discard unsaved changes first'))
+            return
+        self.select_section('rules')
+        self._security_editor.focus_group(str(group_code))
+        self.open()
+
     @Slot()
     def show_groups(self) -> None:
         self.select_section('groups')
@@ -489,6 +499,7 @@ class AdministrationController(QObject):
         self._group_uncertain = self._group_saving = False
         self._group_save_acknowledged = False
         self._group_message = ''
+        self._requested_group = ''
         self.groups.clear()
         self._set_group('')
 
@@ -592,7 +603,11 @@ class AdministrationController(QObject):
         code = str(self._draft.get('code') or '')
         if not any(row['code'] == code for row in self.groups.records()):
             code = self.groups.get(0).get('code', '') if self.groups.rowCount() else ''
-        self._set_group(code)
+        requested = self._requested_group
+        self._requested_group = ''
+        self._set_group(requested or code)
+        if requested and not self._draft:
+            self._error = self.tr('The configured group is no longer available')
         self.groupsChanged.emit()
 
     def _publish_catalog(self) -> None:
@@ -622,6 +637,20 @@ class AdministrationController(QObject):
         self._original_members = set(self._members)
         self._rebuild_members()
         self.stateChanged.emit()
+
+    @Slot(str)
+    def focus_group(self, code: str) -> None:
+        if self.dirty or self._group_uncertain:
+            self._error = self.tr('Apply or discard unsaved changes first')
+            self.stateChanged.emit()
+            return
+        if self.busy:
+            self._requested_group = str(code)
+            return
+        self._set_group(str(code))
+        if code and not self._draft:
+            self._error = self.tr('The configured group is no longer available')
+            self.stateChanged.emit()
 
     @Slot(str)
     def select_group(self, code: str) -> None:

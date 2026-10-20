@@ -1,5 +1,16 @@
 // Semantic names and fallback policy from the native Handler icon catalog.
 const semanticAliases = {
+    WORK: 'workspaces',
+    work: 'workspaces',
+    EDIT: 'edit',
+    DELETE: 'delete',
+    ADD: 'add',
+    CALENDAR: 'calendar',
+    'GROUP-LINK': 'group',
+    LOCK: 'lock',
+    JUMP: 'open-in-new',
+    CREATE: 'edit',
+    create: 'edit',
     more: 'more-vert',
     'arrow-back': 'arrow-left',
     connection: 'lan-connect',

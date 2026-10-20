@@ -283,10 +283,11 @@ export function keyValues(entries, width, height, language) {
     const children = [];
     for (let index = 0; index < entries.length; index++) {
         const entry = entries[index];
-        const title =
+        let title =
             entry.translate || entry.translateTitle
                 ? translate(entry.title, language)
                 : entry.title;
+        if (entry.period) title += ' · ' + translate(entry.period, language);
         const value = entry.translate
             ? translate(entry.value, language)
             : entry.value;

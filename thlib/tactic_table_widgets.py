@@ -157,6 +157,10 @@ class TacticMessageTableWidget(TacticBaseTableWidget):
     cell_kind = "message"
 
 
+class TacticCommandsTableWidget(TacticBaseTableWidget):
+    cell_kind = "commands"
+
+
 class TacticUnsupportedTableWidget(TacticBaseTableWidget):
     cell_kind = "unsupported"
 
@@ -165,6 +169,7 @@ class TacticUnsupportedTableWidget(TacticBaseTableWidget):
 
 
 _adapters = {
+    "commands": TacticCommandsTableWidget,
     "value": TacticSimpleTableWidget,
     "raw": TacticRawTableWidget,
     "formatted": TacticFormatTableWidget,

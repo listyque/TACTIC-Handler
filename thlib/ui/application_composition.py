@@ -59,6 +59,7 @@ from thlib.ui.pointer import PointerController
 from thlib.ui.process_filter_editor import ProcessFilterEditorController
 from thlib.ui.project_editor import ProjectEditorController
 from thlib.ui.project_creation import ProjectCreationController
+from thlib.ui.table.services import TableServicesController
 from thlib.ui.quick_filter_editor import QuickFilterEditorController
 from thlib.ui.repository_editor import RepositoryEditorController
 from thlib.ui.repository_sync_editor import RepositorySyncEditorController
@@ -334,6 +335,7 @@ class EditorBundle:
     sobject: SObjectEditorController
     project: ProjectEditorController
     project_creation: ProjectCreationController
+    table_services: TableServicesController
     links: SObjectLinkController
 
     def qml_bindings(self) -> dict[str, Any]:
@@ -353,6 +355,7 @@ class EditorBundle:
             "sobjectFieldModel": self.sobject.model,
             "projectEditorController": self.project,
             "projectCreationController": self.project_creation,
+            "tableServicesController": self.table_services,
             "sobjectLinkController": self.links,
             "linkAvailableModel": self.links.available_model,
             "linkCurrentModel": self.links.linked_model,
@@ -914,6 +917,9 @@ def _build_editors(
     )
     links.attach_script_triggers(delivery.script_triggers)
     controller.sobjectLinkRequested.connect(links.begin_session)
+    table_services = TableServicesController(controller, administration=collaboration.administration,
+        tasks=task_bundle.tasks, scripts=delivery.script_editor, links=links)
+    table_services.completed.connect(lambda key: delivery.columns_editor._refresh_changed_rows(controller._current_project_code, [key]))
     return EditorBundle(
         configuration=configuration,
         repository=repository,
@@ -923,6 +929,7 @@ def _build_editors(
         sobject=sobject,
         project=project,
         project_creation=project_creation,
+        table_services=table_services,
         links=links,
     )
 
@@ -1045,6 +1052,7 @@ def build_application_runtime(
     lifecycle.add_services(
         (
             editors.project_creation,
+            editors.table_services,
             collaboration.server_updates,
             collaboration.administration,
             delivery.naming_editor,

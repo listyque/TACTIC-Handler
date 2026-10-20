@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.121 - 2026-10-20
+
+- Share the table tags editor and add service/task/action/link presenters with Stream 0.112.174. Keep existing native object, task, administration, check-in and script-editor owners; preserve custom views, group identity, revisions and first-click activation.
+- Execute configured client JavaScript in an isolated QJSEngine process with the original SDK, captured context, safe confirmation and cancellation on session teardown. No embedded browser or new web Batch Manager.
+- Preserve independent Frame/SDK resources. Document the supported CustomLayout subset and the still-open nested-table/file-ingest/report dependencies; B07 and full legacy parity remain open.
+
 ## 0.6.0.120 - 2026-10-19
 
 - Activate only the first six profile activity cards until Show more. Hidden rich-text snapshot filename lists no longer lay out at zero width on every frame; keep loaded records, full titles, actions and the first cards intact across expansion/collapse.

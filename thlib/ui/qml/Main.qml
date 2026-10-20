@@ -4,6 +4,7 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtQuick.Window
 import "controls" as Controls
+import "features/table" as Table
 import "tactic_frame/shell/main_toolbar.ui.mjs" as MainToolbar
 import "tactic_frame/shell/main.menus.mjs" as MainMenus
 import "tactic_frame/shell/workspace.ui.mjs" as WorkspaceShell
@@ -125,6 +126,11 @@ ApplicationWindow {
     }
     Material.theme: window.dark ? Material.Dark : Material.Light
     Material.accent: theme.action
+
+    Table.ServiceDialogs {
+        theme: theme
+        controller: tableServicesController
+    }
 
     ItemCheckinDialogs {
         anchors.fill: parent

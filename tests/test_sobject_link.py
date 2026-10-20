@@ -378,11 +378,12 @@ class SObjectLinkControllerTests(unittest.TestCase):
             result_handler(operation())
 
         with patch("thlib.tactic_classes.edit_multiple_instance_sobjects",
-                   return_value=native_result) as mutate:
+                   return_value=native_result) as mutate, patch("thlib.server_cache.invalidate_domains") as invalidate:
             with patch.object(controller, "_start_worker",
                               side_effect=run_immediately):
                 controller.save()
 
+        invalidate.assert_called_once_with(("relations", "search", "activity"), "demo")
         mutate.assert_called_once_with(
             "demo",
             insert_search_keys=[inserted_c.get_search_key()],

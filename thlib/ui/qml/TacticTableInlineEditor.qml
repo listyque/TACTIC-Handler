@@ -20,7 +20,7 @@ Item {
     property bool editing: false
     property bool discarding: false
     property var descriptor: ({})
-    readonly property string editorMode: descriptor.fieldType === "multiline" || descriptor.submitName === "description" || columnName === "description" ? "multiline" : descriptor.fieldType === "enum" || ["status", "process", "pipeline", "project"].indexOf(descriptor.fieldType) >= 0 ? "select" : descriptor.fieldType === "bool" ? "bool" : ["date", "datetime", "color", "user", "time"].indexOf(descriptor.fieldType) >= 0 ? descriptor.fieldType : "text"
+    readonly property string editorMode: tagsEditor ? "tags" : descriptor.fieldType === "multiline" || descriptor.submitName === "description" || columnName === "description" ? "multiline" : descriptor.fieldType === "enum" || ["status", "process", "pipeline", "project"].indexOf(descriptor.fieldType) >= 0 ? "select" : descriptor.fieldType === "bool" ? "bool" : ["date", "datetime", "color", "user", "time"].indexOf(descriptor.fieldType) >= 0 ? descriptor.fieldType : "text"
     readonly property bool textPanel: InlineUI.explicitSave(editorMode)
     readonly property bool tagsEditor: descriptor.fieldType === "tags" || descriptor.fieldName === "keywords"
 
@@ -89,7 +89,7 @@ Item {
         height: Math.max(parent.height - 8, 0)
         active: root.editing && !root.textPanel
 
-        sourceComponent: root.tagsEditor ? legacyTagsEditor : inlineEditor
+        sourceComponent: inlineEditor
     }
 
     Component {
@@ -103,25 +103,6 @@ Item {
             onCancelled: root.cancel()
         }
     }
-    Component {
-        id: legacyTagsEditor
-        SObjectValueEditor {
-            theme: root.theme
-            compact: true
-            autoActivate: true
-            commitTextOnFinish: true
-            editorMode: "edit"
-            fieldName: String(root.descriptor.fieldName || "")
-            fieldType: String(root.descriptor.fieldType || "string")
-            fieldValue: root.descriptor.fieldValue
-            fieldOptions: root.descriptor.fieldOptions || []
-            errorText: String(root.descriptor.fieldError || "")
-            readOnlyField: false
-            onValueEdited: value => root.commit(value)
-            onCancelRequested: root.cancel()
-        }
-    }
-
     Loader {
         anchors.fill: parent
         active: root.editing && root.textPanel
@@ -133,7 +114,7 @@ Item {
                 id: popup
                 parent: Overlay.overlay
                 theme: root.theme
-                preferredSurfaceWidth: root.editorMode === "multiline" ? 620 : Math.max(300, root.width)
+                preferredSurfaceWidth: ["multiline", "tags"].indexOf(root.editorMode) >= 0 ? 620 : Math.max(300, root.width)
                 maximumSurfaceHeight: 520
                 settledClosePolicy: Popup.CloseOnEscape
                 onClosed: if (root.editing)

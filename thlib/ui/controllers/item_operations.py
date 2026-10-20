@@ -1473,6 +1473,14 @@ class ItemOperationsMixin:
             return
         values = dict(values or {})
         target_key = str(values.get("targetSearchKey") or node.search_key)
+        if kind == "edit":
+            source = node.source
+            stype = self._editor_stype_for_node(node)
+            if source is not None and stype is not None:
+                self._sobject_editor_request = {"mode": "edit", "view": values.get("actionView") or "edit",
+                    "stype": stype, "sobject": source, "parent_sobject": None, "_prepared": True}
+                self.open_window("add_sobject")
+            return
         if kind in {"sobject_detail", "file_list", "metadata"}:
             self.select_sobject(target_key)
             self.open_window("sobject_info")

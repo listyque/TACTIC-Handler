@@ -6,11 +6,11 @@ order: 36
 
 # Table View: типизированные ячейки B07
 
-B07 ещё не завершён. Каталог содержит 41 серверный класс и 98 имён. Здесь описаны добавленные адаптеры значений; поддержка всех исторических опций не заявляется. Неподдерживаемые опции остаются явными ошибками. Сохраните существующий вид и заменяйте только нужный элемент.
+B07 ещё не завершён. Каталог содержит 57 серверных классов и 134 имени. Здесь описаны добавленные адаптеры значений; поддержка всех исторических опций не заявляется. Неподдерживаемые опции остаются явными ошибками. Сохраните существующий вид и заменяйте только нужный элемент.
 
 ## L02: legacy-ячейки с готовыми панелями
 
-В каталоге теперь 41 класс / 98 имён. Эти четыре адаптера используют готовые
+В каталоге теперь 57 классов / 134 имени. Эти четыре адаптера используют готовые
 заметки/Task Inspector, черновики задач и табличные контролы; второй Messages
 или Task Manager не создаётся.
 
@@ -52,7 +52,7 @@ setting/append_setting, включая пустые ветки. Клик отк�
 choices и CGI filter state не перенесены; современный Discussion поддерживает
 явный context. `scroll=false` — старая HTML-подсказка компоновки; современная
 панель сохраняет общую полосу прокрутки. Неизвестные options остаются явными.
-В поставляемых XML/CG теперь 38 адаптированных / 36 ожидающих классов. B07 открыт.
+В поставляемых XML/CG теперь 54 адаптированных / 20 ожидающих классов. B07 открыт.
 
 
 
@@ -240,3 +240,153 @@ choices и CGI filter state не перенесены; современный Di
 ![summary](media/frame-table-summary-ru.png)
 
 ![groups](media/frame-table-groups-ru.png)
+
+## Этап 1: служебные ячейки, действия и процессы задач
+
+Stream 0.112.174 / Handler 0.6.0.121 добавляют 16 табличных адаптеров и общий
+inline-редактор тегов. Ресурсы продуктов остаются независимыми. B07 и этап 1
+не закрыты: часть исходных layouts зависит от вложенных таблиц и файлового ingest.
+
+### Теги и служебные колонки
+
+Двойной клик по Keywords открывает токены и подсказки. Enter добавляет токен;
+Save также включает ещё не добавленный текст. Cancel/Escape отменяют черновик.
+Клик снаружи ничего не сохраняет. Preferences также требуют явного Save/Cancel:
+конфликт ревизии требует перечитать данные, неизвестный результат записи можно
+проверить без повторной отправки изменения.
+
+```xml
+<!-- Элементы предназначены для соответствующих системных Search Types. -->
+<element name="update"><display class="pyasm.widget.UpdateWdg">
+  <insert_view>insert</insert_view><edit_view>edit</edit_view>
+  <retire>true</retire><delete>false</delete>
+</display></element>
+<element name="login"><display class="tactic.ui.input.LoginTableElementWdg"/></element>
+<element name="security"><display class="tactic.ui.panel.SecurityManagerButtonWdg"/></element>
+<element name="value"><display class="tactic.ui.table.PreferenceEditWdg"/></element>
+<element name="template"><display class="tactic.ui.table.ProjectTemplateUpdateWdg"/></element>
+<element name="summary"><display class="pyasm.widget.MyTacticSummaryWdg"/></element>
+<element name="test"><display class="tactic.ui.table.NotificationTriggerElementWdg"/></element>
+```
+
+Update использует настроенные insert/edit views и существующий редактор объектов.
+Retire/reactivate сверяют ревизию всей записи; Delete работает через текущего
+владельца удаления. Login и Security открывают готовую админку с нужной
+идентичностью пользователя/группы. Preferences относятся к текущему логину.
+Template export вызывает существующую команду шаблона. Summary считает активность
+текущего пользователя за час, сегодня и неделю, а также назначенные ему задачи по статусам. Test уведомления вызывает исходный forced
+trigger с несохранённой тестовой записью; наличие кнопки не подтверждает настройку
+или доставку SMTP/Telegram.
+
+### Исходный JavaScript без браузера внутри Handler
+
+```xml
+<element name="action"><display class="tactic.ui.table.ButtonElementWdg">
+  <script_path>assets/my_action</script_path>
+  <icon>EDIT</icon><hint>Open configured action</hint>
+</display></element>
+```
+
+По этому пути должен существовать JavaScript custom script. Также поддержаны
+исходные `script_code`, `cbjs_action`, `javascript`. Используется оригинальный
+SDK. Мост передаёт нажатую строку, view, колонку и зафиксированное выделение;
+`bvr.kwargs.search_key`, `spt.table.get_search_key()` и вызовы SDK получают этот
+контекст. Переходы Edit/Notes/Tasks/users/groups/schema/workflow/script editor
+открывают существующих владельцев. Подтверждение должно предшествовать первому
+API-вызову и не переигрывает уже выполненные записи. Смена сессии/проекта отменяет
+запуск и отбрасывает запоздалые UI-команды. Тайм-аут — 120 секунд.
+
+В браузере скрипт работает в Worker под CSP приложения, в Handler — в отдельном
+процессе QJSEngine: бесконечный цикл не блокирует QML. Это поддержка клиентских
+скриптов, а не произвольного DOM/MooTools. Неподдержанные DOM, Promise callbacks
+и неизвестные popup-классы дают явную ошибку. Серверные права текущего пользователя
+сохраняются. Три поставляемых CG JavaScript действия проверяются с fake SDK,
+без изменения пользовательских данных.
+
+### Переносимый CustomLayout
+
+```xml
+<element name="script"><display class="tactic.ui.table.CustomLayoutElementWdg">
+  <view>episodes/columns/script</view>
+</display></element>
+```
+
+Слеши в ссылке сопоставляются с точками в сохранённом имени. Настоящий CG layout
+сценария показывает текст, ссылку на документ и настроенное редактирование в
+обоих клиентах. Поддержаны labels, безопасные ссылки, Thumb previews, вложенные
+переносимые CustomLayout и click actions. Внешний документ открывается по ссылке;
+HTML/WebEngine в QML не вставляется. Data-only Mako читает переданные данные
+записи и форматирует текст; imports, серверные вызовы, запись и файловый/сетевой
+I/O отклоняются. Это ограниченное форматирование, не общая совместимость Python/Mako.
+
+Security Summary открывает немодальное окно с выбором группы и одним readonly
+редактором исходника её сохранённых правил. Это не вычисленный отчёт эффективных
+прав. Кнопка Help ведёт в общую справку.
+
+CG definitions сохранены. `columns/tasks_parent` содержит FastTable и остаётся
+зависимостью L01. В `episodes.columns.assets` только `No html`; рабочим виджетом
+он не объявляется. Сложные development layouts также не приняты.
+
+### Instance-связи и задачи
+
+```xml
+<!-- Для cg/assets: связь с текстурами из поставляемого шаблона CG. -->
+<element name="links"><display class="tactic.ui.table.DropElementWdg">
+  <instance_type>cg/texture_in_assets</instance_type>
+  <accepted_drop_type>cg/texture</accepted_drop_type>
+</display></element>
+<element name="parallel"><display class="pyasm.widget.ParallelStatusWdg">
+  <bar_height>3</bar_height><label_format>abbr</label_format>
+</display></element>
+<element name="new_task"><display class="pyasm.widget.ParallelStatusEditWdg"/></element>
+<element name="tasks"><display class="tactic.ui.table.SObjectTaskStatusElementWdg"/></element>
+<!-- Эти три колонки предназначены для таблицы задач. -->
+<element name="process"><display class="tactic.ui.table.ProcessElementWdg"/></element>
+<element name="status"><display class="tactic.ui.widget.TaskStatusElementWdg">
+  <edit_scope>assigned</edit_scope>
+</display></element>
+<element name="work"><display class="tactic.ui.table.WorkElementWdg">
+  <transfer_mode>upload</transfer_mode>
+</display></element>
+```
+
+Drop принимает ключи объектов настроенного типа, не произвольные файлы.
+Link Objects даёт альтернативу клавиатурой/кликом: выбрать, Save или Cancel в
+готовом редакторе связей. Полная ревизия instance-записей и все цели проверяются
+до удаления; ошибка замены откатывается транзакцией. `path` выбирает связь схемы.
+Legacy `folder_drop` с JavaScript/FileIngest остаётся задачей L04 и не подменяется
+обычной instance-связью.
+
+Parallel bars сохраняют исходные шаги 33/66/100, цвет просрочки и точную задачу.
+Бар или доступная кнопка процесса открывает существующего владельца задач.
+Task status использует status pipeline конкретной задачи; assigned scope
+проверяется до изменения. Work сохраняет process/context/task identity и открывает
+готовый check-in. В браузере доступен upload; local copy/move/inplace остаются
+возможностью desktop. Calendar остаётся отдельным доком. Bottom/group totals — L07b.
+
+### Проверка и границы
+
+Примеры воспроизводятся через `tests/test_table_stage_one.py`,
+`tests/test_table_services.py`, `tests/test_table_drop_links.py`,
+`frontend/tests/table_script_runtime.mjs`. Реальный native input/lifecycle —
+`tests.test_frame_table`, `tests.test_table_scripts`,
+`tests.test_table_service_workflows` в независимом Handler.
+`tools/frame_table/capture.py` и `frontend/tests/frame_table.mjs` сравнивают текущие
+Qt/Vue geometry, paint и ввод: три темы, EN/RU, light/dark.
+
+Рабочие business scripts, реальная доставка уведомлений, сервер PostgreSQL,
+физический touch и frozen Windows build в этой контрольной точке не проверялись.
+Вложенные FastTable/HiddenRow, файловые DOM-actions, произвольный Mako и полные
+bottom reports остаются открытыми в L01/L04/L07b/L11.
+
+### Этап 1: парные снимки настоящих ячеек
+
+Одинаковые fixture, ширина, MD3 dark и язык. Снимки ячеек не означают приёмку полного legacy-сценария.
+
+| Cell | Tactic Handler | TACTIC Stream |
+| --- | --- | --- |
+| `tags` | ![tags native](media/frame-table-stage1-tags-native-ru.png) | ![tags stream](media/frame-table-stage1-tags-stream-ru.png) |
+| `service_actions` | ![service_actions native](media/frame-table-stage1-service_actions-native-ru.png) | ![service_actions stream](media/frame-table-stage1-service_actions-stream-ru.png) |
+| `parallel_status` | ![parallel_status native](media/frame-table-stage1-parallel_status-native-ru.png) | ![parallel_status stream](media/frame-table-stage1-parallel_status-stream-ru.png) |
+| `drop_links` | ![drop_links native](media/frame-table-stage1-drop_links-native-ru.png) | ![drop_links stream](media/frame-table-stage1-drop_links-stream-ru.png) |
+| `custom_layout` | ![custom_layout native](media/frame-table-stage1-custom_layout-native-ru.png) | ![custom_layout stream](media/frame-table-stage1-custom_layout-stream-ru.png) |

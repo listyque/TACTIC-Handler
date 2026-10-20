@@ -209,6 +209,7 @@ class ColumnsEditorController(QObject):
                 "sortable": record["sortable"],
                 "editable": record["editable"],
                 "displayOptions": dict(record["displayOptions"]),
+                "resolvedClass": record["resolvedClass"],
             }
             for row, record in enumerate(self.model._records)
             if record["displayVisible"]

@@ -74,6 +74,7 @@ class FloatingWindowModel(QAbstractListModel):
     # These editors are valid only for an explicitly prepared item/relation.
     # Restore their geometry, but never restore them open with stale context.
     _context_required_windows = frozenset({
+        "table_document",
         "link_sobjects", "watch_folder_editor", "file_changelist",
         "process_filter_editor", "repository_sync_editor",
         "quick_filter_editor",
@@ -132,6 +133,7 @@ class FloatingWindowModel(QAbstractListModel):
         "administration": "features/administration/AdministrationView.qml",
         "schema_search_type": "features/administration/schema/AdminSchemaTypeView.qml",
         "raw_cell": "features/administration/database/RawCellEditorView.qml",
+        "table_document": "features/table/DocumentView.qml",
         "process_dependencies": "features/administration/workflow/AdminProcessRulesView.qml",
         "sidebar_search_preview": "SidebarSearchPreview.qml",
         "tasks_workspace": "TasksWorkspaceView.qml",
@@ -200,6 +202,7 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("user_profile", "User Profile", "user_profile", .18, .12, .64, .72),
             FloatingWindow("users", "Users", "user_profile", .12, .08, .76, .82),
             FloatingWindow("administration", "Administration", "administration", .08, .06, .84, .86, blocking=True),
+            FloatingWindow("table_document", "Security Summary", "table_document", 240, 140, 720, 560, geometry_mode="absolute"),
             FloatingWindow("raw_cell", "Cell editor", "raw_cell", 240, 140, 640, 440, blocking=True, geometry_mode="absolute"),
             FloatingWindow("schema_search_type", "New Search Type", "schema_search_type", .20, .12, .60, .76, blocking=True),
             FloatingWindow("process_dependencies", "Process dependencies", "process_dependencies", .16, .10, .68, .80, blocking=True),

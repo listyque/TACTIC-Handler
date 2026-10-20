@@ -3,7 +3,9 @@ import { translate } from '../../core/strings.mjs';
 
 export function explicitSave(mode) {
     return (
-        ['multiline', 'date', 'datetime', 'color', 'multi'].indexOf(mode) >= 0
+        ['multiline', 'date', 'datetime', 'color', 'multi', 'tags'].indexOf(
+            mode
+        ) >= 0
     );
 }
 
@@ -13,13 +15,13 @@ export function describe(model, width, language) {
     const mode = model.mode || 'text',
         nodes = [];
     const action = { type: 'value' };
-    let top = mode === 'multiline' ? 32 : 0;
+    let top = mode === 'multiline' || mode === 'tags' ? 32 : 0;
     if (top)
         nodes.push(
             label(
                 'tableInlineHeading',
                 rect(0, 0, width, 24),
-                tr('Edit description'),
+                tr(mode === 'tags' ? 'Edit tags' : 'Edit description'),
                 { weight: 600 }
             )
         );
@@ -31,7 +33,63 @@ export function describe(model, width, language) {
     );
     const options = model.options || [];
     const props = { label: model.title || '', enabled, action };
-    if (mode === 'select' || mode === 'user') {
+    if (mode === 'tags') {
+        let left = 0;
+        for (const [index, tag] of tags(model.value).entries()) {
+            const chipWidth = Math.min(
+                width,
+                Math.max(72, Array.from(tag).length * 8 + 44)
+            );
+            if (left && left + chipWidth > width) {
+                left = 0;
+                top += 42;
+            }
+            nodes.push(
+                button(
+                    'tableInlineTag_' + index,
+                    rect(left, top, chipWidth, 36),
+                    tag,
+                    'close',
+                    { type: 'removeTag', value: tag },
+                    enabled,
+                    { tooltip: tr('Remove tag') + ': ' + tag, tonal: true }
+                )
+            );
+            left += chipWidth + 6;
+        }
+        if (left) top += 42;
+        nodes.push(
+            node(
+                'Choice',
+                'tableInlineValue',
+                rect(0, top, Math.max(0, width - 80), 36),
+                {
+                    editable: true,
+                    enabled,
+                    label: tr('Edit tags'),
+                    placeholder: tr('Enter tags separated by commas'),
+                    value: model.draft || '',
+                    options: options.filter(
+                        (option) => tags(model.value).indexOf(option.value) < 0
+                    ),
+                    action: { type: 'tagDraft' },
+                    commitAction: { type: 'addTag' }
+                }
+            )
+        );
+        nodes.push(
+            button(
+                'tableInlineTagAdd',
+                rect(Math.max(0, width - 72), top, 72, 36),
+                tr('Add'),
+                '',
+                { type: 'addTag' },
+                enabled && tags(model.draft).length > 0
+            )
+        );
+        bounds.height = top + 36 - 32;
+        top = 32;
+    } else if (mode === 'select' || mode === 'user') {
         nodes.push(
             node(
                 mode === 'user' ? 'UserChoice' : 'Choice',
@@ -108,7 +166,9 @@ export function describe(model, width, language) {
                     selectOnFocus: mode !== 'multiline',
                     inputType: mode === 'time' ? 'time' : 'text',
                     commitAction:
-                        mode === 'multiline' ? null : { type: 'save' },
+                        mode === 'multiline' || model.explicitSave
+                            ? null
+                            : { type: 'save' },
                     keys:
                         mode === 'multiline'
                             ? {}
@@ -155,7 +215,12 @@ export function describe(model, width, language) {
         );
         top += 44;
     }
-    if (explicitSave(mode) || model.error || model.uncertain) {
+    if (
+        model.explicitSave ||
+        explicitSave(mode) ||
+        model.error ||
+        model.uncertain
+    ) {
         top += 8;
         const gap = 8,
             part = Math.max(0, (width - gap) / 2);
@@ -208,4 +273,35 @@ export function change(value, event) {
 
 export function savesOnChange(mode) {
     return ['select', 'user', 'bool'].indexOf(mode) >= 0;
+}
+
+export function tags(value) {
+    const result = [];
+    for (const tag of String(value == null ? '' : value).split(/[,\n]+/)) {
+        const trimmed = tag.trim();
+        if (trimmed && result.indexOf(trimmed) < 0) result.push(trimmed);
+    }
+    return result;
+}
+
+export function tagValue(value, draft) {
+    return tags(tags(value).concat(tags(draft)).join(', ')).join(', ');
+}
+
+export function editTags(value, draft, action) {
+    if (action.type === 'tagDraft') return { value, draft: action.value };
+    if (action.type === 'removeTag')
+        return {
+            value: tags(value)
+                .filter((tag) => tag !== action.value)
+                .join(', '),
+            draft
+        };
+    return {
+        value: tagValue(
+            value,
+            action.value === undefined ? draft : action.value
+        ),
+        draft: ''
+    };
 }

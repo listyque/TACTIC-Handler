@@ -20,6 +20,7 @@ class AdminDocumentEditor(QObject):
         self._catalog = []
         self._metadata = {}
         self._identity = ''
+        self._requested_identity = ''
         self._document = {}
         self._original = {}
         self._revision = ''
@@ -94,6 +95,7 @@ class AdminDocumentEditor(QObject):
         self._catalog = []
         self._metadata = {}
         self._identity = ''
+        self._requested_identity = ''
         self._document = self._original = {}
         self._revision = ''
         self._can_write = False
@@ -175,7 +177,11 @@ class AdminDocumentEditor(QObject):
                 if self._catalog:
                     selected = self._identity if any(
                         row['identity'] == self._identity for row in self._catalog) else self._catalog[0]['identity']
-                    self._request('load', selected)
+                    requested, self._requested_identity = self._requested_identity, ''
+                    if requested and not any(row['identity'] == requested for row in self._catalog):
+                        self.fail(self.tr('The configured table target is unavailable'))
+                        return
+                    self._request('load', requested or selected)
                 return
             self._identity = result['identity']
             self._revision = result['revision']
@@ -185,6 +191,9 @@ class AdminDocumentEditor(QObject):
             self.stateChanged.emit()
             if action == 'save':
                 self.committed.emit()
+            elif self._requested_identity:
+                requested, self._requested_identity = self._requested_identity, ''
+                self.select(requested)
 
         def failed(error):
             if self._closed or generation != self._generation:
@@ -224,6 +233,16 @@ class AdminDocumentEditor(QObject):
 
     def _document_loaded(self) -> None:
         """Domain editors rebuild their projection after load or discard."""
+
+    @Slot(str)
+    def focus(self, identity: str) -> None:
+        if self.dirty or self.writeUncertain:
+            self.fail(self.tr('Apply or discard unsaved changes first'))
+            return
+        if self.busy:
+            self._requested_identity = identity
+        else:
+            self.select(identity)
 
     @Slot(str)
     def select(self, identity: str) -> None:

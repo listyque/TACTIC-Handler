@@ -24,6 +24,21 @@ export const paint = {
     group: 'surfaceContainerHigh'
 };
 
+export function headerAction(column) {
+    const className = column.resolvedClass || column.display?.handler || '';
+    const options = column.displayOptions || column.display?.options || {};
+    if (
+        [
+            'UpdateWdg',
+            'pyasm.widget.UpdateWdg',
+            'pyasm.widget.table_element_wdg.UpdateWdg'
+        ].includes(className) &&
+        ![false, 'false'].includes(options.insert)
+    )
+        return { type: 'insert', view: options.insert_view || 'insert' };
+    return null;
+}
+
 export function describe(model, width) {
     const available = Math.max(0, width - metrics.selection - metrics.actions);
     const columns = Columns.visibleColumns(

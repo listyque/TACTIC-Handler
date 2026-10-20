@@ -439,7 +439,8 @@ class CommandsMixin:
             "stype": stype,
             "parent_sobject": parent,
             "relation": relation,
-            "project_code": project_code,
+            "project_code": request.get("project_code") or project_code,
+            "table_drop": dict(request.get("table_drop") or {}),
             "search_type": stype.get_code(),
             "refresh": self.refresh_current,
         }

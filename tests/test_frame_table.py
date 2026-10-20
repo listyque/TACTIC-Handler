@@ -28,8 +28,10 @@ class FrameTableTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = gui_test_application()
 
-    def create(self, name, values, width=360, height=120):
+    def create(self, name, values, width=360, height=120, context=None):
         engine = QQmlEngine()
+        for key,value in (context or {}).items():
+            engine.rootContext().setContextProperty(key,value)
         warnings = []
         engine.warnings.connect(
             lambda errors: warnings.extend(error.toString() for error in errors)
@@ -54,7 +56,7 @@ class FrameTableTests(unittest.TestCase):
             view,
             engine,
             warnings,
-            [component, theme_component, theme, values],
+            [component, theme_component, theme, values, context],
         )
         return window, view
 
@@ -97,6 +99,50 @@ class FrameTableTests(unittest.TestCase):
         QTest.keyClick(window, Qt.Key_Return)
         frame(window)
         self.assertEqual(saved, ["Модель"])
+
+    def test_tags_keep_draft_until_save_and_remove_without_writing(self):
+        window, view = self.create(
+            "features/table/ValueEditor.qml",
+            dict(mode="tags", descriptor=dict(fieldName="keywords", fieldValue="robot, body",
+                 fieldOptions=[dict(value="rig", label="rig")])), height=240)
+        saved = []
+        view.saved.connect(saved.append)
+        combo = self.item(view, "tableInlineValue")
+        combo.forceActiveFocus()
+        frame(window)
+        field = window.activeFocusItem()
+        event = QInputMethodEvent()
+        event.setCommitString("rig, robot")
+        QGuiApplication.sendEvent(field, event)
+        QTest.keyClick(window, Qt.Key_Return)
+        frame(window)
+        self.assertEqual(saved, [])
+        self.assertEqual(view.property("value"), "robot, body, rig")
+        self.click(window, self.item(view, "tableInlineTag_1"))
+        self.assertEqual(view.property("value"), "robot, rig")
+        self.assertEqual(saved, [])
+        combo = self.item(view, "tableInlineValue")
+        combo.forceActiveFocus()
+        frame(window)
+        event = QInputMethodEvent()
+        event.setCommitString(" final ")
+        QGuiApplication.sendEvent(window.activeFocusItem(), event)
+        self.click(window, self.item(view, "tableInlineSave"))
+        self.assertEqual(saved, ["robot, rig, final"])
+
+    def test_service_actions_use_first_click_and_preserve_configured_view(self):
+        controller = _TableController()
+        window, view = self.create('features/table/ServiceCell.qml',
+            dict(controller=controller, services=None, administration=None, nodeId='asset',
+                 cell={'text':'','actions':[{'name':'edit','label':'Edit','icon':'edit','view':'edit_review'}]}),
+            width=160, height=58)
+        self.click(window, self.item(view,'tableServiceAction_0'))
+        self.assertEqual(controller.table_widget_actions[-1],
+            ('edit','asset',{'text':'','actions':[{'name':'edit','label':'Edit','icon':'edit','view':'edit_review'}], 'actionView':'edit_review'}))
+        view.setProperty('editable',False)
+        frame(window)
+        self.click(window,self.item(view,'tableServiceAction_0'))
+        self.assertEqual(len(controller.table_widget_actions),1)
 
     def test_boolean_uses_first_pointer_click(self):
         window, view = self.create(

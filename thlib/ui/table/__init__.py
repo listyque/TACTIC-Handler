@@ -1,0 +1,1 @@
+"""Configured table action and service owners."""

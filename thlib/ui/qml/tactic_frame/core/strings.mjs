@@ -1,5 +1,138 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Configured button': 'Настраиваемая кнопка',
+    'Parallel task status': 'Параллельные статусы задач',
+    'Task status': 'Статус задачи',
+    'CustomLayout output exceeds one MiB':
+        'Результат CustomLayout превышает один МиБ',
+    'CustomLayout markup exceeds 32 levels':
+        'Разметка CustomLayout содержит более 32 уровней',
+    'CustomLayout supports at most 128 controls':
+        'CustomLayout поддерживает не более 128 контролов',
+    'Finish the current confirmation first':
+        'Сначала завершите текущее подтверждение',
+
+    'Custom Layout': 'Пользовательская компоновка',
+    'Security Summary': 'Сводка прав',
+    'No groups': 'Нет групп',
+    'Open external document': 'Открыть внешний документ',
+    'Run script': 'Запустить скрипт',
+    'Pipeline is not configured': 'Пайплайн не настроен',
+    'Configure an instance type and accepted Search Type':
+        'Укажите тип связи и допустимый Search Type',
+    'A table action cannot replay server calls for confirmation':
+        'Действие таблицы не может повторять серверные запросы ради подтверждения',
+    'Authentication methods are unavailable in table actions':
+        'Методы авторизации недоступны в действиях таблицы',
+    'Could not open table link': 'Не удалось открыть ссылку таблицы',
+    'CustomLayout behavior requires a portable click action':
+        'Для поведения CustomLayout нужно переносимое действие по нажатию',
+    'CustomLayout click action needs a class selector':
+        'Для действия CustomLayout нужен селектор класса',
+    'CustomLayout element has no display':
+        'У элемента CustomLayout не задан display',
+    'CustomLayout nesting exceeds eight levels':
+        'Глубина вложенности CustomLayout превышает восемь уровней',
+    'Drop background must be a hexadecimal color':
+        'Фон области переноса должен задаваться шестнадцатеричным цветом',
+    'Dropped objects belong to another Search Type':
+        'Переносимые объекты относятся к другому Search Type',
+    'Dropped objects belong to another project':
+        'Переносимые объекты относятся к другому проекту',
+    'Instance links or their definition changed. Reload before saving.':
+        'Связи или их определение изменились. Обновите данные перед сохранением.',
+    'Instance revisions require a transactional database lock':
+        'Проверка ревизий связей требует транзакционной блокировки БД',
+    'Invalid configured file transfer mode':
+        'В конфигурации указан неверный режим передачи файлов',
+    'Invalid table JS worker message':
+        'Некорректное сообщение процесса JavaScript таблицы',
+    'Invalid table action commands': 'Некорректные команды действия таблицы',
+    'Invalid table action result': 'Некорректный результат действия таблицы',
+    'Invalid table script API arguments':
+        'Некорректные аргументы API скрипта таблицы',
+    'Open the target object before editing this configured view':
+        'Откройте целевой объект перед редактированием настроенного представления',
+    'Preference revisions require a transactional database lock':
+        'Проверка ревизий настроек требует транзакционной блокировки БД',
+    'Script is no longer available': 'Скрипт больше недоступен',
+    'Table action cancelled': 'Действие таблицы отменено',
+    'Table action cancelled. Some operations may already have completed.':
+        'Действие таблицы отменено. Некоторые операции уже могли завершиться.',
+    'Table button color must be a hexadecimal color':
+        'Цвет кнопки таблицы должен задаваться шестнадцатеричным значением',
+    'Table button icon size must be between 12 and 28 pixels':
+        'Размер иконки кнопки таблицы должен быть от 12 до 28 пикселей',
+    'Table button scripts must use JavaScript':
+        'Скрипты кнопок таблицы должны использовать JavaScript',
+    'The configured drop column changed. Reload before saving.':
+        'Настройка столбца переноса изменилась. Обновите данные перед сохранением.',
+    'The configured instance relationship is unavailable':
+        'Настроенная связь объектов недоступна',
+    'The configured table target belongs to another project':
+        'Настроенный целевой объект таблицы относится к другому проекту',
+    'The configured table target is unavailable':
+        'Настроенный целевой объект таблицы недоступен',
+    'The source tab changed. Table action results were not opened.':
+        'Исходная вкладка изменилась. Результаты действия таблицы не открыты.',
+    'This configured check-in mode is not available yet':
+        'Указанный режим публикации пока недоступен',
+    'Unsupported table link': 'Неподдерживаемая ссылка таблицы',
+    'No script defined for this button': 'Для этой кнопки не задан скрипт',
+    'Select one existing custom script':
+        'Выберите один существующий пользовательский скрипт',
+    'Search Type is not available for this editor':
+        'Search Type недоступен для этого редактора',
+    'The configured group is no longer available':
+        'Настроенная группа больше недоступна',
+    'Close this form and refresh the table before reopening its links':
+        'Закройте форму и обновите таблицу перед повторным открытием её связей',
+    'Only the assigned user can edit this status':
+        'Этот статус может изменять только назначенный пользователь',
+    'Choose at most 500 linked objects':
+        'Выберите не более 500 связанных объектов',
+    'An instance must refer to exactly one accepted object':
+        'Запись связи должна указывать ровно на один допустимый объект',
+    'A linked object is no longer available':
+        'Связанный объект больше недоступен',
+    'Custom DOM drop callbacks require a Frame action before they can run in both clients':
+        'Для обработчика переноса DOM нужно действие Frame, чтобы он работал в обоих клиентах',
+    'Parallel task bars': 'Параллельные задачи',
+    'Add Task': 'Добавить задачу',
+    'Work on Task': 'Работать с задачей',
+    'Open tasks': 'Открыть задачи',
+    'Invalid parallel status label format':
+        'Неверный формат подписи параллельных задач',
+    'Parallel status bar height must be between 1 and 32 pixels':
+        'Высота полосы параллельных задач должна быть от 1 до 32 пикселей',
+    'Cyclic or excessively nested task pipeline':
+        'Циклический или слишком глубоко вложенный пайплайн задач',
+    'Invalid task status edit scope':
+        'Неверная область редактирования статуса задачи',
+
+    'Global Permissions': 'Глобальные права',
+    'Email Test': 'Тест уведомления',
+    'Update Template': 'Обновить шаблон',
+    'User preference': 'Настройка пользователя',
+    'My TACTIC summary': 'Моя сводка TACTIC',
+    'Edit preference': 'Изменить настройку',
+    'Preference changed. Reload before saving.':
+        'Настройка изменена. Обновите данные перед сохранением.',
+    'Notifications received': 'Получено уведомлений',
+    Checkins: 'Публикации',
+    'Status Changes': 'Изменения статуса',
+    '1 hour': '1 час',
+    today: 'сегодня',
+    '1 week': '1 неделя',
+    'Update the template archive for {project}?':
+        'Обновить архив шаблона проекта {project}?',
+    'Update the template archive for %1?': 'Обновить архив шаблона проекта %1?',
+    'Retire this object?': 'Архивировать этот объект?',
+    'Reactivate this object?': 'Восстановить этот объект?',
+    'Global Permissions are unavailable in this host':
+        'Редактор глобальных прав недоступен в этом окне',
+    'Group is no longer available': 'Группа больше недоступна',
+
     'Legacy discussion': 'Обсуждение (legacy)',
     'Object tasks': 'Задачи объекта',
     'Task context': 'Контекст задачи',

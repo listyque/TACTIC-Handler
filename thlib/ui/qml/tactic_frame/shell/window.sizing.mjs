@@ -32,6 +32,7 @@ export function windowMinimumWidth(kind) {
         administration: 900,
         schema_search_type: 600,
         raw_cell: 440,
+        table_document: 480,
         process_dependencies: 860,
         sidebar_search_preview: 960,
         server_presets: 720,
@@ -61,6 +62,7 @@ export function windowMinimumHeight(kind) {
     const heights = {
         main: 480,
         raw_cell: 340,
+        table_document: 340,
         configuration: 600,
         server: 520,
         project: 520,

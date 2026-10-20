@@ -30,6 +30,8 @@ Item {
     property bool effectsEnabled: true
     property bool scrolling: false
     property bool selectedTaskPreviewActive: false
+    property var tableServices: typeof tableServicesController === "undefined" ? null : tableServicesController
+    property var administration: typeof administrationController === "undefined" ? null : administrationController
     readonly property string safeHref: Cells.link(cell.href, controller ? controller.server_url || "" : "")
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     signal taskPreviewHoverChanged(bool hovered)
@@ -47,6 +49,8 @@ Item {
                 return groupedCompletionCell;
             if (root.kind === "message")
                 return messageCell;
+            if (root.kind === "commands")
+                return serviceCell;
             if (root.kind === "fields")
                 return fieldsCell;
             if (root.kind === "status_flag")
@@ -104,7 +108,10 @@ Item {
                 textFormat: Text.PlainText
                 text: Cells.text(root.cell, root.textValue, root.language)
                 elide: Text.ElideRight
-                color: root.cell.error ? root.theme.error : root.kind === "link" ? root.theme.action : root.theme[Cells.textRole(root.cell)]
+                background: Rectangle {
+                    color: root.cell.statusColor || "transparent"
+                }
+                color: root.cell.error ? root.theme.error : root.cell.statusColor ? "#000" : root.kind === "link" ? root.theme.action : root.theme[Cells.textRole(root.cell)]
                 font.family: root.theme.fontFamily
                 font.pixelSize: Cells.metrics.bodyFont
                 font.weight: root.columnIndex === 0 ? Font.DemiBold : Font.Normal
@@ -313,6 +320,23 @@ Item {
             kind: root.kind
             cell: root.cell
             onClicked: root.controller.invoke_table_widget_action(root.kind, root.nodeId, root.cell)
+        }
+    }
+
+    Component {
+        id: serviceCell
+        Table.ServiceCell {
+            anchors.fill: parent
+            anchors.topMargin: 3
+            anchors.bottomMargin: 3
+            theme: root.theme
+            controller: root.controller
+            nodeId: root.nodeId
+            cell: root.cell
+            displayOptions: root.displayOptions
+            services: root.tableServices
+            administration: root.administration
+            editable: !root.tableServices || !root.tableServices.busy
         }
     }
 

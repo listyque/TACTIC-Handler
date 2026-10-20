@@ -144,6 +144,24 @@ Rectangle {
         color: root.theme[TableHost.paint.header]
     }
 
+    Component {
+        id: insertButtonComponent
+        Controls.CompactIconButton {
+            required property var header
+            objectName: "tableColumnInsert_" + String(header.modelData.name || "")
+            anchors.left: parent.left
+            anchors.leftMargin: header.index === 0 ? TableHost.metrics.firstPadding : TableHost.metrics.padding
+            anchors.verticalCenter: parent.verticalCenter
+            z: 1
+            theme: root.theme
+            enabled: !root.columnsBusy && typeof tableServicesController !== "undefined" && !!tableServicesController && !tableServicesController.busy
+            iconName: "add"
+            toolTip: qsTr("Create")
+            Accessible.name: qsTr("Create")
+            onClicked: tableServicesController.insert_record(header.insertAction.view)
+        }
+    }
+
     Row {
         anchors.left: parent.left
         anchors.leftMargin: root.selectionColumnWidth
@@ -159,6 +177,27 @@ Rectangle {
                 id: headerCell
                 required property int index
                 required property var modelData
+                property var insertControl: null
+                property bool insertReady: false
+                readonly property var insertAction: TableHost.headerAction(modelData)
+
+                function updateInsertControl() {
+                    if (!insertReady)
+                        return;
+                    if (insertAction && !insertControl)
+                        insertControl = insertButtonComponent.createObject(headerCell, {
+                            header: headerCell
+                        });
+                    else if (!insertAction && insertControl) {
+                        insertControl.destroy();
+                        insertControl = null;
+                    }
+                }
+                onInsertActionChanged: updateInsertControl()
+                Component.onCompleted: {
+                    insertReady = true;
+                    updateInsertControl();
+                }
                 readonly property bool grouped: String(root.controller.result_group_mode || "") === "column:" + String(modelData.name || "")
                 width: root.columnWidth(modelData)
                 height: parent.height
@@ -174,7 +213,7 @@ Rectangle {
                     anchors.fill: parent
                     leftPadding: headerCell.index === 0 ? 14 : 10
                     verticalAlignment: Text.AlignVCenter
-                    text: String(headerCell.modelData.label || headerCell.modelData.name || "").toUpperCase()
+                    text: TableHost.headerAction(headerCell.modelData) ? "" : String(headerCell.modelData.label || headerCell.modelData.name || "").toUpperCase()
                     elide: Text.ElideRight
                     color: headerCell.grouped ? root.theme.action : root.theme[TableHost.paint.headerText]
                     font.family: root.theme.fontFamily
@@ -247,6 +286,7 @@ Rectangle {
                 MouseArea {
                     id: resizeHandle
                     objectName: "tableColumnResize_" + String(headerCell.modelData.name || "")
+                    z: 2
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom

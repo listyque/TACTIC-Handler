@@ -20,6 +20,7 @@ class SecurityRulesEditor(AdminDocumentEditor):
         self._selected = -1
         self._group_rules = {}
         self._selected_group = ''
+        self._requested_group = ''
         self._message = ''
         super().__init__(application, security_request, parent)
         self._matrix = SecurityMatrixModel(self)
@@ -75,6 +76,15 @@ class SecurityRulesEditor(AdminDocumentEditor):
         super().fail(self.tr(str(error)))
 
     @Slot(str)
+    def focus_group(self, identity: str) -> None:
+        if self.dirty or self.writeUncertain:
+            return
+        self._requested_group = str(identity)
+        if identity in self._group_rules:
+            self.select_group(identity)
+            self._requested_group = ''
+
+    @Slot(str)
     def select_group(self, identity: str) -> None:
         if identity in self._group_rules:
             self._selected_group = identity
@@ -121,6 +131,12 @@ class SecurityRulesEditor(AdminDocumentEditor):
                                  for code, data in self._document.get('groups', {}).items()}
         except (ET.ParseError, ValueError) as error:
             self.fail(str(error))
+        if self._requested_group in self._group_rules:
+            self._selected_group = self._requested_group
+            self._requested_group = ''
+        elif self._requested_group and self._group_rules:
+            self.fail(self.tr('Group is no longer available'))
+            self._requested_group = ''
         if self._selected_group not in self._group_rules:
             self._selected_group = next(iter(self._group_rules), '')
         self._select_group_rules()

@@ -9,33 +9,49 @@ Item {
     required property string mode
     property real controlHeight: 36
     property int count: 1
+    property bool busy: false
+    property bool uncertain: false
+    property bool explicitSave: false
+    property string error: descriptor.fieldError || ""
     property var value: descriptor.fieldValue
+    property string tagDraft: ""
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     readonly property var scene: UI.describe({
         mode: mode,
         title: descriptor.fieldLabel || descriptor.fieldName || "",
         value: value,
+        draft: tagDraft,
         options: descriptor.fieldOptions || [],
         count: count,
         height: mode === "multiline" ? 260 : Math.max(36, controlHeight),
-        busy: false,
-        uncertain: false,
-        error: descriptor.fieldError || ""
+        busy: busy,
+        uncertain: uncertain,
+        explicitSave: explicitSave,
+        error: error
     }, width, language)
     implicitHeight: scene.height
     signal saved(var value)
+    signal checked(var value)
     signal cancelled
 
     function dispatch(action) {
-        if (action.type === "value" || action.type === "toggle") {
+        if (["tagDraft", "addTag", "removeTag"].indexOf(action.type) >= 0) {
+            const next = UI.editTags(value, tagDraft, action);
+            value = next.value;
+            tagDraft = next.draft;
+            if (action.type !== "tagDraft")
+                activate();
+        } else if (action.type === "value" || action.type === "toggle") {
             value = UI.change(value, action);
-            if (UI.savesOnChange(mode))
-                saved(value);
+            if (!explicitSave && UI.savesOnChange(mode))
+                saved(mode === "tags" ? UI.tagValue(value, tagDraft) : value);
         } else if (action.type === "save") {
             if (action.value !== undefined)
                 value = action.value;
-            saved(value);
-        } else if (action.type === "cancel")
+            saved(mode === "tags" ? UI.tagValue(value, tagDraft) : value);
+        } else if (action.type === "check")
+            checked(value);
+        else if (action.type === "cancel")
             cancelled();
     }
     function activate() {

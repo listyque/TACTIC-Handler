@@ -8087,6 +8087,459 @@ def query_table_layout(search_type, search_keys=None, view='table',
 
     def action_cell_values(class_name, column, sobject, widget):
         options = column.get('displayOptions') or {}
+        service_classes = ('.UpdateWdg', '.MyTacticSummaryWdg', '.LoginTableElementWdg', '.SecurityManagerButtonWdg', '.PreferenceEditWdg', '.ProjectTemplateUpdateWdg', '.NotificationTriggerElementWdg', '.ButtonElementWdg', '.ParallelStatusWdg', '.ParallelStatusEditWdg', '.ProcessElementWdg', '.TaskStatusElementWdg', '.SObjectTaskStatusElementWdg', '.WorkElementWdg', '.DropElementWdg', '.CustomLayoutElementWdg')
+        if class_name.endswith(service_classes):
+            def service_value():
+                service_classes = ('.UpdateWdg', '.MyTacticSummaryWdg', '.LoginTableElementWdg', '.SecurityManagerButtonWdg', '.PreferenceEditWdg', '.ProjectTemplateUpdateWdg', '.NotificationTriggerElementWdg', '.ButtonElementWdg', '.ParallelStatusWdg', '.ParallelStatusEditWdg', '.ProcessElementWdg', '.TaskStatusElementWdg', '.SObjectTaskStatusElementWdg', '.WorkElementWdg', '.DropElementWdg', '.CustomLayoutElementWdg')
+                if class_name.endswith(service_classes):
+                    native = getattr(widget, 'get_cell_value', None)
+                    if native:
+                        value = native()
+                        if class_name.endswith('.DropElementWdg'):
+                            value['tableView'] = view
+                        return value
+                    import hashlib
+                    import re
+                    from datetime import datetime, timedelta, timezone
+                    from dateutil import parser
+                    from pyasm.biz import PrefSetting, Project, Pipeline, Task, ExpressionParser
+                    from pyasm.common import Environment
+                def task_status_pipeline(task):
+                    code = task.get_value('pipeline_code', no_exception=True)
+                    if task.get_base_search_type() == 'sthpw/snapshot':
+                        code = 'snapshot'
+                    if not code and not task.is_insert():
+                        parent = task.get_parent()
+                        parent_code = parent.get_value('pipeline_code', no_exception=True) if parent else ''
+                        parent_pipeline = Pipeline.get_by_code(parent_code) if parent_code else None
+                        if parent_pipeline:
+                            code = parent_pipeline.get_process_attrs(task.get_value('process')).get('task_pipeline')
+                    return Pipeline.get_by_code(code or 'task') or Pipeline.get_by_code('task')
+                def drop_link_data(parent, options):
+                    instance_type, accepted = options.get('instance_type'), options.get('accepted_drop_type')
+                    if not instance_type or not accepted:
+                        return dict(text='', links=[], available=False, diagnostic='Configure an instance type and accepted Search Type')
+                    SearchType.get(instance_type)
+                    SearchType.get(accepted)
+                    schema = parent.get_schema()
+                    path = options.get('path') or None
+                    for target in (parent.get_base_search_type(), accepted):
+                        if not schema.get_relationship_attrs(instance_type, target, path=path):
+                            raise ValueError('The configured instance relationship is unavailable')
+                    instances = parent.get_related_sobjects(instance_type, path=path)
+                    instances.sort(key=lambda record: str(record.get_display_value()))
+                    links = []
+                    for instance in instances:
+                        targets = instance.get_related_sobjects(accepted)
+                        if len(targets) != 1:
+                            raise ValueError('An instance must refer to exactly one accepted object')
+                        target = targets[0]
+                        label = Search.eval(options['display_expr'], sobjects=instance, single=True) if options.get('display_expr') else instance.get_display_value()
+                        links.append(dict(instanceKey=instance.get_search_key(), searchKey=target.get_search_key(),
+                                          label=str(label or ''), record=dict(__search_key__=target.get_search_key(),
+                                          id=target.get_id(), code=target.get_code(), name=str(target.get_display_value()))))
+                    revision = hashlib.sha256(json.dumps([options, sorted((row.get_data() for row in instances),
+                        key=lambda row: str(row.get('id') or row.get('code')))], sort_keys=True, default=str).encode()).hexdigest()
+                    background = Search.eval(options.get('css_background-color'), sobjects=parent) if options.get('css_background-color') else ''
+                    if background and not re.fullmatch(r'#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?', str(background)):
+                        raise ValueError('Drop background must be a hexadecimal color')
+                    return dict(text='', links=links, available=True, targetSearchKey=parent.get_search_key(),
+                        acceptedType=accepted, instanceType=instance_type, path=path or '', expectedRevision=revision, backgroundColor=background,
+                        relation=dict(relationship='instance', instance_type=instance_type, path=path or '', search_type=accepted))
+                def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0, _behaviors=None):
+                    import ast
+                    import json
+                    import textwrap
+                    import html as entities
+                    from html.parser import HTMLParser
+                    from xml.etree import ElementTree as ET
+                    from mako.template import Template
+                    from mako.lexer import Lexer
+                    from pyasm.search import Search
+                    from pyasm.common import Environment
+                    if not Environment.get_security().is_admin():
+                        raise PermissionError('Administration requires administrator access')
+                    if _depth >= 8:
+                        raise ValueError('CustomLayout nesting exceeds eight levels')
+                    obj = Search.get_by_search_key(search_key)
+                    if obj is None:
+                        raise ValueError('Object is no longer available')
+                    view = str(view).replace('/', '.')
+                    behaviors = dict(_behaviors or {})
+                    mako = ''
+                    if not html:
+                        search = Search('config/widget_config')
+                        search.add_filter('view', view)
+                        configs = [row for row in search.get_sobjects() if row.get_value('category', no_exception=True) == 'CustomLayoutWdg']
+                        configs.sort(key=lambda row: float(row.get_value('priority', no_exception=True) or 0), reverse=True)
+                        if not configs:
+                            raise ValueError('CustomLayout is not configured: ' + view)
+                        root = ET.fromstring(configs[0].get_value('config'))
+                        definition = next((node for node in root if node.tag == view or node.get('name') == view), None)
+                        if definition is None or definition.find('html') is None:
+                            raise ValueError('CustomLayout has no HTML definition: ' + view)
+                        mako = definition.findtext('mako') or ''
+                        body = definition.find('html')
+                        html = (body.text or '') + ''.join(ET.tostring(child, encoding='unicode') for child in body)
+                        for behavior in definition.findall('behavior'):
+                            source = behavior.text or ''
+                            if behavior.get('event'):
+                                if behavior.get('event') != 'click_up':
+                                    raise ValueError('CustomLayout behavior requires a portable click action')
+                                code = source
+                            else:
+                                try:
+                                    data = json.loads(source)
+                                except ValueError:
+                                    data = ast.literal_eval(source)
+                                if data.get('type') != 'click_up':
+                                    raise ValueError('CustomLayout behavior requires a portable click action')
+                                code = data['cbjs_action']
+                            selector = behavior.get('class') or behavior.get('relay_class')
+                            if not selector:
+                                raise ValueError('CustomLayout click action needs a class selector')
+                            behaviors[selector] = code
+                    if include_mako not in (False, 'false') and (mako or '${' in html or '<%' in html):
+                        template_source = ('<%\n' + mako + '\n%>' if mako else '') + html
+                        # Table reads can retry: layout expressions must never perform a write or I/O.
+                        allowed = (ast.Module, ast.Expression, ast.Assign, ast.Name, ast.Load, ast.Store,
+                            ast.Constant, ast.Call, ast.Attribute, ast.keyword, ast.If, ast.IfExp,
+                            ast.Compare, ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.Is,
+                            ast.IsNot, ast.In, ast.NotIn, ast.BoolOp, ast.And, ast.Or, ast.UnaryOp,
+                            ast.Not, ast.USub, ast.UAdd, ast.BinOp, ast.Add, ast.Sub, ast.Mult,
+                            ast.Div, ast.FloorDiv, ast.Mod, ast.Subscript, ast.Slice, ast.List,
+                            ast.Tuple, ast.Dict, ast.JoinedStr, ast.FormattedValue)
+                        pure_builtins = {'str','int','float','bool','len'}
+                        data_names = {'sobject','sobjects','kwargs','data','plugin'}
+                        reserved = data_names | pure_builtins | {'context','self','local','parent','next','pageargs','loop','caller','capture','UNDEFINED','STOP_RENDERING'}
+                        pure_methods = {'get','format','replace','find','strip','upper','lower','join'}
+                        trees = []
+                        for part in Lexer(template_source).parse().nodes:
+                            kind = type(part).__name__
+                            if kind in ('Text', 'Comment'):
+                                continue
+                            if kind not in ('Code', 'Expression') or (kind=='Code' and part.ismodule):
+                                raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
+                            if kind=='Expression' and any(name.strip() not in ('n','h','str','trim','u','entity') for name in part.escapes.split(',') if name.strip()):
+                                raise ValueError('CustomLayout Mako filter is not supported')
+                            trees.append(ast.parse(textwrap.dedent(part.text).strip(),mode='eval' if kind=='Expression' else 'exec'))
+                        local_names = {target.id for tree in trees for item in ast.walk(tree) if isinstance(item,ast.Assign)
+                                       for target in item.targets if isinstance(target,ast.Name)}
+                        if local_names & reserved:
+                            raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
+                        for tree in trees:
+                            for item in ast.walk(tree):
+                                valid = isinstance(item,allowed)
+                                if isinstance(item,ast.Assign):
+                                    valid = all(isinstance(target,ast.Name) for target in item.targets)
+                                if isinstance(item,ast.Name):
+                                    valid = valid and not item.id.startswith('_') and item.id in (local_names | data_names | pure_builtins)
+                                if isinstance(item,ast.Attribute):
+                                    valid = valid and item.attr in pure_methods
+                                if isinstance(item,ast.Call):
+                                    valid = valid and ((isinstance(item.func,ast.Name) and item.func.id in pure_builtins)
+                                        or (isinstance(item.func,ast.Attribute) and item.func.attr in pure_methods))
+                                if not valid:
+                                    raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
+                        record = json.loads(json.dumps(obj.get_sobject_dict(),default=str))
+                        html = Template(template_source).render(
+                            sobject=record, sobjects=[record],
+                            kwargs=dict(search_key=search_key, view=view), data={}, plugin={})
+                    html = entities.unescape(html)
+                    class Markup(HTMLParser):
+                        def __init__(self):
+                            super().__init__(convert_charrefs=True)
+                            self.root = dict(tag='root', attrs={}, children=[])
+                            self.stack = [self.root]
+                        def handle_starttag(self, tag, attrs):
+                            if len(self.stack)>32:
+                                raise ValueError('CustomLayout markup exceeds 32 levels')
+                            item = dict(tag=tag, attrs=dict(attrs), children=[])
+                            self.stack[-1]['children'].append(item)
+                            if tag not in ('br', 'embed', 'img', 'hr', 'input'):
+                                self.stack.append(item)
+                        def handle_startendtag(self, tag, attrs):
+                            self.handle_starttag(tag, attrs)
+                            self.handle_endtag(tag)
+                        def handle_endtag(self, tag):
+                            for index in range(len(self.stack)-1, 0, -1):
+                                if self.stack[index]['tag'] == tag:
+                                    self.stack = self.stack[:index]
+                                    break
+                        def handle_data(self, data):
+                            self.stack[-1]['children'].append(data)
+                    if len(html.encode('utf-8')) > 1024*1024:
+                        raise ValueError('CustomLayout output exceeds one MiB')
+                    parser = Markup()
+                    parser.feed(html)
+                    nodes = []
+                    def text(item):
+                        return item if isinstance(item, str) else ''.join(text(child) for child in item['children'])
+                    def markup(item):
+                        if isinstance(item, str):
+                            return entities.escape(item, quote=False)
+                        tag = item['tag']
+                        attrs = ''.join(' %s="%s"' % (key, entities.escape(value or '', quote=True)) for key,value in item['attrs'].items())
+                        content = ''.join(markup(child) for child in item['children'])
+                        return '<'+tag+attrs+'>'+content+'</'+tag+'>'
+                    def visit(item):
+                        if len(nodes)>=128:
+                            raise ValueError('CustomLayout supports at most 128 controls')
+                        if isinstance(item, str):
+                            if item.strip():
+                                nodes.append(dict(kind='text', text=item.strip()))
+                            return
+                        tag, attrs = item['tag'], item['attrs']
+                        if tag == 'element':
+                            display = next((child for child in item['children'] if isinstance(child, dict) and child['tag']=='display'), None)
+                            if display is None:
+                                raise ValueError('CustomLayout element has no display')
+                            handler = display['attrs'].get('class') or display['attrs'].get('widget')
+                            options = {child['tag']: (''.join(markup(part) for part in child['children']) if child['tag']=='html' else text(child).strip()) for child in display['children'] if isinstance(child, dict)}
+                            if handler in ('tactic.ui.panel.CustomLayoutWdg', 'tactic.ui.table.CustomLayoutElementWdg', 'custom_layout'):
+                                nodes.extend(read_custom_layout(search_key, _depth=_depth+1, _behaviors=behaviors, **options)['layoutNodes'])
+                            elif handler in ('pyasm.widget.ThumbWdg', 'ThumbWdg'):
+                                from pyasm.widget import ThumbWdg
+                                widget = ThumbWdg(name=attrs.get('name') or 'preview', **options)
+                                widget.set_sobjects([obj]); widget.preprocess(); widget.set_current_index(0)
+                                value = widget.get_cell_value() if hasattr(widget, 'get_cell_value') else dict(image=widget.get_data(obj) or '')
+                                nodes.append(dict(kind='preview', text=str(obj.get_display_value()), value=value,
+                                                  javascript=behaviors.get(attrs.get('name'), '')))
+                            else:
+                                # shortcut: nested TableLayout belongs to the hidden-row/table migration in stage 2.
+                                raise ValueError('CustomLayout embedded widget is not migrated: ' + str(handler))
+                        elif tag == 'a':
+                            source = next((behaviors[name] for name in attrs.get('class','').split() if name in behaviors), '')
+                            nodes.append(dict(kind='action' if source else 'link', text=text(item).strip(),
+                                              href=attrs.get('href') or '', javascript=source))
+                        elif tag in ('object','embed'):
+                            address = attrs.get('data') or attrs.get('src')
+                            if address:
+                                nodes.append(dict(kind='link', text='Open external document', href=address, translate=True))
+                        elif tag in ('root','html','div','span','p','strong','b','small','br','hr'):
+                            for child in item['children']:
+                                visit(child)
+                        else:
+                            raise ValueError('CustomLayout markup is not migrated: ' + tag)
+                    visit(parser.root)
+                    return dict(text='', layoutNodes=nodes, targetSearchKey=search_key, layoutView=view,
+                                externalDocuments=any(node['kind']=='link' for node in nodes))
+                if class_name.endswith('.UpdateWdg'):
+                    from pyasm.common import Environment
+                    import hashlib
+                    import json
+                    obj = sobject
+                    if not obj or obj.is_insert():
+                        return dict(text='', actions=[])
+                    if options.get('user_filter') == 'true' and obj.has_value('login') and obj.get_value('login') != Environment.get_user_name():
+                        return dict(text='', actions=[])
+                    actions = []
+                    if options.get('edit') != 'false':
+                        actions.append(dict(name='edit', label='Edit', icon='edit', view=options.get('edit_view') or 'edit'))
+                    if options.get('retire') != 'false' and obj.has_value('s_status'):
+                        retired = obj.get_value('s_status') == 'retired'
+                        actions.append(dict(name='reactivate' if retired else 'retire',
+                                            label='Reactivate' if retired else 'Retire', icon='restore' if retired else 'archive'))
+                    if options.get('delete') == 'true':
+                        actions.append(dict(name='delete', label='Delete sObject', icon='delete', destructive=True))
+                    return dict(text='', actions=actions, targetSearchKey=obj.get_search_key(),
+                                expectedRevision=hashlib.sha256(json.dumps(obj.get_data(), sort_keys=True, default=str).encode()).hexdigest())
+                if class_name.endswith('.MyTacticSummaryWdg'):
+                    user, project = Environment.get_user_name(), Project.get_project_code()
+                    now = datetime.now(timezone.utc)
+                    periods = [('1 hour', now - timedelta(hours=1)),
+                               ('today', now.replace(hour=0, minute=0, second=0, microsecond=0)),
+                               ('1 week', now - timedelta(days=7))]
+                    entries = []
+                    for search_type, title in [('sthpw/notification_login', 'Notifications received'),
+                                               ('sthpw/snapshot', 'Checkins'),
+                                               ('sthpw/status_log', 'Status Changes')]:
+                        for period, since in periods:
+                            search = Search(search_type)
+                            search.add_filter('login', user)
+                            if search_type == 'sthpw/snapshot':
+                                search.add_regex_filter('search_type', 'project=' + project, op='EQ')
+                            else:
+                                search.add_filter('project_code', project)
+                            search.add_filter('timestamp', since.replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S.%f'), op='>=')
+                            entries.append(dict(title=title, period=period, value=str(search.get_count()), translateTitle=True))
+                    pipeline = Pipeline.get_by_code('task')
+                    for status in pipeline.get_process_names() if pipeline else []:
+                        search = Search('sthpw/task')
+                        search.add_filter('assigned', user)
+                        search.add_filter('status', status)
+                        count = search.get_count()
+                        if count:
+                            entries.append(dict(title=status, value=str(count)))
+                    return dict(text='\n'.join(f"{entry['title']}: {entry['value']}" for entry in entries), entries=entries)
+                if class_name.endswith('.LoginTableElementWdg'):
+                    task = sobject
+                    login = str(object_value(sobject, column['name']) or '')
+                    return dict(text=login, login=login,
+                                assignedGroup=task.get_value('assigned_group', no_exception=True) or '')
+                if class_name.endswith('.SecurityManagerButtonWdg'):
+                    group = sobject
+                    if group.is_admin():
+                        return dict(text='ADMIN', actions=[])
+                    return dict(text='', groupCode=group.get_code(), actions=[
+                        dict(name='security', label='Global Permissions', icon='security')])
+                if class_name.endswith('.PreferenceEditWdg'):
+                    obj = sobject
+                    key = obj.get_value('key')
+                    record = PrefSetting.get_by_key(key, use_cache=False)
+                    value = record.get_value('value') if record else ''
+                    choices = str(obj.get_value('options') or '').split('|') if obj.get_value('type') == 'sequence' else []
+                    return dict(text=value, preferenceKey=key, targetSearchKey=obj.get_search_key(), expectedRevision=hashlib.sha256(json.dumps(record.get_data() if record else None, sort_keys=True, default=str).encode()).hexdigest(),
+                                preferenceOptions=[dict(value=item, label=item) for item in choices], actions=[
+                                    dict(name='preference', label='Edit preference', icon='edit')])
+                if class_name.endswith('.ProjectTemplateUpdateWdg'):
+                    return dict(text='', projectCode=sobject.get_code(), actions=[
+                        dict(name='template', label='Update Template', icon=options.get('icon') or 'archive')])
+                if class_name.endswith('.NotificationTriggerElementWdg'):
+                    return dict(text='', targetSearchKey=sobject.get_search_key(),
+                                actions=[dict(name='notification-test', label='Email Test', icon='notifications')])
+                if class_name.endswith('.ButtonElementWdg'):
+                    script_obj = None
+                    code = options.get('script_code') or options.get('script')
+                    path = options.get('path') or options.get('script_path')
+                    if code or path:
+                        search = Search('config/custom_script')
+                        if code:
+                            search.add_filter('code', code)
+                        else:
+                            folder, _, title = str(path).rpartition('/')
+                            search.add_filter('folder', folder)
+                            search.add_filter('title', title)
+                        rows = search.get_sobjects()
+                        if len(rows) != 1:
+                            raise ValueError('Select one existing custom script')
+                        script_obj = rows[0]
+                    obj = sobject
+                    if not obj or obj.is_insert():
+                        return dict(text='', actions=[])
+                    enabled = options.get('enable')
+                    if enabled and not ExpressionParser().eval(enabled, obj):
+                        return dict(text='', actions=[])
+                    icon = ExpressionParser().eval(options.get('icon'), obj) if options.get('icon') else 'create'
+                    expression = options.get('expression')
+                    value = ExpressionParser().eval(expression, obj) if expression else None
+                    text = '' if value is None else str(value)
+                    inline = options.get('cbjs_action') or options.get('javascript')
+                    source = script_obj
+                    if not inline and source is None:
+                        raise ValueError('No script defined for this button')
+                    size = str(options.get('size') or '17').removesuffix('px')
+                    if not size.isdecimal() or not 12 <= int(size) <= 28:
+                        raise ValueError('Table button icon size must be between 12 and 28 pixels')
+                    color = ExpressionParser().eval(options.get('color'), obj) if options.get('color') else ''
+                    if color and not re.fullmatch(r'#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?', str(color)):
+                        raise ValueError('Table button color must be a hexadecimal color')
+                    return dict(text=text, columnName=column['name'], align=options.get('align') or 'center', targetSearchKey=obj.get_search_key(),
+                                scriptKey=source.get_search_key() if source else '',
+                                scriptLanguage=source.get_value('language') if source else 'javascript',
+                                actions=[dict(name='script', label=options.get('icon_tip') or options.get('hint') or 'Run script',
+                                              icon=str(icon), iconSize=int(size), iconColor=str(color), iconAction=True,
+                                              translateLabel=not bool(options.get('icon_tip') or options.get('hint')))])
+                if class_name.endswith('.ParallelStatusWdg'):
+                    parent = sobject
+                    if parent is None or parent.is_insert():
+                        return dict(text='', groups=[], steps=1)
+                    pipeline = Pipeline.get_by_sobject(parent, allow_default=True)
+                    if pipeline is None:
+                        return dict(text='', groups=[], steps=1, diagnostic='Pipeline is not configured')
+                    label_format = options.get('label_format') or 'reg'
+                    if label_format not in ('reg', 'small', 'abbr', 'none'):
+                        raise ValueError('Invalid parallel status label format')
+                    bar_height = str(options.get('bar_height') or '1')
+                    if not bar_height.isdecimal() or not 1 <= int(bar_height) <= 32:
+                        raise ValueError('Parallel status bar height must be between 1 and 32 pixels')
+                    tasks = widget.data.get('%s|%s' % (parent.get_search_type(), parent.get_id()), [])
+                    attrs = {task.get_search_key(): task.get_attr('status') for task in tasks}
+                    steps = widget.max_count
+                    def groups_for(current, ancestors):
+                        code = current.get_code()
+                        if code in ancestors or len(ancestors) >= 8:
+                            raise ValueError('Cyclic or excessively nested task pipeline')
+                        result = []
+                        for process in current.get_processes():
+                            selected = [task for task in tasks if task.get_value('process') in (process.get_name(), process.get_full_name())]
+                            bars = []
+                            for task in selected:
+                                percent = attrs[task.get_search_key()].get_percent_completion()
+                                end = task.get_value('bid_end_date')
+                                end = parser.parse(str(end)) if end else None
+                                if end is not None and end.tzinfo is None:
+                                    end = end.replace(tzinfo=timezone.utc)
+                                overdue = bool(end and end < datetime.now(timezone.utc) and percent != 100)
+                                bars.append(dict(search_key=task.get_search_key(), taskCode=task.get_code(), process=task.get_value('process'), percent=percent,
+                                    color='#f00' if overdue else widget._get_color_code(percent), status=task.get_value('status'),
+                                    assigned=task.get_value('assigned'), description=task.get_value('description'),
+                                    bidStart=task.get_value('bid_start_date'), bidEnd=task.get_value('bid_end_date')))
+                            child = process.get_child_pipeline()
+                            result.append(dict(process=process.get_full_name(), label='' if label_format == 'none' else process.get_name()[:3] if label_format == 'abbr' else process.get_name(),
+                                count=len(bars), completion=sum(max(0, bar['percent']) for bar in bars)/len(bars) if bars else 0,
+                                bars=bars, children=groups_for(child, (*ancestors, code)) if child else []))
+                        return result
+                    return dict(text='', groups=groups_for(pipeline, ()), labelFormat=label_format,
+                                barHeight=int(bar_height), steps=max(1, steps), report=options.get('report') != 'false',
+                                targetSearchKey=parent.get_search_key())
+                if class_name.endswith('.ParallelStatusEditWdg'):
+                    parent = sobject
+                    return dict(text='', targetSearchKey=parent.get_search_key(), actions=[
+                        dict(name='add-task', label='Add Task', icon='add')])
+                if class_name.endswith('.ProcessElementWdg'):
+                    task = sobject
+                    parent = task.get_parent() if not task.is_insert() else None
+                    return dict(text=task.get_value('process'),
+                                parentPipeline=parent.get_value('pipeline_code', no_exception=True) if parent else '')
+                if class_name.endswith('.TaskStatusElementWdg'):
+                    from pyasm.biz import Task
+                    task = sobject
+                    pipeline = task_status_pipeline(task)
+                    status = task.get_value(column['name'] or 'status')
+                    process = pipeline.get_process(status) if pipeline else None
+                    color = (process.get_color() if process else '') or Task.get_default_color(status)
+                    return dict(text=status, statusColor=color or '', statusPipeline=pipeline.get_code() if pipeline else '',
+                                editScope=options.get('edit_scope') or 'all')
+                if class_name.endswith('.SObjectTaskStatusElementWdg'):
+                    target = sobject
+                    if target.get_base_search_type() == 'sthpw/task':
+                        target = target.get_parent() or target
+                    return dict(text='', targetSearchKey=target.get_search_key(), actions=[
+                        dict(name='task-details', label='Open tasks', icon='search')])
+                if class_name.endswith('.WorkElementWdg'):
+                    source = sobject
+                    if source is None or source.is_insert():
+                        return dict(text='', actions=[])
+                    target = source.get_parent() if source.get_base_search_type() in ('sthpw/task', 'sthpw/note') else source
+                    if target is None:
+                        return dict(text='', actions=[], available=False, diagnostic='Parent not found')
+                    transfer = options.get('transfer_mode') or 'upload'
+                    if transfer not in ('upload', 'copy', 'move'):
+                        raise ValueError('Invalid configured file transfer mode')
+                    mode = options.get('mode') or 'file'
+                    if mode != 'file':
+                        raise ValueError('This configured check-in mode is not available yet')
+                    return dict(text='', targetSearchKey=target.get_search_key(), taskSearchKey=source.get_search_key(),
+                                taskCode=source.get_code() if isinstance(source, Task) else '',
+                                process=source.get_value('process', no_exception=True) or 'publish',
+                                context=source.get_value('context', no_exception=True) or source.get_value('process', no_exception=True) or 'publish',
+                                transferMode=transfer, checkinMode=options.get('mode') or 'file',
+                                actions=[dict(name='work', label='Work on Task', icon=options.get('icon') or 'work')])
+                if class_name.endswith('.DropElementWdg'):
+                    if not sobject or sobject.is_insert():
+                        return dict(text='', links=[], available=False)
+                    if options.get('cbjs_drop_action'):
+                        raise ValueError('Custom DOM drop callbacks require a Frame action before they can run in both clients')
+                    cell = drop_link_data(sobject, options)
+                    return dict(cell, columnName=column['name'], tableView=view)
+                if class_name.endswith('.CustomLayoutElementWdg'):
+                    obj = sobject
+                    if not obj or obj.is_insert():
+                        return dict(text='', layoutNodes=[])
+                    values = {name:options.get(name) for name in ('view','html','include_mako') if options.get(name) not in ('', None)}
+                    return dict(read_custom_layout(options.get('search_key') or obj.get_search_key(), **values), columnName=column['name'])
+            return service_value()
         if class_name in (
                 'pyasm.widget.discussion_wdg.DiscussionWdg',
                 'pyasm.widget.task_wdg.SObjectTaskTableElement',

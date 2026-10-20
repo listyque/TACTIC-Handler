@@ -423,5 +423,169 @@
       "tactic.ui.app.message_wdg.MessageTableElementWdg"
     ],
     "adapter": "message"
+  },
+  {
+    "value": "pyasm.widget.MyTacticSummaryWdg",
+    "label": "My TACTIC summary",
+    "class": "pyasm.widget.my_tactic_summary_wdg.MyTacticSummaryWdg",
+    "aliases": [
+      "MyTacticSummaryWdg",
+      "pyasm.widget.MyTacticSummaryWdg",
+      "pyasm.widget.my_tactic_summary_wdg.MyTacticSummaryWdg"
+    ],
+    "adapter": "fields"
+  },
+  {
+    "value": "pyasm.widget.UpdateWdg",
+    "label": "Object actions",
+    "class": "pyasm.widget.table_element_wdg.UpdateWdg",
+    "aliases": [
+      "UpdateWdg",
+      "pyasm.widget.UpdateWdg",
+      "pyasm.widget.table_element_wdg.UpdateWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.input.LoginTableElementWdg",
+    "label": "Login",
+    "class": "tactic.ui.input.process_group_select_wdg.LoginTableElementWdg",
+    "aliases": [
+      "tactic.ui.input.LoginTableElementWdg",
+      "tactic.ui.input.process_group_select_wdg.LoginTableElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.panel.SecurityManagerButtonWdg",
+    "label": "Global Permissions",
+    "class": "tactic.ui.panel.security_manager_wdg.SecurityManagerButtonWdg",
+    "aliases": [
+      "tactic.ui.panel.SecurityManagerButtonWdg",
+      "tactic.ui.panel.security_manager_wdg.SecurityManagerButtonWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.PreferenceEditWdg",
+    "label": "User preference",
+    "class": "tactic.ui.table.preference_wdg.PreferenceEditWdg",
+    "aliases": [
+      "tactic.ui.table.PreferenceEditWdg",
+      "tactic.ui.table.preference_wdg.PreferenceEditWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.ProjectTemplateUpdateWdg",
+    "label": "Update Template",
+    "class": "tactic.ui.table.project_wdg.ProjectTemplateUpdateWdg",
+    "aliases": [
+      "tactic.ui.table.ProjectTemplateUpdateWdg",
+      "tactic.ui.table.project_wdg.ProjectTemplateUpdateWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.NotificationTriggerElementWdg",
+    "label": "Email Test",
+    "class": "tactic.ui.table.table_element_wdg.NotificationTriggerElementWdg",
+    "aliases": [
+      "tactic.ui.table.NotificationTriggerElementWdg",
+      "tactic.ui.table.table_element_wdg.NotificationTriggerElementWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.ButtonElementWdg",
+    "label": "Configured button",
+    "class": "tactic.ui.table.button_wdg.ButtonElementWdg",
+    "aliases": [
+      "tactic.ui.table.ButtonElementWdg",
+      "tactic.ui.table.button_wdg.ButtonElementWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "ParallelStatusWdg",
+    "label": "Parallel task status",
+    "class": "pyasm.widget.parallel_status.ParallelStatusWdg",
+    "aliases": [
+      "ParallelStatusWdg",
+      "pyasm.widget.ParallelStatusWdg",
+      "pyasm.widget.parallel_status.ParallelStatusWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "ParallelStatusEditWdg",
+    "label": "Add Task",
+    "class": "pyasm.widget.parallel_status.ParallelStatusEditWdg",
+    "aliases": [
+      "ParallelStatusEditWdg",
+      "pyasm.widget.ParallelStatusEditWdg",
+      "pyasm.widget.parallel_status.ParallelStatusEditWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.SObjectTaskStatusElementWdg",
+    "label": "Open tasks",
+    "class": "tactic.ui.table.sobject_detail_wdg.SObjectTaskStatusElementWdg",
+    "aliases": [
+      "tactic.ui.table.SObjectTaskStatusElementWdg",
+      "tactic.ui.table.sobject_detail_wdg.SObjectTaskStatusElementWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.ProcessElementWdg",
+    "label": "Process",
+    "class": "tactic.ui.table.subcontext_wdg.ProcessElementWdg",
+    "aliases": [
+      "tactic.ui.table.ProcessElementWdg",
+      "tactic.ui.table.subcontext_wdg.ProcessElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.widget.TaskStatusElementWdg",
+    "label": "Task status",
+    "class": "tactic.ui.widget.misc_input_wdg.TaskStatusElementWdg",
+    "aliases": [
+      "tactic.ui.widget.TaskStatusElementWdg",
+      "tactic.ui.widget.misc_input_wdg.TaskStatusElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.table.WorkElementWdg",
+    "label": "Work on Task",
+    "class": "tactic.ui.table.task_element_wdg.WorkElementWdg",
+    "aliases": [
+      "tactic.ui.table.WorkElementWdg",
+      "tactic.ui.table.task_element_wdg.WorkElementWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.DropElementWdg",
+    "label": "Instance links",
+    "class": "tactic.ui.table.drop_element_wdg.DropElementWdg",
+    "aliases": [
+      "tactic.ui.table.DropElementWdg",
+      "tactic.ui.table.drop_element_wdg.DropElementWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.CustomLayoutElementWdg",
+    "label": "Custom Layout",
+    "class": "tactic.ui.table.custom_layout_element_wdg.CustomLayoutElementWdg",
+    "aliases": [
+      "tactic.ui.table.CustomLayoutElementWdg",
+      "tactic.ui.table.custom_layout_element_wdg.CustomLayoutElementWdg"
+    ],
+    "adapter": "commands"
   }
 ]

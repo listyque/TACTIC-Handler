@@ -6,11 +6,11 @@ order: 36
 
 # Table View: B07 typed cells
 
-B07 is still in progress. The catalogue contains 41 server classes and 98 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+B07 is still in progress. The catalogue contains 57 server classes and 134 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
 
 ## L02: legacy cells using existing panels
 
-The catalogue now includes 41 classes / 98 named aliases. These four adapters
+The catalogue now includes 57 classes / 134 named aliases. These four adapters
 reuse the existing notes/Task Inspector, task drafts and table controls; they do
 not create another Messages or Task Manager window.
 
@@ -52,7 +52,7 @@ agreed excluded pyasm.prod subsystem. Slash subcontexts in old setting choices
 and CGI filter state are not implemented; modern Discussion supports an explicit
 context option. `scroll=false` is an old HTML layout hint; the modern owner keeps
 its shared scrollbar. Unknown options stay explicit rather than being ignored.
-The current shipped/CG census has 38 adapted / 36 pending classes. B07 is open.
+The current shipped/CG census has 54 adapted / 20 pending classes. B07 is open.
 
 ### L02: paired cell examples
 
@@ -238,3 +238,153 @@ The same Frame scene defines text, multiline, choice/user, switch, date/datetime
 ![summary](media/frame-table-summary-en.png)
 
 ![groups](media/frame-table-groups-en.png)
+
+## Stage 1: service cells, configured actions and task processes
+
+Stream 0.112.174 / Handler 0.6.0.121 add 16 table adapters and the shared inline
+tags editor. Both products retain independent resources. B07 and stage 1 remain
+open where an original layout requires nested tables or file ingest.
+
+### Tags and service columns
+
+Double-click Keywords to edit tokens and suggestions. Enter adds a token; Save
+also includes pending text. Cancel/Escape discard the draft. An outside click
+never commits it. Preferences likewise require explicit Save/Cancel; a conflicting
+revision requires reload, and an unknown write outcome can be checked without
+resending the mutation.
+
+```xml
+<!-- Use these elements in their corresponding system Search Types. -->
+<element name="update"><display class="pyasm.widget.UpdateWdg">
+  <insert_view>insert</insert_view><edit_view>edit</edit_view>
+  <retire>true</retire><delete>false</delete>
+</display></element>
+<element name="login"><display class="tactic.ui.input.LoginTableElementWdg"/></element>
+<element name="security"><display class="tactic.ui.panel.SecurityManagerButtonWdg"/></element>
+<element name="value"><display class="tactic.ui.table.PreferenceEditWdg"/></element>
+<element name="template"><display class="tactic.ui.table.ProjectTemplateUpdateWdg"/></element>
+<element name="summary"><display class="pyasm.widget.MyTacticSummaryWdg"/></element>
+<element name="test"><display class="tactic.ui.table.NotificationTriggerElementWdg"/></element>
+```
+
+Update uses the configured insert/edit views and the existing object editor.
+Retire/reactivate compare the full record revision; Delete uses the existing
+object-deletion owner. Login and Security open the existing administration
+editors using the user/group identity. Preferences are scoped to the current
+login. Template export calls the existing template command. Summary counts the
+current user's activity for the last hour, today and week, plus assigned-task statuses. The notification test invokes
+the original forced-trigger path with an unsaved test record; the cell is not
+proof that SMTP/Telegram delivery is configured or certified.
+
+### Original JavaScript, without an embedded browser in Handler
+
+```xml
+<element name="action"><display class="tactic.ui.table.ButtonElementWdg">
+  <script_path>assets/my_action</script_path>
+  <icon>EDIT</icon><hint>Open configured action</hint>
+</display></element>
+```
+
+Use an existing JavaScript custom script at that path, or the original
+`script_code`, `cbjs_action` or `javascript` options. The original SDK is retained.
+The bridge supplies the clicked record, view, column and captured selection;
+`bvr.kwargs.search_key`, `spt.table.get_search_key()` and SDK methods use that
+context. Configured Edit, Notes, Tasks, user/group/schema/workflow/script-editor
+ports open their existing owners. A confirmation must precede the first API
+call. It does not replay completed writes. Session/project changes cancel the
+run and suppress stale UI commands. Calls time out after 120 seconds.
+
+Browser scripts run in a Worker under the application CSP; Handler runs them
+in an isolated QJSEngine process so script loops do not block QML. This preserves
+client scripting, not arbitrary browser DOM/MooTools compatibility. Unsupported
+DOM, Promise callbacks and unknown popup classes produce explicit errors.
+Scripts keep the logged-in user's server permissions. Fixtures execute the
+three supplied CG JavaScript actions with a fake SDK, not against user data.
+
+### Portable CustomLayout
+
+```xml
+<element name="script"><display class="tactic.ui.table.CustomLayoutElementWdg">
+  <view>episodes/columns/script</view>
+</display></element>
+```
+
+Slash references resolve to dotted saved views. The actual CG script layout
+renders text, document links and its configured edit action in both clients.
+Supported layout nodes are labels, safe links, Thumb previews, nested portable
+CustomLayouts and click actions. External documents open through a link; no
+HTML/WebEngine view is inserted into QML. Data-only Mako reads the supplied record
+and formats text; imports, server calls, writes and file/network I/O are rejected.
+This bounded formatting subset is not general Python/Mako compatibility.
+
+Security Summary opens a modeless window with group selection and one readonly
+source editor showing that group's stored rules. It is not a computed effective
+permission report. Its Help button opens the common help article.
+
+CG definitions are preserved. `columns/tasks_parent` embeds FastTable and remains
+a dependency of L01. `episodes.columns.assets` contains only `No html` and is not
+accepted as a working feature. Complex development layouts remain unaccepted.
+
+### Instance links and tasks
+
+```xml
+<!-- Use in cg/assets: the CG template defines this texture relationship. -->
+<element name="links"><display class="tactic.ui.table.DropElementWdg">
+  <instance_type>cg/texture_in_assets</instance_type>
+  <accepted_drop_type>cg/texture</accepted_drop_type>
+</display></element>
+<element name="parallel"><display class="pyasm.widget.ParallelStatusWdg">
+  <bar_height>3</bar_height><label_format>abbr</label_format>
+</display></element>
+<element name="new_task"><display class="pyasm.widget.ParallelStatusEditWdg"/></element>
+<element name="tasks"><display class="tactic.ui.table.SObjectTaskStatusElementWdg"/></element>
+<!-- These three columns belong to a task table. -->
+<element name="process"><display class="tactic.ui.table.ProcessElementWdg"/></element>
+<element name="status"><display class="tactic.ui.widget.TaskStatusElementWdg">
+  <edit_scope>assigned</edit_scope>
+</display></element>
+<element name="work"><display class="tactic.ui.table.WorkElementWdg">
+  <transfer_mode>upload</transfer_mode>
+</display></element>
+```
+
+Drop accepts configured object keys, not arbitrary files. Link Objects gives a
+keyboard/click alternative: select, Save or Cancel in the existing link editor.
+The complete instance revision and every target are validated before any removal;
+a failed replacement rolls back. `path` selects the configured schema relation.
+The legacy `folder_drop` JavaScript/FileIngest callback remains L04 work; it is
+not silently treated as an instance relationship.
+
+Parallel bars retain the original 33/66/100 steps, overdue color and exact task
+identity. Click a bar or its process target to open the existing task owner.
+Task status uses that task's configured status pipeline; assigned scope is checked
+before mutation. Work retains process/context/task identity and opens existing
+check-in. Browser upload is supported; local copy/move/inplace remains a desktop
+capability. Calendar remains a separate dock. Bottom/group totals belong to L07b.
+
+### Verification and limits
+
+Reproducible examples live in `tests/test_table_stage_one.py`,
+`tests/test_table_services.py`, `tests/test_table_drop_links.py` and
+`frontend/tests/table_script_runtime.mjs`. Native input/lifecycle scenarios are
+`tests.test_frame_table`, `tests.test_table_scripts` and
+`tests.test_table_service_workflows` in the independent Handler checkout.
+`tools/frame_table/capture.py` and `frontend/tests/frame_table.mjs` compare current
+Qt/Vue geometry, paint and input across three themes, EN/RU and light/dark.
+
+No production business script, real notification delivery, PostgreSQL server,
+physical touch device or frozen Windows build was exercised for this checkpoint.
+Nested FastTable/HiddenRow, file-ingest DOM actions, unrestricted Mako and complete
+bottom reports remain explicitly open in L01/L04/L07b/L11.
+
+### Stage 1: paired production cells
+
+Same fixture, width, MD3 dark theme and language; these cell crops do not certify a complete legacy workflow.
+
+| Cell | Tactic Handler | TACTIC Stream |
+| --- | --- | --- |
+| `tags` | ![tags native](media/frame-table-stage1-tags-native-en.png) | ![tags stream](media/frame-table-stage1-tags-stream-en.png) |
+| `service_actions` | ![service_actions native](media/frame-table-stage1-service_actions-native-en.png) | ![service_actions stream](media/frame-table-stage1-service_actions-stream-en.png) |
+| `parallel_status` | ![parallel_status native](media/frame-table-stage1-parallel_status-native-en.png) | ![parallel_status stream](media/frame-table-stage1-parallel_status-stream-en.png) |
+| `drop_links` | ![drop_links native](media/frame-table-stage1-drop_links-native-en.png) | ![drop_links stream](media/frame-table-stage1-drop_links-stream-en.png) |
+| `custom_layout` | ![custom_layout native](media/frame-table-stage1-custom_layout-native-en.png) | ![custom_layout stream](media/frame-table-stage1-custom_layout-stream-en.png) |

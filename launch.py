@@ -8,6 +8,9 @@ import sys
 def main(arguments: list[str] | None = None) -> int:
     sys.argv[:] = list(arguments or sys.argv)
     try:
+        if sys.argv[1:] == ['--table-script-worker']:
+            from thlib.ui.table.script_worker import main as run_table_script
+            return run_table_script()
         from thlib.ui.application import main as start
         result = start()
         return int(result or 0)

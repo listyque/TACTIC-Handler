@@ -67,6 +67,10 @@ Window {
         return titles[String(errorType || "")] || "";
     }
     readonly property string effectiveWindowTitle: {
+        if (root.kind === "table_document") {
+            const document = tableServicesController.document;
+            return document.translateTitle ? qsTr(document.title || "Custom Layout") : String(document.title || "");
+        }
         if (root.kind === "error") {
             const localizedTitle = root.localizedErrorTitle(debugLog.error_type);
             return localizedTitle.length > 0 ? localizedTitle : String(debugLog.error_title || qsTr("Application Error"));

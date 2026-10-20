@@ -586,9 +586,10 @@ class SObjectLinkController(QObject):
             raise ValueError("The relation context is incomplete") from error
         if not parent_key or not target_code or not parent_code:
             raise ValueError("The relation context is incomplete")
-        if target_project != project_code:
+        if target_project != project_code and not (target_project == "sthpw" and target_code.startswith("sthpw/")):
             raise ValueError("The relation belongs to another project")
-        configured = configured_instance_relation(relation, stype)
+        configured = ({"path": relation.get("path")} if context.get("table_drop")
+                      else configured_instance_relation(relation, stype))
         if configured is None:
             raise ValueError("The instance relationship is not configured")
         path = configured.get("path")
@@ -649,7 +650,15 @@ class SObjectLinkController(QObject):
             self._accent = "#607d8b"
         self.sessionStarted.emit()
         self.stateChanged.emit()
-        self._load_linked()
+        if context.get("table_drop"):
+            from thlib import tactic_classes as tc
+            from thlib.environment import env_inst
+            self._linked = OrderedDict((item['searchKey'], tc.SObject(item['record'], env_inst.projects[context['project_code']]))
+                                       for item in context['table_drop']['links'])
+            self._initial_keys = set(self._linked)
+            self._sync_models()
+        else:
+            self._load_linked()
         self._load_available(0, append=False)
 
     def _start_worker(self, callback, result_handler, failure_handler=None) -> None:
@@ -716,11 +725,13 @@ class SObjectLinkController(QObject):
 
         def operation():
             import thlib.tactic_classes as tc
-            filters = [("name", "EQI", query)] if query else []
+            columns = context["stype"].get_columns_info() or {}
+            field = next((name for name in ('name', 'title', 'display_name', 'login_group', 'login', 'code', 'id') if name in columns), 'code')
+            filters = [(field, "EQI", query)] if query else []
             return tc.get_sobjects(
                 context["search_type"],
                 filters=filters,
-                order_bys=["name"],
+                order_bys=[field],
                 project_code=context["project_code"],
                 limit=self._page_size,
                 offset=offset,
@@ -954,6 +965,37 @@ class SObjectLinkController(QObject):
         )
 
     @Slot("QVariantList")
+    def stage_dropped(self, keys) -> None:
+        if not self._can_stage_links() or self._busy or not keys:
+            return
+        context = dict(self._context_data)
+        if not isinstance(keys, list) or len(keys) > 500 or any(not isinstance(key, str) or key.split('?',1)[0] != context['search_type'] for key in keys):
+            self._set_error(self.tr('Dropped objects belong to another Search Type'))
+            return
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+        server = tc.server_start(project=context['project_code'])
+        session = self._session_token
+        self._busy = True
+        self.stateChanged.emit()
+        def operation():
+            records = server.get_by_search_key(keys)
+            if len(records) != len(keys) or any(not record for record in records):
+                raise ValueError('A linked object is no longer available')
+            return [tc.SObject(record, env_inst.projects[context['project_code']]) for record in records]
+        def loaded(records):
+            if session != self._session_token:
+                return
+            self._busy = False
+            for record in records:
+                key = self._search_key(record)
+                if key not in self._linked:
+                    self._available[key] = record
+            self._add_keys(keys)
+            self.stateChanged.emit()
+        self._start_worker(operation,loaded,lambda error:self._linked_failed(session,0,error))
+
+    @Slot("QVariantList")
     def add_keys(self, keys) -> None:
         if self._can_stage_links():
             self._add_keys(keys)
@@ -1018,17 +1060,32 @@ class SObjectLinkController(QObject):
         insert_keys: list[str], exclude_keys: list[str],
     ) -> None:
 
+        if session != self._session_token:
+            return
+        from thlib import tactic_classes as tc
+        try:
+            server = tc.server_start(project=context['project_code']) if context.get('table_drop') else None
+        except PermissionError as error:
+            self._save_failed(session, error)
+            return
+        selected_keys = list(self._linked)
         def operation():
             from thlib import server_cache
             import thlib.tactic_classes as tc
-            result = tc.edit_multiple_instance_sobjects(
-                context["project_code"],
-                insert_search_keys=insert_keys,
-                exclude_search_keys=exclude_keys,
-                parent_key=context["parent_key"],
-                instance_type=context["instance_type"],
-                path=context.get("path"),
-            )
+            if context.get('table_drop'):
+                from thlib.ui.table.requests import edit_drop_links
+                arguments = {key:value for key,value in context['table_drop'].items() if key != 'links'}
+                result = tc.execute_procedure_serverside(edit_drop_links,
+                    dict(arguments, action='save', target_keys=selected_keys),project=context['project_code'],server=server)
+            else:
+                result = tc.edit_multiple_instance_sobjects(
+                    context["project_code"],
+                    insert_search_keys=insert_keys,
+                    exclude_search_keys=exclude_keys,
+                    parent_key=context["parent_key"],
+                    instance_type=context["instance_type"],
+                    path=context.get("path"),
+                )
             server_cache.invalidate_domains(
                 ("relations", "search", "activity"),
                 context["project_code"],
@@ -1079,6 +1136,9 @@ class SObjectLinkController(QObject):
     @Slot()
     def refresh(self) -> None:
         if self._busy or self._dirty or self._uncertain or not self._context_data:
+            return
+        if self._context_data.get('table_drop'):
+            self._notify(self.tr('Close this form and refresh the table before reopening its links'))
             return
         self._available.clear()
         self._linked.clear()
