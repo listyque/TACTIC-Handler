@@ -682,5 +682,16 @@
       "tactic.ui.table.WorkHoursElementWdg"
     ],
     "adapter": "commands"
+  },
+  {
+    "value": "FileAppendLinkTableElement",
+    "label": "Attach files",
+    "class": "pyasm.widget.table_element_wdg.FileAppendLinkTableElement",
+    "aliases": [
+      "FileAppendLinkTableElement",
+      "pyasm.widget.table_element_wdg.FileAppendLinkTableElement",
+      "pyasm.widget.FileAppendLinkTableElement"
+    ],
+    "adapter": "commands"
   }
 ]

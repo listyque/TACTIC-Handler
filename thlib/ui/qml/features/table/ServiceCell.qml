@@ -26,6 +26,8 @@ Frame.FrameView {
             services.toggle_nested(nodeId, Object.assign({}, cell, {
                 nestedTable: action.nestedTable || cell.nestedTable
             }));
+        else if (action.name === "file-append")
+            services.open_append(nodeId, cell);
         else if (action.name === "layout-link")
             services.open_link(action.href);
         else if (["edit-links", "drop-links"].indexOf(action.name) >= 0) {

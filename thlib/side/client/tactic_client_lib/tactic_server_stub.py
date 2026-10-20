@@ -1833,7 +1833,7 @@ class TacticServerStub(object):
 
 
 
-    def upload_file(self, path, base_dir=None, chunk_size=None, offset=None, num_chunks=0, progress_signal=None):
+    def upload_file(self, path, base_dir=None, chunk_size=None, offset=None, num_chunks=0, progress_signal=None, upload_subdir=None):
         '''API Function: upload_file(path)
         Use http protocol to upload a file through http
 
@@ -1875,7 +1875,11 @@ class TacticServerStub(object):
         else:
             upload_server_url = "http://%s/default/UploadServer/" % upload_server_name
 
-        if base_dir:
+        if upload_subdir:
+            if base_dir:
+                raise ValueError('Choose either base_dir or upload_subdir')
+            upload.set_subdir(upload_subdir)
+        elif base_dir:
             basename = os.path.basename(path)
             dirname = os.path.dirname(path)
             if not path.startswith(dirname):

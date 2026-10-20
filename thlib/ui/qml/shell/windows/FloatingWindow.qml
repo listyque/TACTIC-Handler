@@ -67,6 +67,10 @@ Window {
         return titles[String(errorType || "")] || "";
     }
     readonly property string effectiveWindowTitle: {
+        if (root.kind === "snapshot_append") {
+            const model = tableServicesController.appendEditor.model;
+            return qsTr("Attach files") + (model.ready ? " · " + model.title + " · v" + model.version : "");
+        }
         if (root.kind === "table_document") {
             const document = tableServicesController.document;
             return document.translateTitle ? qsTr(document.title || "Custom Layout") : String(document.title || "");
@@ -211,7 +215,9 @@ Window {
     }
     onClosing: function (close) {
         close.accepted = false;
-        if (root.kind === "error")
+        if (root.kind === "snapshot_append")
+            tableServicesController.appendEditor.request_close();
+        else if (root.kind === "error")
             debugLog.dismiss_error();
         else if (root.kind === "configuration")
             configurationController.request_close();

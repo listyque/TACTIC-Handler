@@ -94,12 +94,27 @@ class TableServicesController(QObject):
         self._document = {}
         self._nested_scopes = {}
         self._nested_revision = 0
+        from .file_append import SnapshotAppendController
+        self._append = SnapshotAppendController(application, self)
+        self._append.changed.connect(self.stateChanged)
+        self._append.completed.connect(self.completed)
         application.results_view_changed.connect(self._prune_nested)
         from thlib.ui.source_editor import SourceEditorService
         self._source_editor = SourceEditorService(self)
         self.scriptProgress.connect(self._script_progress, Qt.QueuedConnection)
         application.signing_out.connect(self.shutdown)
         application.project_changed.connect(self.shutdown)
+
+    @Property(QObject, constant=True)
+    def appendEditor(self):
+        return self._append
+
+    @Slot(str, 'QVariantMap')
+    def open_append(self, node_id, cell):
+        node = self._application._node_for_any(node_id)
+        if node is not None:
+            self._append.open(str(cell.get('targetSearchKey') or node.search_key),
+                str(cell.get('projectCode') or self._application._current_project_code))
 
     @Property(int, notify=nestedChanged)
     def nestedRevision(self):
@@ -177,7 +192,7 @@ class TableServicesController(QObject):
 
     @Property(bool, notify=stateChanged)
     def busy(self):
-        return self._busy or self._script_session is not None
+        return self._busy or self._script_session is not None or self._append.busy
 
     @Property(str, notify=stateChanged)
     def error(self):
@@ -652,6 +667,7 @@ class TableServicesController(QObject):
 
     @Slot()
     def shutdown(self):
+        self._append.shutdown()
         for scope in self._nested_scopes.values():
             scope.shutdown()
             scope.deleteLater()

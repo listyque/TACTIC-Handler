@@ -6,11 +6,31 @@ order: 36
 
 # Table View: B07 typed cells
 
-B07 is still in progress. The catalogue contains 57 server classes and 134 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+B07 is still in progress. The catalogue contains 67 server classes and 160 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+
+## Snapshot attachments
+
+`FileAppendLinkTableElement` opens **Attach files** for the selected snapshot version. Choose local files or paste an image, enter **File type**, optionally keep original names, then attach. This adds files to that version; it does not create a new snapshot. A versionless alias first resolves to a concrete version.
+
+```xml
+<element name="append" width="64">
+  <display class="pyasm.widget.FileAppendLinkTableElement"/>
+</element>
+```
+
+The original client files remain untouched. Duplicate/existing names and changes by another client are rejected before writing. Cancel asks to discard selected files. If the server result is unknown, repeat is disabled: close the window and refresh the snapshot before retrying. A late server error uses FileUndo to restore registered files and data; disposable server uploads are not local originals.
+
+Ctrl+V attaches an image; ordinary text paste keeps editing the focused field. Choose files rather than directories, up to 50 per operation. Each open draft has its own temporary upload directory. Saving refreshes both the concrete version and its original current/latest row.
+
+Handler opens an ordinary native modal window; Stream uses the corresponding browser dialog. The form body shares one Frame description, including type/name controls, loading/errors and discard. Native uploads and filesystem work run off the GUI thread. This checkpoint accepts administrator table scope; ordinary-user ACL, PostgreSQL/original-server execution and physical phone/DPI testing remain open.
+
+| Tactic Handler | TACTIC Stream |
+| --- | --- |
+| ![Snapshot append native](media/frame-table-append-native-en.png) | ![Snapshot append Stream](media/frame-table-append-stream-en.png) |
 
 ## L02: legacy cells using existing panels
 
-The catalogue now includes 57 classes / 134 named aliases. These four adapters
+These four adapters
 reuse the existing notes/Task Inspector, task drafts and table controls; they do
 not create another Messages or Task Manager window.
 

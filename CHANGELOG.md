@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.123 - 2026-10-20
+
+- Continue combined legacy stage 2 with Stream 0.112.176: snapshot append uses one shared Frame form and an ordinary native modal window, with file type and keep-name options.
+- Capture the concrete snapshot/project/revision; upload off the GUI thread and append through native FileAppendCheckin/FileUndo. Preserve local originals, block uncertain write repeats and clean cancelled clipboard drafts even when workers suppress their result signal.
+- Isolate each draft in its own ticket upload subdirectory; support image Ctrl+V without consuming ordinary text paste, reject directories/file overflow and refresh concrete/current rows.
+- Add actual-input, lifecycle, rollback, real HTTP-byte and paired form-state checks. Checkout/publish and the remaining stage-2 acceptance are still open; this checkpoint does not close B07.
+
 ## 0.6.0.122 - 2026-10-20
 
 - Start the combined second legacy stage with Stream 0.112.175. Retain the delivered first-stage checkpoint and move its remaining acceptance into stage 2; exclude the old HTML Custom Layout Editor while retaining portable saved definitions.

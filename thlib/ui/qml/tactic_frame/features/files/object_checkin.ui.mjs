@@ -81,7 +81,18 @@ export function describe(model, width, height, language) {
         nodes = [],
         body = [],
         footerHeight = width < 370 ? 96 : 52;
+    const canChoose =
+        !model.busy &&
+        (!model.append || !!model.ready) &&
+        !model.appendUncertain;
     let y = 0;
+    if (model.append)
+        nodes.push(
+            node('Box', 'snapshotAppendSurface', rect(0, 0, width, height), {
+                background: 'surfaceContainerHigh',
+                radius: 0
+            })
+        );
     function notice(id, text, error) {
         if (!text) return;
         const h = Math.max(40, captionHeight(text, inner - 20) * 1.2 + 16);
@@ -145,6 +156,13 @@ export function describe(model, width, height, language) {
                 readOnly: model.revision || model.append
             }
         );
+    if (model.append)
+        fields.push({
+            field: 'fileType',
+            title: 'File type',
+            kind: 'Field',
+            text: model.fileType ?? 'attachment'
+        });
     const columns = inner >= 650 ? 2 : 1,
         cellWidth = (inner - (columns - 1) * 12) / columns;
     fields.forEach((field, index) => {
@@ -169,7 +187,12 @@ export function describe(model, width, height, language) {
                     value: field.value,
                     options: field.options,
                     enabled: !model.busy && !field.readOnly,
-                    maxLength: field.field === 'context' ? 256 : undefined,
+                    maxLength:
+                        field.field === 'context'
+                            ? 256
+                            : field.field === 'fileType'
+                              ? 128
+                              : undefined,
                     action: { type: 'field', field: field.field }
                 }
             )
@@ -209,7 +232,7 @@ export function describe(model, width, height, language) {
             tr('Choose files for check-in'),
             'upload',
             { type: 'choose' },
-            !model.busy
+            canChoose
         )
     );
     body.push(
@@ -224,7 +247,7 @@ export function describe(model, width, height, language) {
             tr('Save from Clipboard'),
             'clipboard',
             { type: 'clipboard' },
-            !model.busy,
+            canChoose,
             { iconOnly: compact }
         )
     );
@@ -268,17 +291,15 @@ export function describe(model, width, height, language) {
         );
         y += choices.height + 8;
     }
-    if (!model.append) {
-        body.push(
-            captionedSwitch('objectCheckinKeepName', rect(0, y, inner, 36), {
-                text: tr('Keep original file names'),
-                checked: !!model.keepFileName,
-                enabled: !model.busy,
-                action: { type: 'field', field: 'keepFileName' }
-            })
-        );
-        y += 46;
-    }
+    body.push(
+        captionedSwitch('objectCheckinKeepName', rect(0, y, inner, 36), {
+            text: tr('Keep original file names'),
+            checked: !!model.keepFileName,
+            enabled: !model.busy,
+            action: { type: 'field', field: 'keepFileName' }
+        })
+    );
+    y += 46;
     if (model.discard) {
         notice(
             'objectCheckinDiscardNotice',

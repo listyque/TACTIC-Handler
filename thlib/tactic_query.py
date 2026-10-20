@@ -8512,6 +8512,12 @@ def query_table_layout(search_type, search_keys=None, view='table',
                     actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
 
     def action_cell_values(class_name, column, sobject, widget):
+        if class_name == 'pyasm.widget.table_element_wdg.FileAppendLinkTableElement':
+            if sobject.get_base_search_type() != 'sthpw/snapshot':
+                raise ValueError('Append files requires a snapshot')
+            return dict(text='', targetSearchKey=SearchKey.get_by_sobject(sobject), projectCode=sobject.get_value('project_code'),
+                actions=[dict(name='file-append', label='Attach files', icon='attach-file')])
+
         if class_name.rsplit('.', 1)[-1] in ('GanttWdg','GanttElementWdg','WeekTableElement','TimecardInfoTableElement','WorkHoursElementWdg'):
             return time_cell(class_name, column, sobject, widget)
 
