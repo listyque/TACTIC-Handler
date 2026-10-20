@@ -3,6 +3,15 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.124 - 2026-10-21
+
+- Continue combined legacy stage 2 with Stream 0.112.177: table checkout opens one shared Frame file list in an ordinary native window. Resolve a concrete snapshot, keep its selected file/project and reuse native File paths and the existing transfer queue.
+- Require explicit local overwrite; cancellation and closing invalidate stale results. Preserve files created during download even with skip/cancel policies, retain an active transfer's captured source/policy, and encode native URL path metadata correctly.
+- Open from metadata without a local disk walk; retain the selected-file worker check. Match browser/native Unicode ordering, nullable legacy metadata, selection paint and narrow translated footer labels.
+- Keep the house native progress indicator on Material regardless of Qt module load order; paired captures verify accent, track thickness and fill.
+- Add actual-input and real-file checks. This checkpoint covers ordinary files; sequence/UDIM checkout, publish and the remaining B07/stage-2 acceptance are still open.
+- Verify all 147 Frame platform steps, 89 native table tests and 65 server table tests. Fresh paired comparison covers 708 current states, including 120 checkout states; 36 historical B06 captures remain separate references.
+
 ## 0.6.0.123 - 2026-10-20
 
 - Continue combined legacy stage 2 with Stream 0.112.176: snapshot append uses one shared Frame form and an ordinary native modal window, with file type and keep-name options.

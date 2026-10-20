@@ -2315,11 +2315,15 @@ class File(SObject, object):
             server_address = u'http://{}'.format(server_address)
         asset_path = u'{0}/{1}'.format(server_address, env_tactic.get_base_dir('web')['value'][0])
 
-        abs_path = gf.form_path(u'{0}/{1}'.format(asset_path, self.info['relative_dir']), tp='web')
+        from urllib.parse import quote
+        relative_dir = quote(self.info['relative_dir'].replace('\\', '/'), safe='/')
+        abs_path = gf.form_path(u'{0}/{1}'.format(asset_path, relative_dir), tp='web')
         return abs_path
 
     def get_full_web_path(self):
-        return '{0}/{1}'.format(self.get_web_path(), self.info['file_name'])
+        from urllib.parse import quote
+        filename = quote(self.info['file_name'].replace('\\', '/'), safe='/')
+        return '{0}/{1}'.format(self.get_web_path(), filename)
 
     def is_exists(self):
         return os.path.isfile(self.get_full_abs_path())

@@ -693,5 +693,16 @@
       "pyasm.widget.FileAppendLinkTableElement"
     ],
     "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.CheckoutButtonElementWdg",
+    "label": "Check out",
+    "class": "tactic.ui.table.table_element_wdg.CheckoutButtonElementWdg",
+    "aliases": [
+      "CheckoutButtonElementWdg",
+      "tactic.ui.table.CheckoutButtonElementWdg",
+      "tactic.ui.table.table_element_wdg.CheckoutButtonElementWdg"
+    ],
+    "adapter": "commands"
   }
 ]

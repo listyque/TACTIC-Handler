@@ -47,6 +47,51 @@ class _FilePaths:
 
 
 class RepositorySyncTests(unittest.TestCase):
+    def test_native_file_web_paths_quote_metadata_without_creating_url_fragments(self):
+        from urllib.parse import urlsplit
+        file = File(dict(relative_dir='cg/asset #1/100%', file_name='reference #100%.txt', metadata={}))
+        with patch('thlib.tactic_classes.env_server.get_server', return_value='https://example.invalid'), patch(
+                'thlib.tactic_classes.env_tactic.get_base_dir', return_value={'value': ['assets']}):
+            path = file.get_full_web_path()
+        self.assertEqual(path, 'https://example.invalid/assets/cg/asset%20%231/100%25/reference%20%23100%25.txt')
+        self.assertEqual(urlsplit(path).fragment, '')
+        self.assertEqual(urlsplit(path).query, '')
+
+    def test_native_file_web_paths_normalize_single_windows_separators_before_quoting(self):
+        file = File(dict(relative_dir=r'cg\asset #1\100%', file_name='reference #100%.txt', metadata={}))
+        with patch('thlib.tactic_classes.env_server.get_server', return_value='https://example.invalid'), patch(
+                'thlib.tactic_classes.env_tactic.get_base_dir', return_value={'value': ['assets']}):
+            path = file.get_full_web_path()
+        self.assertEqual(path, 'https://example.invalid/assets/cg/asset%20%231/100%25/reference%20%23100%25.txt')
+
+    def test_live_transfer_scope_is_not_mutated_by_duplicate_request(self):
+        from tests.qt_application import gui_test_application
+        from thlib.environment import env_mode
+        application = gui_test_application()
+        with TemporaryDirectory() as directory, patch.object(env_mode, 'current_path', directory), patch.object(
+                RepositorySyncController, 'verify_repository_md5_enabled', return_value=False):
+            controller = RepositorySyncController()
+            try:
+                original_file, replacement_file = Mock(), Mock()
+                path = os.path.join(directory, 'file.dat')
+                first = PreparedSyncEntry(original_file, 'checkout', path, 'http://example.invalid/file.dat',
+                    'File', 6, 'original-checksum', 123)
+                handle = controller._schedule_prepared_entry(first, overwrite_policy='overwrite')
+                task = controller._tasks[handle.task_id]
+                task.state = 'downloading'
+                controller.model.update(handle.task_id, status='downloading')
+                second = PreparedSyncEntry(replacement_file, 'checkout', path, first.web_path,
+                    'File', 9, 'changed-checksum', 456)
+                repeated = controller._schedule_prepared_entry(second, overwrite_policy='cancel')
+                self.assertIs(repeated, handle)
+                self.assertIs(task.file_object, original_file)
+                self.assertIs(handle.file_object, original_file)
+                self.assertEqual(task.overwrite_policy, 'overwrite')
+                self.assertEqual((task.expected_size, task.expected_md5, task.expected_mtime),
+                                 (6, 'original-checksum', 123))
+            finally:
+                controller.shutdown()
+
     def test_discovery_time_is_included_in_batch_elapsed_time(self):
         controller = RepositorySyncController()
 

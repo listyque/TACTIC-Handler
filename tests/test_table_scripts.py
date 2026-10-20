@@ -6,7 +6,7 @@ import threading
 import unittest
 
 from PySide6.QtCore import QTimer
-from PySide6.QtTest import QTest
+from PySide6.QtTest import QSignalSpy
 from tests.qt_application import gui_test_application
 from thlib.ui.table.scripts import RUNTIME, TableScriptRunner
 
@@ -84,13 +84,17 @@ class TableScriptTests(unittest.TestCase):
         timer = QTimer()
         timer.setInterval(5)
         timer.timeout.connect(lambda:ticks.append(1))
+        events = QSignalSpy(timer.timeout)
         timer.start()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(runner.run,"var s=TacticServerStub.get(); s.get_by_search_key(bvr.search_key); s.execute_cmd('MustNotRun');")
             try:
                 self.assertTrue(server.entered.wait(2))
-                QTest.qWait(50)
+                # Windows coalesces short timers; wait for actual Python GUI callbacks.
+                for _ in range(3):
+                    self.assertTrue(events.wait(250))
                 self.assertGreaterEqual(len(ticks),3)
+                self.assertFalse(future.done())
                 runner.cancel()
             finally:
                 server.release.set()

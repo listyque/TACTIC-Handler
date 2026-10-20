@@ -775,6 +775,9 @@ class RepositorySyncController(QObject):
                 self.model.remove_ids({existing_id})
             else:
                 handle = self._handles[existing_id]
+                if self.status(existing_id) in {"queued", "downloading"}:
+                    # A second caller cannot change an in-flight transfer's source or policy.
+                    return (handle, None) if return_record else handle
                 existing_task.file_object = file_object
                 existing_task.expected_size = expected_size
                 existing_task.expected_md5 = expected_md5

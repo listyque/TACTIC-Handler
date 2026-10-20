@@ -23,6 +23,7 @@ class Application(QObject):
         self._current_project_code='demo'
         self.selected_result_node_ids=[]
         self.can_manage_tools=True
+        self.repository_sync=Mock()
         self.window_model=Mock()
         self.open_window=Mock()
         self._notify=Mock()

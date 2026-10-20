@@ -8512,6 +8512,20 @@ def query_table_layout(search_type, search_keys=None, view='table',
                     actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
 
     def action_cell_values(class_name, column, sobject, widget):
+        if class_name == 'tactic.ui.table.table_element_wdg.CheckoutButtonElementWdg':
+            if sobject.get_base_search_type() != 'sthpw/snapshot':
+                raise ValueError('Check out requires a snapshot')
+            options = column.get('displayOptions') or {}
+            unsupported = [name for name, value in options.items() if value not in (None, '', False)
+                and name not in ('name', 'title', 'class_name', 'transfer_mode')]
+            if unsupported:
+                raise ValueError('Unsupported checkout options: ' + ', '.join(sorted(unsupported)))
+            transfer = options.get('transfer_mode') or 'browser'
+            if transfer not in ('browser', 'copy', 'client_repo'):
+                raise ValueError('Unsupported checkout transfer mode')
+            return dict(text='', targetSearchKey=SearchKey.get_by_sobject(sobject), projectCode=sobject.get_value('project_code'),
+                requiresDesktop=transfer != 'browser', actions=[dict(name='file-checkout', label='Check out', icon='download')])
+
         if class_name == 'pyasm.widget.table_element_wdg.FileAppendLinkTableElement':
             if sobject.get_base_search_type() != 'sthpw/snapshot':
                 raise ValueError('Append files requires a snapshot')

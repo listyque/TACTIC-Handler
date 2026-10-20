@@ -6,7 +6,7 @@ order: 36
 
 # Table View: B07 typed cells
 
-B07 is still in progress. The catalogue contains 67 server classes and 160 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+B07 is still in progress. The catalogue contains 68 server classes and 163 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
 
 ## Snapshot attachments
 
@@ -27,6 +27,28 @@ Handler opens an ordinary native modal window; Stream uses the corresponding bro
 | Tactic Handler | TACTIC Stream |
 | --- | --- |
 | ![Snapshot append native](media/frame-table-append-native-en.png) | ![Snapshot append Stream](media/frame-table-append-stream-en.png) |
+
+## Check out snapshot files
+
+`CheckoutButtonElementWdg` opens **Check out** for a concrete snapshot. A current/latest alias resolves to its concrete version before the file list is shown. Choose the required file and press **Check out**. The project and version remain captured even when the main table belongs to another workspace project.
+
+```xml
+<element name="checkout" width="64">
+  <display class="tactic.ui.table.CheckoutButtonElementWdg">
+    <transfer_mode>browser</transfer_mode>
+  </display>
+</element>
+```
+
+Handler uses the file's configured native repository path and the existing transfer queue. If a local file differs from the server, choose **Overwrite** explicitly or cancel to preserve it. Files that appear during transfer are preserved by the default policy. Stream downloads the selected file through the browser; the browser owns its destination and overwrite prompts. `copy` and `client_repo` modes require the desktop client; the browser reports this limitation.
+
+**Cancel transfer** stops the current download. **Close** also cancels it and ignores any late response; neither action creates a snapshot or changes its version. Private message attachments keep the privacy-aware Messages download flow.
+
+This checkpoint supports ordinary individual files in administrator table scope. Sequence/UDIM expansion, other historical display options, ordinary-user ACL and original-server/PostgreSQL acceptance remain open. Unsupported groups report an error rather than downloading only one member. The shared file list uses the same Frame body in both products, with scrolling at narrow widths.
+
+| Tactic Handler | TACTIC Stream |
+| --- | --- |
+| ![Snapshot checkout native](media/frame-table-checkout-native-en.png) | ![Snapshot checkout Stream](media/frame-table-checkout-stream-en.png) |
 
 ## L02: legacy cells using existing panels
 

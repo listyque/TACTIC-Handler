@@ -98,6 +98,9 @@ class TableServicesController(QObject):
         self._append = SnapshotAppendController(application, self)
         self._append.changed.connect(self.stateChanged)
         self._append.completed.connect(self.completed)
+        from .file_checkout import SnapshotCheckoutController
+        self._checkout = SnapshotCheckoutController(application, self)
+        self._checkout.changed.connect(self.stateChanged)
         application.results_view_changed.connect(self._prune_nested)
         from thlib.ui.source_editor import SourceEditorService
         self._source_editor = SourceEditorService(self)
@@ -114,6 +117,17 @@ class TableServicesController(QObject):
         node = self._application._node_for_any(node_id)
         if node is not None:
             self._append.open(str(cell.get('targetSearchKey') or node.search_key),
+                str(cell.get('projectCode') or self._application._current_project_code))
+
+    @Property(QObject, constant=True)
+    def checkoutEditor(self):
+        return self._checkout
+
+    @Slot(str, 'QVariantMap')
+    def open_checkout(self, node_id, cell):
+        node = self._application._node_for_any(node_id)
+        if node is not None:
+            self._checkout.open(str(cell.get('targetSearchKey') or node.search_key),
                 str(cell.get('projectCode') or self._application._current_project_code))
 
     @Property(int, notify=nestedChanged)
@@ -192,7 +206,7 @@ class TableServicesController(QObject):
 
     @Property(bool, notify=stateChanged)
     def busy(self):
-        return self._busy or self._script_session is not None or self._append.busy
+        return self._busy or self._script_session is not None or self._append.busy or self._checkout.busy
 
     @Property(str, notify=stateChanged)
     def error(self):
@@ -668,6 +682,7 @@ class TableServicesController(QObject):
     @Slot()
     def shutdown(self):
         self._append.shutdown()
+        self._checkout.shutdown()
         for scope in self._nested_scopes.values():
             scope.shutdown()
             scope.deleteLater()

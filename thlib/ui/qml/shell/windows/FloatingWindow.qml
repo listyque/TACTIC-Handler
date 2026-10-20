@@ -67,6 +67,10 @@ Window {
         return titles[String(errorType || "")] || "";
     }
     readonly property string effectiveWindowTitle: {
+        if (root.kind === "snapshot_checkout") {
+            const model = tableServicesController.checkoutEditor.model;
+            return qsTr("Check out") + (model.ready ? " · " + model.title + " · v" + model.version : "");
+        }
         if (root.kind === "snapshot_append") {
             const model = tableServicesController.appendEditor.model;
             return qsTr("Attach files") + (model.ready ? " · " + model.title + " · v" + model.version : "");
@@ -215,7 +219,9 @@ Window {
     }
     onClosing: function (close) {
         close.accepted = false;
-        if (root.kind === "snapshot_append")
+        if (root.kind === "snapshot_checkout")
+            tableServicesController.checkoutEditor.request_close();
+        else if (root.kind === "snapshot_append")
             tableServicesController.appendEditor.request_close();
         else if (root.kind === "error")
             debugLog.dismiss_error();

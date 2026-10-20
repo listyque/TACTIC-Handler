@@ -1,5 +1,30 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Check out': 'Получить файлы',
+    'Cancel transfer': 'Отменить передачу',
+    Files: 'Файлы',
+    Downloading: 'Загрузка',
+    Overwrite: 'Перезаписать',
+    'Check out completed': 'Файл получен',
+    'Download completed': 'Файл скачан',
+    'Download cancelled': 'Загрузка отменена',
+    'The local file differs from the server. Replace it?':
+        'Локальный файл отличается от серверного. Заменить его?',
+    'Snapshot is no longer available': 'Снапшот больше недоступен',
+    'Close the current checkout before selecting another snapshot':
+        'Закройте текущее окно получения файлов перед выбором другого снапшота',
+    'This file already has an active transfer': 'Этот файл уже передаётся',
+    'Check out requires a snapshot': 'Для получения файлов выберите снапшот',
+    'Open the snapshot in its own project before checking out files':
+        'Перед получением файлов откройте снапшот в его проекте',
+    'Download private message attachments from Messages':
+        'Скачивайте приватные вложения из раздела Сообщения',
+    'Sequence and UDIM checkout is not available in this table yet':
+        'Получение последовательностей и UDIM из этой таблицы пока недоступно',
+    'This checkout mode requires a desktop connection':
+        'Для этого режима получения файлов требуется подключение к настольному клиенту',
+    'Unsupported checkout transfer mode':
+        'Неподдерживаемый режим получения файлов',
     'The clipboard does not contain an image':
         'В буфере обмена нет изображения',
     'Choose a valid file type': 'Укажите допустимый тип файла',

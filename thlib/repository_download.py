@@ -206,7 +206,30 @@ class DownloadOperation:
                                 "Checksum mismatch: expected "
                                 f"{task.expected_md5}, received {downloaded_md5}"
                             )
-                    os.replace(partial, destination)
+                    if task.cancel.is_set():
+                        raise InterruptedError("Download cancelled")
+                    if task.overwrite_policy in {"cancel", "skip"}:
+                        try:
+                            # Publish without clobbering a file created during the transfer.
+                            if os.name == "nt":
+                                os.rename(partial, destination)
+                            else:
+                                os.link(partial, destination)
+                                partial.unlink()
+                        except FileExistsError:
+                            if task.overwrite_policy == "cancel":
+                                raise InterruptedError("Download cancelled")
+                            partial.unlink(missing_ok=True)
+                            self.signals.finished.emit(task.task_id, {
+                                "path": str(destination),
+                                "bytes": destination.stat().st_size,
+                                "elapsed": time.perf_counter() - started,
+                                "exists": True,
+                                "skipped": True,
+                            })
+                            return
+                    else:
+                        os.replace(partial, destination)
                     if task.expected_mtime > 0:
                         try:
                             os.utime(
