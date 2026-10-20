@@ -919,7 +919,13 @@ def _build_editors(
     controller.sobjectLinkRequested.connect(links.begin_session)
     table_services = TableServicesController(controller, administration=collaboration.administration,
         tasks=task_bundle.tasks, scripts=delivery.script_editor, links=links)
+    controller._table_services = table_services
     table_services.completed.connect(lambda key: delivery.columns_editor._refresh_changed_rows(controller._current_project_code, [key]))
+    def refresh_table_time():
+        columns = delivery.columns_editor
+        columns._refresh_changed_rows(controller._current_project_code, columns._current_search_keys())
+        table_services.refresh_time_cells()
+    collaboration.work_hours.entrySaved.connect(refresh_table_time)
     return EditorBundle(
         configuration=configuration,
         repository=repository,

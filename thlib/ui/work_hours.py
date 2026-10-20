@@ -589,6 +589,39 @@ class WorkHoursController(QObject):
         self.stateChanged.emit()
         self.load_timesheet()
 
+    @Slot(str, str)
+    def open_table_task(self, search_key, day):
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+        if self._busy or not search_key.startswith('sthpw/task?'):
+            return
+        try:
+            selected = date.fromisoformat(str(day)[:10])
+            project_code = self._application._current_project_code
+            server = tc.server_start(project=project_code)
+        except (ValueError, PermissionError) as error:
+            self._error = str(error)
+            self.stateChanged.emit()
+            return
+        request_id = uuid.uuid4().hex
+        self._request_id = request_id
+        self._busy, self._error = True, ''
+        self.stateChanged.emit()
+        def loaded(record):
+            if request_id != self._request_id or project_code != self._application._current_project_code:
+                return
+            if not record or record.get('project_code') != project_code:
+                self._error = self.tr('Task is unavailable')
+                self._finish()
+                return
+            self._task = tc.Task(record, env_inst.projects[project_code])
+            self._task_code = self._task.get_code()
+            self._week_start = selected - timedelta(days=selected.weekday())
+            self._selected_login = self._current_login()
+            self._finish()
+            self.open_timesheet()
+        self._run(lambda: server.get_by_search_key(search_key), loaded, request_id)
+
     @Slot()
     def open_timesheet(self):
         self._application.dock_model.show_panel("timesheet")

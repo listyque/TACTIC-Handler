@@ -27,6 +27,7 @@ Item {
     required property int comments
     required property int tasks
     required property var displayOptions
+    property var selectionOwner: controller
     property bool effectsEnabled: true
     property bool scrolling: false
     property bool selectedTaskPreviewActive: false
@@ -378,9 +379,9 @@ Item {
         Controls.CheckBox {
             anchors.centerIn: parent
             theme: root.theme
-            checked: root.controller.selected_result_node_ids.indexOf(root.nodeId) >= 0
+            checked: root.selectionOwner.selected_result_node_ids.indexOf(root.nodeId) >= 0
             Accessible.name: root.title
-            onClicked: root.controller.select_result_node(root.nodeId, String(root.cell.search_key || ""), "sobject", Qt.ControlModifier, false)
+            onClicked: root.selectionOwner.select_result_node(root.nodeId, String(root.cell.search_key || ""), "sobject", Qt.ControlModifier, false)
         }
     }
 

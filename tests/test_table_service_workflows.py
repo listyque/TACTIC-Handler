@@ -15,6 +15,8 @@ from thlib.ui.workspace_models.windows import FloatingWindowModel
 class Application(QObject):
     signing_out=Signal()
     project_changed=Signal()
+    results_view_changed=Signal()
+    item_fields_updated=Signal(str, object)
     def __init__(self):
         super().__init__()
         self.tab=SimpleNamespace(table_view='table')

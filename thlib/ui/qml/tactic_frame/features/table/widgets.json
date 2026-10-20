@@ -587,5 +587,100 @@
       "tactic.ui.table.custom_layout_element_wdg.CustomLayoutElementWdg"
     ],
     "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.hidden_row_element_wdg.HiddenRowElementWdg",
+    "label": "Show related table",
+    "class": "tactic.ui.table.hidden_row_element_wdg.HiddenRowElementWdg",
+    "aliases": [
+      "tactic.ui.table.hidden_row_element_wdg.HiddenRowElementWdg",
+      "tactic.ui.table.HiddenRowElementWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.hidden_row_element_wdg.RowAddElementWdg",
+    "label": "Related tasks",
+    "class": "tactic.ui.table.hidden_row_element_wdg.RowAddElementWdg",
+    "aliases": [
+      "tactic.ui.table.hidden_row_element_wdg.RowAddElementWdg",
+      "tactic.ui.table.RowAddElementWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "HiddenRowToggleWdg",
+    "label": "Show related table",
+    "class": "pyasm.widget.table_element_wdg.HiddenRowToggleWdg",
+    "aliases": [
+      "HiddenRowToggleWdg",
+      "pyasm.widget.table_element_wdg.HiddenRowToggleWdg",
+      "pyasm.widget.HiddenRowToggleWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "AuxDataWdg",
+    "label": "Auxiliary data",
+    "class": "pyasm.widget.table_element_wdg.AuxDataWdg",
+    "aliases": [
+      "AuxDataWdg",
+      "pyasm.widget.table_element_wdg.AuxDataWdg",
+      "pyasm.widget.AuxDataWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "GanttWdg",
+    "label": "Gantt",
+    "class": "pyasm.widget.gantt_wdg.GanttWdg",
+    "aliases": [
+      "GanttWdg",
+      "pyasm.widget.gantt_wdg.GanttWdg",
+      "pyasm.widget.GanttWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.gantt_element_wdg.GanttElementWdg",
+    "label": "Gantt",
+    "class": "tactic.ui.table.gantt_element_wdg.GanttElementWdg",
+    "aliases": [
+      "tactic.ui.table.gantt_element_wdg.GanttElementWdg",
+      "tactic.ui.table.GanttElementWdg"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "TimecardInfoTableElement",
+    "label": "Timecard",
+    "class": "pyasm.widget.timecard_wdg.TimecardInfoTableElement",
+    "aliases": [
+      "TimecardInfoTableElement",
+      "pyasm.widget.timecard_wdg.TimecardInfoTableElement",
+      "pyasm.widget.TimecardInfoTableElement"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "WeekTableElement",
+    "label": "Week",
+    "class": "pyasm.widget.timecard_wdg.WeekTableElement",
+    "aliases": [
+      "WeekTableElement",
+      "pyasm.widget.timecard_wdg.WeekTableElement",
+      "pyasm.widget.WeekTableElement"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.work_hours_element_wdg.WorkHoursElementWdg",
+    "label": "Work Hours",
+    "class": "tactic.ui.table.work_hours_element_wdg.WorkHoursElementWdg",
+    "aliases": [
+      "tactic.ui.table.work_hours_element_wdg.WorkHoursElementWdg",
+      "tactic.ui.table.WorkHoursElementWdg"
+    ],
+    "adapter": "commands"
   }
 ]

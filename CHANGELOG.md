@@ -3,6 +3,14 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.122 - 2026-10-20
+
+- Start the combined second legacy stage with Stream 0.112.175. Retain the delivered first-stage checkpoint and move its remaining acceptance into stage 2; exclude the old HTML Custom Layout Editor while retaining portable saved definitions.
+- Add scoped expanded tables and original-server projections, isolated selection/filter/page state, cached reopening, existing record editors and disclosure loading feedback. Keep ordinary table delegates within the existing visual-item budget.
+- Add shared table schedule/daily-hours presentation and routes to the existing Gantt/Timesheet owners, including captured task/day context. Legacy inline/cascade callbacks, remaining file operations and full B07 acceptance stay open.
+- Preserve separate Frame resources and native scripting; no embedded browser or new Batch Manager web UI.
+
+
 ## 0.6.0.121 - 2026-10-20
 
 - Share the table tags editor and add service/task/action/link presenters with Stream 0.112.174. Keep existing native object, task, administration, check-in and script-editor owners; preserve custom views, group identity, revisions and first-click activation.

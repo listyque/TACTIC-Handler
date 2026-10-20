@@ -461,6 +461,7 @@ class SelectionMixin:
         return (
             self.workspace_model.node_for(node_id)
             or self.versions_model.node_for(node_id)
+            or (getattr(self, '_table_services', None) and self._table_services.node_for(node_id))
         )
 
     def _prepare_versions(self, node_id: str):

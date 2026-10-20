@@ -3,6 +3,7 @@ import { translate } from '../../core/strings.mjs';
 import * as Parallel from './parallel.ui.mjs';
 import * as Drop from './drop.ui.mjs';
 import * as Layout from './layout.ui.mjs';
+import * as Time from './time.ui.mjs';
 
 export function describe(
     cell,
@@ -13,12 +14,18 @@ export function describe(
     expanded = {},
     server = ''
 ) {
+    if (cell.timeline) return Time.timeline(cell, width, height, language);
+    if (cell.timeDays) return Time.hours(cell, width, height, language);
     if (cell.layoutNodes)
         return Layout.describe(cell, width, height, language, editable, server);
     if (cell.groups && cell.steps)
         return Parallel.describe(cell, width, height, language, expanded);
     if (cell.links)
         return Drop.describe(cell, width, height, language, editable);
+    if (cell.label && !cell.text)
+        cell = Object.assign({}, cell, {
+            text: translate(cell.label, language)
+        });
     const actions = cell.actions || [];
     const size = 28,
         gap = 4;
@@ -53,7 +60,13 @@ export function describe(
                 action.translateLabel === false
                     ? action.label
                     : translate(action.label, language),
-                action.icon,
+                action.name === 'nested-table'
+                    ? expanded.__nested?.busy
+                        ? 'loading'
+                        : expanded.__nested?.open
+                          ? 'expand-more'
+                          : 'chevron-right'
+                    : action.icon,
                 { type: 'service', name: action.name, view: action.view || '' },
                 editable && action.enabled !== false,
                 {

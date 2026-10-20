@@ -232,6 +232,9 @@ class _Application(QObject):
             table_view="table",
         )
 
+    def _node_for_any(self, node_id):
+        return self.workspace_model.node_for(node_id)
+
     def _current_tab(self):
         return self.tab
 

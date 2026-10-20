@@ -4,6 +4,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "features/table" as Table
+import "tactic_frame/features/table/nested.ui.mjs" as Nested
 import "tactic_frame/features/table/columns.mjs" as TableColumnLayout
 import "tactic_frame/features/table/host.ui.mjs" as TableHost
 
@@ -14,6 +16,19 @@ Item {
     required property var resultModel
     required property var columnsController
     property var userModel: null
+    property var tableServices: typeof tableServicesController === "undefined" ? null : tableServicesController
+    Component {
+        id: nestedTableComponent
+        Table.NestedTableView {
+            theme: root.theme
+            controller: root.controller
+            columnsController: root.columnsController
+            userModel: root.userModel
+            services: root.tableServices
+            administration: typeof administrationController === "undefined" ? null : administrationController
+            onClosed: root.tableServices.close_nested(scope)
+        }
+    }
     property bool presentationActive: false
     property var widthOverrides: ({})
     property bool autoFitColumns: false
@@ -309,6 +324,29 @@ Item {
             required property bool expanded
             required property int childCount
             property bool viewPooled: false
+            readonly property var nestedScope: root.tableServices ? root.tableServices.nested_row(nodeId, root.tableServices.nestedRevision) : null
+            readonly property real nestedHeight: nestedScope ? Nested.height : 0
+            property var nestedView: null
+            function updateNestedView() {
+                if (nestedScope && inVerticalViewport && !viewPooled) {
+                    if (!nestedView)
+                        nestedView = nestedTableComponent.createObject(resultRow, {
+                            scope: nestedScope,
+                            height: Nested.height,
+                            y: Qt.binding(() => root.effectiveRowHeight),
+                            x: Qt.binding(() => rows.contentX + 8),
+                            width: Qt.binding(() => Math.max(0, rows.width - 16))
+                        });
+                    else
+                        nestedView.scope = nestedScope;
+                } else if (nestedView) {
+                    nestedView.destroy();
+                    nestedView = null;
+                }
+            }
+            onNestedScopeChanged: updateNestedView()
+            onInVerticalViewportChanged: updateNestedView()
+            onViewPooledChanged: updateNestedView()
             readonly property bool isGroup: nodeType === "group"
             readonly property bool selected: !isGroup && root.controller.selected_result_node_ids.indexOf(nodeId) >= 0
             readonly property bool inVerticalViewport: y + height >= rows.contentY && y <= rows.contentY + rows.height
@@ -316,7 +354,7 @@ Item {
             readonly property var nativeCells: !isGroup && root.columnsController ? root.columnsController.row_cells(searchKey, root.columnsController.cellRevision) : ({})
             readonly property real actionX: Math.max(0, rows.contentX + rows.width - root.actionColumnWidth)
             width: root.tableWidth
-            height: isGroup ? TableHost.metrics.group : root.effectiveRowHeight
+            height: isGroup ? TableHost.metrics.group : root.effectiveRowHeight + nestedHeight
             focus: ListView.isCurrentItem && rows.activeFocus
             Accessible.role: isGroup ? Accessible.Button : Accessible.ListItem
             Accessible.name: isGroup ? title + " · " + childCount : title
@@ -376,6 +414,7 @@ Item {
                 id: rowSurface
                 objectName: "searchResultTableRowSurface"
                 anchors.fill: parent
+                anchors.bottomMargin: resultRow.nestedHeight
                 theme: root.theme
                 selected: resultRow.selected
                 normalColor: rowHover.hovered ? root.theme.rowHover : resultRow.isGroup ? root.theme.surfaceContainerHigh : root.theme.surfaceContainerLow
@@ -384,6 +423,7 @@ Item {
             }
             Rectangle {
                 anchors.fill: parent
+                anchors.bottomMargin: resultRow.nestedHeight
                 color: "transparent"
                 border.width: resultRow.activeFocus ? 1 : 0
                 border.color: root.theme.action
@@ -391,6 +431,7 @@ Item {
 
             MouseArea {
                 anchors.fill: parent
+                anchors.bottomMargin: resultRow.nestedHeight
                 acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 cursorShape: Qt.PointingHandCursor
 
@@ -420,6 +461,7 @@ Item {
                 anchors.leftMargin: root.selectionColumnWidth
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
+                anchors.bottomMargin: resultRow.nestedHeight
                 visible: !resultRow.isGroup
 
                 Repeater {
@@ -437,7 +479,7 @@ Item {
                             return left + width >= rows.contentX && left <= rows.contentX + rows.width - root.actionColumnWidth;
                         }
                         width: root.columnWidth(modelData)
-                        height: resultRow.height
+                        height: root.effectiveRowHeight
                         z: editing ? 10 : 0
 
                         Loader {
@@ -553,7 +595,7 @@ Item {
                 border.width: 0
                 x: rows.contentX
                 width: root.selectionColumnWidth
-                height: parent.height - 1
+                height: root.effectiveRowHeight - 1
                 z: 4
                 color: rowSurface.interactionColor
                 visible: !resultRow.isGroup
@@ -562,7 +604,7 @@ Item {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     width: 3
-                    height: parent.height - 14
+                    height: root.effectiveRowHeight - 14
                     radius: width / 2
                     color: resultRow.accent || root.theme.action
                     opacity: resultRow.selected ? 1 : 0.82
@@ -585,13 +627,14 @@ Item {
                 border.width: 0
                 x: resultRow.actionX
                 width: root.actionColumnWidth
-                height: parent.height - 1
+                height: root.effectiveRowHeight - 1
                 z: 3
                 color: rowSurface.interactionColor
                 visible: !resultRow.isGroup
             }
             Controls.CompactIconButton {
                 id: rowActions
+                anchors.verticalCenterOffset: -resultRow.nestedHeight / 2
                 objectName: "searchResultTableActions"
                 x: resultRow.actionX + root.actionColumnWidth - width - 4
                 anchors.verticalCenter: parent.verticalCenter

@@ -390,3 +390,49 @@ bottom reports остаются открытыми в L01/L04/L07b/L11.
 | `parallel_status` | ![parallel_status native](media/frame-table-stage1-parallel_status-native-ru.png) | ![parallel_status stream](media/frame-table-stage1-parallel_status-stream-ru.png) |
 | `drop_links` | ![drop_links native](media/frame-table-stage1-drop_links-native-ru.png) | ![drop_links stream](media/frame-table-stage1-drop_links-stream-ru.png) |
 | `custom_layout` | ![custom_layout native](media/frame-table-stage1-custom_layout-native-ru.png) | ![custom_layout stream](media/frame-table-stage1-custom_layout-stream-ru.png) |
+
+
+## Объединённый этап 2: вложенные таблицы и временные ячейки
+
+Старый HTML Custom Layout Editor исключён. Новые переносимые раскладки создаются
+через Frame и существующий редактор раскладок. Поддержанные сохранённые CustomLayout
+остаются доступными; неподдержанный DOM-виджет явно сообщает об ограничении.
+
+У раскрытой таблицы свои выделение, фильтр и страница. Выбор дочерней строки
+не меняет выделение поиска. Обновить применяет её фильтр, Закрыть сворачивает
+ветку. Повторное раскрытие сохраняет загруженные строки и выделение в текущем
+контексте. Загрузка показывается в иконке раскрытия. Создать/Редактировать вызывают
+существующую форму объекта с серверными правами. Сейчас у родительской строки
+показывается одна раскрытая поверхность; рекурсивные дочерние поверхности и
+оставшиеся виджеты связей/групп ещё не приняты.
+
+```xml
+<element name="tasks" title="Tasks">
+  <display class="tactic.ui.table.HiddenRowElementWdg">
+    <dynamic_class>tactic.ui.panel.FastTableLayoutWdg</dynamic_class>
+    <search_type>sthpw/task</search_type>
+    <view>table</view>
+    <show_insert>false</show_insert>
+  </display>
+</element>
+```
+
+Исходный CG `columns/tasks_parent` открывает таблицу родителя задачи. Его
+определение сохранено; перенос не возвращает старый HTML-редактор.
+Полоса расписания открывает существующий Gantt таск-менеджера. Дневные часы
+открывают существующий Timesheet для задачи/недели; часы всех пользователей
+остаются только для чтения. Общая отрисовка не означает приёмку старых
+inline/cascade-записей Gantt, всех операций timecard, итогов таблицы или файловых
+действий. Объединённый второй этап остаётся открытым.
+
+
+Сейчас вложенная область использует страницу на 50 записей и высоту 320 пикселей.
+Полные options shelf/gear/search-limit и начальной загрузки ещё не приняты.
+
+Парные примеры этой контрольной точки (одинаковые данные, MD3 dark):
+
+| Поверхность | ТХ | ТС |
+| --- | --- | --- |
+| `nested` | ![Handler nested](media/frame-table-stage2-nested-th-ru.png) | ![Stream nested](media/frame-table-stage2-nested-ts-ru.png) |
+| `schedule` | ![Handler schedule](media/frame-table-stage2-schedule-th-ru.png) | ![Stream schedule](media/frame-table-stage2-schedule-ts-ru.png) |
+| `hours` | ![Handler hours](media/frame-table-stage2-hours-th-ru.png) | ![Stream hours](media/frame-table-stage2-hours-ts-ru.png) |

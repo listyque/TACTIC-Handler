@@ -1,0 +1,219 @@
+"""An expanded table owns its records, selection and request generation."""
+import json
+import uuid
+from PySide6.QtCore import QObject, Property, Signal, Slot, Qt, QTimer
+
+
+class NestedTableController(QObject):
+    changed = Signal()
+
+    def __init__(self, services, node_id, descriptor):
+        super().__init__(services)
+        self.services = services
+        self.application = services._application
+        self.owner_node_id = node_id
+        self.descriptor = dict(descriptor)
+        self.tab = self.application._current_tab()
+        self._generation = 0
+        self._workers = set()
+        self._nodes = {}
+        self._pending_reload = False
+        self._reload_timer = QTimer(self)
+        self._reload_timer.setSingleShot(True)
+        self._reload_timer.timeout.connect(self.reload)
+        self._identity = 'nested:' + uuid.uuid4().hex + ':'
+        self._model = dict(columns=[], rows=[], selected=[], offset=0, filter='', filterField='code',
+                           insert=False, selection=descriptor.get('selection', True), busy=False, error='')
+        self.services.completed.connect(self._record_saved)
+        self.application.item_fields_updated.connect(self._records_saved)
+
+    @Property('QVariantMap', notify=changed)
+    def model(self):
+        return dict(self._model)
+
+    @Property('QVariantList', notify=changed)
+    def selected_result_node_ids(self):
+        selected = set(self._model['selected'])
+        return [identity for identity, node in self._nodes.items() if node.search_key in selected]
+
+    @Slot(str, str, str, int, bool)
+    def select_result_node(self, identity, search_key, node_type, modifiers, preserve):
+        node = self.node_for(identity)
+        if node is not None:
+            self.activate(dict(type='select', key=node.search_key))
+
+    def node_for(self, identity):
+        return self._nodes.get(identity)
+
+    def _records_saved(self, project, search_keys):
+        if project == self.application._current_project_code:
+            for search_key in search_keys:
+                self._record_saved(search_key)
+
+    def _record_saved(self, search_key):
+        if search_key in {self.descriptor.get('parentKey'), *(row['key'] for row in self._model['rows'])}:
+            self._reload_timer.start(0)
+
+    @Slot()
+    def reload(self):
+        from thlib import tactic_classes as tc, tactic_query as tq
+        from thlib.environment import env_inst
+        from .requests import read_nested_scope
+        if self.tab is not self.application._current_tab() or self._model['busy']:
+            self._pending_reload = True
+            return
+        self._pending_reload = False
+        try:
+            project_code = self.application._current_project_code
+            server = tc.server_start(project=project_code)
+        except PermissionError as error:
+            self._model.update(error=str(error), busy=False)
+            self.changed.emit()
+            return
+        self._generation += 1
+        generation = self._generation
+        descriptor, state = dict(self.descriptor), dict(self._model)
+        arguments = dict(parent_key=descriptor['parentKey'], search_type=descriptor['searchType'],
+            view=descriptor.get('view') or 'table', expression=descriptor.get('expression') or '',
+            offset=state['offset'], limit=50, order_by=[state['order']] if state.get('order') else [], filters=[])
+        if state['filter']:
+            arguments['filters'] = [[state['filterField'], 'like', '%' + state['filter'] + '%']]
+        def read():
+            scope = tc.execute_procedure_serverside(read_nested_scope, arguments, project=project_code, server=server)
+            if isinstance(scope, str):
+                scope = json.loads(scope)
+            layout = tc.execute_procedure_serverside(tq.query_table_layout,
+                dict(search_type=scope['searchType'], view=scope['view'], project_code=project_code,
+                     search_keys=[row['__search_key__'] for row in scope['records']]),
+                project=project_code, server=server)
+            scope['layout'] = json.loads(layout) if isinstance(layout, str) else layout
+            return scope
+        if env_inst.server_pool.is_stopped:
+            env_inst.server_pool.start()
+        worker = env_inst.server_pool.add_task(read)
+        if worker is None:
+            self._model.update(error=self.tr('Server worker is unavailable'), busy=False)
+            self.changed.emit()
+            return
+        self._workers.add(worker)
+        self._model.update(busy=True, error='')
+        def loaded(result):
+            if generation != self._generation:
+                return
+            if self.tab is not self.application._current_tab():
+                self._model['busy'] = False
+                self._pending_reload = True
+                return
+            self._accept(result)
+        def failed(error):
+            if generation != self._generation:
+                return
+            payload = error[0]
+            self._model.update(busy=False, error=str(payload.get('exception') or error))
+            if self.application.debug_log:
+                self.application.debug_log.raise_error(payload.get('exception') or error,
+                    stacktrace=payload.get('stacktrace', ''), group='table/nested')
+            self.changed.emit()
+        worker.result.connect(loaded, Qt.QueuedConnection)
+        worker.error.connect(failed, Qt.QueuedConnection)
+        worker.finished.connect(lambda: self._workers.discard(worker))
+        self.changed.emit()
+        worker.start()
+
+    def _accept(self, result):
+        from thlib import tactic_classes as tc, tactic_table_widgets as widgets
+        from thlib.environment import env_inst
+        from thlib.ui.workspace_models.results_types import WorkspaceNode
+        layout = result['layout']
+        columns = []
+        adapters = {}
+        for index, source in enumerate(layout['columns']):
+            adapter = widgets.create_widget(source)
+            adapters[source['name']] = adapter
+            kind = adapter.get_cell_kind(source.get('dataType'))
+            first = next(iter(layout['rows'].values()), {})
+            column_width = source.get('width') or (first.get(source['name']) or {}).get('widthHint') or 160
+            columns.append(dict(source, width=column_width, title=source.get('title') or source['name'], index=index,
+                field=source['name'], supported=kind != 'unsupported', cell=dict(kind=kind)))
+        nodes = {identity: node for identity, node in self._nodes.items() if node.search_key in self._model['selected']}
+        rows = []
+        project = env_inst.projects[self.application._current_project_code]
+        for record in result['records']:
+            key = record['__search_key__']
+            identity = self._identity + key
+            source = tc.SObject(record, project)
+            nodes[identity] = WorkspaceNode(node_id=identity,
+                node_type='snapshot' if result['searchType'] == 'sthpw/snapshot' else 'sobject',
+                search_key=key, code=str(record.get('code') or ''),
+                title=str(record.get('name') or record.get('title') or record.get('code') or record.get('id')),
+                source=source, values=record)
+            cells = {column['name']: adapters[column['name']].map_cell(
+                (layout['rows'].get(key) or {}).get(column['name']) or {}, column.get('dataType')) for column in columns}
+            rows.append(dict(key=key, nodeId=identity, record=record, cells=cells))
+        self._nodes = nodes
+        self._model.update(columns=columns, rows=rows, hasNext=result['hasNext'], busy=False, loaded=True,
+            insert=bool(self.descriptor.get('insert', True) and self.application.can_manage_tools),
+            filterField=next((name for name in ('name', 'title', 'code') if any(column['name'] == name for column in columns)), 'id'))
+        self.changed.emit()
+        if self._pending_reload:
+            self._reload_timer.start(0)
+
+    @Slot('QVariantMap', 'QVariant')
+    def activate(self, action, value=None):
+        kind = action.get('type')
+        if kind == 'filter':
+            self._model['filter'] = str(action.get('value') or '')
+            return
+        if kind == 'clear-selection':
+            self._model['selected'] = []
+            keys = {row['key'] for row in self._model['rows']}
+            self._nodes = {identity:node for identity,node in self._nodes.items() if node.search_key in keys}
+            self.changed.emit()
+        elif kind == 'select':
+            selected = self._model['selected']
+            key = action['key']
+            if key not in selected and len(selected) >= 500:
+                self._model['error'] = self.tr('Choose at most 500 table records')
+                self.changed.emit()
+                return
+            self._model['selected'] = [item for item in selected if item != key] if key in selected else [*selected, key]
+            self.changed.emit()
+        elif kind in ('edit', 'create'):
+            self._edit(action.get('key') if kind == 'edit' else None)
+        elif not self._model['busy']:
+            if kind == 'page':
+                self._model['offset'] = max(0, self._model['offset'] + int(action['value']) * 50)
+            else:
+                self._model['offset'] = 0
+                if kind == 'sort':
+                    name = action['value']
+                    self._model['order'] = name + (' desc' if self._model.get('order') == name + ' asc' else ' asc')
+            self.reload()
+
+    def _edit(self, key):
+        from thlib.environment import env_inst
+        app = self.application
+        if self.tab is not app._current_tab() or not app.can_manage_tools:
+            return
+        node = next((node for node in self._nodes.values() if node.search_key == key), None)
+        if key and node is None:
+            return
+        stype = env_inst.get_stype_by_code(self.descriptor['searchType'], project_code=app._current_project_code)
+        if stype is None:
+            self._model['error'] = self.tr('Search Type is not available for this editor')
+            self.changed.emit()
+            return
+        owner = app._node_for_any(self.owner_node_id)
+        parent = owner.source if owner and owner.source and owner.search_key.split('?')[0] != self.descriptor['searchType'] else None
+        app._sobject_editor_request = dict(mode='edit' if key else 'insert', view='edit' if key else 'insert',
+            stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True)
+        app.open_window('add_sobject')
+
+    def shutdown(self):
+        self._reload_timer.stop()
+        self._pending_reload = False
+        self._generation += 1
+        self._nodes = {}
+        self._model.update(busy=False)
+        for worker in tuple(self._workers):
+            worker.cancel()

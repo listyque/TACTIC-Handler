@@ -14,9 +14,19 @@ Frame.FrameView {
     property var expanded: ({})
     property bool editable: true
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
-    scene: UI.describe(cell, width, height, language, editable, expanded, controller.server_url || "")
+    readonly property var nestedScope: cell.nestedTable && services ? services.nested_row(nodeId, services.nestedRevision) : null
+    scene: UI.describe(cell, width, height, language, editable, Object.assign({}, expanded, {
+        __nested: {
+            open: !!nestedScope,
+            busy: nestedScope ? nestedScope.model.busy : false
+        }
+    }), controller.server_url || "")
     onEvent: (action, value) => {
-        if (action.name === "layout-link")
+        if (action.name === "nested-table")
+            services.toggle_nested(nodeId, Object.assign({}, cell, {
+                nestedTable: action.nestedTable || cell.nestedTable
+            }));
+        else if (action.name === "layout-link")
             services.open_link(action.href);
         else if (["edit-links", "drop-links"].indexOf(action.name) >= 0) {
             try {
@@ -28,9 +38,12 @@ Frame.FrameView {
             const next = Object.assign({}, root.expanded);
             next[action.identity] = !next[action.identity];
             root.expanded = next;
-        } else if (["task-details", "add-task", "work"].indexOf(action.name) >= 0)
+        } else if (action.name === "work-hours")
+            workHoursController.open_table_task(cell.taskKey, action.day || cell.week || "");
+        else if (["task-details", "add-task", "work", "table-schedule"].indexOf(action.name) >= 0)
             services.open_task_action(action.name, nodeId, Object.assign({}, cell, {
                 actionTaskCode: action.taskCode,
+                actionTaskKey: action.taskKey,
                 actionProcess: action.process
             }));
         else if (action.name === "script")

@@ -76,6 +76,8 @@ class TableServicesController(QObject):
     scriptCommands = Signal('QVariantList')
     scriptProgress = Signal(str, str)
 
+    nestedChanged = Signal()
+
     def __init__(self, application, parent=None, *, administration=None, tasks=None, scripts=None, links=None):
         super().__init__(parent)
         self._application = application
@@ -90,11 +92,88 @@ class TableServicesController(QObject):
         self._script_session = None
         self._links = links
         self._document = {}
+        self._nested_scopes = {}
+        self._nested_revision = 0
+        application.results_view_changed.connect(self._prune_nested)
         from thlib.ui.source_editor import SourceEditorService
         self._source_editor = SourceEditorService(self)
         self.scriptProgress.connect(self._script_progress, Qt.QueuedConnection)
         application.signing_out.connect(self.shutdown)
         application.project_changed.connect(self.shutdown)
+
+    @Property(int, notify=nestedChanged)
+    def nestedRevision(self):
+        return self._nested_revision
+
+    def _prune_nested(self):
+        tabs = {id(tab) for section in self._application._sessions.values() for tab in section.tabs}
+        for key, scope in tuple(self._nested_scopes.items()):
+            if id(scope.tab) not in tabs:
+                scope.shutdown()
+                scope.deleteLater()
+                del self._nested_scopes[key]
+            elif scope.tab is self._application._current_tab() and scope.open and scope._pending_reload:
+                scope._reload_timer.start(0)
+        self._nested_revision += 1
+        self.nestedChanged.emit()
+
+    def refresh_time_cells(self):
+        for scope in self._nested_scopes.values():
+            if any(cell.get('timeDays') for row in scope.model['rows'] for cell in row['cells'].values()):
+                scope._pending_reload = True
+                if scope.open and scope.tab is self._application._current_tab():
+                    scope._reload_timer.start(0)
+
+    def scope_for(self, identity):
+        return next((scope for scope in self._nested_scopes.values()
+            if scope.tab is self._application._current_tab() and scope.node_for(identity)), None)
+
+    def node_for(self, identity):
+        scope = self.scope_for(identity)
+        return scope.node_for(identity) if scope else None
+
+    @Slot(str, int, result=QObject)
+    def nested_row(self, node_id, revision=0):
+        return next((scope for scope in self._nested_scopes.values()
+            if scope.tab is self._application._current_tab() and scope.owner_node_id == node_id and scope.open), None)
+
+    @Slot(str, 'QVariantMap')
+    def toggle_nested(self, node_id, cell):
+        from .nested import NestedTableController
+        if not isinstance(cell.get('nestedTable'), dict):
+            return
+        if self.scope_for(node_id) is not None:
+            self.report_error(self.tr('Recursive nested tables are not available yet.'))
+            return
+        descriptor = cell['nestedTable']
+        tab = self._application._current_tab()
+        key = (id(tab), node_id, str(cell.get('columnName') or ''))
+        scope = self._nested_scopes.get(key)
+        if scope and scope.descriptor != descriptor:
+            scope.shutdown()
+            scope.deleteLater()
+            del self._nested_scopes[key]
+            scope = None
+        if scope is None:
+            scope = NestedTableController(self, node_id, descriptor)
+            scope.open = False
+            self._nested_scopes[key] = scope
+        opening = not scope.open
+        for sibling in self._nested_scopes.values():
+            if sibling.tab is tab and sibling.owner_node_id == node_id:
+                sibling.open = False
+        scope.open = opening
+        self._nested_revision += 1
+        self.nestedChanged.emit()
+        if opening and (not scope.model.get('loaded') or scope._pending_reload):
+            scope.reload()
+
+    @Slot(QObject)
+    def close_nested(self, scope):
+        if scope in self._nested_scopes.values():
+            scope.open = False
+            self._nested_revision += 1
+            self.nestedChanged.emit()
 
     @Property(bool, notify=stateChanged)
     def busy(self):
@@ -264,7 +343,12 @@ class TableServicesController(QObject):
             return
         process = str(cell.get('actionProcess') or cell.get('process') or '')
         code = str(cell.get('actionTaskCode') or cell.get('taskCode') or '')
+        if not code and str(cell.get('actionTaskKey') or '').startswith('sthpw/task?'):
+            from urllib.parse import urlsplit, parse_qs
+            code = parse_qs(urlsplit(cell['actionTaskKey']).query).get('code', [''])[0]
         self._tasks.open_object_context(key, code, process)
+        if action == 'table-schedule':
+            self._tasks.set_view_mode('gantt')
         if action == 'work':
             self._application.invoke_table_widget_action('checkin', node_id, cell)
         elif action == 'add-task':
@@ -302,15 +386,17 @@ class TableServicesController(QObject):
         if node is None or node.source is None or tab is None:
             return
         options = dict(cell.get('displayOptions') or {})
+        scope = self.scope_for(node_id)
+        selected_ids = [identity for identity, item in scope._nodes.items() if item.search_key in scope.model['selected']] if scope else application.selected_result_node_ids
         source_key = node.search_key
         target_key = str(cell.get('targetSearchKey') or source_key)
         context = dict(searchKey=target_key, searchType=target_key.split('?')[0],
                        record=dict(node.source.get_info()), project=application._current_project_code,
                        records={selected.search_key: {'code': selected.source.get_value('code')}
-                                for identity in application.selected_result_node_ids
+                                for identity in selected_ids
                                 if (selected := application._node_for_any(identity)) is not None and selected.source is not None},
-                       column=cell.get('columnName') or '', view=cell.get('layoutView') or tab.table_view,
-                       searchKeys=[selected.search_key for identity in application.selected_result_node_ids
+                       column=cell.get('columnName') or '', view=cell.get('layoutView') or (scope.descriptor.get('view') if scope else tab.table_view),
+                       searchKeys=[selected.search_key for identity in selected_ids
                                    if (selected := application._node_for_any(identity)) is not None and selected.source is not None])
         try:
             server = tc.server_start(project=context['project'])
@@ -566,6 +652,12 @@ class TableServicesController(QObject):
 
     @Slot()
     def shutdown(self):
+        for scope in self._nested_scopes.values():
+            scope.shutdown()
+            scope.deleteLater()
+        self._nested_scopes.clear()
+        self._nested_revision += 1
+        self.nestedChanged.emit()
         self._generation += 1
         self._document = {}
         self.documentChanged.emit()

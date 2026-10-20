@@ -933,7 +933,8 @@ class ColumnsEditorController(QObject):
                     item.get("dataType") or info.get("data_type") or "text"
                 ),
                 "displayVisible": name in selected_names,
-                "displayWidth": self._width(item.get("width")),
+                "displayWidth": self._width(item.get("width") or next(
+                    ((row.get(name) or {}).get("widthHint") for row in (payload.get("rows") or {}).values()), None)),
                 "hideOrder": self._hide_order(
                     attrs.get("th_hide_order"), name, order,
                     len(selected_names),
@@ -1210,7 +1211,7 @@ class ColumnsEditorController(QObject):
         record["bidEndFull"] = get_full_date(record.get("bidEnd"))
 
     def _task_target(self, node_id):
-        node = self._application.workspace_model.node_for(str(node_id or ""))
+        node = self._application._node_for_any(str(node_id or ""))
         return getattr(node, "source", None) if node is not None else None
 
     @Slot(str, str, str, str, result="QVariantMap")

@@ -388,3 +388,48 @@ Same fixture, width, MD3 dark theme and language; these cell crops do not certif
 | `parallel_status` | ![parallel_status native](media/frame-table-stage1-parallel_status-native-en.png) | ![parallel_status stream](media/frame-table-stage1-parallel_status-stream-en.png) |
 | `drop_links` | ![drop_links native](media/frame-table-stage1-drop_links-native-en.png) | ![drop_links stream](media/frame-table-stage1-drop_links-stream-en.png) |
 | `custom_layout` | ![custom_layout native](media/frame-table-stage1-custom_layout-native-en.png) | ![custom_layout stream](media/frame-table-stage1-custom_layout-stream-en.png) |
+
+
+## Combined stage 2: expanded tables and time cells
+
+The old HTML Custom Layout Editor is excluded. Create new portable layouts with
+Frame and the existing layout editor. Saved supported CustomLayout definitions
+remain available; an unsupported DOM widget reports its limitation explicitly.
+
+An expanded table owns its selection, filter and page. Selecting a child does
+not change the search selection. Refresh applies the child filter; Close collapses
+the branch. Reopening a loaded branch retains its rows and selection for the
+current context. The disclosure shows loading in its icon. Create/Edit reuse the
+existing object form and server permissions. Only one expanded surface per parent
+row is currently shown; recursive child surfaces and remaining relation/group
+widgets are not yet accepted.
+
+```xml
+<element name="tasks" title="Tasks">
+  <display class="tactic.ui.table.HiddenRowElementWdg">
+    <dynamic_class>tactic.ui.panel.FastTableLayoutWdg</dynamic_class>
+    <search_type>sthpw/task</search_type>
+    <view>table</view>
+    <show_insert>false</show_insert>
+  </display>
+</element>
+```
+
+The original CG `columns/tasks_parent` opens the task's parent table. Its saved
+definition is retained; transferring it does not restore the old HTML editor.
+Table schedule bars open the existing Task Manager Gantt. Daily hours open the
+existing Timesheet for that task/week; all-user hours stay read-only. The common
+presentation does not certify legacy inline/cascade Gantt writes, all timecard
+operations, bottom totals or file actions. The combined second stage remains open.
+
+
+The current expanded surface uses a fixed 50-record page and 320-pixel viewport.
+The full shelf/gear/search-limit and initial-load options are not accepted yet.
+
+Paired examples from this checkpoint (identical data, MD3 dark):
+
+| Surface | Handler | Stream |
+| --- | --- | --- |
+| `nested` | ![Handler nested](media/frame-table-stage2-nested-th-en.png) | ![Stream nested](media/frame-table-stage2-nested-ts-en.png) |
+| `schedule` | ![Handler schedule](media/frame-table-stage2-schedule-th-en.png) | ![Stream schedule](media/frame-table-stage2-schedule-ts-en.png) |
+| `hours` | ![Handler hours](media/frame-table-stage2-hours-th-en.png) | ![Stream hours](media/frame-table-stage2-hours-ts-en.png) |

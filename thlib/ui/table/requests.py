@@ -185,6 +185,23 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
             trees.append(ast.parse(textwrap.dedent(part.text).strip(),mode='eval' if kind=='Expression' else 'exec'))
         local_names = {target.id for tree in trees for item in ast.walk(tree) if isinstance(item,ast.Assign)
                        for target in item.targets if isinstance(target,ast.Name)}
+        # CG binds `parent` to its JSON search key, before any output; never expose Mako's parent namespace.
+        for tree in trees[:1]:
+            if not isinstance(tree, ast.Module):
+                continue
+            for statement in tree.body:
+                if (isinstance(statement, ast.Assign) and len(statement.targets) == 1
+                        and isinstance(statement.targets[0], ast.Name) and statement.targets[0].id == 'parent'
+                        and isinstance(statement.value, ast.Call)
+                        and isinstance(statement.value.func, ast.Attribute)
+                        and isinstance(statement.value.func.value, ast.Name) and statement.value.func.value.id == 'sobject'
+                        and statement.value.func.attr == 'get' and len(statement.value.args) == 1
+                        and isinstance(statement.value.args[0], ast.Constant) and statement.value.args[0].value == '__search_key__'
+                        and not statement.value.keywords):
+                    reserved.discard('parent')
+                    break
+                if any(isinstance(item, ast.Name) and item.id == 'parent' for item in ast.walk(statement)):
+                    break
         if local_names & reserved:
             raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
         for tree in trees:
@@ -258,6 +275,16 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
             options = {child['tag']: (''.join(markup(part) for part in child['children']) if child['tag']=='html' else text(child).strip()) for child in display['children'] if isinstance(child, dict)}
             if handler in ('tactic.ui.panel.CustomLayoutWdg', 'tactic.ui.table.CustomLayoutElementWdg', 'custom_layout'):
                 nodes.extend(read_custom_layout(search_key, _depth=_depth+1, _behaviors=behaviors, **options)['layoutNodes'])
+            elif handler in ('tactic.ui.panel.TableLayoutWdg', 'tactic.ui.panel.FastTableLayoutWdg', 'tactic.ui.panel.ViewPanelWdg'):
+                allowed = {'search_type','search_key','view','expression','show_search_limit','show_insert',
+                           'show_row_select','show_select','show_gear','show_search','show_shelf','init_load_num'}
+                if set(options) - allowed or not options.get('search_type'):
+                    raise ValueError('Unsupported CustomLayout table options')
+                nodes.append(dict(kind='table', text=attrs.get('name') or 'Table View', table=dict(
+                    searchType=options['search_type'], parentKey=options.get('search_key') or search_key,
+                    view=options.get('view') or 'table', expression=options.get('expression') or '',
+                    selection=options.get('show_row_select',options.get('show_select')) not in (False,'false'),
+                    insert=options.get('show_insert') not in (False,'false'))))
             elif handler in ('pyasm.widget.ThumbWdg', 'ThumbWdg'):
                 from pyasm.widget import ThumbWdg
                 widget = ThumbWdg(name=attrs.get('name') or 'preview', **options)
@@ -266,7 +293,6 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
                 nodes.append(dict(kind='preview', text=str(obj.get_display_value()), value=value,
                                   javascript=behaviors.get(attrs.get('name'), '')))
             else:
-                # shortcut: nested TableLayout belongs to the hidden-row/table migration in stage 2.
                 raise ValueError('CustomLayout embedded widget is not migrated: ' + str(handler))
         elif tag == 'a':
             source = next((behaviors[name] for name in attrs.get('class','').split() if name in behaviors), '')
@@ -284,3 +310,74 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
     visit(parser.root)
     return dict(text='', layoutNodes=nodes, targetSearchKey=search_key, layoutView=view,
                 externalDocuments=any(node['kind']=='link' for node in nodes))
+
+
+def read_nested_scope(parent_key, search_type, view='table', expression='', offset=0,
+                      limit=50, filters=None, order_by=None):
+    """Self-contained original-server procedure; never return an unscoped table."""
+    import re
+    from pyasm.biz import Project
+    from pyasm.common import Environment
+    from pyasm.search import Search, SearchKey, SearchType
+
+    if not Environment.get_security().is_admin():
+        raise PermissionError('Administration requires administrator access')
+    if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
+        raise ValueError('Invalid nested table page')
+    if not isinstance(view, str) or not re.fullmatch(r'[A-Za-z_][\w.@-]{0,127}', view):
+        raise ValueError('Invalid view name')
+    if SearchKey.extract_project(parent_key) not in (None, '', Project.get_project_code(), 'sthpw', 'admin'):
+        raise ValueError('The configured table target belongs to another project')
+    requested = SearchType.breakup_search_type(search_type)
+    if requested.get('project') not in (None, '', Project.get_project_code(), 'sthpw', 'admin'):
+        raise ValueError('The nested table belongs to another project')
+    base = SearchType.get(search_type).get_base_key()
+    if base.startswith(('prod/', 'flash/')):
+        raise ValueError('The legacy production subsystem is excluded')
+    parent = Search.get_by_search_key(parent_key)
+    if parent is None:
+        raise LookupError('Object is no longer available')
+    search = Search(search_type)
+    if base == parent.get_base_search_type() and not expression:
+        search.add_id_filter(parent.get_id())
+    elif expression:
+        # Only reads enter a nested table. Mutating expressions belong to actions.
+        if not isinstance(expression, str) or not re.fullmatch(r'\s*@SOBJECT\([^@;{}]*\)\s*', expression, re.I):
+            raise ValueError('A nested table requires an @SOBJECT expression')
+        records = Search.eval(expression, sobjects=parent)
+        if not isinstance(records, (list, tuple)):
+            records = [records] if records else []
+        if len(records) > 10000 or any(item.get_base_search_type() != base for item in records):
+            raise ValueError('The nested expression returned an invalid scope')
+        search.add_filters('id', [item.get_id() for item in records] or [-1])
+    else:
+        owner = parent.get_parent()
+        if owner is not None and owner.get_base_search_type() == base:
+            search.add_id_filter(owner.get_id())
+        else:
+            search.add_parent_filter(parent)
+    columns = SearchType.get_column_info(base)
+    if not isinstance(filters or [], list) or len(filters or []) > 20:
+        raise ValueError('Invalid nested table filters')
+    for item in filters or []:
+        if not isinstance(item, (tuple, list)) or len(item) != 3 or item[0] not in columns or item[1] not in ('=', '!=', '<', '<=', '>', '>=', 'like'):
+            raise ValueError('Invalid nested table filter')
+        search.add_filter(item[0], item[2], op=item[1])
+    if not isinstance(order_by or [], list) or len(order_by or []) > 4:
+        raise ValueError('Invalid nested table ordering')
+    for item in order_by or []:
+        parts = str(item).split()
+        if not parts or len(parts) > 2 or parts[0] not in columns or (len(parts) == 2 and parts[1].lower() not in ('asc', 'desc')):
+            raise ValueError('Invalid nested table ordering')
+        search.add_order_by(parts[0], parts[1] if len(parts) == 2 else 'asc')
+    search.add_order_by('id')
+    search.set_limit(limit + 1)
+    search.set_offset(offset)
+    records = search.get_sobjects()
+    values = [item.get_sobject_dict() for item in records[:limit]]
+    if base == 'sthpw/login':
+        for record in values:
+            record.pop('password', None)
+    return dict(searchType=base, view=view, parentKey=parent_key, offset=offset,
+                hasNext=len(records) > limit,
+                records=values)

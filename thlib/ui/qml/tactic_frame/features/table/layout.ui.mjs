@@ -49,6 +49,23 @@ export function describe(
                 })
             );
             top += 70;
+        } else if (item.kind === 'table') {
+            children.push(
+                button(
+                    id,
+                    rect(0, top, inner, 36),
+                    text,
+                    'table-view',
+                    {
+                        type: 'service',
+                        name: 'nested-table',
+                        nestedTable: item.table
+                    },
+                    true,
+                    { outlined: true }
+                )
+            );
+            top += 42;
         } else {
             children.push(
                 button(

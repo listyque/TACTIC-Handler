@@ -1,0 +1,77 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import "../.." as Tables
+import "../../tactic_frame" as Frame
+import "../../tactic_frame/features/table/nested.ui.mjs" as UI
+
+Item {
+    id: root
+    required property var theme
+    required property var controller
+    required property var columnsController
+    required property var userModel
+    required property var services
+    required property var administration
+    required property var scope
+    signal closed
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    Frame.FrameView {
+        anchors.fill: parent
+        theme: root.theme
+        scene: UI.describe(root.scope.model, width, height, root.language)
+        models: ({
+                rows: root.scope.model.rows || []
+            })
+        views: ({
+                tableCell: {
+                    component: cellComponent,
+                    nodeProps: true
+                }
+            })
+        describeRow: (list, row, index) => UI.row(root.scope.model, row, root.language)
+        onEvent: (action, value) => {
+            if (action.type === "close")
+                root.closed();
+            else
+                root.scope.activate(action, value);
+        }
+    }
+    Component {
+        id: cellComponent
+        Item {
+            id: cellHost
+            property var frameNode: ({
+                    column: {
+                        cell: {
+                            kind: "text"
+                        }
+                    },
+                    record: {},
+                    cell: {}
+                })
+            Tables.TacticTableCellDisplay {
+                anchors.fill: parent
+                theme: root.theme
+                controller: root.controller
+                selectionOwner: root.scope
+                columnsController: root.columnsController
+                userModel: root.userModel
+                tableServices: root.services
+                administration: root.administration
+                nodeId: cellHost.frameNode.nodeId || ""
+                kind: cellHost.frameNode.cell.kind || cellHost.frameNode.column.cell.kind || "text"
+                cell: cellHost.frameNode.cell
+                textValue: String(cellHost.frameNode.cell.text || "")
+                columnIndex: cellHost.frameNode.column.index || 0
+                previewActive: true
+                previewUrl: cellHost.frameNode.cell.image || ""
+                previewRevealed: true
+                title: String(cellHost.frameNode.record.name || cellHost.frameNode.record.code || "")
+                accent: root.theme.action
+                comments: 0
+                tasks: 0
+                displayOptions: cellHost.frameNode.column.displayOptions || ({})
+            }
+        }
+    }
+}
