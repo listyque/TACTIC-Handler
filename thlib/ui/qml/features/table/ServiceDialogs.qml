@@ -47,6 +47,12 @@ Item {
             root.objectCell = cell;
             statusConfirm.open();
         }
+        function onConnectionRemovalOpened() {
+            connectionConfirm.open();
+        }
+        function onConnectionRemovalClosed() {
+            connectionConfirm.close();
+        }
         function onTemplateOpened(code) {
             root.templateCode = code;
             templateConfirm.open();
@@ -156,6 +162,28 @@ Item {
                 if (action.type === "accept")
                     root.controller.export_template(root.templateCode);
             }
+        }
+    }
+
+    Controls.Dialog {
+        id: connectionConfirm
+        objectName: "tableConfirmation_connectionConfirm"
+        parent: Overlay.overlay
+        modal: true
+        theme: root.theme
+        anchors.centerIn: parent
+        width: Math.min(420, parent.width - 24)
+        height: 220
+        onRejected: root.controller.confirm_connection_removal(false)
+        Frame.FrameView {
+            anchors.fill: parent
+            theme: root.theme
+            scene: Confirmation.describe({
+                message: qsTr("Remove this connection? The connected objects will be kept."),
+                accept: "Remove connection",
+                destructive: true
+            }, width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language)
+            onEvent: action => root.controller.confirm_connection_removal(action.type === "accept")
         }
     }
 

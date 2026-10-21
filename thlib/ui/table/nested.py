@@ -11,6 +11,7 @@ class NestedTableController(QObject):
         super().__init__(services)
         self.services = services
         self.application = services._application
+        self.open = False
         self.owner_node_id = node_id
         self.descriptor = dict(descriptor)
         self.tab = self.application._current_tab()
@@ -23,13 +24,18 @@ class NestedTableController(QObject):
         self._reload_timer.timeout.connect(self.reload)
         self._identity = 'nested:' + uuid.uuid4().hex + ':'
         self._model = dict(columns=[], rows=[], selected=[], offset=0, filter='', filterField='code',
-                           insert=False, selection=descriptor.get('selection', True), busy=False, error='')
+                           insert=False, selection=descriptor.get('selection', True), shelf=descriptor.get('shelf', True),
+                           search=descriptor.get('search', True), searchLimit=descriptor.get('searchLimit', True), busy=False, error='')
+        self.services.nestedChanged.connect(self.changed)
         self.services.completed.connect(self._record_saved)
         self.application.item_fields_updated.connect(self._records_saved)
 
     @Property('QVariantMap', notify=changed)
     def model(self):
-        return dict(self._model)
+        model = dict(self._model)
+        model['children'] = {row['key']: dict(open=bool(self.services.nested_row(row['nodeId'])))
+            for row in model['rows'] if row.get('nodeId')}
+        return model
 
     @Property('QVariantList', notify=changed)
     def selected_result_node_ids(self):
@@ -46,7 +52,7 @@ class NestedTableController(QObject):
         return self._nodes.get(identity)
 
     def _records_saved(self, project, search_keys):
-        if project == self.application._current_project_code:
+        if project == (self.descriptor.get('projectCode') or self.application._current_project_code):
             for search_key in search_keys:
                 self._record_saved(search_key)
 
@@ -59,12 +65,12 @@ class NestedTableController(QObject):
         from thlib import tactic_classes as tc, tactic_query as tq
         from thlib.environment import env_inst
         from .requests import read_nested_scope
-        if self.tab is not self.application._current_tab() or self._model['busy']:
+        if not self.services.scope_visible(self) or self._model['busy']:
             self._pending_reload = True
             return
         self._pending_reload = False
         try:
-            project_code = self.application._current_project_code
+            project_code = self.descriptor.get('projectCode') or self.application._current_project_code
             server = tc.server_start(project=project_code)
         except PermissionError as error:
             self._model.update(error=str(error), busy=False)
@@ -100,7 +106,7 @@ class NestedTableController(QObject):
         def loaded(result):
             if generation != self._generation:
                 return
-            if self.tab is not self.application._current_tab():
+            if not self.services.scope_visible(self):
                 self._model['busy'] = False
                 self._pending_reload = True
                 return
@@ -137,7 +143,7 @@ class NestedTableController(QObject):
                 field=source['name'], supported=kind != 'unsupported', cell=dict(kind=kind)))
         nodes = {identity: node for identity, node in self._nodes.items() if node.search_key in self._model['selected']}
         rows = []
-        project = env_inst.projects[self.application._current_project_code]
+        project = env_inst.projects[self.descriptor.get('projectCode') or self.application._current_project_code]
         for record in result['records']:
             key = record['__search_key__']
             identity = self._identity + key
@@ -155,6 +161,7 @@ class NestedTableController(QObject):
             insert=bool(self.descriptor.get('insert', True) and self.application.can_manage_tools),
             filterField=next((name for name in ('name', 'title', 'code') if any(column['name'] == name for column in columns)), 'id'))
         self.changed.emit()
+        self.services._nested_changed()
         if self._pending_reload:
             self._reload_timer.start(0)
 
@@ -198,7 +205,7 @@ class NestedTableController(QObject):
         node = next((node for node in self._nodes.values() if node.search_key == key), None)
         if key and node is None:
             return
-        stype = env_inst.get_stype_by_code(self.descriptor['searchType'], project_code=app._current_project_code)
+        stype = env_inst.get_stype_by_code(self.descriptor['searchType'], project_code=self.descriptor.get('projectCode') or app._current_project_code)
         if stype is None:
             self._model['error'] = self.tr('Search Type is not available for this editor')
             self.changed.emit()
@@ -208,6 +215,15 @@ class NestedTableController(QObject):
         app._sobject_editor_request = dict(mode='edit' if key else 'insert', view='edit' if key else 'insert',
             stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True)
         app.open_window('add_sobject')
+
+    def suspend(self):
+        self._reload_timer.stop()
+        if self._model['busy']:
+            self._pending_reload = True
+            self._generation += 1
+            self._model['busy'] = False
+            for worker in tuple(self._workers):
+                worker.cancel()
 
     def shutdown(self):
         self._reload_timer.stop()

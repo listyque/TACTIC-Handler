@@ -5,8 +5,28 @@ import { metrics, paint } from './host.ui.mjs';
 export const height = 320;
 export const rowHeight = 68;
 
+export function identity(scope = {}, project = '') {
+    return JSON.stringify([
+        scope.projectCode || project,
+        scope.searchType,
+        scope.view || 'table',
+        scope.parentKey,
+        scope.expression || ''
+    ]);
+}
+
+export function rows(model) {
+    return (model.rows || []).map((record) =>
+        Object.assign({}, record, {
+            detailOpen: !!model.children?.[record.key]?.open,
+            extent:
+                rowHeight + (model.children?.[record.key]?.open ? height : 0)
+        })
+    );
+}
+
 export function columns(model) {
-    let left = metrics.selection;
+    let left = model.selection === false ? 0 : metrics.selection;
     return (model.columns || []).map((column, index) => {
         const width = Math.max(48, Math.min(640, Number(column.width) || 160));
         const result = Object.assign({}, column, { index, x: left, width });
@@ -20,7 +40,7 @@ export function describe(model, width, extent, language) {
     const fields = columns(model);
     const contentWidth = Math.max(
         width - 16,
-        metrics.selection +
+        (model.selection === false ? 0 : metrics.selection) +
             fields.reduce((sum, field) => sum + field.width, 0) +
             40
     );
@@ -107,14 +127,23 @@ export function describe(model, width, extent, language) {
     for (const field of fields) {
         children.push(
             field.sortable
-                ? button(
+                ? node(
+                      'Action',
                       'nestedHeader_' + field.name,
                       rect(field.x, 0, field.width, metrics.header),
-                      field.title || field.name,
-                      '',
-                      { type: 'sort', value: field.name },
-                      !model.busy,
-                      { iconAction: true }
+                      {
+                          text: field.title || field.name,
+                          action: { type: 'sort', value: field.name },
+                          enabled: !model.busy,
+                          children: [
+                              label(
+                                  'nestedHeaderText_' + field.name,
+                                  rect(10, 0, field.width - 20, metrics.header),
+                                  field.title || field.name,
+                                  { color: paint.headerText }
+                              )
+                          ]
+                      }
                   )
                 : label(
                       'nestedHeader_' + field.name,
@@ -137,8 +166,17 @@ export function describe(model, width, extent, language) {
             {
                 source: 'rows',
                 keyField: 'key',
-                fields: ['key', 'nodeId', 'record', 'cells'],
+                fields: [
+                    'key',
+                    'nodeId',
+                    'record',
+                    'cells',
+                    'detailOpen',
+                    'extent'
+                ],
                 rowHeight,
+                rowHeightField: 'extent',
+                rowGap: 0,
                 label: t('Table View'),
                 role: 'list'
             }
@@ -157,16 +195,40 @@ export function describe(model, width, extent, language) {
             }
         )
     );
-    return { nodes };
+    return {
+        nodes: nodes.filter((item) => {
+            if (
+                ['nestedFilter', 'nestedReload', 'nestedCreate'].includes(
+                    item.id
+                ) &&
+                model.shelf === false
+            )
+                return false;
+            if (item.id === 'nestedFilter' && model.search === false)
+                return false;
+            if (item.id === 'nestedCreate' && model.insert === false)
+                return false;
+            if (item.id === 'nestedClearSelection' && model.selection === false)
+                return false;
+            if (
+                ['nestedPrevious', 'nestedNext'].includes(item.id) &&
+                model.searchLimit === false
+            )
+                return false;
+            return true;
+        })
+    };
 }
 
-export function row(model, record, language) {
+export function row(model, record, language, viewportWidth = 0) {
     const fields = columns(model),
         nodes = [];
-    const width =
-        metrics.selection +
-        fields.reduce((sum, field) => sum + field.width, 0) +
-        40;
+    const width = Math.max(
+        viewportWidth,
+        (model.selection === false ? 0 : metrics.selection) +
+            fields.reduce((sum, field) => sum + field.width, 0) +
+            40
+    );
     const selected = (model.selected || []).includes(record.key);
     nodes.push(
         node('Box', 'nestedRowSurface', rect(0, 0, width, rowHeight - 1), {
@@ -175,11 +237,16 @@ export function row(model, record, language) {
     );
     if (model.selection !== false)
         nodes.push(
-            node('CheckBox', 'nestedSelect', rect(6, 14, 28, 28), {
-                checked: selected,
-                label: translate('Select row', language),
-                action: { type: 'select', key: record.key }
-            })
+            node(
+                'CheckBox',
+                'nestedSelect',
+                rect(6, (rowHeight - 28) / 2, 28, 28),
+                {
+                    checked: selected,
+                    label: translate('Select row', language),
+                    action: { type: 'select', key: record.key }
+                }
+            )
         );
     for (const field of fields)
         nodes.push(
@@ -195,6 +262,7 @@ export function row(model, record, language) {
                     cell: record.cells[field.name] || { text: '' },
                     key: record.key,
                     nodeId: record.nodeId,
+                    nestedState: model.children?.[record.key],
                     selected
                 }
             )
@@ -202,7 +270,7 @@ export function row(model, record, language) {
     nodes.push(
         button(
             'nestedEdit',
-            rect(width - 36, 16, 28, 28),
+            rect(width - 36, (rowHeight - 28) / 2, 28, 28),
             translate('Edit', language),
             'edit',
             { type: 'edit', key: record.key },
@@ -210,5 +278,13 @@ export function row(model, record, language) {
             { iconOnly: true, iconAction: true }
         )
     );
+    if (record.detailOpen)
+        nodes.push(
+            node('View', 'nestedDetail', rect(0, rowHeight, width, height), {
+                view: 'nestedTable',
+                key: record.key,
+                nodeId: record.nodeId
+            })
+        );
     return { nodes };
 }

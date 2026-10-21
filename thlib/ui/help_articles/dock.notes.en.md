@@ -74,3 +74,8 @@ Examples use test data and show the panel content. The surrounding window or doc
 ![Note text and attachments](media/frame-objects-note-files-en.png)
 
 Task Manager's shared table/field editors, virtual creation and opt-in bulk workflow are described in [Tasks and planning](tasks.en.md). Existing configuration and permission owners remain unchanged.
+
+In Stream, automatic note updates keep the current composer enabled. You can
+send with Enter while a background read is pending; a late older response cannot
+replace the freshly loaded reply. Opening another object or an explicit blocking
+reload still protects the new context before editing.

@@ -6,7 +6,7 @@ order: 36
 
 # Table View: типизированные ячейки B07
 
-B07 ещё не завершён. Каталог содержит 68 серверных классов и 163 имени. Здесь описаны добавленные адаптеры значений; поддержка всех исторических опций не заявляется. Неподдерживаемые опции остаются явными ошибками. Сохраните существующий вид и заменяйте только нужный элемент.
+B07 ещё не завершён. Каталог содержит 70 серверных классов и 168 имён. Здесь описаны добавленные адаптеры значений; поддержка всех исторических опций не заявляется. Неподдерживаемые опции остаются явными ошибками. Сохраните существующий вид и заменяйте только нужный элемент.
 
 ## Вложения снапшота
 
@@ -469,7 +469,7 @@ inline/cascade-записей Gantt, всех операций timecard, ито�
 
 
 Сейчас вложенная область использует страницу на 50 записей и высоту 320 пикселей.
-Полные options shelf/gear/search-limit и начальной загрузки ещё не приняты.
+Параметры shelf/search/search-limit и выбора скрывают соответствующие controls. `init_load_num` заменён виртуализацией отрисовки и не меняет страницу из 50 записей. Явный `show_gear=true` пока отклоняется: scoped Columns authoring ещё не готов.
 
 Парные примеры этой контрольной точки (одинаковые данные, MD3 dark):
 
@@ -478,3 +478,38 @@ inline/cascade-записей Gantt, всех операций timecard, ито�
 | `nested` | ![Handler nested](media/frame-table-stage2-nested-th-ru.png) | ![Stream nested](media/frame-table-stage2-nested-ts-ru.png) |
 | `schedule` | ![Handler schedule](media/frame-table-stage2-schedule-th-ru.png) | ![Stream schedule](media/frame-table-stage2-schedule-ts-ru.png) |
 | `hours` | ![Handler hours](media/frame-table-stage2-hours-th-ru.png) | ![Stream hours](media/frame-table-stage2-hours-ts-ru.png) |
+
+
+## Связи, вложенные таблицы и сводка
+
+Ячейка связей показывает входящие (`dst`) или исходящие (`src`) объекты,
+превью, имена файлов и архивные/удалённые цели. Удаление связи требует
+подтверждения и свежей ревизии; оба объекта сохраняются. После неопределённого
+ответа список перечитывается перед следующей операцией.
+
+```xml
+<element name="connections" width="400">
+  <display class="pyasm.widget.SObjectConnectionElement">
+    <direction>dst</direction><icon_size>60</icon_size>
+  </display>
+</element>
+<element name="summary" width="200">
+  <display class="tactic.ui.table.SObjectSummaryElementWdg"/>
+</element>
+```
+
+Сводка содержит задачи, check-in, заметки и сумму straight_time без overtime.
+Кнопки задач и check-in раскрывают разные настроенные таблицы. Сводка проекта
+использует выбранный проект, включая контекст таблиц, редакторов и скриптов.
+Вложенные таблицы раскрываются дальше; повтор области предка отклоняется.
+Выбор и загруженные строки сохраняются отдельно на каждом уровне: повторное
+раскрытие не ждёт нового серверного запроса. Сейчас проверен доступ администратора.
+Этап 2/B07 остаётся открытым.
+
+
+Текущие парные примеры (MD3, тёмная тема, тестовые данные):
+
+| Ячейка | Handler | Stream |
+| --- | --- | --- |
+| Сводка | ![Handler](media/frame-table-object_summary-native-ru.png) | ![Stream](media/frame-table-object_summary-stream-ru.png) |
+| Связи | ![Handler](media/frame-table-object_connections-native-ru.png) | ![Stream](media/frame-table-object_connections-stream-ru.png) |

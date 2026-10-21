@@ -39,6 +39,21 @@ export function headerAction(column) {
     return null;
 }
 
+function serviceHeight(columns) {
+    return columns.reduce((height, column) => {
+        const className = column.resolvedClass || column.display?.handler || '';
+        if (className.split('.').pop() === 'SObjectSummaryElementWdg')
+            return Math.max(height, 118);
+        if (className.split('.').pop() !== 'SObjectConnectionElement')
+            return height;
+        const options = column.displayOptions || column.display?.options || {};
+        return Math.max(
+            height,
+            Math.max(64, Number(options.icon_size) || 60) + 32
+        );
+    }, 0);
+}
+
 export function describe(model, width) {
     const available = Math.max(0, width - metrics.selection - metrics.actions);
     const columns = Columns.visibleColumns(
@@ -70,6 +85,7 @@ export function describe(model, width) {
         rowHeight: model.automaticRowHeight
             ? Math.max(
                   model.rowHeight || 58,
+                  serviceHeight(columns),
                   Columns.widthForKind(
                       columns,
                       'thumbnail',

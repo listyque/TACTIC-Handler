@@ -3,6 +3,14 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.125 - 2026-10-21
+
+- Continue combined legacy stage 2 with Stream 0.112.178: project-scoped connection cells batch target/preview reads, retain retired/missing endpoints and remove only the revision-checked connection after confirmation. Refresh after success or a lost response.
+- Add object/project summary counts and SQL straight-time aggregation; task and check-in buttons own distinct nested tables and project contexts. Recursively expand configured tables, preserve each selection/cache, reject ancestor cycles and stale hidden-branch results.
+- Extend the existing Frame array list with shared variable extents and focused-header scroll correction; retain bounded delegates for 10k records. Fix the parallel-process action intercepting the group disclosure button.
+- Require painted summary/header labels in actual input and paired captures. Document Stream’s separate quiet Inspector refresh, which keeps Enter/composer input enabled while preserving captured context.
+- Keep independent product copies and native workers. This is an L01 checkpoint; stage 2/B07, ordinary-user ACL, original-server/PostgreSQL execution and physical hardware acceptance remain open.
+
 ## 0.6.0.124 - 2026-10-21
 
 - Continue combined legacy stage 2 with Stream 0.112.177: table checkout opens one shared Frame file list in an ordinary native window. Resolve a concrete snapshot, keep its selected file/project and reuse native File paths and the existing transfer queue.

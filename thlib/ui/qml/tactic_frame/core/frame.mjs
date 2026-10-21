@@ -51,9 +51,10 @@ export function revealListOffset(
     height,
     count,
     rowHeight,
-    rowGap = 0
+    rowGap = 0,
+    offsets = null
 ) {
-    const top = index * rowHeight,
+    const top = offsets ? offsets[index] : index * rowHeight,
         bottom = top + rowHeight - rowGap;
     const desired =
         top < offset
@@ -63,7 +64,13 @@ export function revealListOffset(
               : offset;
     return Math.max(
         0,
-        Math.min(desired, Math.max(0, count * rowHeight - rowGap - height))
+        Math.min(
+            desired,
+            Math.max(
+                0,
+                (offsets ? offsets[count] : count * rowHeight) - rowGap - height
+            )
+        )
     );
 }
 
@@ -247,6 +254,23 @@ export function validateScene(scene, models, views) {
         if (value.kind === 'List' && !sequence(value.fields))
             throw Error('List needs declared model fields: ' + value.id);
         if (
+            value.kind === 'List' &&
+            value.rowHeightField !== undefined &&
+            (typeof value.rowHeightField !== 'string' ||
+                !value.rowHeightField ||
+                !value.fields.includes(value.rowHeightField))
+        )
+            throw Error('List needs a declared rowHeightField: ' + value.id);
+        // shortcut: variable extents use array models; add native model roles when a caller needs them.
+        if (
+            value.kind === 'List' &&
+            value.rowHeightField !== undefined &&
+            !sequence(models[value.source])
+        )
+            throw Error(
+                'Variable Frame rows require an array model: ' + value.id
+            );
+        if (
             ['Box', 'Scroll', 'Action'].indexOf(value.kind) >= 0 &&
             !sequence(value.children)
         )
@@ -316,6 +340,66 @@ export function listRowHeight(definition) {
         definition.rowHeight -
         (definition.rowGap === undefined ? 4 : definition.rowGap)
     );
+}
+
+export function listOffsets(definition, rows) {
+    if (!definition.rowHeightField) return null;
+    const gap = definition.rowGap === undefined ? 4 : definition.rowGap;
+    const offsets = [0];
+    for (const row of rows) {
+        const height = row[definition.rowHeightField];
+        const next = offsets[offsets.length - 1] + height;
+        if (!Number.isFinite(height) || height <= gap || !Number.isFinite(next))
+            throw Error('Invalid Frame row height: ' + definition.id);
+        offsets.push(next);
+    }
+    return offsets;
+}
+
+export function listBounds(definition, offsets, index) {
+    const gap = definition.rowGap === undefined ? 4 : definition.rowGap;
+    return {
+        y: offsets ? offsets[index] : index * definition.rowHeight,
+        height: offsets
+            ? offsets[index + 1] - offsets[index] - gap
+            : listRowHeight(definition)
+    };
+}
+
+export function listRange(
+    count,
+    rowHeight,
+    viewport,
+    scroll,
+    overscan,
+    offsets = null
+) {
+    const fixed = virtualRange(count, rowHeight, viewport, scroll, overscan);
+    if (!offsets) return fixed;
+    if (offsets.length !== count + 1) throw Error('Invalid Frame row offsets');
+    function boundary(pixel, after) {
+        let first = 0,
+            last = offsets.length;
+        while (first < last) {
+            const middle = Math.floor((first + last) / 2);
+            if (offsets[middle] < pixel || (after && offsets[middle] === pixel))
+                first = middle + 1;
+            else last = middle;
+        }
+        return first;
+    }
+    const first = Math.min(
+        count,
+        Math.max(0, boundary(scroll, true) - 1 - overscan)
+    );
+    return {
+        first,
+        last: Math.max(
+            first,
+            Math.min(count, boundary(scroll + viewport, false) + overscan)
+        ),
+        height: offsets[count]
+    };
 }
 
 export function virtualRange(count, rowHeight, viewport, scroll, overscan) {

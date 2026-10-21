@@ -82,6 +82,19 @@ class TableServiceWorkflows(unittest.TestCase):
         self.click(window,self.item(view,'parallelProcess_0'))
         self.assertEqual(ports.calls[1][2]['actionProcess'],'model')
 
+    def test_parallel_process_children_toggle_without_opening_tasks(self):
+        ports = Ports()
+        cell = dict(steps=1, barHeight=3, groups=[dict(process='__nested', label='ROOT', bars=[],
+            children=[dict(process='child', label='CHILD', bars=[], children=[])])])
+        window, view = self.create('features/table/ServiceCell.qml', dict(controller=frames._TableController(),
+            nodeId='A', services=ports, administration=None, cell=cell), width=600, height=100)
+        self.assertFalse(any(item.property('text') == 'CHILD' for item in frames._visual_items(view)))
+        self.click(window, self.item(view, 'parallelExpand_0'))
+        self.assertTrue(any(item.property('text') == 'CHILD' for item in frames._visual_items(view)))
+        self.click(window, self.item(view, 'parallelExpand_0'))
+        self.assertFalse(any(item.property('text') == 'CHILD' for item in frames._visual_items(view)))
+        self.assertEqual(ports.calls, [])
+
     def test_configured_group_uses_code_and_loaded_focus_owner(self):
         app=Application();admin=Mock(projectLocked=False)
         owner=TableServicesController(app,administration=admin)

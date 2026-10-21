@@ -2,6 +2,7 @@ import QtQuick
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/table/services.ui.mjs" as UI
 import "../../tactic_frame/features/table/drop.ui.mjs" as Drop
+import "../../tactic_frame/features/table/connections.ui.mjs" as ConnectionRows
 
 Frame.FrameView {
     id: root
@@ -21,7 +22,19 @@ Frame.FrameView {
             busy: nestedScope ? nestedScope.model.busy : false
         }
     }), controller.server_url || "")
+    models: ({
+            connectionRows: cell.connectionRows || []
+        })
+    describeRow: (list, record, index) => ConnectionRows.row(record, cell, Math.max(0, list.width - 16), language, editable, controller.server_url || "")
     onEvent: (action, value) => {
+        if (action.name === "remove-connection") {
+            services.request_connection_removal(nodeId, Object.assign({}, cell, {
+                connectionKey: action.connectionKey,
+                expectedRevision: action.expectedRevision,
+                direction: action.direction
+            }));
+            return;
+        }
         if (action.name === "nested-table")
             services.toggle_nested(nodeId, Object.assign({}, cell, {
                 nestedTable: action.nestedTable || cell.nestedTable

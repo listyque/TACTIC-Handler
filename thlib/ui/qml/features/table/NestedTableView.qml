@@ -13,6 +13,7 @@ Item {
     required property var services
     required property var administration
     required property var scope
+    property Component nestedTableFactory: null
     signal closed
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     Frame.FrameView {
@@ -20,20 +21,47 @@ Item {
         theme: root.theme
         scene: UI.describe(root.scope.model, width, height, root.language)
         models: ({
-                rows: root.scope.model.rows || []
+                rows: UI.rows(root.scope.model)
             })
         views: ({
+                nestedTable: {
+                    component: detailComponent,
+                    nodeProps: true
+                },
                 tableCell: {
                     component: cellComponent,
                     nodeProps: true
                 }
             })
-        describeRow: (list, row, index) => UI.row(root.scope.model, row, root.language)
+        describeRow: (list, row, index) => UI.row(root.scope.model, row, root.language, list.width - 16)
         onEvent: (action, value) => {
             if (action.type === "close")
                 root.closed();
             else
                 root.scope.activate(action, value);
+        }
+    }
+    Component {
+        id: detailComponent
+        Item {
+            id: detailHost
+            property var frameNode: ({})
+            property var childView: null
+            readonly property var childScope: root.services ? root.services.nested_row(frameNode.nodeId || "", root.services.nestedRevision) : null
+            function updateView() {
+                if (childView) {
+                    childView.destroy();
+                    childView = null;
+                }
+                if (childScope && root.nestedTableFactory)
+                    childView = root.nestedTableFactory.createObject(detailHost, {
+                        scope: childScope,
+                        width: Qt.binding(() => detailHost.width),
+                        height: Qt.binding(() => detailHost.height)
+                    });
+            }
+            onChildScopeChanged: updateView()
+            Component.onCompleted: updateView()
         }
     }
     Component {

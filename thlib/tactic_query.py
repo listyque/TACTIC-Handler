@@ -8483,6 +8483,16 @@ def query_table_layout(search_type, search_keys=None, view='table',
         }
         if set(options) - allowed:
             raise ValueError('Unsupported nested table options: ' + ', '.join(sorted(set(options) - allowed)))
+        for flag in ('show_search_limit', 'show_insert', 'show_row_select', 'show_select',
+                     'show_gear', 'show_search', 'show_shelf'):
+            if options.get(flag, '') not in ('', True, False, 'true', 'false'):
+                raise ValueError('Invalid nested table display option: ' + flag)
+        # shortcut: nested column authoring awaits the scoped Columns editor; never ignore an explicit request.
+        if options.get('show_gear') in (True, 'true'):
+            raise ValueError('Nested column authoring is not available yet')
+        if options.get('init_load_num') not in (None, '', 'null'):
+            if str(options['init_load_num']) != '-1' and not str(options['init_load_num']).isdecimal():
+                raise ValueError('Invalid initial row rendering limit')
         handler = options.get('dynamic_class') or options.get('dynamic') or 'tactic.ui.panel.TableLayoutWdg'
         if handler in ('tactic.ui.table.CustomLayoutElementWdg', 'tactic.ui.panel.CustomLayoutWdg'):
             if layout_reader is None:
@@ -8508,10 +8518,157 @@ def query_table_layout(search_type, search_keys=None, view='table',
                         view=view, parentKey=search_key,
                         selection=options.get('show_row_select', options.get('show_select')) not in (False, 'false'),
                         insert=options.get('show_insert') not in (False, 'false'),
+                        shelf=options.get('show_shelf') not in (False, 'false'),
+                        search=options.get('show_search') not in (False, 'false'),
+                        searchLimit=options.get('show_search_limit') not in (False, 'false'),
                         expression=options.get('expression') or ''),
                     actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
 
+    connection_cache = {}
+    def read_connection_cells(search_keys, direction='dst', icon_size=60):
+        import hashlib
+        import json
+        from pyasm.biz import Project, SObjectConnection
+        from pyasm.common import Environment
+        from pyasm.search import Search, SearchKey
+        from pyasm.widget import ThumbWdg
+
+        if not Environment.get_security().is_admin():
+            raise PermissionError('Administration requires administrator access')
+        if direction not in ('src', 'dst'):
+            raise ValueError('Invalid connection direction')
+        if type(icon_size) is not int or not 16 <= icon_size <= 256:
+            raise ValueError('Invalid connection icon size')
+        if not isinstance(search_keys, list) or len(search_keys) > 500:
+            raise ValueError('Invalid connection table scope')
+        project = Project.get_project_code()
+        for key in search_keys:
+            if not isinstance(key, str) or SearchKey.extract_project(key) not in (None, '', 'sthpw', 'admin', project):
+                raise ValueError('The configured table target belongs to another project')
+        parents = Search.get_by_search_keys(search_keys, keep_order=True)
+        if len(parents) != len(search_keys) or any(parent is None for parent in parents):
+            raise LookupError('Object is no longer available')
+        private_types = ('sthpw/message', 'sthpw/message_log')
+        if any(parent.get_base_search_type() in private_types for parent in parents):
+            raise ValueError('Open private messages from Messages')
+        grouped = {}
+        connections = {}
+        result = {}
+        for parent in parents:
+            key = parent.get_search_key()
+            result[key] = dict(text='', targetSearchKey=key, direction=direction, iconSize=icon_size, connectionRows=[])
+            if parent.get_base_search_type() == 'sthpw/connection':
+                if parent.get_value('project_code') == project:
+                    connections[key] = [(parent, direction)]
+            else:
+                grouped.setdefault(parent.get_search_type(), []).append(parent)
+        for search_type, group in grouped.items():
+            query = Search(SObjectConnection)
+            query.add_filter('project_code', project)
+            query.add_filter(direction + '_search_type', search_type)
+            query.add_filters(direction + '_search_id', [parent.get_id() for parent in group])
+            by_id = {parent.get_id(): parent.get_search_key() for parent in group}
+            for connection in query.get_sobjects():
+                key = by_id[connection.get_value(direction + '_search_id')]
+                connections.setdefault(key, []).append((connection, 'src' if direction == 'dst' else 'dst'))
+        target_groups = {}
+        for group in connections.values():
+            for connection, endpoint in group:
+                search_type = connection.get_value(endpoint + '_search_type')
+                if SearchKey.extract_base_search_type(search_type) in private_types:
+                    raise ValueError('Open private messages from Messages')
+                target_groups.setdefault(search_type, set()).add(connection.get_value(endpoint + '_search_id'))
+        targets = {}
+        for search_type, identities in target_groups.items():
+            for target in Search.get_by_id(search_type, list(identities)):
+                targets[(search_type, target.get_id())] = target
+        thumbs = list({target.get_search_key(): target for target in targets.values()}.values())
+        thumb = ThumbWdg(name='preview')
+        thumb.set_sobjects(thumbs)
+        thumb.preprocess()
+        previews = {}
+        for index, target in enumerate(thumbs):
+            thumb.set_current_index(index)
+            if hasattr(thumb, 'get_cell_value'):
+                previews[target.get_search_key()] = thumb.get_cell_value()
+            else:
+                from urllib.parse import unquote, urlsplit
+                link = thumb.get_data(target) or ''
+                image = thumb.info.get('icon') or thumb.info.get('web') or link
+                if urlsplit(image).path.lower().rsplit('.', 1)[-1] not in ('png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'):
+                    image = ''
+                previews[target.get_search_key()] = dict(image=image, text=link,
+                    filename=unquote(urlsplit(link).path.rsplit('/', 1)[-1]))
+        for parent_key, group in connections.items():
+            for connection, endpoint in group:
+                target = targets.get((connection.get_value(endpoint + '_search_type'), connection.get_value(endpoint + '_search_id')))
+                revision = hashlib.sha256(json.dumps(connection.get_data(), sort_keys=True, default=str).encode()).hexdigest()
+                row = dict(connectionKey=connection.get_search_key(), expectedRevision=revision, available=target is not None)
+                if target is not None:
+                    target_key = target.get_search_key()
+                    row.update(searchKey=target_key, code=target.get_code(),
+                        name=target.get_value('name', no_exception=True) or target.get_display_value(),
+                        description=target.get_value('title', no_exception=True) or target.get_value('description', no_exception=True) or '',
+                        keywords=target.get_value('keywords', no_exception=True) or '',
+                        retired=target.is_retired(), preview=previews[target_key])
+                result[parent_key]['connectionRows'].append(row)
+        return result
+
+    def read_summary_cell(search_key):
+        """Original summary values, using bounded SQL aggregates instead of all hours."""
+        from pyasm.biz import Project
+        from pyasm.common import Environment
+        from pyasm.search import Search, SearchKey
+
+        if not Environment.get_security().is_admin():
+            raise PermissionError('Administration requires administrator access')
+        if SearchKey.extract_project(search_key) not in (None, '', 'sthpw', 'admin', Project.get_project_code()):
+            raise ValueError('The configured table target belongs to another project')
+        parent = Search.get_by_search_key(search_key)
+        if parent is None:
+            raise LookupError('Object is no longer available')
+        if parent.get_base_search_type() in ('sthpw/message', 'sthpw/message_log'):
+            raise ValueError('Open private messages from Messages')
+        is_project = parent.get_base_search_type() == 'sthpw/project'
+        project = parent.get_code() if is_project else Project.get_project_code()
+        result = []
+        for search_type, label, icon in (
+                ('sthpw/task', 'Tasks', 'task'),
+                ('sthpw/snapshot', 'Checkins', 'upload'),
+                ('sthpw/note', 'Notes', 'comment'),
+                ('sthpw/work_hour', 'Work Hours', 'schedule')):
+            search = Search(search_type)
+            search.add_filter('project_code', project)
+            if not is_project:
+                search.add_parent_filter(parent)
+            if search_type == 'sthpw/work_hour':
+                search.add_column('SUM(straight_time)', quoted=False, as_column='total')
+                aggregate = search.get_sobject()
+                value = aggregate.get_value('total') if aggregate else 0
+            else:
+                value = search.get_count()
+            entry = dict(label=label, icon=icon, value=str(value or 0))
+            if search_type in ('sthpw/task', 'sthpw/snapshot'):
+                entry['nestedTable'] = dict(searchType=search_type, view='table', parentKey=search_key,
+                    projectCode=project, selection=True, insert=False, shelf=False)
+            result.append(entry)
+        return dict(text='', targetSearchKey=search_key, summary=result)
+
     def action_cell_values(class_name, column, sobject, widget):
+        if class_name.endswith('.SObjectSummaryElementWdg'):
+            return read_summary_cell(SearchKey.get_by_sobject(sobject))
+        if class_name == 'pyasm.widget.sobject_browser_wdg.SObjectConnectionElement':
+            native = getattr(widget, 'get_cell_value', None)
+            if native:
+                return native()
+            options = column.get('displayOptions') or {}
+            direction = options.get('direction') or 'dst'
+            icon_size = int(options.get('icon_size') or 60)
+            cache_key = (direction, icon_size)
+            if cache_key not in connection_cache:
+                connection_cache[cache_key] = read_connection_cells(
+                    [SearchKey.get_by_sobject(item) for item in sobjects], direction, icon_size)
+            return connection_cache[cache_key][SearchKey.get_by_sobject(sobject)]
         if class_name == 'tactic.ui.table.table_element_wdg.CheckoutButtonElementWdg':
             if sobject.get_base_search_type() != 'sthpw/snapshot':
                 raise ValueError('Check out requires a snapshot')

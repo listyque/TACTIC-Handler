@@ -16,7 +16,10 @@ Flickable {
     property bool interactiveContent: true
     property var records: []
     property var recordPositions: new Map()
-    property string keyField: node.keyField
+    property string keyField: ""
+    property var rowOffsets: null
+    property real fixedRowHeight: 0
+    property real rowsHeight: 0
     property bool ready: false
     property bool updating: false
     property var displayScene: ({
@@ -44,17 +47,22 @@ Flickable {
     function replaceRecords() {
         const rows = sourceRows || [];
         const indexes = Contract.recordIndex(rows, node.keyField);
+        const offsets = Contract.listOffsets(node, rows);
         const key = focusedKey();
         let offset = contentY;
         if (key !== null && indexes.has(String(key))) {
             const previous = recordPositions.get(String(key));
             if (previous !== undefined)
-                offset += (indexes.get(String(key)) - previous) * node.rowHeight;
+                offset += (offsets ? offsets[indexes.get(String(key))] : indexes.get(String(key)) * node.rowHeight) - (rowOffsets ? rowOffsets[previous] : previous * fixedRowHeight);
         }
         updating = true;
         records = rows;
         recordPositions = indexes;
-        contentY = Math.max(0, Math.min(offset, Math.max(0, rows.length * node.rowHeight - height)));
+        rowOffsets = offsets;
+        fixedRowHeight = node.rowHeight;
+        keyField = node.keyField;
+        rowsHeight = offsets ? offsets[rows.length] : rows.length * node.rowHeight;
+        contentY = Math.max(0, Math.min(offset, Math.max(0, contentHeight - height)));
         updating = false;
         refreshScene();
     }
@@ -63,12 +71,13 @@ Flickable {
             displayScene = rowScene();
     }
     function rowScene() {
-        const range = Contract.virtualRange(records.length, node.rowHeight, height, contentY, 3);
+        const range = Contract.listRange(records.length, node.rowHeight, height, contentY, 3, rowOffsets);
         const nodes = [];
         for (let index = range.first; index < range.last; index++) {
             const record = records[index];
             const key = String(record[node.keyField]);
-            nodes.push(Contract.node("Box", "row:" + key, Contract.rect(0, index * node.rowHeight, Math.max(0, width - 16), Contract.listRowHeight(node)), {
+            const bounds = Contract.listBounds(node, rowOffsets, index);
+            nodes.push(Contract.node("Box", "row:" + key, Contract.rect(0, bounds.y, Math.max(0, width - 16), bounds.height), {
                 recordKey: key,
                 background: "transparent",
                 children: describeRow(node, record, index).nodes
@@ -86,7 +95,7 @@ Flickable {
             return body.focusListRow(id, row, controlId);
         if (row < 0 || row >= count)
             return false;
-        contentY = Contract.revealListOffset(contentY, row, height, count, node.rowHeight, node.rowGap === undefined ? 4 : node.rowGap);
+        contentY = Contract.revealListOffset(contentY, row, height, count, node.rowHeight, node.rowGap === undefined ? 4 : node.rowGap, rowOffsets);
         refreshScene();
         Qt.callLater(() => body.focusControl(controlId));
         return true;
@@ -103,7 +112,7 @@ Flickable {
     Accessible.name: node.label || ""
     clip: true
     contentWidth: width
-    contentHeight: records.length * node.rowHeight
+    contentHeight: rowsHeight
     boundsBehavior: Flickable.StopAtBounds
     onSourceRowsChanged: if (ready)
         replaceRecords()

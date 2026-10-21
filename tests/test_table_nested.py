@@ -146,3 +146,112 @@ class NestedTableTests(unittest.TestCase):
         self.assertTrue(scope._reload_timer.isActive())
         self.assertEqual(scope.model['selected'], [key])
         scope.shutdown()
+
+    def test_recursive_scopes_keep_selection_and_cache_and_hide_closed_descendants(self):
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from thlib.ui.table.services import TableServicesController
+        import tests.test_table_service_workflows as workflows
+        app = workflows.Application()
+        owner = TableServicesController(app)
+        self.addCleanup(owner.shutdown)
+        parent = dict(searchType='demo/asset', view='parent', parentKey=app.node.search_key)
+        child = dict(parent, view='child')
+        columns = [dict(name='code', title='Code', width=160, cell=dict(kind='text')),
+            dict(name='expand', title='Details', width=100, cell=dict(kind='commands'))]
+        with patch('thlib.ui.table.nested.NestedTableController.reload') as load:
+            owner.toggle_nested('A', dict(columnName='parent', nestedTable=parent))
+            scope = owner.nested_row('A')
+            key = 'demo/asset?code=B'
+            identity = 'nested:parent:' + key
+            scope._nodes[identity] = SimpleNamespace(search_key=key)
+            scope._model.update(loaded=True, columns=columns, rows=[dict(key=key, nodeId=identity,
+                record=dict(code='B'),cells=dict(code=dict(text='B'),expand=dict(nestedTable=child,
+                    actions=[dict(name='nested-table',label='Show related table',icon='chevron-right')])) )])
+            fixture = Path(__file__).parent / 'fixtures/frame_controls/NestedRecursive.qml'
+            window, view = self.create(str(fixture.resolve()),dict(controller=_TableController(),
+                columnsController=_TableColumns(),services=owner,scope=scope),width=600,height=320)
+            self.click(window,self.item(view,'tableServiceAction_0'))
+            branch = owner.nested_row(identity)
+            self.assertIsNotNone(branch)
+            branch_key = 'demo/asset?code=C'
+            branch_id = 'nested:child:' + branch_key
+            branch._nodes[branch_id] = SimpleNamespace(search_key=branch_key)
+            branch._model.update(loaded=True,columns=columns,rows=[dict(key=branch_key,nodeId=branch_id,
+                record=dict(code='C'),cells=dict(code=dict(text='C')))])
+            branch.changed.emit()
+            self.app.processEvents()
+            self.assertIs(owner.scope_for(branch_id),branch)
+            branch.activate(dict(type='select',key=branch_key))
+            self.assertEqual(scope.model['selected'],[])
+            self.assertEqual(branch.model['selected'],[branch_key])
+            with patch.object(owner,'report_error') as error:
+                owner.toggle_nested(branch_id,dict(columnName='cycle',nestedTable=parent))
+                error.assert_called_once_with('This nested table would repeat an ancestor scope')
+            owner.close_nested(scope)
+            self.assertIsNone(owner.scope_for(branch_id))
+            self.assertIsNone(owner.nested_row(identity))
+            count=load.call_count
+            owner.toggle_nested('A',dict(columnName='parent',nestedTable=parent))
+            self.assertEqual(load.call_count,count)
+            self.assertIs(owner.nested_row(identity),branch)
+            self.assertEqual(branch.model['selected'],[branch_key])
+            scope._model['rows'][0]['cells']['expand'] = dict(summary=[dict(label=label,value='2',icon='task',
+                nestedTable=dict(parent,searchType=stype)) for stype,label in (('sthpw/task','Tasks'),('sthpw/snapshot','Checkins'))])
+            scope.changed.emit()
+            self.app.processEvents()
+            self.click(window,self.item(view,'tableSummary_0'))
+            self.assertEqual(owner.nested_row(identity).descriptor['searchType'],'sthpw/task')
+            self.click(window,self.item(view,'tableSummary_1'))
+            self.assertEqual(owner.nested_row(identity).descriptor['searchType'],'sthpw/snapshot')
+            owner.shutdown()
+            self.app.processEvents()
+
+    def test_summary_buttons_switch_between_task_and_snapshot_scopes(self):
+        from unittest.mock import patch
+        from thlib.ui.table.services import TableServicesController
+        import tests.test_table_service_workflows as workflows
+        app=workflows.Application()
+        owner=TableServicesController(app)
+        self.addCleanup(owner.shutdown)
+        summary=[dict(label=label,value='2',icon='task',nestedTable=dict(
+            searchType=kind,view='table',parentKey=app.node.search_key,projectCode='demo'))
+            for kind,label in (('sthpw/task','Tasks'),('sthpw/snapshot','Checkins'))]
+        summary.extend([dict(label='Notes',value='3',icon='comment'),dict(label='Work Hours',value='2.5',icon='schedule')])
+        with patch('thlib.ui.table.nested.NestedTableController.reload'):
+            window,view=self.create('features/table/ServiceCell.qml',dict(controller=_TableController(),
+                nodeId='A',services=owner,administration=None,cell=dict(summary=summary)),width=220,height=118)
+            label=self.item(view,'tableSummaryText_0')
+            self.assertEqual(label.property('text'),'Tasks: 2')
+            self.assertGreater(label.property('paintedWidth'),0)
+            self.click(window,self.item(view,'tableSummary_0'))
+            self.assertEqual(owner.nested_row('A').descriptor['searchType'],'sthpw/task')
+            self.click(window,self.item(view,'tableSummary_1'))
+            self.assertEqual(owner.nested_row('A').descriptor['searchType'],'sthpw/snapshot')
+            owner.shutdown()
+            self.app.processEvents()
+
+    def test_sortable_nested_headers_have_a_visible_label_and_first_click_sort(self):
+        scope=Scope()
+        scope.state['columns'][0]['sortable']=True
+        window,view=self.create('features/table/NestedTableView.qml',dict(controller=_TableController(),
+            columnsController=_TableColumns(),userModel=None,services=None,administration=None,scope=scope),width=600,height=320)
+        label=self.item(view,'nestedHeaderText_name')
+        self.assertEqual(label.property('text'),'Name')
+        self.assertGreater(label.property('paintedWidth'),0)
+        self.click(window,self.item(view,'nestedHeader_name'))
+        self.assertEqual(scope.events[-1][0],dict(type='sort',value='name'))
+
+    def test_connection_confirmation_captures_the_nested_project(self):
+        from unittest.mock import patch,Mock
+        from types import SimpleNamespace
+        from thlib.ui.table.services import TableServicesController
+        import tests.test_table_service_workflows as workflows
+        app=workflows.Application()
+        owner=TableServicesController(app)
+        self.addCleanup(owner.shutdown)
+        with patch.object(owner,'scope_for',return_value=SimpleNamespace(descriptor=dict(projectCode='two'))),patch('thlib.tactic_classes.server_start',return_value=Mock()) as server:
+            owner.request_connection_removal('nested:row',dict(connectionKey='sthpw/connection?code=C'))
+        server.assert_called_once_with(project='two')
+        owner.confirm_connection_removal(False)

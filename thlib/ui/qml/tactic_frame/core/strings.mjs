@@ -1,5 +1,25 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Object summary': 'Сводка объекта',
+    Connections: 'Связи',
+    'No connections': 'Нет связей',
+    'Object is unavailable': 'Объект недоступен',
+    'Remove connection': 'Удалить связь',
+    'Remove this connection? The connected objects will be kept.':
+        'Удалить эту связь? Связанные объекты будут сохранены.',
+    'Invalid connection direction': 'Недопустимое направление связи',
+    'Invalid connection icon size': 'Недопустимый размер миниатюры связи',
+    'Invalid connection table scope':
+        'Недопустимый набор объектов для таблицы связей',
+    'Select a connection before removing it': 'Перед удалением выберите связь',
+    'Reload the connection before removing it':
+        'Перед удалением обновите связь',
+    'The connection belongs to another project':
+        'Связь относится к другому проекту',
+    'Connection changed. Reload before removing it.':
+        'Связь изменилась. Перед удалением обновите её.',
+    'Could not confirm removal of the connection':
+        'Не удалось подтвердить удаление связи',
     'Check out': 'Получить файлы',
     'Cancel transfer': 'Отменить передачу',
     Files: 'Файлы',
@@ -4253,6 +4273,8 @@ const russian = {
     'Team Hours': 'Часы команды',
     'Team member': 'Участник команды',
     'Transaction XML': 'XML транзакции',
+    'This nested table would repeat an ancestor scope':
+        'Эта вложенная таблица повторяет область родительской таблицы',
     Underline: 'Подчёркнутый',
     Visual: 'Визуально',
     Week: 'Неделя',

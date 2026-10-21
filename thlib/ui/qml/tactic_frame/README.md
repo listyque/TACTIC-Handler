@@ -71,6 +71,16 @@ starting. B01 acceptance lives in `tools/frame_workspace` (whole-root comparison
 to the required platform gate. Screen contents and full control-family parity
 remain the following batches.
 
+Array-backed `List` nodes may declare `rowHeightField` in `fields`. Each record
+then supplies a finite positive total extent (including the gap); fixed lists
+retain their constant-height fast path. Both renderers share prefix boundaries,
+binary viewport lookup and focused-row scroll correction. An expanded nested
+row owns its normal header plus one child viewport; hidden children do not
+materialize controls. Qt model roles for variable extents are explicitly rejected
+until a caller needs them. `frame_variable_rows_state.mjs`, the browser input
+driver and native `test_frame_variable_rows` cover boundaries, 10k records and
+focus retention when a preceding row expands.
+
 Lists default to a four-pixel row gap; `rowGap` preserves a different existing
 spacing, such as Help's three pixels. `listRowHeight` is shared by both adapters,
 and validation rejects a negative gap or one that consumes the entire row.

@@ -6,7 +6,7 @@ order: 36
 
 # Table View: B07 typed cells
 
-B07 is still in progress. The catalogue contains 68 server classes and 163 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+B07 is still in progress. The catalogue contains 70 server classes and 168 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
 
 ## Snapshot attachments
 
@@ -94,7 +94,7 @@ agreed excluded pyasm.prod subsystem. Slash subcontexts in old setting choices
 and CGI filter state are not implemented; modern Discussion supports an explicit
 context option. `scroll=false` is an old HTML layout hint; the modern owner keeps
 its shared scrollbar. Unknown options stay explicit rather than being ignored.
-The current shipped/CG census has 54 adapted / 20 pending classes. B07 is open.
+That earlier checkpoint had 54 adapted / 20 pending referenced classes. See the active checklist for the current census; B07 is open.
 
 ### L02: paired cell examples
 
@@ -466,7 +466,7 @@ operations, bottom totals or file actions. The combined second stage remains ope
 
 
 The current expanded surface uses a fixed 50-record page and 320-pixel viewport.
-The full shelf/gear/search-limit and initial-load options are not accepted yet.
+Shelf/search/paging and selection flags now hide their controls. `init_load_num` is a rendering hint replaced by viewport virtualization; it never changes the 50-record page. Explicit `show_gear=true` remains an error until nested Columns authoring is ready.
 
 Paired examples from this checkpoint (identical data, MD3 dark):
 
@@ -475,3 +475,37 @@ Paired examples from this checkpoint (identical data, MD3 dark):
 | `nested` | ![Handler nested](media/frame-table-stage2-nested-th-en.png) | ![Stream nested](media/frame-table-stage2-nested-ts-en.png) |
 | `schedule` | ![Handler schedule](media/frame-table-stage2-schedule-th-en.png) | ![Stream schedule](media/frame-table-stage2-schedule-ts-en.png) |
 | `hours` | ![Handler hours](media/frame-table-stage2-hours-th-en.png) | ![Stream hours](media/frame-table-stage2-hours-ts-en.png) |
+
+
+## Connections, nested tables and summary
+
+The connection cell shows incoming (`dst`) or outgoing (`src`) targets, previews,
+filenames and retired/missing records. Remove connection asks for confirmation,
+checks the latest revision and preserves both objects. An uncertain response
+refreshes the list before another operation.
+
+```xml
+<element name="connections" width="400">
+  <display class="pyasm.widget.SObjectConnectionElement">
+    <direction>dst</direction><icon_size>60</icon_size>
+  </display>
+</element>
+<element name="summary" width="200">
+  <display class="tactic.ui.table.SObjectSummaryElementWdg"/>
+</element>
+```
+
+The summary shows tasks, check-ins, notes and straight-time hours. Task/check-in
+buttons expand their own configured tables. Project summaries use the selected
+project, including its table/editor/script context. Nested tables may expand more
+nested tables; a repeated ancestor scope is rejected. Each level keeps its own
+selection and loaded rows, so reopening it does not wait for another server read.
+These workflows currently accept administrator scope. Stage 2/B07 remains open.
+
+
+Current matching examples (MD3, dark, test data):
+
+| Cell | Handler | Stream |
+| --- | --- | --- |
+| Summary | ![Handler](media/frame-table-object_summary-native-en.png) | ![Stream](media/frame-table-object_summary-stream-en.png) |
+| Connections | ![Handler](media/frame-table-object_connections-native-en.png) | ![Stream](media/frame-table-object_connections-stream-en.png) |

@@ -5241,5 +5241,20 @@
   "Sun": "Вс",
   "Save or discard time-entry changes before switching tasks.": "Сохраните или отмените изменения рабочих часов перед сменой задачи.",
   "Recursive nested tables are not available yet.": "Рекурсивные вложенные таблицы пока недоступны.",
-  "Choose at most 500 table records": "Выберите не более 500 строк таблицы"
+  "Choose at most 500 table records": "Выберите не более 500 строк таблицы",
+  "Connections": "Связи",
+  "No connections": "Нет связей",
+  "Object is unavailable": "Объект недоступен",
+  "Remove connection": "Удалить связь",
+  "Remove this connection? The connected objects will be kept.": "Удалить эту связь? Связанные объекты будут сохранены.",
+  "Invalid connection direction": "Недопустимое направление связи",
+  "Invalid connection icon size": "Недопустимый размер миниатюры связи",
+  "Invalid connection table scope": "Недопустимый набор объектов для таблицы связей",
+  "Select a connection before removing it": "Перед удалением выберите связь",
+  "Reload the connection before removing it": "Перед удалением обновите связь",
+  "The connection belongs to another project": "Связь относится к другому проекту",
+  "Connection changed. Reload before removing it.": "Связь изменилась. Перед удалением обновите её.",
+  "Could not confirm removal of the connection": "Не удалось подтвердить удаление связи",
+  "This nested table would repeat an ancestor scope": "Эта вложенная таблица повторяет область родительской таблицы",
+  "Object summary": "Сводка объекта"
 }

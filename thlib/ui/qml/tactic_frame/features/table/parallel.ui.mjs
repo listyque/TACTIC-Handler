@@ -115,28 +115,30 @@ export function describe(cell, width, height, language, expanded = {}) {
                         )
                     );
             }
-            children.push(
-                node(
-                    'Action',
-                    'parallelProcess_' + index,
-                    rect(left, top + steps * barHeight + 1, extent, 28),
-                    {
-                        text: '',
-                        tooltip:
-                            translate('Open tasks', language) +
-                            ' · ' +
-                            group.label,
-                        action: {
-                            type: 'service',
-                            name: 'task-details',
-                            process:
-                                (group.bars || [])[0]?.process || group.process
-                        },
-                        background: 'transparent',
-                        radius: 0
-                    }
-                )
-            );
+            if (!group.children?.length)
+                children.push(
+                    node(
+                        'Action',
+                        'parallelProcess_' + index,
+                        rect(left, top + steps * barHeight + 1, extent, 28),
+                        {
+                            text: '',
+                            tooltip:
+                                translate('Open tasks', language) +
+                                ' · ' +
+                                group.label,
+                            action: {
+                                type: 'service',
+                                name: 'task-details',
+                                process:
+                                    (group.bars || [])[0]?.process ||
+                                    group.process
+                            },
+                            background: 'transparent',
+                            radius: 0
+                        }
+                    )
+                );
             index++;
             left += extent;
             if (expanded[identity]) append(group.children || [], identity);

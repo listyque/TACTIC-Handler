@@ -704,5 +704,26 @@
       "tactic.ui.table.table_element_wdg.CheckoutButtonElementWdg"
     ],
     "adapter": "commands"
+  },
+  {
+    "value": "pyasm.widget.SObjectConnectionElement",
+    "label": "Connections",
+    "class": "pyasm.widget.sobject_browser_wdg.SObjectConnectionElement",
+    "aliases": [
+      "SObjectConnectionElement",
+      "pyasm.widget.SObjectConnectionElement",
+      "pyasm.widget.sobject_browser_wdg.SObjectConnectionElement"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.sobject_summary_wdg.SObjectSummaryElementWdg",
+    "label": "Object summary",
+    "class": "tactic.ui.table.sobject_summary_wdg.SObjectSummaryElementWdg",
+    "aliases": [
+      "tactic.ui.table.sobject_summary_wdg.SObjectSummaryElementWdg",
+      "tactic.ui.table.SObjectSummaryElementWdg"
+    ],
+    "adapter": "commands"
   }
 ]

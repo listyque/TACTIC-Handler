@@ -4,6 +4,7 @@ import * as Parallel from './parallel.ui.mjs';
 import * as Drop from './drop.ui.mjs';
 import * as Layout from './layout.ui.mjs';
 import * as Time from './time.ui.mjs';
+import * as Connections from './connections.ui.mjs';
 
 export function describe(
     cell,
@@ -14,6 +15,9 @@ export function describe(
     expanded = {},
     server = ''
 ) {
+    if (cell.summary) return summary(cell, width, height, language);
+    if (cell.connectionRows)
+        return Connections.describe(cell, width, height, language);
     if (cell.timeline) return Time.timeline(cell, width, height, language);
     if (cell.timeDays) return Time.hours(cell, width, height, language);
     if (cell.layoutNodes)
@@ -96,6 +100,52 @@ export function describe(
                     children
                 }
             )
+        ]
+    };
+}
+
+function summary(cell, width, height, language) {
+    const nodes = [];
+    cell.summary.forEach((entry, index) => {
+        const top = index * 28;
+        const text = translate(entry.label, language) + ': ' + entry.value;
+        const contents = [
+            node('Icon', 'tableSummaryIcon_' + index, rect(8, 4, 20, 20), {
+                icon: entry.icon,
+                color: 'secondaryText'
+            }),
+            label(
+                'tableSummaryText_' + index,
+                rect(36, 0, Math.max(0, width - 60), 28),
+                text
+            )
+        ];
+        nodes.push(
+            node(
+                entry.nestedTable ? 'Action' : 'Box',
+                'tableSummary_' + index,
+                rect(0, top, Math.max(0, width - 16), 28),
+                {
+                    text,
+                    children: contents,
+                    action: entry.nestedTable
+                        ? {
+                              type: 'service',
+                              name: 'nested-table',
+                              nestedTable: entry.nestedTable
+                          }
+                        : null
+                }
+            )
+        );
+    });
+    return {
+        nodes: [
+            node('Scroll', 'tableSummary', rect(0, 0, width, height), {
+                children: nodes,
+                contentHeight: cell.summary.length * 28,
+                scrollbarId: 'tableSummaryScrollBar'
+            })
         ]
     };
 }

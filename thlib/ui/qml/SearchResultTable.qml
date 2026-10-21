@@ -20,6 +20,7 @@ Item {
     Component {
         id: nestedTableComponent
         Table.NestedTableView {
+            nestedTableFactory: nestedTableComponent
             theme: root.theme
             controller: root.controller
             columnsController: root.columnsController

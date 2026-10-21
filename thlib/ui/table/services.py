@@ -76,6 +76,8 @@ class TableServicesController(QObject):
     scriptCommands = Signal('QVariantList')
     scriptProgress = Signal(str, str)
 
+    connectionRemovalOpened = Signal()
+    connectionRemovalClosed = Signal()
     nestedChanged = Signal()
 
     def __init__(self, application, parent=None, *, administration=None, tasks=None, scripts=None, links=None):
@@ -88,6 +90,7 @@ class TableServicesController(QObject):
         self._error = ''
         self._uncertain = False
         self._preference = {}
+        self._connection_removal = None
         self._server = None
         self._script_session = None
         self._links = links
@@ -141,7 +144,7 @@ class TableServicesController(QObject):
                 scope.shutdown()
                 scope.deleteLater()
                 del self._nested_scopes[key]
-            elif scope.tab is self._application._current_tab() and scope.open and scope._pending_reload:
+            elif self.scope_visible(scope) and scope._pending_reload:
                 scope._reload_timer.start(0)
         self._nested_revision += 1
         self.nestedChanged.emit()
@@ -153,9 +156,25 @@ class TableServicesController(QObject):
                 if scope.open and scope.tab is self._application._current_tab():
                     scope._reload_timer.start(0)
 
-    def scope_for(self, identity):
+    def _owner_scope(self, identity):
         return next((scope for scope in self._nested_scopes.values()
             if scope.tab is self._application._current_tab() and scope.node_for(identity)), None)
+
+    def scope_visible(self, scope):
+        seen = set()
+        while scope is not None:
+            if id(scope) in seen or not scope.open or scope.tab is not self._application._current_tab():
+                return False
+            seen.add(id(scope))
+            owner = self._owner_scope(scope.owner_node_id)
+            if owner is None and scope.owner_node_id.startswith('nested:'):
+                return False
+            scope = owner
+        return True
+
+    def scope_for(self, identity):
+        scope = self._owner_scope(identity)
+        return scope if scope and self.scope_visible(scope) else None
 
     def node_for(self, identity):
         scope = self.scope_for(identity)
@@ -164,17 +183,33 @@ class TableServicesController(QObject):
     @Slot(str, int, result=QObject)
     def nested_row(self, node_id, revision=0):
         return next((scope for scope in self._nested_scopes.values()
-            if scope.tab is self._application._current_tab() and scope.owner_node_id == node_id and scope.open), None)
+            if scope.owner_node_id == node_id and self.scope_visible(scope)), None)
+
+    def _nested_changed(self):
+        for scope in self._nested_scopes.values():
+            if not self.scope_visible(scope):
+                scope.suspend()
+            elif scope._pending_reload:
+                scope._reload_timer.start(0)
+        self._nested_revision += 1
+        self.nestedChanged.emit()
 
     @Slot(str, 'QVariantMap')
     def toggle_nested(self, node_id, cell):
         from .nested import NestedTableController
         if not isinstance(cell.get('nestedTable'), dict):
             return
-        if self.scope_for(node_id) is not None:
-            self.report_error(self.tr('Recursive nested tables are not available yet.'))
-            return
         descriptor = cell['nestedTable']
+        ancestor = self.scope_for(node_id)
+        def identity(value):
+            return (value.get('projectCode') or self._application._current_project_code,
+                value.get('searchType') or '', value.get('view') or 'table',
+                value.get('parentKey') or '', value.get('expression') or '')
+        while ancestor is not None:
+            if identity(ancestor.descriptor) == identity(descriptor):
+                self.report_error(self.tr('This nested table would repeat an ancestor scope'))
+                return
+            ancestor = self._owner_scope(ancestor.owner_node_id)
         tab = self._application._current_tab()
         key = (id(tab), node_id, str(cell.get('columnName') or ''))
         scope = self._nested_scopes.get(key)
@@ -192,8 +227,7 @@ class TableServicesController(QObject):
             if sibling.tab is tab and sibling.owner_node_id == node_id:
                 sibling.open = False
         scope.open = opening
-        self._nested_revision += 1
-        self.nestedChanged.emit()
+        self._nested_changed()
         if opening and (not scope.model.get('loaded') or scope._pending_reload):
             scope.reload()
 
@@ -201,8 +235,7 @@ class TableServicesController(QObject):
     def close_nested(self, scope):
         if scope in self._nested_scopes.values():
             scope.open = False
-            self._nested_revision += 1
-            self.nestedChanged.emit()
+            self._nested_changed()
 
     @Property(bool, notify=stateChanged)
     def busy(self):
@@ -274,6 +307,48 @@ class TableServicesController(QObject):
                 self.cancel_preference()
                 self.completed.emit(str(cell.get('targetSearchKey') or ''))
         self._run(operation, saved)
+
+    @Slot(str, 'QVariantMap')
+    def request_connection_removal(self, node_id: str, cell: dict) -> None:
+        if self.busy or not self._application.can_manage_tools:
+            return
+        node = self._application._node_for_any(node_id)
+        if node is None:
+            return
+        from thlib import tactic_classes as tc
+        try:
+            scope = self.scope_for(node_id)
+            project = (scope.descriptor.get('projectCode') if scope else '') or self._application._current_project_code
+            server = tc.server_start(project=project)
+        except PermissionError as error:
+            self.report_error(str(error))
+            return
+        self._connection_removal = dict(server=server, tab=self._application._current_tab(),
+            values=dict(parent_key=cell.get('targetSearchKey') or node.search_key,
+                connection_key=cell.get('connectionKey'), expected_revision=cell.get('expectedRevision'),
+                direction=cell.get('direction') or 'dst'))
+        self.connectionRemovalOpened.emit()
+
+    @Slot(bool)
+    def confirm_connection_removal(self, accepted: bool) -> None:
+        if self.busy:
+            return
+        request, self._connection_removal = self._connection_removal, None
+        self.connectionRemovalClosed.emit()
+        if not accepted or request is None:
+            return
+        if request['tab'] is not self._application._current_tab():
+            self.report_error(self.tr('The source tab changed. Table action results were not opened.'))
+            return
+        from thlib import tactic_classes as tc
+        from .requests import remove_connection
+        server, values = request['server'], request['values']
+        def removed(result):
+            if result.get('state') != 'removed':
+                raise ValueError('Could not confirm removal of the connection')
+        self._run(lambda: tc.execute_procedure_serverside(remove_connection, values,
+            project=server.get_project(), server=server), removed,
+            settled=lambda: self.completed.emit(str(values['parent_key'])))
 
     @Slot(str, 'QVariantMap')
     def request_object_action(self, action, cell):
@@ -420,7 +495,7 @@ class TableServicesController(QObject):
         source_key = node.search_key
         target_key = str(cell.get('targetSearchKey') or source_key)
         context = dict(searchKey=target_key, searchType=target_key.split('?')[0],
-                       record=dict(node.source.get_info()), project=application._current_project_code,
+                       record=dict(node.source.get_info()), project=(scope.descriptor.get('projectCode') if scope else '') or application._current_project_code,
                        records={selected.search_key: {'code': selected.source.get_value('code')}
                                 for identity in selected_ids
                                 if (selected := application._node_for_any(identity)) is not None and selected.source is not None},
@@ -535,7 +610,7 @@ class TableServicesController(QObject):
         elif kind in ('security-summary','custom-layout'):
             from thlib import tactic_classes as tc
             from thlib.ui.table.requests import read_group_summary, read_custom_layout
-            server = tc.server_start(project=app._current_project_code)
+            server = tc.server_start(project=session['runner'].context['project'])
             def show_document(result):
                 if session['tab'] is not app._current_tab():
                     return
@@ -555,7 +630,7 @@ class TableServicesController(QObject):
             node = app._node_for_any(session['node_id'])
             key = str(options.get('search_key') or '')
             search_type = str(options.get('search_type') or key.split('?')[0])
-            stype = env_inst.get_stype_by_code(search_type, project_code=app._current_project_code)
+            stype = env_inst.get_stype_by_code(search_type, project_code=session['runner'].context['project'])
             if stype is None:
                 raise ValueError('Search Type is not available for this editor')
             def open_editor(source):
@@ -568,8 +643,8 @@ class TableServicesController(QObject):
                 app.open_window('add_sobject')
             if key and (node is None or node.search_key != key):
                 from thlib import tactic_classes as tc
-                server = tc.server_start(project=app._current_project_code)
-                project = env_inst.projects[app._current_project_code]
+                server = tc.server_start(project=session['runner'].context['project'])
+                project = env_inst.projects[session['runner'].context['project']]
                 def loaded(record):
                     if not record:
                         raise ValueError('The configured table target is unavailable')
@@ -637,7 +712,7 @@ class TableServicesController(QObject):
         self._application._notify(self._error)
         self.stateChanged.emit()
 
-    def _run(self, operation, accept):
+    def _run(self, operation, accept, *, settled=None):
         from thlib.environment import env_inst
         if env_inst.server_pool.is_stopped:
             env_inst.server_pool.start()
@@ -659,6 +734,8 @@ class TableServicesController(QObject):
             except (ValueError, TypeError, KeyError, PermissionError) as error:
                 self.cancel_script()
                 self.report_error(str(error))
+            if settled:
+                settled()
             self.stateChanged.emit()
         def failed(error):
             if generation != self._generation:
@@ -672,6 +749,8 @@ class TableServicesController(QObject):
                     stacktrace=payload.get('stacktrace', ''), group='table/actions')
             self._error = str(payload.get('exception') or error)
             self._application._notify(self._error)
+            if settled:
+                settled()
             self.stateChanged.emit()
         worker.result.connect(loaded, Qt.QueuedConnection)
         worker.error.connect(failed, Qt.QueuedConnection)
@@ -681,6 +760,8 @@ class TableServicesController(QObject):
 
     @Slot()
     def shutdown(self):
+        self._connection_removal = None
+        self.connectionRemovalClosed.emit()
         self._append.shutdown()
         self._checkout.shutdown()
         for scope in self._nested_scopes.values():
