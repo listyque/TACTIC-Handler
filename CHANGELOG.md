@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.127 - 2026-10-21
+
+- Continue combined legacy stage 2 with Stream 0.112.180: ParentGroup groups by full parent identity, shares its rich header and picker state, and opens child creation through the existing configured insert form.
+- Adapt ParentGroupAction, including computed Expression cells, to explicit revision-checked reparenting. Preserve physical source identity, source project, paged literal search, dirty drafts and uncertain-save verification; reject cycles, retired targets and stale definitions.
+- Keep original-server procedures independently shipped. Fix native and browser table drop handlers to read the actual Frame event payload; preserve browser table state when the retained card presenter saves collapse state.
+- Stage 2/B07 remains open: configured publish, sequence/UDIM transfers, ingest, residual layout callbacks, time writes, scoped column authoring and ordinary-user ACL acceptance remain pending. The old HTML/Mako Custom Layout Editor and excluded production subsystem stay excluded.
+
 ## 0.6.0.126 - 2026-10-21
 
 - Continue combined legacy stage 2 with Stream 0.112.179: DependencyLink opens the existing modeless table document with a shared snapshot tree, cached branches, cyclic/missing/retired references and branch-local retry/loading.

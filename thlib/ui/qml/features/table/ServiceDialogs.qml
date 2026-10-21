@@ -9,6 +9,10 @@ Item {
     id: root
     required property var theme
     required property var controller
+    ParentGroupPopup {
+        theme: root.theme
+        owner: root.controller.parentGroups
+    }
     property string scriptQuestion: ""
     property string templateCode: ""
     property string objectAction: ""

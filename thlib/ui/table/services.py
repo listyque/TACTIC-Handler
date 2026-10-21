@@ -108,6 +108,8 @@ class TableServicesController(QObject):
         self._checkout.changed.connect(self.stateChanged)
         from .dependencies import DependencyViewerController
         self._dependencies = DependencyViewerController(self, self)
+        from .parent_group import ParentGroupController
+        self._parent_groups = ParentGroupController(self, self)
         application.results_view_changed.connect(self._prune_nested)
         from thlib.ui.source_editor import SourceEditorService
         self._source_editor = SourceEditorService(self)
@@ -122,6 +124,10 @@ class TableServicesController(QObject):
     @Property(QObject, constant=True)
     def dependencyViewer(self):
         return self._dependencies
+
+    @Property(QObject, constant=True)
+    def parentGroups(self):
+        return self._parent_groups
 
     @Property(QObject, constant=True)
     def appendEditor(self):
@@ -779,6 +785,7 @@ class TableServicesController(QObject):
         self._append.shutdown()
         self._checkout.shutdown()
         self._dependencies.shutdown()
+        self._parent_groups.shutdown()
         for scope in self._nested_scopes.values():
             scope.shutdown()
             scope.deleteLater()

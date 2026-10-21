@@ -169,38 +169,53 @@ class OrganizationMixin:
         buckets: dict[str, dict] = {}
         for root in self._sorted_roots():
             title, accent, rank = self._group_value(root)
-            bucket = buckets.setdefault(title, {
+            column = parse_column_group_mode(self._group_mode)
+            parent = (root.values.get("__tableParentGroups") or {}).get(column)
+            key = parent["groupKey"] if parent else title
+            if parent:
+                rank = 0
+                title = parent.get("text") or self._translated(
+                    "Parent unavailable" if parent.get("missingParentKey") else "No parent"
+                )
+            bucket = buckets.setdefault(key, {
+                "title": title,
+                "parent": parent,
                 "accent": accent,
                 "rank": rank,
                 "children": [],
             })
             bucket["rank"] = min(bucket["rank"], rank)
             bucket["children"].append(root)
-        ordered = sorted(
-            buckets.items(),
-            key=lambda item: (item[1]["rank"], self._natural_key(item[0])),
-        )
+        def order(item):
+            key, bucket = item
+            is_parent = bool(bucket["parent"])
+            # Match JavaScript's canonical-key ordering for parent groups.
+            value = key.encode("utf-16-be", "surrogatepass") if is_parent else self._natural_key(key)
+            return bucket["rank"], is_parent, value
+
+        ordered = sorted(buckets.items(), key=order)
         previous = {
-            group.title: group.expanded
+            group.values.get("groupKey", group.title): group.expanded
             for group in getattr(self, "_root_groups", ())
         }
         groups = []
-        for index, (title, bucket) in enumerate(ordered):
+        for index, (key, bucket) in enumerate(ordered):
+            title = bucket["title"]
             children = bucket["children"]
             groups.append(WorkspaceNode(
-                node_id=f"result-group:{self._group_mode}:{index}:{title}",
+                node_id=f"result-group:{self._group_mode}:{index}:{key}",
                 node_type="group",
                 search_key="",
                 code="",
                 title=title,
                 subtitle=self._translated("{} items").format(len(children)),
                 accent=bucket["accent"],
-                expanded=previous.get(title, True),
+                expanded=previous.get(key, True),
                 has_children=bool(children),
                 loaded=True,
                 child_count=len(children),
                 children=children,
-                values={"groupMode": self._group_mode},
+                values={"groupMode": self._group_mode, "groupKey": key, "parentGroup": bucket["parent"]},
             ))
         return groups
 

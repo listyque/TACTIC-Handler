@@ -221,6 +221,11 @@ def create_widget(options_dict=None):
     widget_class = get_widget_class(class_name) or (
         TacticUnsupportedTableWidget if class_name else TacticBaseTableWidget
     )
+    if widget_class is not TacticUnsupportedTableWidget and options.get("actionClass") in (
+        "ParentGroupAction", "tactic.ui.table.ParentGroupAction",
+        "tactic.ui.table.group_element_wdg.ParentGroupAction",
+    ) and not options.get("actionOptions"):
+        widget_class = TacticCommandsTableWidget
     widget = widget_class(options)
     widget.set_class_name(class_name)
     return widget

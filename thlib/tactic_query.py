@@ -8654,7 +8654,117 @@ def query_table_layout(search_type, search_keys=None, view='table',
             result.append(entry)
         return dict(text='', targetSearchKey=search_key, summary=result)
 
+    def read_parent_cells(search_keys):
+        """Self-contained read for Stream and Handler's original-server fallback."""
+        import hashlib
+        import json
+        from pyasm.biz import Project
+        from pyasm.common import Environment
+        from pyasm.search import Search, SearchKey, SearchType
+        from pyasm.widget import ThumbWdg
+
+        if not Environment.get_security().is_admin():
+            raise PermissionError('Administration requires administrator access')
+        if not isinstance(search_keys, list) or len(search_keys) > 500:
+            raise ValueError('Invalid parent table scope')
+        project = Project.get_project_code()
+
+        def check_type(search_type):
+            base = SearchKey.extract_base_search_type(search_type)
+            if base in ('sthpw/message', 'sthpw/message_log', 'sthpw/ticket') or base.startswith(('prod/', 'flash/')):
+                raise ValueError('This object is not available in parent groups')
+            metadata = SearchType.get(base, no_exception=True)
+            if metadata is None:
+                return False
+            if str(metadata.get_value('class_name') or '').startswith('pyasm.prod.'):
+                raise ValueError('This object is not available in parent groups')
+            if hasattr(metadata, 'get_record_read_options') and metadata.get_record_read_options().get('command'):
+                raise ValueError('This object is not available in parent groups')
+            return True
+
+        for key in search_keys:
+            if not isinstance(key, str) or SearchKey.extract_project(key) not in (None, '', 'sthpw', 'admin', project):
+                raise ValueError('The configured table target belongs to another project')
+            check_type(key)
+        objects = Search.get_by_search_keys(search_keys, keep_order=True)
+        if len(objects) != len(search_keys) or any(obj is None for obj in objects):
+            raise LookupError('Object is no longer available')
+        parents, cells = {}, {}
+        for obj in objects:
+            key = obj.get_search_key()
+            own_project = obj.get_value('project_code', no_exception=True) or SearchKey.extract_project(key) or project
+            parent_type = obj.get_value('search_type', no_exception=True)
+            requested_key = ''
+            if parent_type:
+                registered = check_type(parent_type)
+                # Old global records can store a bare type; their project belongs to the row.
+                if not SearchKey.extract_project(parent_type):
+                    parent_type = SearchType.build_search_type(parent_type, own_project)
+                code = obj.get_value('search_code', no_exception=True)
+                identity = code or obj.get_value('search_id', no_exception=True)
+                parent = None
+                if identity not in (None, '', -1, '-1'):
+                    requested_key = SearchKey.build_search_key(parent_type, identity, column='code' if code else 'id')
+                    if registered:
+                        parent = Search.get_by_search_key(requested_key)
+            else:
+                parent = obj.get_parent()
+            cell = dict(text='', projectCode=own_project, targetSearchKey=key, sourceId=str(obj.get_id()),
+                sourceRevision=hashlib.sha256(json.dumps(obj.get_data(), sort_keys=True, default=str).encode()).hexdigest(),
+                groupKey='missing:' + requested_key if requested_key else 'no-parent', parent=None)
+            if parent is not None:
+                check_type(parent.get_search_type())
+                parent_key = parent.get_search_key()
+                record = {name: parent.get_value(name, no_exception=True) for name in
+                    ('id', 'code', 'name', 'title', 'description', 'project_code', 'pipeline_code', 'process', 'context')}
+                record['__search_key__'] = parent_key
+                cell.update(text=parent.get_code() or str(parent.get_id()), groupKey=parent_key,
+                    parent=dict(searchKey=parent_key, code=parent.get_code() or '',
+                        name=parent.get_value('name', no_exception=True) or '',
+                        description=parent.get_value('description', no_exception=True) or '',
+                        retired=parent.is_retired(), record=record))
+                parents[parent_key] = parent
+            elif requested_key:
+                cell['missingParentKey'] = requested_key
+            cells[key] = cell
+        records = list(parents.values())
+        thumb = ThumbWdg(name='preview', latest_icon='true')
+        thumb.set_sobjects(records)
+        thumb.preprocess()
+        previews = {}
+        for index, parent in enumerate(records):
+            thumb.set_current_index(index)
+            if hasattr(thumb, 'get_cell_value'):
+                preview = thumb.get_cell_value()
+            else:
+                from urllib.parse import urlsplit
+                link = thumb.get_data(parent) or ''
+                image = thumb.info.get('icon') or thumb.info.get('web') or link
+                if urlsplit(image).path.lower().rsplit('.', 1)[-1] not in ('png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'):
+                    image = ''
+                preview = dict(image=image, text=link)
+            previews[parent.get_search_key()] = preview
+        for cell in cells.values():
+            if cell['parent']:
+                cell['parent']['preview'] = previews[cell['groupKey']]
+        return cells
+
+    parent_cache = {}
+
     def action_cell_values(class_name, column, sobject, widget):
+        parent_action = column.get('actionClass') in (
+            'ParentGroupAction', 'tactic.ui.table.ParentGroupAction',
+            'tactic.ui.table.group_element_wdg.ParentGroupAction') and not column.get('actionOptions')
+        parent_display = class_name.endswith('.ParentGroupTableElementWdg')
+        if parent_action or parent_display:
+            if not parent_cache:
+                parent_cache.update(read_parent_cells([SearchKey.get_by_sobject(item) for item in sobjects]))
+            cell = dict(parent_cache[SearchKey.get_by_sobject(sobject)])
+            cell.update(parentGrouping=parent_display and (column.get('displayOptions') or {}).get('disable') not in (True, 'true'),
+                parentEditable=parent_action, tableView=view, columnName=column['name'])
+            if not parent_display:
+                cell['text'] = widget.get_text_value()
+            return cell
         if class_name == 'pyasm.widget.dependency_wdg.DependencyLink':
             base = sobject.get_base_search_type()
             if base == 'sthpw/project':
@@ -9297,9 +9407,10 @@ def query_table_layout(search_type, search_keys=None, view='table',
             ),
             'editXml': element_xml(edit_config, element_name),
             'editSelected': element_name in edit_element_names,
-            'actionClass': edit_config.get_action_handler(element_name) or '',
+            'actionClass': config.get_action_handler(element_name) or edit_config.get_action_handler(element_name) or '',
             'actionOptions': json_value(
-                edit_config.get_action_options(element_name) or {}
+                (config.get_action_options(element_name) if config.get_action_handler(element_name)
+                 else edit_config.get_action_options(element_name)) or {}
             ),
         }
 

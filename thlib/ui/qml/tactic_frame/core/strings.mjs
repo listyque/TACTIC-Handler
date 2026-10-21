@@ -1,5 +1,48 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Server worker is unavailable': 'Обработчик серверного запроса недоступен',
+    'Check saved changes': 'Проверить сохранение',
+    'Unable to reach the server.': 'Не удалось связаться с сервером.',
+    'Parent group': 'Группа по родителю',
+    'Change parent': 'Изменить родителя',
+    'Find parent': 'Найти родителя',
+    'Current parent': 'Текущий родитель',
+    'Selected parent': 'Выбранный родитель',
+    'No parent': 'Нет родителя',
+    'No parent selected': 'Родитель не выбран',
+    'Parent unavailable': 'Родитель недоступен',
+    'Available parents': 'Доступные родители',
+    'No matching parents': 'Подходящие родители не найдены',
+    'Add Another Item': 'Добавить ещё объект',
+    'Drop one parent object': 'Перетащите один родительский объект',
+    'Discard this draft?': 'Отменить изменения черновика?',
+    'Invalid parent response': 'Некорректный ответ при выборе родителя',
+    'Unable to verify the parent change':
+        'Не удалось проверить результат смены родителя',
+    'Invalid parent table scope': 'Некорректная область таблицы родителей',
+    'This object is not available in parent groups':
+        'Этот объект недоступен для группировки по родителю',
+    'Invalid parent operation': 'Некорректная операция с родителем',
+    'Choose a configured parent column':
+        'Выберите настроенную колонку родителя',
+    'Invalid parent search': 'Некорректный поиск родителя',
+    'The parent belongs to another project':
+        'Родитель относится к другому проекту',
+    'Open parent editing in the source project':
+        'Откройте выбор родителя в исходном проекте',
+    'The configured parent action changed. Reload before saving.':
+        'Настройка смены родителя изменилась. Обновите данные перед сохранением.',
+    'Unsupported parent action options':
+        'Эти параметры смены родителя не поддерживаются',
+    'Parent revisions require a transactional database lock':
+        'Для проверки ревизии родителя нужна транзакционная блокировка БД',
+    'Parent changed. Reload before saving.':
+        'Родитель или запись изменились. Обновите данные перед сохранением.',
+    'The configured parent relationship is unavailable':
+        'Настроенная родительская связь недоступна',
+    'Parent is no longer available': 'Родитель больше недоступен',
+    'Choose a current parent': 'Выберите действующего родителя',
+    'Parent relationship is cyclic': 'Родительская связь образует цикл',
     Upstream: 'Входящие',
     Inputs: 'Входные зависимости',
     Downstream: 'Исходящие',

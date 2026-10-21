@@ -1651,9 +1651,19 @@ class ColumnsEditorController(QObject):
             if "text" not in cell:
                 continue
             value = str(cell.get("text") or "")
-            if node.values.get(column) == value:
+            groups = dict(node.values.get("__tableParentGroups") or {})
+            parent = cell if cell.get("parentGrouping") else None
+            if node.values.get(column) == value and groups.get(column) == parent:
                 continue
             node.values[column] = value
+            if parent is None:
+                groups.pop(column, None)
+            else:
+                groups[column] = parent
+            if groups:
+                node.values["__tableParentGroups"] = groups
+            else:
+                node.values.pop("__tableParentGroups", None)
             changed = True
         if changed and rebuild:
             model._rebuild_organized_rows()

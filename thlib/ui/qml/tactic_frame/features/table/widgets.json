@@ -736,5 +736,16 @@
       "pyasm.widget.dependency_wdg.DependencyLink"
     ],
     "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.ParentGroupTableElementWdg",
+    "label": "Parent group",
+    "class": "tactic.ui.table.group_element_wdg.ParentGroupTableElementWdg",
+    "aliases": [
+      "ParentGroupTableElementWdg",
+      "tactic.ui.table.ParentGroupTableElementWdg",
+      "tactic.ui.table.group_element_wdg.ParentGroupTableElementWdg"
+    ],
+    "adapter": "commands"
   }
 ]

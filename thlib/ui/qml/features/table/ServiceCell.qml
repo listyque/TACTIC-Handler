@@ -2,6 +2,7 @@ import QtQuick
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/table/services.ui.mjs" as UI
 import "../../tactic_frame/features/table/drop.ui.mjs" as Drop
+import "../../tactic_frame/features/table/parent.state.mjs" as ParentState
 import "../../tactic_frame/features/table/connections.ui.mjs" as ConnectionRows
 
 Frame.FrameView {
@@ -27,6 +28,14 @@ Frame.FrameView {
         })
     describeRow: (list, record, index) => ConnectionRows.row(record, cell, Math.max(0, list.width - 16), language, editable, controller.server_url || "")
     onEvent: (action, value) => {
+        if (action.name === "change-parent" || action.name === "drop-parent") {
+            try {
+                services.parentGroups.open(root, nodeId, cell, action.name === "drop-parent" ? ParentState.dropParentKey(action.value) : "");
+            } catch (error) {
+                services.report_error(error.message || String(error));
+            }
+            return;
+        }
         if (action.name === "remove-connection") {
             services.request_connection_removal(nodeId, Object.assign({}, cell, {
                 connectionKey: action.connectionKey,
@@ -49,7 +58,7 @@ Frame.FrameView {
             services.open_link(action.href);
         else if (["edit-links", "drop-links"].indexOf(action.name) >= 0) {
             try {
-                services.open_links(nodeId, cell, action.name === "drop-links" ? Drop.droppedKeys(value, cell.acceptedType) : []);
+                services.open_links(nodeId, cell, action.name === "drop-links" ? Drop.droppedKeys(action.value, cell.acceptedType) : []);
             } catch (error) {
                 services.report_error(String(error));
             }

@@ -8,6 +8,7 @@ import "features/table" as Table
 import "tactic_frame/features/table/nested.ui.mjs" as Nested
 import "tactic_frame/features/table/columns.mjs" as TableColumnLayout
 import "tactic_frame/features/table/host.ui.mjs" as TableHost
+import "tactic_frame/features/table/parent.ui.mjs" as ParentUI
 
 Item {
     id: root
@@ -349,13 +350,14 @@ Item {
             onInVerticalViewportChanged: updateNestedView()
             onViewPooledChanged: updateNestedView()
             readonly property bool isGroup: nodeType === "group"
+            readonly property var parentGroup: isGroup ? values.parentGroup || null : null
             readonly property bool selected: !isGroup && root.controller.selected_result_node_ids.indexOf(nodeId) >= 0
             readonly property bool inVerticalViewport: y + height >= rows.contentY && y <= rows.contentY + rows.height
             readonly property bool previewActive: root.presentationActive && root.hasThumbnailColumn && !isGroup && inVerticalViewport && !viewPooled
             readonly property var nativeCells: !isGroup && root.columnsController ? root.columnsController.row_cells(searchKey, root.columnsController.cellRevision) : ({})
             readonly property real actionX: Math.max(0, rows.contentX + rows.width - root.actionColumnWidth)
             width: root.tableWidth
-            height: isGroup ? TableHost.metrics.group : root.effectiveRowHeight + nestedHeight
+            height: isGroup ? (parentGroup ? ParentUI.groupHeight : TableHost.metrics.group) : root.effectiveRowHeight + nestedHeight
             focus: ListView.isCurrentItem && rows.activeFocus
             Accessible.role: isGroup ? Accessible.Button : Accessible.ListItem
             Accessible.name: isGroup ? title + " · " + childCount : title
@@ -555,7 +557,32 @@ Item {
                 height: parent.height
                 active: resultRow.isGroup
 
-                sourceComponent: Row {
+                sourceComponent: resultRow.parentGroup ? parentGroupComponent : ordinaryGroupComponent
+            }
+            Component {
+                id: parentGroupComponent
+                Table.ParentGroupHeader {
+                    width: groupRowLoader.width
+                    height: groupRowLoader.height
+                    theme: root.theme
+                    model: ({
+                            cell: resultRow.parentGroup,
+                            count: resultRow.childCount,
+                            closed: !resultRow.expanded
+                        })
+                    editable: root.controller.can_manage_tools
+                    server: root.controller.server_url || ""
+                    onToggleRequested: {
+                        rows.currentIndex = resultRow.index;
+                        rows.forceActiveFocus();
+                        resultRow.activate(0);
+                    }
+                    onCreateRequested: root.tableServices.parentGroups.create_child(resultRow.parentGroup)
+                }
+            }
+            Component {
+                id: ordinaryGroupComponent
+                Row {
                     objectName: "searchResultTableGroupRow"
                     width: groupRowLoader.width
                     spacing: 8

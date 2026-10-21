@@ -6,7 +6,45 @@ order: 36
 
 # Table View: B07 typed cells
 
-B07 is still in progress. The catalogue contains 71 server classes and 171 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+## Parent groups and changing a parent
+
+```xml
+<element name="parent" title="Parent">
+  <display class="tactic.ui.table.ParentGroupTableElementWdg"/>
+  <action class="tactic.ui.table.ParentGroupAction"/>
+</element>
+```
+
+Choose Group by this column in its header menu. The parent header shows its
+preview, code/name, type, description and row count. Collapse/reopen keeps the
+group. Add Another Item opens the usual configured creation form with this parent.
+Different object types with equal codes remain separate groups. Missing parent
+references stay explicit. `disable=true` turns off the rich grouping projection.
+The historical `label` option has no extra behavior in the original implementation.
+
+Change parent opens a panel beside the cell, with a Search Type choice and literal
+code/name/title search (50 results per page). Choose a current object and Save.
+Cancel/Refresh asks before discarding a changed selection. If the response is lost,
+use Check saved changes before retrying. Conflicts require explicit refresh;
+retired targets, cycles and foreign projects are rejected. An Expression cell with
+the same action keeps its calculated display text. Dropping one object opens this
+same picker preselected; it never silently writes the relationship.
+
+This checkpoint covers administrator operations. Ordinary-user table ACL and
+all legacy group summaries/options remain pending; no arbitrary HTML/Mako editor
+is added. Only safe parent display fields are sent to the interface.
+
+
+B07 is still in progress. The catalogue contains 72 server classes and 174 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+
+Shared picker body and parent header on the same data/theme/size; native font
+rasterization may differ from the browser. These images do not certify every
+legacy group option.
+
+![Handler parent picker](media/frame-table-parent-native-en.png)
+![Stream parent picker](media/frame-table-parent-stream-en.png)
+![Handler parent group](media/frame-table-parent-group-native-en.png)
+![Stream parent group](media/frame-table-parent-group-stream-en.png)
 
 ## Snapshot dependencies
 
