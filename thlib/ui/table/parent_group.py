@@ -127,9 +127,9 @@ class ParentGroupController(QObject):
         if stype is None:
             self.services.report_error(self.tr('Search Type is not available for this editor'))
             return
-        self.application._sobject_editor_request = dict(mode='insert', view='insert', stype=stype,
-            sobject=None, parent_sobject=tc.SObject(deepcopy(cell['parent']['record']), project), _prepared=True)
-        self.application.open_window('add_sobject')
+        from thlib.ui.sobject_editor import open_sobject_editor
+        open_sobject_editor(self.application, dict(mode='insert', view='insert', stype=stype,
+            sobject=None, parent_sobject=tc.SObject(deepcopy(cell['parent']['record']), project), _prepared=True))
 
     def _context_changed(self):
         if self._open and self._tab is not self.application._current_tab():

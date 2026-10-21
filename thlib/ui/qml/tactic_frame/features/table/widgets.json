@@ -747,5 +747,27 @@
       "tactic.ui.table.group_element_wdg.ParentGroupTableElementWdg"
     ],
     "adapter": "commands"
+  },
+  {
+    "value": "PublishTableElement",
+    "label": "Publish",
+    "class": "pyasm.widget.table_element_wdg.PublishTableElement",
+    "aliases": [
+      "PublishTableElement",
+      "pyasm.widget.PublishTableElement",
+      "pyasm.widget.table_element_wdg.PublishTableElement"
+    ],
+    "adapter": "commands"
+  },
+  {
+    "value": "tactic.ui.table.GeneralPublishElementWdg",
+    "label": "General publish",
+    "class": "tactic.ui.table.table_element_wdg.GeneralPublishElementWdg",
+    "aliases": [
+      "GeneralPublishElementWdg",
+      "tactic.ui.table.GeneralPublishElementWdg",
+      "tactic.ui.table.table_element_wdg.GeneralPublishElementWdg"
+    ],
+    "adapter": "commands"
   }
 ]

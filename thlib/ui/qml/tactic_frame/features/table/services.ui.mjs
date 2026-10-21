@@ -6,6 +6,7 @@ import * as Layout from './layout.ui.mjs';
 import * as Time from './time.ui.mjs';
 import * as Connections from './connections.ui.mjs';
 import * as Parent from './parent.ui.mjs';
+import * as Publish from './publish.ui.mjs';
 
 export function describe(
     cell,
@@ -16,6 +17,15 @@ export function describe(
     expanded = {},
     server = ''
 ) {
+    if (cell.publish)
+        return Publish.describe(
+            cell,
+            width,
+            height,
+            language,
+            editable,
+            server
+        );
     if (cell.parentGrouping !== undefined)
         return Parent.cell(cell, width, height, language, editable);
     if (cell.summary) return summary(cell, width, height, language);

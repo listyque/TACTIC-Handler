@@ -346,6 +346,15 @@ class CommandsMixin:
             if requested is not None:
                 requested.emit()
         if window_id in {"add_sobject", "task_editor"}:
+            is_visible = getattr(
+                self.window_model, "is_window_visible", None
+            )
+            already_visible = callable(is_visible) and is_visible(window_id)
+            can_replace = getattr(self, "sobject_editor_can_replace", None)
+            prepared = bool(self._sobject_editor_request.get("_prepared"))
+            if already_visible and (not prepared or (callable(can_replace) and not can_replace())):
+                self.window_model.raise_window(window_id)
+                return
             prepared = self._sobject_editor_request.pop("_prepared", False)
             if not prepared:
                 self._sobject_editor_request = {
@@ -356,15 +365,8 @@ class CommandsMixin:
             requested = getattr(self, "sobjectEditorRequested", None)
             if requested is not None:
                 requested.emit()
-            is_visible = getattr(
-                self.window_model, "is_window_visible", None
-            )
-            if callable(is_visible) and is_visible(window_id):
-                raise_window = getattr(
-                    self.window_model, "raise_window", None
-                )
-                if callable(raise_window):
-                    raise_window(window_id)
+            if already_visible:
+                self.window_model.raise_window(window_id)
                 return
         elif window_id == "link_sobjects":
             prepared = self._sobject_link_request.pop("_prepared", False)

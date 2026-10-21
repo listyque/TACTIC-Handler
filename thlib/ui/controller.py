@@ -229,6 +229,7 @@ class ApplicationController(
         self._current_project_title = ""
         self._current_project_preview = ""
         self._sobject_editor_request = {}
+        self._sobject_editor = None
         self._project_editor_request = {}
         self._sobject_link_request = {}
         self._server_state = "connecting"
@@ -1092,6 +1093,12 @@ class ApplicationController(
 
     def attach_user_controller(self, users) -> None:
         self._user_controller = users
+
+    def attach_sobject_editor(self, editor) -> None:
+        self._sobject_editor = editor
+
+    def sobject_editor_can_replace(self) -> bool:
+        return self._sobject_editor is None or self._sobject_editor.can_replace_session()
 
     @Property(str, notify=server_state_changed)
     def server_preset(self) -> str:

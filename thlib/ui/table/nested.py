@@ -212,9 +212,9 @@ class NestedTableController(QObject):
             return
         owner = app._node_for_any(self.owner_node_id)
         parent = owner.source if owner and owner.source and owner.search_key.split('?')[0] != self.descriptor['searchType'] else None
-        app._sobject_editor_request = dict(mode='edit' if key else 'insert', view='edit' if key else 'insert',
-            stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True)
-        app.open_window('add_sobject')
+        from thlib.ui.sobject_editor import open_sobject_editor
+        open_sobject_editor(app, dict(mode='edit' if key else 'insert', view='edit' if key else 'insert',
+            stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True))
 
     def suspend(self):
         self._reload_timer.stop()

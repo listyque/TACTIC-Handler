@@ -155,10 +155,15 @@ Rectangle {
             z: 1
             theme: root.theme
             enabled: !root.columnsBusy && typeof tableServicesController !== "undefined" && !!tableServicesController && !tableServicesController.busy
-            iconName: "add"
-            toolTip: qsTr("Create")
-            Accessible.name: qsTr("Create")
-            onClicked: tableServicesController.insert_record(header.insertAction.view)
+            iconName: header.insertAction.icon || "add"
+            toolTip: header.insertAction.type === "publish" ? qsTr("Multi Publish") : qsTr("Create")
+            Accessible.name: toolTip
+            onClicked: {
+                if (header.insertAction.type === "publish")
+                    tableServicesController.insert_record(header.insertAction.view, "publish");
+                else
+                    tableServicesController.insert_record(header.insertAction.view);
+            }
         }
     }
 

@@ -1277,7 +1277,8 @@ class ItemOperationsMixin:
             self.select_sobject(node.search_key if node else "")
             if command == "add_related" and node:
                 relation = node.relation or {}
-                self._sobject_editor_request = {
+                from thlib.ui.sobject_editor import open_sobject_editor
+                open_sobject_editor(self, {
                     "mode": "insert",
                     "stype": relation.get("stype"),
                     "parent_sobject": node.source,
@@ -1285,7 +1286,8 @@ class ItemOperationsMixin:
                         relation.get("definition") or {}
                     ),
                     "_prepared": True,
-                }
+                })
+                return
             elif command == "link_related" and node:
                 relation = node.relation or {}
                 definition = dict(relation.get("definition") or {})
@@ -1392,14 +1394,14 @@ class ItemOperationsMixin:
         if command == "edit" and node and source is not None:
             stype = self._editor_stype_for_node(node)
             if stype is not None:
-                self._sobject_editor_request = {
+                from thlib.ui.sobject_editor import open_sobject_editor
+                open_sobject_editor(self, {
                     "mode": "edit",
                     "stype": stype,
                     "sobject": source,
                     "parent_sobject": None,
                     "_prepared": True,
-                }
-                self.open_window("add_sobject")
+                })
             else:
                 self._notify("The current search type is unavailable")
             return
@@ -1473,13 +1475,19 @@ class ItemOperationsMixin:
             return
         values = dict(values or {})
         target_key = str(values.get("targetSearchKey") or node.search_key)
-        if kind == "edit":
+        if kind in {"edit", "publish"}:
             source = node.source
             stype = self._editor_stype_for_node(node)
             if source is not None and stype is not None:
-                self._sobject_editor_request = {"mode": "edit", "view": values.get("actionView") or "edit",
-                    "stype": stype, "sobject": source, "parent_sobject": None, "_prepared": True}
-                self.open_window("add_sobject")
+                from thlib.ui.sobject_editor import open_sobject_editor
+                open_sobject_editor(self, {
+                    "mode": "edit",
+                    "view": values.get("actionView") or ("publish" if kind == "publish" else "edit"),
+                    "operation": "publish" if kind == "publish" else "",
+                    "stype": stype,
+                    "sobject": source,
+                    "parent_sobject": None,
+                })
             return
         if kind in {"sobject_detail", "file_list", "metadata"}:
             self.select_sobject(target_key)

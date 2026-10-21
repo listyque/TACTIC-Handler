@@ -485,16 +485,17 @@ class TableServicesController(QObject):
             create()
 
     @Slot(str)
-    def insert_record(self, view):
+    @Slot(str, str)
+    def insert_record(self, view, operation=''):
         app = self._application
         if self.busy or not app.can_manage_tools:
             return
         stype = app._active_stype()
         if stype is None:
             return
-        app._sobject_editor_request = dict(mode='insert', view=view or 'insert',
-            stype=stype, sobject=None, parent_sobject=None, _prepared=True)
-        app.open_window('add_sobject')
+        from thlib.ui.sobject_editor import open_sobject_editor
+        open_sobject_editor(app, dict(mode='insert', view=view or 'insert', operation=operation,
+            stype=stype, sobject=None, parent_sobject=None, _prepared=True))
 
     @Slot(str, 'QVariantMap')
     def run_script(self, node_id, cell):
@@ -656,11 +657,11 @@ class TableServicesController(QObject):
             def open_editor(source):
                 if session['tab'] is not app._current_tab():
                     return
-                app._sobject_editor_request = dict(mode='edit' if key else 'insert',
+                from thlib.ui.sobject_editor import open_sobject_editor
+                open_sobject_editor(app, dict(mode='edit' if key else 'insert',
                     view=options.get('view') or ('edit' if key else 'insert'),
                     ignore=options.get('ignore') or '', stype=stype,
-                    sobject=source, parent_sobject=None, _prepared=True)
-                app.open_window('add_sobject')
+                    sobject=source, parent_sobject=None, _prepared=True))
             if key and (node is None or node.search_key != key):
                 from thlib import tactic_classes as tc
                 server = tc.server_start(project=session['runner'].context['project'])

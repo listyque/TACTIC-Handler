@@ -280,6 +280,7 @@ def query_EditWdg(args=None, search_type='', project=''):
     for i_widget in input_widgets:
         widget_dict = pop_classes(i_widget.__dict__)
         widget_dict['action_options'] = wdg_config.get_action_options(widget_dict.get('name'))
+        widget_dict['action_class'] = wdg_config.get_action_handler(widget_dict.get('name')) or ''
         widget_dict['class_name'] = i_widget.get_class_name()
         select_options = getattr(i_widget, 'kwargs', None) or {}
         option_labels = configured_values(select_options.get('labels'))
@@ -8749,9 +8750,46 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 cell['parent']['preview'] = previews[cell['groupKey']]
         return cells
 
+    publish_thumbs = {}
     parent_cache = {}
 
     def action_cell_values(class_name, column, sobject, widget):
+        from pyasm.biz import Project
+        if class_name.endswith(('.PublishTableElement', '.GeneralPublishElementWdg')):
+            native = getattr(widget, 'get_cell_value', None)
+            if callable(native):
+                return native()
+            import re
+            options = column.get('displayOptions') or {}
+            general = class_name.endswith('.GeneralPublishElementWdg')
+            publish_view = (options.get('view') or 'publish') if general else 'publish'
+            if not isinstance(publish_view, str) or not re.fullmatch(r'[A-Za-z_][\w.@-]{0,127}', publish_view):
+                raise ValueError('Invalid publish view')
+            value = dict(text='', publish=True, available=True, publishView=publish_view,
+                targetSearchKey=SearchKey.get_by_sobject(sobject, use_id=False),
+                projectCode=sobject.get_value('project_code', no_exception=True) or Project.get_project_code())
+            if general and options.get('preview') not in ('false', False):
+                from pyasm.widget import ThumbWdg
+                name = column['name']
+                if name not in publish_thumbs:
+                    thumb = ThumbWdg(name='preview')
+                    thumb.set_options(options)
+                    thumb.set_sobjects(sobjects)
+                    thumb.preprocess()
+                    publish_thumbs[name] = thumb
+                thumb = publish_thumbs[name]
+                thumb.set_current_index(widget.get_current_index())
+                native_preview = getattr(thumb, 'get_cell_value', None)
+                if callable(native_preview):
+                    value['preview'] = native_preview()
+                else:
+                    from urllib.parse import urlsplit
+                    address = thumb.get_data(sobject) or ''
+                    image = thumb.info.get('icon') or thumb.info.get('web') or address
+                    if urlsplit(image).path.lower().rsplit('.', 1)[-1] not in ('png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'):
+                        image = ''
+                    value['preview'] = dict(image=image, text=address)
+            return value
         parent_action = column.get('actionClass') in (
             'ParentGroupAction', 'tactic.ui.table.ParentGroupAction',
             'tactic.ui.table.group_element_wdg.ParentGroupAction') and not column.get('actionOptions')

@@ -76,6 +76,12 @@ class FakeWindowModel:
     def show_window(self, window_id):
         self.opened.append(window_id)
 
+    def is_window_visible(self, window_id):
+        return window_id in self.opened
+
+    def raise_window(self, window_id):
+        pass
+
 
 class FakeDockModel:
     def __init__(self):
@@ -412,6 +418,10 @@ class FakeWorkspace(QObject):
 
 
 class FakeApplication(QObject):
+    def sobject_editor_can_replace(self):
+        # This owner fixture has no attached editor or draft.
+        return True
+
     project_changed = Signal(str)
 
     def __init__(self):

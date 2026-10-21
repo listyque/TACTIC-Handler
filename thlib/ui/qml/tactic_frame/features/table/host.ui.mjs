@@ -28,6 +28,16 @@ export function headerAction(column) {
     const className = column.resolvedClass || column.display?.handler || '';
     const options = column.displayOptions || column.display?.options || {};
     if (
+        className.split('.').pop() === 'PublishTableElement' &&
+        ![undefined, null, '', false, 'false'].includes(options.multi_publish)
+    )
+        return {
+            type: 'publish',
+            view: 'multi_publish',
+            label: 'Multi Publish',
+            icon: 'publish'
+        };
+    if (
         [
             'UpdateWdg',
             'pyasm.widget.UpdateWdg',
@@ -42,11 +52,16 @@ export function headerAction(column) {
 function serviceHeight(columns) {
     return columns.reduce((height, column) => {
         const className = column.resolvedClass || column.display?.handler || '';
+        const options = column.displayOptions || column.display?.options || {};
+        if (
+            className.split('.').pop() === 'GeneralPublishElementWdg' &&
+            ![false, 'false'].includes(options.preview)
+        )
+            return Math.max(height, 98);
         if (className.split('.').pop() === 'SObjectSummaryElementWdg')
             return Math.max(height, 118);
         if (className.split('.').pop() !== 'SObjectConnectionElement')
             return height;
-        const options = column.displayOptions || column.display?.options || {};
         return Math.max(
             height,
             Math.max(64, Number(options.icon_size) || 60) + 32

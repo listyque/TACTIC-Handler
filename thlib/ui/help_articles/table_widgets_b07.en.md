@@ -576,3 +576,35 @@ Current matching examples (MD3, dark, test data):
 | --- | --- | --- |
 | Summary | ![Handler](media/frame-table-object_summary-native-en.png) | ![Stream](media/frame-table-object_summary-stream-en.png) |
 | Connections | ![Handler](media/frame-table-object_connections-native-en.png) | ![Stream](media/frame-table-object_connections-stream-en.png) |
+
+
+## Configured publication
+
+`PublishTableElement` opens the existing record's `publish` form. `GeneralPublishElementWdg` also accepts a configured `view` and optional `preview=false`. The same Frame cell, bounded preview, title and Publish action ship independently in Handler and Stream. Unsaved, busy, batch and uncertain forms cannot be overwritten by a second row; a clean form can switch records.
+
+```xml
+<element name="publish" width="100">
+  <display class="tactic.ui.table.GeneralPublishElementWdg">
+    <view>review_publish</view><preview>true</preview>
+  </display>
+</element>
+```
+
+Define the actual input actions in `review_publish`, for example:
+
+```xml
+<review_publish>
+  <element name="attachment">
+    <display class="tactic.ui.widget.SimpleUploadWdg"><context>publish/reference</context></display>
+    <action class="pyasm.command.UploadAction"/>
+  </element>
+</review_publish>
+```
+
+The optional `multi_publish=true` header on `PublishTableElement` opens the explicitly configured `multi_publish` view. It does not enable generic batch creation. UploadAction creates the configured snapshot; NullAction remains a nonworking upload configuration and is reported explicitly. The excluded production Publish Browser and arbitrary DOM callbacks are not provided. Full ordinary-user ACL and legacy option acceptance remain stage 2 work.
+
+| Cell | Handler | Stream |
+| --- | --- | --- |
+| Publish | ![Handler](media/frame-table-publish-native-en.png) | ![Stream](media/frame-table-publish-stream-en.png) |
+
+Native configured publication currently accepts text, multiline, select, checkbox and SimpleUpload/UploadAction inputs. Unported input/action combinations block the form explicitly. It uses the configured EditCmd instead of the ordinary native editor’s direct database update. The file selector is a reusable base control in each client, with one shared Frame description. Other native forms retain their existing persistence.

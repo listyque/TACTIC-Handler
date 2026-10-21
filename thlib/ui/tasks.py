@@ -2869,8 +2869,8 @@ class TasksController(QObject):
         }
         if task is not None:
             request["sobject"] = task
-        self._application._sobject_editor_request = request
-        self._application.open_window("task_editor")
+        from thlib.ui.sobject_editor import open_sobject_editor
+        open_sobject_editor(self._application, request, 'task_editor')
 
     def _task_editor_saved(self, target):
         selected = self._workspace._selected_sobject

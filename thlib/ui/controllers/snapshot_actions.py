@@ -107,14 +107,14 @@ class SnapshotActionsMixin:
                 if not stype:
                     self._notify("The current search type is unavailable")
                     return
-                self._sobject_editor_request = {
+                from thlib.ui.sobject_editor import open_sobject_editor
+                open_sobject_editor(self, {
                     "mode": "edit",
                     "stype": stype,
                     "sobject": file_object,
                     "parent_sobject": None,
                     "_prepared": True,
-                }
-                self.open_window("add_sobject")
+                })
             elif command == "delete":
                 delete_controller = getattr(self, "sobject_delete", None)
                 if delete_controller is None:

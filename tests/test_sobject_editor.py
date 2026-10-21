@@ -94,6 +94,7 @@ class _ItemHarness(ItemOperationsMixin):
         )
         self.nodes = {self.node.node_id: self.node}
         self._sobject_editor_request = {}
+        self.window_model = _WindowModel()
         self.opened = []
         self.notifications = []
 
@@ -111,6 +112,47 @@ class _ItemHarness(ItemOperationsMixin):
 
 
 class SObjectEditorLifecycleTests(unittest.TestCase):
+    def test_editor_admission_tracks_changes_reverts_and_inflight_work(self):
+        from copy import deepcopy
+        controller = SObjectEditorController(lambda: {})
+        controller.model.replace([dict(fieldName="name", fieldType="string", fieldValue="Original",
+            fieldReadOnly=False, fieldRequired=False, fieldError="")])
+        controller._baseline = deepcopy(controller.model.values())
+        self.assertTrue(controller.can_replace_session())
+        controller.model.setValue(0, "Unsaved")
+        self.assertFalse(controller.can_replace_session())
+        controller.model.setValue(0, "Original")
+        self.assertTrue(controller.can_replace_session())
+        for flag in ("_busy", "_uncertain", "_batch_enabled"):
+            setattr(controller, flag, True)
+            self.assertFalse(controller.can_replace_session(), flag)
+            setattr(controller, flag, False)
+
+    def test_shared_entry_retargets_only_a_clean_editor(self):
+        from thlib.ui.sobject_editor import open_sobject_editor
+        app = _CommandsHarness()
+        app.window_model.visible.add("add_sobject")
+        app.sobject_editor_can_replace = lambda: True
+        source = object()
+        self.assertTrue(open_sobject_editor(app, dict(mode="edit", sobject=source)))
+        self.assertIs(app._sobject_editor_request["sobject"], source)
+        self.assertEqual(app.sobjectEditorRequested.count, 1)
+        app.sobject_editor_can_replace = lambda: False
+        self.assertFalse(open_sobject_editor(app, dict(mode="insert", operation="publish")))
+        self.assertIs(app._sobject_editor_request["sobject"], source)
+        self.assertEqual(app.sobjectEditorRequested.count, 1)
+        self.assertEqual(app.window_model.raised, ["add_sobject", "add_sobject"])
+
+    def test_publish_cell_opens_existing_editor_with_its_exact_view(self):
+        source = _Source(object())
+        app = _ItemHarness(source)
+        app.invoke_table_widget_action("publish", "asset-one", dict(actionView="review_publish"))
+        self.assertEqual(app.opened, ["add_sobject"])
+        self.assertEqual(app._sobject_editor_request["view"], "review_publish")
+        self.assertEqual(app._sobject_editor_request["operation"], "publish")
+        self.assertEqual(app._sobject_editor_request["mode"], "edit")
+        self.assertIs(app._sobject_editor_request["sobject"], source)
+
     def test_task_edit_view_receives_project_in_server_arguments(self):
         worker = SimpleNamespace(
             result=_Emitter(), error=_Emitter(), start=lambda: None,
@@ -363,6 +405,53 @@ class _EditorSObject:
 
 
 class SObjectWidgetContractTests(unittest.TestCase):
+    def test_publish_keeps_upload_action_as_file_and_rejects_null_preview(self):
+        source = dict(name="attachment", class_name="tactic.ui.widget.upload_wdg.SimpleUploadWdg",
+            action_class="pyasm.command.UploadAction", kwargs=dict(context="publish/reference"))
+        field = SObjectEditorController.describe_field(_EditorStype(), dict(operation="publish"), source)
+        self.assertEqual(field["fieldType"], "file")
+        self.assertEqual(field["fieldValue"], "")
+        self.assertEqual(field["submitName"], "attachment")
+        source["action_class"] = "pyasm.command.NullAction"
+        field = SObjectEditorController.describe_field(_EditorStype(), dict(operation="publish"), source)
+        self.assertEqual(field["fieldType"], "unsupported")
+        controller = SObjectEditorController(lambda: {})
+        controller._context_data = dict(operation="publish")
+        controller.model.replace([field])
+        controller._edit_widget = Mock()
+        self.assertFalse(controller.presentation["valid"])
+        controller.submit()
+        controller._edit_widget.commit.assert_not_called()
+        self.assertIn("unsupported", controller.error)
+
+    def test_configured_publish_routes_to_editcmd_and_preserves_field_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/"payload.txt"
+            path.write_bytes(b"Native configured publication")
+            stype = SimpleNamespace(get_project=lambda: SimpleNamespace(get_code=lambda: "demo"))
+            editor = tw.TacticEditWdg(dict(stype=stype, kwargs=dict(input_prefix="edit", view="review_publish",
+                search_type="demo/asset", search_key="demo/asset?code=A"), configured_publish=[
+                    dict(name="title_alias", class_name="pyasm.widget.input_wdg.TextWdg", action_options=dict(column="name")),
+                    dict(name="attachment", class_name="tactic.ui.widget.upload_wdg.SimpleUploadWdg", context="publish/reference")]))
+            server = Mock()
+            server.get_transaction_ticket.return_value = "private-test-ticket"
+            server.execute_cmd.return_value = dict(info=dict(sobject=dict(__search_key__="demo/asset?code=A")))
+            with patch.object(tw.tc, "server_start", return_value=server):
+                result = editor.commit(dict(title_alias="Published", attachment=str(path)))
+            server.update.assert_not_called()
+            server.upload_file.assert_called_once_with(str(path))
+            command, args, values = server.execute_cmd.call_args.args
+            self.assertEqual(command, "tactic.ui.panel.EditCmd")
+            self.assertEqual(args["view"], "review_publish")
+            self.assertEqual(args["element_names"], ["title_alias", "attachment"])
+            self.assertEqual(values["edit|title_alias"], "Published")
+            self.assertEqual(values["edit|attachment|context"], "publish/reference")
+            self.assertEqual(values["edit|attachment|path"], "payload.txt")
+            self.assertEqual(result["__search_key__"], "demo/asset?code=A")
+            server.execute_cmd.return_value = dict(info={})
+            with self.assertRaises(ConnectionError):
+                editor._commit_publish(dict(title_alias="Published"), server)
+
     def test_keywords_use_tags_editor_in_insert_and_edit(self):
         for mode in ("insert", "edit"):
             field = SObjectEditorController.describe_field(

@@ -1,5 +1,14 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Choose file': 'Выбрать файл',
+    'Clear file': 'Убрать файл',
+    'No file selected': 'Файл не выбран',
+    'This configured publish form contains unsupported fields or actions':
+        'Форма публикации содержит неподдерживаемые поля или действия',
+    'Multi Publish': 'Групповая публикация',
+    'New object': 'Новый объект',
+    'Invalid publish view': 'Некорректный вид публикации',
+    'Unsupported form operation': 'Неподдерживаемая операция формы',
     'Server worker is unavailable': 'Обработчик серверного запроса недоступен',
     'Check saved changes': 'Проверить сохранение',
     'Unable to reach the server.': 'Не удалось связаться с сервером.',

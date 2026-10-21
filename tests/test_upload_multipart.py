@@ -12,6 +12,19 @@ from thlib.side.client.tactic_client_lib.common.upload_multipart import (
 
 
 class UploadMultipartTests(unittest.TestCase):
+    def test_connection_is_closed_after_success_or_read_failure(self):
+        for failure in (False, True):
+            connection = Mock()
+            response = connection.getresponse.return_value
+            response.read.side_effect = OSError("Read failed") if failure else None
+            with patch.object(upload_multipart.httplib, "HTTPConnection", return_value=connection):
+                if failure:
+                    with self.assertRaises(OSError):
+                        UploadMultipart().post_multipart("localhost", "/upload", [], [], "http")
+                else:
+                    UploadMultipart().post_multipart("localhost", "/upload", [], [], "http")
+            connection.close.assert_called_once_with()
+
     def test_execute_keeps_the_successful_retry_response(self):
         upload = UploadMultipart()
         upload.set_upload_server("http://tactic/upload")

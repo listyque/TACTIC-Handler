@@ -897,6 +897,7 @@ def _build_editors(
         controller.notify,
         checkin=delivery.checkin_out,
     )
+    controller.attach_sobject_editor(sobject)
     sobject.attach_script_triggers(delivery.script_triggers)
     controller.sobjectEditorRequested.connect(sobject.begin_session)
     project = ProjectEditorController(

@@ -20,61 +20,55 @@ Item {
     property bool autoActivate: false
     property bool commitTextOnFinish: false
     signal valueEdited(var value)
-    signal cancelRequested()
-    signal previewRequested()
+    signal cancelRequested
+    signal previewRequested
     signal previewFilesAdded(var values)
     signal previewFileRemoved(int index)
-    signal previewFilesCleared()
+    signal previewFilesCleared
 
     implicitWidth: editorLoader.item ? editorLoader.item.implicitWidth : 0
     implicitHeight: editorLoader.item ? editorLoader.item.implicitHeight : 0
 
     Component.onCompleted: {
         if (autoActivate)
-            activate()
+            activate();
     }
 
     function optionIndex(control) {
-        const wanted = String(root.fieldValue ?? "")
+        const wanted = String(root.fieldValue ?? "");
         for (let index = 0; index < control.count; ++index) {
             if (String(control.valueAt(index)) === wanted)
-                return index
+                return index;
         }
-        return -1
+        return -1;
     }
 
     function activate() {
-        Qt.callLater(function() {
-            const editor = editorLoader.item
+        Qt.callLater(function () {
+            const editor = editorLoader.item;
             if (!editor)
-                return
+                return;
             if (editor.beginEditing)
-                editor.beginEditing()
+                editor.beginEditing();
             else
-                editor.forceActiveFocus(Qt.MouseFocusReason)
-            if (root.fieldType === "enum"
-                    || root.fieldType === "user"
-                    || root.fieldType === "project"
-                    || root.fieldType === "process"
-                    || root.fieldType === "pipeline"
-                    || root.fieldType === "status")
-                editor.openPopupFromKeyboard()
+                editor.forceActiveFocus(Qt.MouseFocusReason);
+            if (root.fieldType === "enum" || root.fieldType === "user" || root.fieldType === "project" || root.fieldType === "process" || root.fieldType === "pipeline" || root.fieldType === "status")
+                editor.openPopupFromKeyboard();
             else if (editor.selectAll)
-                editor.selectAll()
-        })
+                editor.selectAll();
+        });
     }
 
     function previewValues() {
         if (!root.fieldValue)
-            return []
-        if (typeof root.fieldValue !== "string"
-                && root.fieldValue.length !== undefined) {
-            const values = []
+            return [];
+        if (typeof root.fieldValue !== "string" && root.fieldValue.length !== undefined) {
+            const values = [];
             for (let index = 0; index < root.fieldValue.length; ++index)
-                values.push(root.fieldValue[index])
-            return values
+                values.push(root.fieldValue[index]);
+            return values;
         }
-        return [root.fieldValue]
+        return [root.fieldValue];
     }
 
     Loader {
@@ -83,27 +77,28 @@ Item {
         anchors.fill: parent
         sourceComponent: {
             if (root.fieldType === "tags" || root.fieldName === "keywords")
-                return tagsEditor
+                return tagsEditor;
             if (root.fieldType === "multiline")
-                return multilineEditor
+                return multilineEditor;
             if (root.fieldType === "bool")
-                return boolEditor
+                return boolEditor;
             if (root.fieldType === "user")
-                return userEditor
-            if (["enum", "project", "process", "pipeline", "status"]
-                    .indexOf(root.fieldType) >= 0)
-                return choiceEditor
+                return userEditor;
+            if (["enum", "project", "process", "pipeline", "status"].indexOf(root.fieldType) >= 0)
+                return choiceEditor;
             if (root.fieldType === "date" || root.fieldType === "datetime")
-                return dateEditor
+                return dateEditor;
+            if (root.fieldType === "file")
+                return fileEditor;
             if (root.fieldType === "preview")
-                return previewEditor
+                return previewEditor;
             if (root.fieldType === "thumbnail")
-                return thumbnailEditor
+                return thumbnailEditor;
             if (root.fieldType === "parent")
-                return parentEditor
+                return parentEditor;
             if (root.fieldType === "unsupported")
-                return unsupportedEditor
-            return textEditor
+                return unsupportedEditor;
+            return textEditor;
         }
     }
 
@@ -116,12 +111,12 @@ Item {
             clip: true
             theme: root.theme
             enabled: !root.readOnlyField && !root.editorBusy
-            text: tagsButton.editing
-                ? "" : String(root.fieldValue || "") || qsTr("Edit tags")
+            text: tagsButton.editing ? "" : String(root.fieldValue || "") || qsTr("Edit tags")
             toolTip: qsTr("Edit tags")
             property bool editing: false
             function beginEditing() {
-                if (enabled) editing = true
+                if (enabled)
+                    editing = true;
             }
             onClicked: beginEditing()
             Loader {
@@ -132,12 +127,12 @@ Item {
                     value: String(root.fieldValue ?? "")
                     tagsMode: true
                     onSaved: value => {
-                        root.valueEdited(value)
-                        tagsButton.editing = false
+                        root.valueEdited(value);
+                        tagsButton.editing = false;
                     }
                     onCancelled: {
-                        tagsButton.editing = false
-                        root.cancelRequested()
+                        tagsButton.editing = false;
+                        root.cancelRequested();
                     }
                 }
             }
@@ -154,30 +149,24 @@ Item {
             readOnly: root.readOnlyField
             enabled: !root.readOnlyField && !root.editorBusy
             errorState: root.errorText.length > 0
-            echoMode: root.fieldType === "password"
-                ? TextInput.Password : TextInput.Normal
-            placeholderText: root.fieldType === "password"
-                ? root.editorMode === "edit"
-                    ? qsTr("Leave empty to keep the current password")
-                    : qsTr("Enter a password")
-                : ""
-            inputMethodHints: root.fieldType === "integer"
-                ? Qt.ImhDigitsOnly
-                : root.fieldType === "float"
-                    ? Qt.ImhFormattedNumbersOnly : Qt.ImhNone
+            echoMode: root.fieldType === "password" ? TextInput.Password : TextInput.Normal
+            placeholderText: root.fieldType === "password" ? root.editorMode === "edit" ? qsTr("Leave empty to keep the current password") : qsTr("Enter a password") : ""
+            inputMethodHints: root.fieldType === "integer" ? Qt.ImhDigitsOnly : root.fieldType === "float" ? Qt.ImhFormattedNumbersOnly : Qt.ImhNone
             function insertBatchToken(token) {
                 if (root.fieldType !== "string")
-                    return
-                insert(cursorPosition, token)
-                root.valueEdited(text)
-                forceActiveFocus(Qt.MouseFocusReason)
+                    return;
+                insert(cursorPosition, token);
+                root.valueEdited(text);
+                forceActiveFocus(Qt.MouseFocusReason);
             }
             Keys.onEscapePressed: event => {
-                root.cancelRequested()
-                event.accepted = true
+                root.cancelRequested();
+                event.accepted = true;
             }
-            onTextEdited: if (!root.commitTextOnFinish) root.valueEdited(text)
-            onEditingFinished: if (root.commitTextOnFinish) root.valueEdited(text)
+            onTextEdited: if (!root.commitTextOnFinish)
+                root.valueEdited(text)
+            onEditingFinished: if (root.commitTextOnFinish)
+                root.valueEdited(text)
         }
     }
 
@@ -191,14 +180,13 @@ Item {
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             ScrollBar.vertical: Controls.ScrollBar {
-                objectName: "sobjectMultilineVerticalScrollBar_"
-                    + root.fieldName
+                objectName: "sobjectMultilineVerticalScrollBar_" + root.fieldName
                 theme: root.theme
                 flickableTarget: multilineScroll.contentItem
             }
 
             function beginEditing() {
-                multilineText.forceActiveFocus(Qt.MouseFocusReason)
+                multilineText.forceActiveFocus(Qt.MouseFocusReason);
             }
 
             Controls.TextArea {
@@ -211,17 +199,17 @@ Item {
                 errorState: root.errorText.length > 0
                 wrapMode: TextEdit.Wrap
                 function insertBatchToken(token) {
-                    insert(cursorPosition, token)
-                    root.valueEdited(text)
-                    forceActiveFocus(Qt.MouseFocusReason)
+                    insert(cursorPosition, token);
+                    root.valueEdited(text);
+                    forceActiveFocus(Qt.MouseFocusReason);
                 }
                 Keys.onEscapePressed: event => {
-                    root.cancelRequested()
-                    event.accepted = true
+                    root.cancelRequested();
+                    event.accepted = true;
                 }
                 onTextChanged: {
                     if (activeFocus)
-                        root.valueEdited(text)
+                        root.valueEdited(text);
                 }
             }
         }
@@ -245,11 +233,10 @@ Item {
                 theme: root.theme
                 checked: Boolean(root.fieldValue)
                 enabled: !root.readOnlyField && !root.editorBusy
-                text: root.compact ? ""
-                    : checked ? qsTr("Enabled") : qsTr("Disabled")
+                text: root.compact ? "" : checked ? qsTr("Enabled") : qsTr("Disabled")
                 Keys.onEscapePressed: event => {
-                    root.cancelRequested()
-                    event.accepted = true
+                    root.cancelRequested();
+                    event.accepted = true;
                 }
                 onToggled: root.valueEdited(checked)
             }
@@ -267,10 +254,8 @@ Item {
             model: root.fieldOptions
             textRole: "label"
             valueRole: "value"
-            colorRole: root.fieldType === "status"
-                || root.fieldType === "process" ? "color" : ""
-            iconRole: root.fieldType === "pipeline"
-                || root.fieldType === "project" ? "icon" : ""
+            colorRole: root.fieldType === "status" || root.fieldType === "process" ? "color" : ""
+            iconRole: root.fieldType === "pipeline" || root.fieldType === "project" ? "icon" : ""
             leadingIcon: root.fieldType === "project" ? "workspaces" : ""
             translateDisplayText: false
             Component.onCompleted: currentIndex = root.optionIndex(choiceControl)
@@ -306,12 +291,11 @@ Item {
             readOnly: root.readOnlyField
             enabled: !root.readOnlyField && !root.editorBusy
             includeTime: root.fieldType === "datetime"
-            placeholderText: includeTime
-                ? qsTr("Date and time") : qsTr("Date")
+            placeholderText: includeTime ? qsTr("Date and time") : qsTr("Date")
             errorState: root.errorText.length > 0
             Keys.onEscapePressed: event => {
-                root.cancelRequested()
-                event.accepted = true
+                root.cancelRequested();
+                event.accepted = true;
             }
             onAccepted: value => root.valueEdited(value)
             onEditingFinished: root.valueEdited(text)
@@ -352,6 +336,16 @@ Item {
     }
 
     Component {
+        id: fileEditor
+        Controls.FileInput {
+            theme: root.theme
+            value: root.fieldValue || ""
+            editable: !root.readOnlyField && !root.editorBusy
+            onValueEdited: value => root.valueEdited(value)
+        }
+    }
+
+    Component {
         id: previewEditor
 
         Rectangle {
@@ -360,12 +354,9 @@ Item {
 
             implicitHeight: 194
             radius: root.theme.surfaceRadius
-            color: previewDropArea.containsDrag
-                ? root.theme.surfaceContainerHigh
-                : root.theme.surfaceContainer
+            color: previewDropArea.containsDrag ? root.theme.surfaceContainerHigh : root.theme.surfaceContainer
             border.width: 1
-            border.color: previewDropArea.containsDrag
-                ? root.theme.action : root.theme.outlineVariant
+            border.color: previewDropArea.containsDrag ? root.theme.action : root.theme.outlineVariant
 
             ColumnLayout {
                 anchors.fill: parent
@@ -384,10 +375,7 @@ Item {
                     Label {
                         objectName: "sobjectPreviewCount"
                         Layout.fillWidth: true
-                        text: previewSurface.previewPaths.length
-                            ? qsTr("Preview images: %1").arg(
-                                previewSurface.previewPaths.length)
-                            : qsTr("Preview images")
+                        text: previewSurface.previewPaths.length ? qsTr("Preview images: %1").arg(previewSurface.previewPaths.length) : qsTr("Preview images")
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
                         font.pointSize: Controls.Typography.body
@@ -465,18 +453,14 @@ Item {
                                     height: previewRow.height
 
                                     Controls.ItemPreview {
-                                        objectName: "sobjectPreviewThumbnail_"
-                                            + previewTile.index
+                                        objectName: "sobjectPreviewThumbnail_" + previewTile.index
                                         anchors.left: parent.left
                                         anchors.right: parent.right
                                         anchors.top: parent.top
                                         anchors.bottom: previewName.top
                                         anchors.bottomMargin: 4
                                         theme: root.theme
-                                        source: root.fieldModel
-                                            ? root.fieldModel.preview_url(
-                                                previewTile.modelData)
-                                            : previewTile.modelData
+                                        source: root.fieldModel ? root.fieldModel.preview_url(previewTile.modelData) : previewTile.modelData
                                         outlined: true
                                         fillMode: Image.PreserveAspectCrop
                                         animateAppearance: false
@@ -487,10 +471,7 @@ Item {
                                         anchors.right: parent.right
                                         anchors.bottom: parent.bottom
                                         height: 18
-                                        text: root.fieldModel
-                                            ? root.fieldModel.preview_name(
-                                                previewTile.modelData)
-                                            : String(previewTile.modelData)
+                                        text: root.fieldModel ? root.fieldModel.preview_name(previewTile.modelData) : String(previewTile.modelData)
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
                                         font.pointSize: Controls.Typography.caption
@@ -511,8 +492,7 @@ Item {
                                         elevated: true
                                         enabled: !root.editorBusy
                                         toolTip: qsTr("Remove preview image")
-                                        onClicked: root.previewFileRemoved(
-                                            previewTile.index)
+                                        onClicked: root.previewFileRemoved(previewTile.index)
                                     }
                                 }
                             }
@@ -534,9 +514,9 @@ Item {
                 z: 10
                 onDropped: drop => {
                     if (!drop.hasUrls)
-                        return
-                    root.previewFilesAdded(drop.urls)
-                    drop.acceptProposedAction()
+                        return;
+                    root.previewFilesAdded(drop.urls);
+                    drop.acceptProposedAction();
                 }
 
                 Controls.DropTargetOverlay {

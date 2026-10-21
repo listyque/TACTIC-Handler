@@ -581,3 +581,35 @@ inline/cascade-записей Gantt, всех операций timecard, ито�
 | --- | --- | --- |
 | Сводка | ![Handler](media/frame-table-object_summary-native-ru.png) | ![Stream](media/frame-table-object_summary-stream-ru.png) |
 | Связи | ![Handler](media/frame-table-object_connections-native-ru.png) | ![Stream](media/frame-table-object_connections-stream-ru.png) |
+
+
+## Настроенная публикация
+
+`PublishTableElement` открывает форму `publish` текущей записи. `GeneralPublishElementWdg` также принимает настроенный `view` и `preview=false`. Общий Frame задаёт ячейку, ограниченное превью, заголовок и кнопку публикации; ТХ и ТС поставляют независимые копии. Повторный клик не затирает несохранённую, занятую, пакетную форму или неизвестный результат записи; чистая форма может переключиться на другой объект.
+
+```xml
+<element name="publish" width="100">
+  <display class="tactic.ui.table.GeneralPublishElementWdg">
+    <view>review_publish</view><preview>true</preview>
+  </display>
+</element>
+```
+
+В `review_publish` нужно явно настроить действия полей, например:
+
+```xml
+<review_publish>
+  <element name="attachment">
+    <display class="tactic.ui.widget.SimpleUploadWdg"><context>publish/reference</context></display>
+    <action class="pyasm.command.UploadAction"/>
+  </element>
+</review_publish>
+```
+
+Опция `multi_publish=true` у `PublishTableElement` добавляет кнопку заголовка, открывающую явно настроенный view `multi_publish`. Это не общий режим пакетного создания. UploadAction создаёт настроенный снапшот; NullAction остаётся неработающей настройкой загрузки и явно диагностируется. Исключённый production Publish Browser и произвольные DOM callbacks не переносятся. Полная приёмка прав обычных пользователей и legacy-опций остаётся во втором этапе.
+
+| Ячейка | ТХ | ТС |
+| --- | --- | --- |
+| Публикация | ![ТХ](media/frame-table-publish-native-ru.png) | ![ТС](media/frame-table-publish-stream-ru.png) |
+
+Настроенная публикация ТХ сейчас принимает текст, многострочный текст, select, checkbox и SimpleUpload с UploadAction. Неперенесённые сочетания input/action явно блокируют форму. Сохранение идёт через настроенный EditCmd; обычные формы ТХ сохраняют прежний способ записи. Выбор файла — переиспользуемый базовый контролл в обоих клиентах с одним описанием Frame.

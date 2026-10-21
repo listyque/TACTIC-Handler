@@ -25,6 +25,7 @@ class Application(QObject):
         self.can_manage_tools=True
         self.repository_sync=Mock()
         self.window_model=Mock()
+        self.window_model.is_window_visible.return_value=False
         self.open_window=Mock()
         self._notify=Mock()
         self._current_tab=lambda:self.tab
@@ -40,7 +41,9 @@ class Ports(QObject):
     @Property(bool,constant=True)
     def busy(self):return False
     @Slot(str)
-    def insert_record(self,view):self.calls.append(('insert',view))
+    @Slot(str, str)
+    def insert_record(self,view,operation=''):
+        self.calls.append(('insert',view,operation) if operation else ('insert',view))
     @Slot(str)
     def open_link(self,href):self.calls.append(('url',href))
     @Slot(str,str,'QVariantMap')
@@ -57,6 +60,22 @@ class TableServiceWorkflows(unittest.TestCase):
     close=frames.FrameTableTests.close
     item=frames.FrameTableTests.item
     click=frames.FrameTableTests.click
+
+    def test_insert_keeps_the_open_object_or_task_editor_context(self):
+        for window_id in ('add_sobject', 'task_editor'):
+            application = Application()
+            application.window_model = FloatingWindowModel({})
+            application._active_stype = lambda: object()
+            original = dict(mode='edit', sobject=object(), draft='Unsaved current record')
+            application._sobject_editor_request = original
+            application.window_model.show_window(window_id)
+            raised = self.enterContext(patch.object(application.window_model, 'raise_window', wraps=application.window_model.raise_window))
+            owner = TableServicesController(application)
+            self.addCleanup(owner.shutdown)
+            owner.insert_record('multi_publish')
+            self.assertIs(application._sobject_editor_request, original)
+            application.open_window.assert_not_called()
+            raised.assert_called_once_with(window_id)
 
     def test_native_custom_layout_click_keeps_its_script_and_external_link(self):
         ports=Ports()
@@ -128,6 +147,40 @@ class TableServiceWorkflows(unittest.TestCase):
             height=120,context={'tableServicesController':ports})
         self.click(window,self.item(view,'tableColumnInsert_update'))
         self.assertEqual(ports.calls,[('insert','insert_review')])
+
+    def test_publish_file_control_clears_on_first_click_and_respects_busy(self):
+        model = frames.QObject()
+        window, view = self.create('SObjectValueEditor.qml', dict(fieldType='file', fieldValue='D:/publish/reference.txt',
+            fieldOptions=[], fieldModel=None), width=320, height=44)
+        values = []
+        view.valueEdited.connect(values.append)
+        self.click(window, self.item(view, 'fileInputClear'))
+        self.assertEqual(values, [''])
+        view.setProperty('editorBusy', True)
+        frames.frame(window)
+        self.click(window, self.item(view, 'fileInputClear'))
+        self.assertEqual(values, [''])
+
+    def test_publish_uses_first_click_custom_view_and_explicit_header_operation(self):
+        from thlib.ui.workspace_models.results import WorkspaceItemModel
+        controller = frames._TableController()
+        cell = dict(publish=True, available=True, publishView='review_publish', targetSearchKey='demo/asset?code=A', preview=dict(image=''))
+        window, view = self.create('features/table/ServiceCell.qml', dict(controller=controller,
+            services=None, administration=None, nodeId='A', cell=cell), width=120, height=98)
+        self.click(window, self.item(view, 'tablePublish'))
+        self.assertEqual(controller.table_widget_actions, [('publish', 'A', dict(cell, actionView='review_publish'))])
+        view.setProperty('editable', False)
+        frames.frame(window)
+        self.click(window, self.item(view, 'tablePublish'))
+        self.assertEqual(len(controller.table_widget_actions), 1)
+        ports = Ports()
+        columns = frames._TableColumns()
+        columns._columns = [dict(row=0, name='publish', label='Publish', width=90, kind='commands',
+            resolvedClass='pyasm.widget.PublishTableElement', displayOptions=dict(multi_publish='true'))]
+        window, view = self.create('SearchResultTable.qml', dict(controller=controller, columnsController=columns,
+            resultModel=WorkspaceItemModel()), height=120, context={'tableServicesController':ports})
+        self.click(window, self.item(view, 'tableColumnInsert_publish'))
+        self.assertEqual(ports.calls, [('insert', 'multi_publish', 'publish')])
 
     def test_real_summary_uses_one_readonly_code_editor_and_switches_groups(self):
         app=Application();owner=TableServicesController(app)

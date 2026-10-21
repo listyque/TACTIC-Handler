@@ -20,6 +20,19 @@ from PySide6.QtCore import (
 )
 
 
+def open_sobject_editor(application, request: dict, window_id: str = "add_sobject") -> bool:
+    """Keep an active draft; a clean editor can switch to another record."""
+    can_replace = getattr(application, "sobject_editor_can_replace", None)
+    for current in ("add_sobject", "task_editor"):
+        if application.window_model.is_window_visible(current):
+            if current != window_id or not callable(can_replace) or not can_replace():
+                application.window_model.raise_window(current)
+                return False
+    application._sobject_editor_request = dict(request, _prepared=True)
+    application.open_window(window_id)
+    return True
+
+
 class SObjectFieldModel(QAbstractListModel):
     FieldNameRole = Qt.UserRole + 1
     TitleRole = Qt.UserRole + 2
@@ -323,6 +336,7 @@ class SObjectEditorController(QObject):
         self._worker = None
         self._edit_widget = None
         self._context_data = {}
+        self._baseline = {}
         self._script_triggers = None
         self._batch_enabled = False
         self._batch_count = 10
@@ -342,9 +356,16 @@ class SObjectEditorController(QObject):
     def attach_script_triggers(self, triggers) -> None:
         self._script_triggers = triggers
 
+    def can_replace_session(self) -> bool:
+        return (
+            not (self._busy or self._uncertain or self._batch_enabled)
+            and self.model.values() == self._baseline
+        )
+
     @Slot()
     def begin_session(self) -> None:
         self._uncertain = False
+        self._baseline = {}
         context = dict(self._context() or {})
         stype = context.get("stype")
         project_code = str(context.get("project_code") or "")
@@ -376,6 +397,7 @@ class SObjectEditorController(QObject):
             sobject.get_search_key()
             if self._mode == "edit" and sobject is not None else ""
         )
+        self._context_data["search_key"] = search_key
         parent_key = (
             parent_sobject.get_search_key()
             if parent_sobject is not None else None
@@ -438,6 +460,8 @@ class SObjectEditorController(QObject):
             self._set_error("Access to this edit view is denied")
             self.model.clear()
             return
+        if context.get("operation") == "publish":
+            edit["configured_publish"] = deepcopy((result or {}).get("InputWidgets") or [])
         edit["stype"] = stype
         edit["sobject"] = (
             context.get("sobject")
@@ -466,8 +490,11 @@ class SObjectEditorController(QObject):
             mode=self._mode,
         )
         self.model.replace(fields)
+        self._baseline = deepcopy(self.model.values())
         self._busy = False
         self._error = "" if fields else "The edit view contains no supported fields"
+        if context.get("operation") == "publish" and any(field["fieldType"] == "unsupported" for field in fields):
+            self._error = "This configured publish form contains unsupported fields or actions"
         self._worker = None
         self.stateChanged.emit()
 
@@ -549,6 +576,17 @@ class SObjectEditorController(QObject):
             widget.get_editor_kind(original_type)
             if widget is not None else "unsupported"
         )
+        if context.get("operation") == "publish":
+            action_class = str(source.get("action_class") or "").split('.')[-1]
+            if class_name == "tactic.ui.widget.upload_wdg.SimpleUploadWdg":
+                field_type = "file" if action_class == "UploadAction" and not widget.kwargs.get("client_action") else "unsupported"
+            elif class_name not in (
+                "pyasm.widget.input_wdg.TextWdg", "pyasm.widget.input_wdg.TextAreaWdg",
+                "pyasm.widget.input_wdg.SelectWdg", "pyasm.widget.input_wdg.CheckboxWdg",
+            ) or action_class not in ("", "DatabaseAction", "NullAction"):
+                field_type = "unsupported"
+            column = name
+
         if column == "keywords" and field_type in {"string", "multiline"}:
             field_type = "tags"
         if (
@@ -591,7 +629,7 @@ class SObjectEditorController(QObject):
                 parent.get_title()
                 if parent is not None else str(default or "")
             )
-        elif field_type in {"preview", "thumbnail"}:
+        elif field_type in {"preview", "thumbnail", "file"}:
             default = ""
         default = cls._normalized_default(default, field_type)
         if (
@@ -889,7 +927,10 @@ class SObjectEditorController(QObject):
 
     @Slot(bool)
     def set_batch_enabled(self, enabled: bool) -> None:
-        enabled = bool(enabled) and self._mode == "insert"
+        enabled = (
+            bool(enabled) and self._mode == "insert"
+            and self._context_data.get("operation") != "publish"
+        )
         if enabled == self._batch_enabled:
             return
         if self._batch_index >= 0:
@@ -980,6 +1021,11 @@ class SObjectEditorController(QObject):
             self._error = self.tr("Preview the batch before creating it")
             self.stateChanged.emit()
             return
+        if self._context_data.get("operation") == "publish" and any(
+            field["fieldType"] == "unsupported" for field in self.model.records()
+        ):
+            self._set_error("This configured publish form contains unsupported fields or actions")
+            return
         if not self.model.valid:
             self._error = self.tr("Correct the highlighted fields")
             self.stateChanged.emit()
@@ -990,7 +1036,9 @@ class SObjectEditorController(QObject):
                 return
             values, self._submitted_previews = submission
         else:
-            values = self.model.submission_values(self._mode)
+            values = self.model.submission_values(
+                "insert" if self._context_data.get("operation") == "publish" else self._mode
+            )
             self._submitted_previews = [self.model.preview_paths()]
         self._submitted_values = values
         self._busy = True
@@ -1061,6 +1109,7 @@ class SObjectEditorController(QObject):
     def _save_finished(self, request_id: int, result) -> None:
         if request_id != self._request_id:
             return
+        self._baseline = deepcopy(self.model.values())
         action = "updated" if self._mode == "edit" else "created"
         results = list(result) if isinstance(result, (list, tuple)) else [result]
         search_keys = []
@@ -1247,8 +1296,14 @@ class SObjectEditorController(QObject):
     def presentation(self) -> dict:
         return {
             "title": self.title, "searchType": self.searchType,
-            "parentTitle": self.parentTitle, "mode": self.mode,
-            "fieldCount": self.model.count, "valid": self.model.valid,
+            "recordKey": self._context_data.get("search_key", ""),
+            "parentTitle": self.parentTitle,
+            "mode": "publish" if self._context_data.get("operation") == "publish" else self.mode,
+            "fieldCount": self.model.count,
+            "valid": self.model.valid and not (self._context_data.get("operation") == "publish" and any(
+                field["fieldType"] == "unsupported" for field in self.model.records())),
+            "dirty": self.model.values() != self._baseline,
+            "canSave": self._context_data.get("operation") != "publish" or self._mode == "insert" or self.model.values() != self._baseline,
             "busy": self.busy, "error": self.error, "uncertain": self._uncertain,
             "batchEnabled": self.batchEnabled, "batchCount": self.batchCount, "batchExample": self.batchExample,
             "batchPreview": self.batchPreview, "batchIndex": self.batchIndex,
@@ -1311,4 +1366,6 @@ class SObjectEditorController(QObject):
 
     @Property(str, notify=stateChanged)
     def submitLabel(self) -> str:
+        if self._context_data.get("operation") == "publish":
+            return "Publish"
         return "Save changes" if self._mode == "edit" else "Create"

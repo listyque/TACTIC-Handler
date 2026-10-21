@@ -214,9 +214,12 @@ class UploadMultipart(object):
         # prevent upgrading the method + url in the httplib module to turn it 
         # into a unicode string before sending the request
         selector = str(selector)
-        h.request('POST', selector, body, headers)
-        res = h.getresponse()
-        return res.status, res.reason, res.read()    
+        try:
+            h.request('POST', selector, body, headers)
+            res = h.getresponse()
+            return res.status, res.reason, res.read()
+        finally:
+            h.close()
 
 
     def encode_multipart_formdata(self, fields, files):

@@ -294,6 +294,9 @@ class TacticEditWdg(TacticBaseWidget):
         else:
             project = stype.get_project()
 
+        if 'configured_publish' in self.options_dict:
+            return self._commit_publish(data, tc.server_start(project=project.get_code()))
+
         if self.input_prefix == 'edit':
             # Logging info
             dl.log('Making Commit Update for {}'.format(stype.get_pretty_name()), group_id=stype.get_code())
@@ -342,6 +345,50 @@ class TacticEditWdg(TacticBaseWidget):
                 self.get_search_type(), project.get_code(), data,
                 parent_key=self.get_parent_search_key(),
                 instance_type=instance_type, instance_path=instance_path)
+
+    def _commit_publish(self, data, server):
+        from pathlib import Path
+        sources = self.options_dict['configured_publish']
+        uploads = [Path(data[field['name']]) for field in sources
+            if field['name'] in data and data[field['name']]
+            and field['class_name'] == 'tactic.ui.widget.upload_wdg.SimpleUploadWdg']
+        if len({path.name.casefold() for path in uploads}) != len(uploads):
+            raise ValueError('Choose different file names for separate upload fields.')
+        if any(not path.is_file() for path in uploads):
+            raise ValueError('Choose an existing file')
+        values = dict(search_type=self.get_search_type(), search_id='-1')
+        names = []
+        for field in sources:
+            name = field['name']
+            if name not in data:
+                continue
+            names.append(name)
+            prefix = self.input_prefix + '|' + name if self.input_prefix else name
+            value = data[name]
+            if field['class_name'] == 'tactic.ui.widget.upload_wdg.SimpleUploadWdg':
+                values[prefix] = ''
+                options = field.get('kwargs') or {}
+                values[prefix + '|context'] = field.get('context') or options.get('context') or 'icon'
+                values[prefix + '|column'] = options.get('column') or name
+                if value:
+                    path = Path(value)
+                    server.upload_file(str(path))
+                    values[prefix + '|path'] = path.name
+                    values[prefix + '|ticket'] = server.get_transaction_ticket()
+            else:
+                values[prefix] = value if value is not None else ''
+        args = dict(view=self.view or 'publish', input_prefix=self.input_prefix,
+            element_names=names, search_type=self.get_search_type())
+        if self.get_search_key():
+            args['search_key'] = self.get_search_key()
+        if self.get_parent_search_key():
+            args['parent_key'] = self.get_parent_search_key()
+        result = server.execute_cmd('tactic.ui.panel.EditCmd', args, values)
+        info = result.get('info') or {}
+        record = info.get('sobject')
+        if not isinstance(record, dict):
+            raise ConnectionError('The configured publication result could not be verified')
+        return record
 
     def set_base_edit_options(self, options_dict):
         self.options_dict = options_dict

@@ -7,6 +7,10 @@ export function header(model, width, language) {
         compact = width < 660,
         height = compact ? 90 : 98,
         margin = compact ? 16 : 22;
+    const publishing = model.mode === 'publish',
+        context = publishing
+            ? model.recordKey || tr('New object')
+            : model.parentTitle;
     const actions =
         model.mode === 'insert'
             ? Math.min(238, Math.max(80, width - margin * 2 - 142))
@@ -34,7 +38,7 @@ export function header(model, width, language) {
                 background: 'secondaryContainer',
                 children: [
                     node('Icon', 'sobjectEditorIcon', rect(11, 11, 22, 22), {
-                        icon: 'sobject',
+                        icon: model.mode === 'publish' ? 'publish' : 'sobject',
                         color: 'action'
                     })
                 ]
@@ -42,8 +46,8 @@ export function header(model, width, language) {
         ),
         label(
             'sobjectEditorTitle',
-            rect(margin + 57, model.parentTitle ? 14 : 22, textWidth, 24),
-            model.title ||
+            rect(margin + 57, context ? 14 : 22, textWidth, 24),
+            (model.mode === 'publish' ? tr('Publish') : model.title) ||
                 tr(model.mode === 'edit' ? 'Edit record' : 'Create record'),
             { fontRole: 'bodyLarge', weight: 600 }
         ),
@@ -51,7 +55,7 @@ export function header(model, width, language) {
             'sobjectEditorType',
             rect(
                 margin + 57,
-                model.parentTitle ? 40 : 48,
+                context ? 40 : 48,
                 Math.max(0, width - margin * 2 - 57),
                 20
             ),
@@ -59,13 +63,17 @@ export function header(model, width, language) {
             { elideMiddle: true, color: 'secondaryText' }
         )
     ];
-    if (model.parentTitle)
+    if (context)
         nodes.push(
             label(
                 'sobjectEditorParent',
                 rect(margin + 57, 63, Math.max(0, width - margin * 2 - 57), 18),
-                tr('Parent') + ': ' + model.parentTitle,
-                { fontRole: 'caption', color: 'secondaryText' }
+                tr(publishing ? 'Object' : 'Parent') + ': ' + context,
+                {
+                    fontRole: 'caption',
+                    color: 'secondaryText',
+                    toolTip: context
+                }
             )
         );
     if (model.mode === 'insert')
@@ -309,17 +317,19 @@ export function footer(model, width, language) {
         margin = compact ? 16 : 22;
     const submit =
         model.submitLabel ||
-        (model.mode === 'edit'
-            ? tr('Save changes')
-            : model.batchPreview
-              ? translate('Create {count} objects', language, {
-                    count: model.batchTotal
-                })
-              : model.batchEnabled
-                ? translate('Preview {count} objects', language, {
-                      count: model.batchCount
+        (model.mode === 'publish'
+            ? tr('Publish')
+            : model.mode === 'edit'
+              ? tr('Save changes')
+              : model.batchPreview
+                ? translate('Create {count} objects', language, {
+                      count: model.batchTotal
                   })
-                : tr('Create'));
+                : model.batchEnabled
+                  ? translate('Preview {count} objects', language, {
+                        count: model.batchCount
+                    })
+                  : tr('Create'));
     const submitWidth = Math.min(
             width * 0.52,
             Math.max(72, submit.length * 6 + 32)

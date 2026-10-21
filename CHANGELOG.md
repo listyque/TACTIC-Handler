@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.128 - 2026-10-21
+
+- Continue combined legacy stage 2 with Stream 0.112.181: PublishTableElement and GeneralPublishElementWdg open their configured views in the existing native editor; preserve optional preview and explicit Multi Publish header.
+- Run the configured field actions, including real uploads and rollback. A legacy NullAction does not silently become a check-in. Keep the excluded production Publish Browser and old HTML/Mako Custom Layout Editor excluded.
+- Route shipped object/task editor callers through one admission check: preserve dirty, busy, batch or uncertain sessions and raise the existing editor; allow a clean editor to switch records.
+- Stage 2/B07 remains open: sequence/UDIM transfer, ingest, residual layout callbacks, time writes, ordinary-user ACL, scoped authoring and full option acceptance remain pending. Typed registration is not full legacy acceptance.
+
 ## 0.6.0.127 - 2026-10-21
 
 - Continue combined legacy stage 2 with Stream 0.112.180: ParentGroup groups by full parent identity, shares its rich header and picker state, and opens child creation through the existing configured insert form.
