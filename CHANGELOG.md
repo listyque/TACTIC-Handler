@@ -3,6 +3,14 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.126 - 2026-10-21
+
+- Continue combined legacy stage 2 with Stream 0.112.179: DependencyLink opens the existing modeless table document with a shared snapshot tree, cached branches, cyclic/missing/retired references and branch-local retry/loading.
+- Preserve concrete versions, source project, revisions, instance/node metadata and contextual level references. Page sequence member names without eagerly expanding the whole range; sequence/UDIM transfer remains L04.
+- Open a selected ordinary file with the existing native file owner. Run dependency reads in workers and discard completions after close, refresh, project change or sign-out.
+- Keep document captions localized and reject older generic document responses after replacement/close. Stream thumbnail reads expand only the first sequence frame.
+- Add actual QML input/lifetime checks, native procedure XML-RPC and Edge file-byte/pagination checks, fresh paired examples and EN/RU Help. Stage 2/B07 and ordinary-user ACL remain open.
+
 ## 0.6.0.125 - 2026-10-21
 
 - Continue combined legacy stage 2 with Stream 0.112.178: project-scoped connection cells batch target/preview reads, retain retired/missing endpoints and remove only the revision-checked connection after confirmation. Refresh after success or a lost response.

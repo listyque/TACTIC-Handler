@@ -725,5 +725,16 @@
       "tactic.ui.table.SObjectSummaryElementWdg"
     ],
     "adapter": "commands"
+  },
+  {
+    "value": "DependencyLink",
+    "label": "Dependencies",
+    "class": "pyasm.widget.dependency_wdg.DependencyLink",
+    "aliases": [
+      "DependencyLink",
+      "pyasm.widget.DependencyLink",
+      "pyasm.widget.dependency_wdg.DependencyLink"
+    ],
+    "adapter": "commands"
   }
 ]

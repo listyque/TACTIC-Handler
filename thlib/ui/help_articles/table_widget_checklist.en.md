@@ -8,7 +8,7 @@ order: 96
 
 [Table View / Columns Editor](table_view.en.md) · [B07](table_widgets_b07.en.md) · [Widget Database](widget_database.en.md)
 
-Current as of 2026-10-21: 239 shipped XML/CG entries; 67 referenced adapted classes, **4 pending**, 30 excluded production dependencies, 3 explicitly unfinished. The complete catalogue contains 70 classes / 168 named aliases. Checkout currently accepts ordinary single files; sequence/UDIM and remaining options stay open. Registration does not certify every original option; stage 2/B07 remain open.
+Current as of 2026-10-21: 239 shipped XML/CG entries; 68 referenced adapted classes, **3 pending**, 30 excluded production dependencies, 3 explicitly unfinished. The complete catalogue contains 71 classes / 171 named aliases. DependencyLink now has a shared snapshot tree; ParentGroup and the two publish classes remain pending. Checkout currently accepts ordinary single files; sequence/UDIM and remaining options stay open. Registration does not certify every original option; stage 2/B07 remain open.
 
 L01–L07 order: relationships/nested rows (8) → discussion/message/task (4) →
 configured actions/layout (3) → files (7) → status/process (6) →

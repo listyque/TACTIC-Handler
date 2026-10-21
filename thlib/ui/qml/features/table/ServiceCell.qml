@@ -39,6 +39,8 @@ Frame.FrameView {
             services.toggle_nested(nodeId, Object.assign({}, cell, {
                 nestedTable: action.nestedTable || cell.nestedTable
             }));
+        else if (action.name === "dependencies")
+            services.dependencyViewer.open(nodeId, cell);
         else if (action.name === "file-checkout")
             services.open_checkout(nodeId, cell);
         else if (action.name === "file-append")

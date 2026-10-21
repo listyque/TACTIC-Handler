@@ -25,8 +25,19 @@ Item {
             administration: administrationController
         }
     }
+    Loader {
+        anchors.fill: parent
+        anchors.margins: 12
+        active: tableServicesController.document.kind === "dependencies"
+        sourceComponent: DependenciesView {
+            theme: root.theme
+            owner: tableServicesController.dependencyViewer
+            model: tableServicesController.document
+            onCloseRequested: windowModel.close_window("table_document")
+        }
+    }
     Frame.FrameView {
-        visible: !tableServicesController.document.layoutNodes
+        visible: !tableServicesController.document.layoutNodes && tableServicesController.document.kind !== "dependencies"
         anchors.fill: parent
         anchors.margins: 12
         theme: root.theme

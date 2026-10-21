@@ -8655,6 +8655,16 @@ def query_table_layout(search_type, search_keys=None, view='table',
         return dict(text='', targetSearchKey=search_key, summary=result)
 
     def action_cell_values(class_name, column, sobject, widget):
+        if class_name == 'pyasm.widget.dependency_wdg.DependencyLink':
+            base = sobject.get_base_search_type()
+            if base == 'sthpw/project':
+                project = sobject.get_code()
+            elif base.startswith('sthpw/'):
+                project = sobject.get_value('project_code', no_exception=True) or Project.get_project_code()
+            else:
+                project = SearchKey.extract_project(sobject.get_search_type()) or Project.get_project_code()
+            return dict(text='', targetSearchKey=SearchKey.get_by_sobject(sobject), projectCode=project,
+                actions=[dict(name='dependencies', label='Dependencies', icon='account-tree')])
         if class_name.endswith('.SObjectSummaryElementWdg'):
             return read_summary_cell(SearchKey.get_by_sobject(sobject))
         if class_name == 'pyasm.widget.sobject_browser_wdg.SObjectConnectionElement':

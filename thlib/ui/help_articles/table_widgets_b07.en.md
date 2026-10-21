@@ -6,7 +6,36 @@ order: 36
 
 # Table View: B07 typed cells
 
-B07 is still in progress. The catalogue contains 70 server classes and 168 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+B07 is still in progress. The catalogue contains 71 server classes and 171 named aliases. This article documents the added value adapters; it does not certify every historical option. Unsupported options remain explicit errors. Keep existing view definitions and replace only the intended element.
+
+## Snapshot dependencies
+
+Add the dependency action to an object or snapshot table:
+
+```xml
+<element name="dependency" width="64">
+  <display class="pyasm.widget.DependencyLink"/>
+</element>
+```
+
+The modeless Dependencies window shows files and upstream, input, downstream and
+file-local references. The arrow shows branch loading; collapse/reopen reuses the
+loaded branch. Retired/missing objects and cyclic references remain explicit.
+An object resolves its latest snapshot once; an exact snapshot keeps that version.
+Refresh starts a new root session. A changed revision requires Refresh before
+loading more. Closing the window or changing project discards late replies.
+Snapshots selected from a global administrative table open in their own project.
+
+Expand a file sequence to read its member names, 50 at a time with Show more.
+This does not download the sequence. A normal file opens through the existing
+file preview/desktop file action. Sequence/UDIM transfers remain in progress.
+Sequence thumbnails use the first frame. An older document's delayed response
+cannot replace the newer window or reopen it after Close.
+The current viewer requires administrator access.
+
+| Dependencies, MD3 dark | Handler | Stream |
+| --- | --- | --- |
+| Expanded tree | ![Handler](media/frame-table-dependencies-native-en.png) | ![Stream](media/frame-table-dependencies-stream-en.png) |
 
 ## Snapshot attachments
 

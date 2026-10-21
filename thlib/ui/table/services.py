@@ -95,6 +95,8 @@ class TableServicesController(QObject):
         self._script_session = None
         self._links = links
         self._document = {}
+        self._document_generation = 0
+        application.window_model.windowVisibilityChanged.connect(self._document_visibility)
         self._nested_scopes = {}
         self._nested_revision = 0
         from .file_append import SnapshotAppendController
@@ -104,12 +106,22 @@ class TableServicesController(QObject):
         from .file_checkout import SnapshotCheckoutController
         self._checkout = SnapshotCheckoutController(application, self)
         self._checkout.changed.connect(self.stateChanged)
+        from .dependencies import DependencyViewerController
+        self._dependencies = DependencyViewerController(self, self)
         application.results_view_changed.connect(self._prune_nested)
         from thlib.ui.source_editor import SourceEditorService
         self._source_editor = SourceEditorService(self)
         self.scriptProgress.connect(self._script_progress, Qt.QueuedConnection)
         application.signing_out.connect(self.shutdown)
         application.project_changed.connect(self.shutdown)
+
+    def _document_visibility(self, window_id, visible):
+        if window_id == 'table_document' and not visible:
+            self._document_generation += 1
+
+    @Property(QObject, constant=True)
+    def dependencyViewer(self):
+        return self._dependencies
 
     @Property(QObject, constant=True)
     def appendEditor(self):
@@ -611,8 +623,10 @@ class TableServicesController(QObject):
             from thlib import tactic_classes as tc
             from thlib.ui.table.requests import read_group_summary, read_custom_layout
             server = tc.server_start(project=session['runner'].context['project'])
+            self._document_generation += 1
+            document_generation = self._document_generation
             def show_document(result):
-                if session['tab'] is not app._current_tab():
+                if session['tab'] is not app._current_tab() or document_generation != self._document_generation:
                     return
                 self._document = dict(result, title=command.get('title') or result.get('title') or 'Custom Layout',
                     translateTitle=not bool(command.get('title')), nodeId=session['node_id'])
@@ -764,6 +778,7 @@ class TableServicesController(QObject):
         self.connectionRemovalClosed.emit()
         self._append.shutdown()
         self._checkout.shutdown()
+        self._dependencies.shutdown()
         for scope in self._nested_scopes.values():
             scope.shutdown()
             scope.deleteLater()

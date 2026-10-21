@@ -1,5 +1,27 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    Upstream: 'Входящие',
+    Inputs: 'Входные зависимости',
+    Downstream: 'Исходящие',
+    Instance: 'Экземпляр',
+    'File references': 'Ссылки файлов',
+    'Unresolved references': 'Неопределённые ссылки',
+    'No dependencies': 'Нет зависимостей',
+    'No snapshot found': 'Снапшот не найден',
+    'Cyclic dependency': 'Циклическая зависимость',
+    'Dependencies changed. Reload this snapshot.':
+        'Зависимости изменились. Обновите снапшот.',
+    'Open dependencies in the source project':
+        'Откройте зависимости в исходном проекте',
+    'Open dependencies in the snapshot project':
+        'Откройте зависимости в проекте снапшота',
+    'Invalid dependency page': 'Недопустимая страница зависимостей',
+    'Invalid dependency file': 'Недопустимый файл зависимости',
+    'Invalid dependency file range': 'Недопустимый диапазон файлов зависимости',
+    'Dependency file is no longer available':
+        'Файл зависимости больше недоступен',
+    'This object is not available in Dependencies':
+        'Этот объект недоступен в зависимостях',
     'Object summary': 'Сводка объекта',
     Connections: 'Связи',
     'No connections': 'Нет связей',
