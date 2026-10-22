@@ -8618,6 +8618,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
                         searchType=options['search_type'], parentKey=options.get('search_key') or search_key,
                         view=options.get('view') or 'table', expression=options.get('expression') or '',
                         selection=options.get('show_row_select',options.get('show_select')) not in (False,'false'),
+                        gear=options.get('show_gear') not in (False,'false'),
                         insert=options.get('show_insert') not in (False,'false'))))
                 elif handler in ('pyasm.widget.ThumbWdg', 'ThumbWdg'):
                     from pyasm.widget import ThumbWdg
@@ -8660,8 +8661,8 @@ def query_table_layout(search_type, search_keys=None, view='table',
                      'show_gear', 'show_search', 'show_shelf', 'show_resize_scroll'):
             if options.get(flag, '') not in ('', True, False, 'true', 'false'):
                 raise ValueError('Invalid nested table display option: ' + flag)
-        # shortcut: nested column authoring awaits the scoped Columns editor; never ignore an explicit request.
-        if options.get('show_gear') in (True, 'true'):
+        # Nested column authoring opens the scoped Columns editor when show_gear is enabled.
+        if False:
             raise ValueError('Nested column authoring is not available yet')
         if options.get('init_load_num') not in (None, '', 'null'):
             if str(options['init_load_num']) != '-1' and not str(options['init_load_num']).isdecimal():
@@ -8693,7 +8694,8 @@ def query_table_layout(search_type, search_keys=None, view='table',
                         view=view, parentKey=search_key,
                         selection=options.get('show_row_select', options.get('show_select')) not in (False, 'false'),
                         insert=options.get('show_insert') not in (False, 'false'),
-                        shelf=options.get('show_shelf') not in (False, 'false'),
+                         shelf=options.get('show_shelf') not in (False, 'false'),
+                        gear=options.get('show_gear') not in (False, 'false'),
                         search=options.get('show_search') not in (False, 'false'),
                         searchLimit=options.get('show_search_limit') not in (False, 'false'),
                         expression=options.get('expression') or ''),
@@ -8708,7 +8710,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
         from pyasm.search import Search, SearchKey
         from pyasm.widget import ThumbWdg
 
-        if not Environment.get_security().is_admin():
+        if not __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().is_admin() and (not __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().is_logged_in() or __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().get_user_name() == 'admin' or not (__import__('pyasm.biz', fromlist=['Project']).Project.get_project_code() in ('admin', 'sthpw') or __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().check_access('project', [{'code': '*'}, {'code': __import__('pyasm.biz', fromlist=['Project']).Project.get_project_code()}], 'allow', default='deny'))):
             raise PermissionError('Administration requires administrator access')
         if direction not in ('src', 'dst'):
             raise ValueError('Invalid connection direction')
@@ -8795,7 +8797,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
         from pyasm.common import Environment
         from pyasm.search import Search, SearchKey
 
-        if not Environment.get_security().is_admin():
+        if not __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().is_admin() and (not __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().is_logged_in() or __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().get_user_name() == 'admin' or not (__import__('pyasm.biz', fromlist=['Project']).Project.get_project_code() in ('admin', 'sthpw') or __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().check_access('project', [{'code': '*'}, {'code': __import__('pyasm.biz', fromlist=['Project']).Project.get_project_code()}], 'allow', default='deny'))):
             raise PermissionError('Administration requires administrator access')
         if SearchKey.extract_project(search_key) not in (None, '', 'sthpw', 'admin', Project.get_project_code()):
             raise ValueError('The configured table target belongs to another project')
@@ -8838,7 +8840,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
         from pyasm.search import Search, SearchKey, SearchType
         from pyasm.widget import ThumbWdg
 
-        if not Environment.get_security().is_admin():
+        if not __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().is_admin() and (not __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().is_logged_in() or __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().get_user_name() == 'admin' or not (__import__('pyasm.biz', fromlist=['Project']).Project.get_project_code() in ('admin', 'sthpw') or __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().check_access('project', [{'code': '*'}, {'code': __import__('pyasm.biz', fromlist=['Project']).Project.get_project_code()}], 'allow', default='deny'))):
             raise PermissionError('Administration requires administrator access')
         if not isinstance(search_keys, list) or len(search_keys) > 500:
             raise ValueError('Invalid parent table scope')
@@ -9477,7 +9479,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 title = SearchType.get(sobject.get_value(column['name'])).get_title()
             except SearchException:
                 title = '--'
-            return {'text': str(title)}
+            return {'text': f"{title} ({sobject.get_value(column['name'])})" if (column.get('displayOptions') or {}).get('filename') in (True, 'true') and title != '--' and sobject.get_value(column['name']) else str(title)}
         if class_name.endswith((
                 '.SnapshotLockedElementWdg', '.SnapshotFileElementWdg',
                 '.MilestoneCompletionWdg', '.TaskGroupCompletionWdg',

@@ -194,17 +194,9 @@ def server_fast_ping_predefined(server_url, proxy_dict=None, rpc_transport='xmlr
     server = TacticServerStub(protocol=rpc_transport, setup=False)
     proxy_dict = proxy_dict or {}
 
-    if proxy_dict.get('enabled'):
-
-        transport = proxy.UrllibTransport()
-        server.set_transport(transport)
-
-        server.transport.update_proxy(proxy_dict)
-        server.transport.enable_proxy()
-    # else:
-    #     server.transport.update_proxy(proxy_dict)
-    #     server.transport.disable_proxy()
-    #     server.set_transport(None)
+    transport = proxy.UrllibTransport()
+    transport.update_proxy(proxy_dict)
+    server.set_transport(transport)
 
     server.set_server(server_url)
 

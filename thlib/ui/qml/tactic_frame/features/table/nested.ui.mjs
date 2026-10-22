@@ -48,7 +48,7 @@ export function describe(model, width, extent, language) {
         node(
             'Field',
             'nestedFilter',
-            rect(0, 0, Math.max(0, width - 120), 36),
+            rect(0, 0, Math.max(0, width - (model.gear ? 156 : 120)), 36),
             {
                 text: model.filter || '',
                 placeholder: t('Filter'),
@@ -57,10 +57,19 @@ export function describe(model, width, extent, language) {
         ),
         button(
             'nestedReload',
-            rect(Math.max(0, width - 112), 0, 32, 32),
+            rect(Math.max(0, width - (model.gear ? 148 : 112)), 0, 32, 32),
             model.busy ? t('Loading data…') : t('Refresh'),
             model.busy ? 'loading' : 'refresh',
             { type: 'reload' },
+            !model.busy,
+            { iconOnly: true }
+        ),
+        button(
+            'nestedColumns',
+            rect(Math.max(0, width - 112), 0, 32, 32),
+            t('Columns'),
+            'view-column',
+            { type: 'columns' },
             !model.busy,
             { iconOnly: true }
         ),
@@ -198,12 +207,16 @@ export function describe(model, width, extent, language) {
     return {
         nodes: nodes.filter((item) => {
             if (
-                ['nestedFilter', 'nestedReload', 'nestedCreate'].includes(
-                    item.id
-                ) &&
+                [
+                    'nestedFilter',
+                    'nestedReload',
+                    'nestedColumns',
+                    'nestedCreate'
+                ].includes(item.id) &&
                 model.shelf === false
             )
                 return false;
+            if (item.id === 'nestedColumns' && !model.gear) return false;
             if (item.id === 'nestedFilter' && model.search === false)
                 return false;
             if (item.id === 'nestedCreate' && model.insert === false)

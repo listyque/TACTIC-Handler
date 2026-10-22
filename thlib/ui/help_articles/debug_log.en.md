@@ -77,7 +77,7 @@ JSON calls to `/admin/rpc` and XML-RPC calls to `/tactic/{project}/Api/` use the
 
 Other browser endpoints, such as `/admin/search-configuration/query`, do not pass through `/admin/rpc`. Their HTTP access records are separate. Requests rejected before API dispatch also do not have a method block.
 
-This logging does not switch Handler's transport. Handler continues using XML-RPC, including connections to Legacy TACTIC.
+Handler selects XML-RPC or JSON separately for each connection preset in Configuration → Server → API transport. XML-RPC remains the default and supports Legacy TACTIC. Both paths use this same request log.
 
 
 ## Shared support window

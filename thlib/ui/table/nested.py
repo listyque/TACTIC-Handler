@@ -24,7 +24,7 @@ class NestedTableController(QObject):
         self._reload_timer.timeout.connect(self.reload)
         self._identity = 'nested:' + uuid.uuid4().hex + ':'
         self._model = dict(columns=[], rows=[], selected=[], offset=0, filter='', filterField='code',
-                           insert=False, selection=descriptor.get('selection', True), shelf=descriptor.get('shelf', True),
+                           insert=False, gear=False, selection=descriptor.get('selection', True), shelf=descriptor.get('shelf', True),
                            search=descriptor.get('search', True), searchLimit=descriptor.get('searchLimit', True), busy=False, error='')
         self.services.nestedChanged.connect(self.changed)
         self.services.completed.connect(self._record_saved)
@@ -159,6 +159,7 @@ class NestedTableController(QObject):
         self._nodes = nodes
         self._model.update(columns=columns, rows=rows, hasNext=result['hasNext'], busy=False, loaded=True,
             insert=bool(self.descriptor.get('insert', True) and self.application.can_manage_tools),
+            gear=bool(self.descriptor.get('gear', True) and self.application.can_manage_tools),
             filterField=next((name for name in ('name', 'title', 'code') if any(column['name'] == name for column in columns)), 'id'))
         self.changed.emit()
         self.services._nested_changed()
@@ -187,6 +188,8 @@ class NestedTableController(QObject):
             self.changed.emit()
         elif kind in ('edit', 'create'):
             self._edit(action.get('key') if kind == 'edit' else None)
+        elif kind == 'columns':
+            self._open_columns()
         elif not self._model['busy']:
             if kind == 'page':
                 self._model['offset'] = max(0, self._model['offset'] + int(action['value']) * int(self.descriptor.get('initialLimit') or 50))
@@ -216,6 +219,17 @@ class NestedTableController(QObject):
         open_sobject_editor(app, dict(mode='edit' if key else 'insert', view='edit' if key else 'insert',
             stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True),
             refresh=lambda: (app.refresh_current(), self.services.completed.emit(self.descriptor['parentKey'])))
+
+    def _open_columns(self):
+        app = self.application
+        if self.tab is not app._current_tab() or not app.can_manage_tools:
+            return
+        app.columns_editor_controller.open_scoped_definition(
+            self.descriptor['searchType'],
+            self.descriptor.get('view') or 'table',
+            self.descriptor.get('projectCode') or app._current_project_code,
+        )
+        app.open_columns_editor()
 
     def suspend(self):
         self._reload_timer.stop()

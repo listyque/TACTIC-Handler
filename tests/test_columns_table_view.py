@@ -681,6 +681,10 @@ class _TableColumns(QObject):
     def move(self, row, offset):
         self.move_calls.append((row, offset))
 
+    @Slot(int, result="QVariantMap")
+    def all_cells(self, _revision=0):
+        return {}
+
     @Slot(str, str, result="QVariantMap")
     def cell(self, _search_key, column):
         if column == "preview":

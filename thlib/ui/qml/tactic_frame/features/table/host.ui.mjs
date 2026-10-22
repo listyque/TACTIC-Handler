@@ -125,3 +125,71 @@ export function dropIndex(cells, contentX) {
     }
     return Math.max(0, cells.length - 1);
 }
+
+function numericCellValue(record, cell, field) {
+    if (cell?.time && typeof cell.time.total === 'number')
+        return cell.time.total;
+    const raw = record?.[field] ?? cell?.text;
+    if (raw === undefined || raw === null || raw === '') return null;
+    const value = Number(String(raw).replace(/[^0-9.+-]/g, ''));
+    return Number.isFinite(value) ? value : null;
+}
+
+export function summarize(columns, records, cells = {}, mode = 'bottom') {
+    const values = {};
+    let hasSummary = false;
+    const list = records || [];
+    for (const column of columns || []) {
+        const className = (
+            column.resolvedClass ||
+            column.display?.handler ||
+            ''
+        )
+            .split('.')
+            .pop();
+        const options = column.displayOptions || column.display?.options || {};
+        const field = column.cell?.field || column.name;
+        const summary =
+            column.cell?.summary ||
+            options.total_summary ||
+            (['WorkHoursElementWdg', 'WeekTableElement'].includes(className)
+                ? 'total'
+                : '');
+        const expression =
+            mode === 'group_bottom'
+                ? column.cell?.group_bottom || options.group_bottom || ''
+                : column.cell?.bottom || options.bottom || '';
+        const calc = expression
+            ? /^\s*@COUNT\b/i.test(expression)
+                ? 'count'
+                : /^\s*@AVG\b/i.test(expression)
+                  ? 'average'
+                  : 'total'
+            : summary;
+        if (!['count', 'total', 'average'].includes(calc)) continue;
+        hasSummary = true;
+        if (calc === 'count') {
+            values[column.name] = String(list.length);
+            continue;
+        }
+        let total = 0;
+        let count = 0;
+        for (const record of list) {
+            const key = record?.__search_key__ || record?.key || '';
+            const rowCells = record?.cells || cells[key] || {};
+            const number = numericCellValue(
+                record?.record || record,
+                rowCells[column.name],
+                field
+            );
+            if (number !== null) {
+                total += number;
+                count += 1;
+            }
+        }
+        if (calc === 'average') total = count ? total / count : 0;
+        const rounded = Math.round(total * 100) / 100;
+        values[column.name] = String(rounded);
+    }
+    return { hasSummary, values };
+}

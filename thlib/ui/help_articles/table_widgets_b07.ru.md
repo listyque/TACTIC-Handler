@@ -612,4 +612,12 @@ inline/cascade-записей Gantt, всех операций timecard, ито�
 | --- | --- | --- |
 | Публикация | ![ТХ](media/frame-table-publish-native-ru.png) | ![ТС](media/frame-table-publish-stream-ru.png) |
 
-Настроенная публикация ТХ сейчас принимает текст, многострочный текст, select, checkbox и SimpleUpload с UploadAction. Неперенесённые сочетания input/action явно блокируют форму. Сохранение идёт через настроенный EditCmd; обычные формы ТХ сохраняют прежний способ записи. Выбор файла — переиспользуемый базовый контролл в обоих клиентах с одним описанием Frame.
+Настроенная публикация ТХ принимает текст, многострочный текст, select, checkbox, превью (`ThumbInputWdg`) и многофайловую загрузку (`UploadWdg`, `SimpleUploadWdg` с `UploadAction`). Неперенесённые сочетания input/action явно блокируют форму. Сохранение идёт через настроенный EditCmd; обычные формы ТХ сохраняют прежний способ записи. Выбор файла — переиспользуемый базовый контролл в обоих клиентах с одним описанием Frame.
+
+## Приёмка этапа 1.5: итоги, вложенный редактор колонок, ACL и ревизии форм
+
+- **Итоги групп и низа таблицы**: `FormatElementWdg` (`total_summary` = `count` | `total` | `average`), `ExpressionElementWdg` (`bottom` / `group_bottom`), `WorkHoursElementWdg` и `WeekTableElement` выводят строки итогов по группам и общий итог внизу таблицы в обоих движках.
+- **Редактор колонок во вложенной таблице (`show_gear`)**: вложенные таблицы `HiddenRowElementWdg` / `CustomLayoutElementWdg` показывают кнопку настройки колонок (`nestedColumns`) администраторам, если `show_gear` не отключён.
+- **Права обычного пользователя (ACL) и средства администратора**: чтение таблиц, inline-правки, формы и автономные табличные процедуры (`read_nested_scope`, `read_dependency_node`, `read_connection_cells`, `remove_connection`, `edit_parent_group`, `read_parent_cells`, `append_snapshot_files`, `read_snapshot_files`, `edit_drop_links`, `read_summary_cell`) проверяют права проекта, `search_type` и `element` для авторизованных пользователей, оставляя `read_group_summary`, `read_custom_layout` и `ColumnsEditor` доступными только администраторам.
+- **Ревизии форм, защита retired-записей и проверка сохранения**: `read_form` и `EditCmd` / `EditMultipleCmd` проверяют `expected_revision` перед записью, запрещают редактирование архивных (`retired`) записей и поддерживают `action='check'` («Проверить сохранение») при сетевом сбое с неизвестным результатом.
+- **Оставшиеся явные ограничения**: отклоняются только отсутствующие в шаблонах исторические ссылки `CustomLayout` (`asset_panel_wdg`, `asset_cost_breakdown`, `inline_add_item`, пустой `custom_col`) и `include_submission=true`.

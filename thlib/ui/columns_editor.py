@@ -1839,6 +1839,10 @@ class ColumnsEditorController(QObject):
                         self._update_task_date_labels(record)
         return cells
 
+    @Slot(int, result="QVariantMap")
+    def all_cells(self, _revision=0):
+        return self._cells
+
     @Slot(str, str, result="QVariantMap")
     def cell_editor(self, node_id, column):
         """Resolve a table cell through the EditSObject field catalog."""
@@ -1949,6 +1953,18 @@ class ColumnsEditorController(QObject):
     @Slot()
     def consume_definition_focus(self):
         self._focus_pending = False
+        self.focusRequested.emit()
+
+    @Slot(str, str, str)
+    def open_scoped_definition(self, search_type, view='table', project_code=''):
+        self._requested_row = -1
+        self._requested_name = ''
+        self._requested_definition_target = 'definition'
+        self._requested_stype = str(search_type or '').split('?', 1)[0]
+        self._requested_view = str(view or 'table')
+        self._requested_config_code = ''
+        self._focus_pending = True
+        self.load_definition_catalog(project_code or self._application._current_project_code)
         self.focusRequested.emit()
 
     @Slot(int, int)

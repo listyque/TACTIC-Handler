@@ -117,6 +117,21 @@ This block completes optional SSE delivery and its controls in both clients. Win
 
 Early disconnects before the first SSE frame (including header-send failure) remove the subscription at the response boundary. Both ASGI disconnect paths are checked. Browser and Handler explicitly label their connections; other callers appear as Unknown client. These labels remain informational.
 
+## Choosing the Handler API transport
+
+In Handler, open **Configuration → Server**, select the connection preset, and choose **API transport**:
+
+- **XML-RPC** is the default for existing and new presets. Use it with Legacy TACTIC or TACTIC Stream.
+- **JSON (TACTIC Stream)** uses Stream's `/admin/rpc` endpoint. Update and restart Stream and Handler before enabling it. Legacy TACTIC does not provide this endpoint.
+
+**Test** checks the selected transport, address and draft preset proxy without saving. **Apply** or **Generate ticket** saves the choice in the selected preset, reconnects and opens authentication. **Cancel** discards the draft. **Edit presets and routing** also exposes the transport for each preset; saving one preset does not change another preset's transport. Presets saved before this setting continue using XML-RPC.
+
+The choice covers sign-in, queries, commands and server Python procedures. Binary data and datetimes retain SDK types. File uploads and repository downloads retain their existing HTTP paths. Query execution (**Local / Server plugin**) and update delivery (**Periodic checks / SSE**) remain separate settings.
+
+A failed JSON request is reported without silently switching transport or replaying a write. To connect to Legacy, explicitly choose XML-RPC. Both RPC paths use the same server permissions and request log.
+
+This connection selector belongs to Handler. The Stream browser connects to its own server through JSON and has no Legacy-server transport selector.
+
 
 ## Sign-in and client capabilities
 

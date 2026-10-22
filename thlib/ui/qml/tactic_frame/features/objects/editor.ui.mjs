@@ -335,6 +335,7 @@ export function footer(model, width, language) {
             Math.max(72, submit.length * 6 + 32)
         ),
         backWidth = model.batchPreview ? 86 : 0,
+        checkWidth = model.uncertain ? 148 : 0,
         closeWidth = 72,
         submitX = width - margin - submitWidth;
     const nodes = [
@@ -345,7 +346,10 @@ export function footer(model, width, language) {
         button(
             'sobjectEditorCancel',
             rect(
-                Math.max(margin, submitX - closeWidth - backWidth - 8),
+                Math.max(
+                    margin,
+                    submitX - closeWidth - backWidth - checkWidth - 8
+                ),
                 14,
                 closeWidth,
                 36
@@ -369,6 +373,22 @@ export function footer(model, width, language) {
             { highlighted: true }
         )
     ];
+    if (model.uncertain)
+        nodes.push(
+            button(
+                'sobjectEditorCheck',
+                rect(
+                    submitX - backWidth - checkWidth - 4,
+                    14,
+                    checkWidth - 4,
+                    36
+                ),
+                tr('Check saved changes'),
+                '',
+                { type: 'check' },
+                !model.busy
+            )
+        );
     if (model.batchPreview)
         nodes.push(
             button(
@@ -393,7 +413,15 @@ export function footer(model, width, language) {
                 rect(
                     margin + 24,
                     16,
-                    Math.max(0, submitX - closeWidth - backWidth - margin - 22),
+                    Math.max(
+                        0,
+                        submitX -
+                            closeWidth -
+                            backWidth -
+                            checkWidth -
+                            margin -
+                            22
+                    ),
                     32
                 ),
                 tr(

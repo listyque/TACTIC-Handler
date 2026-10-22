@@ -60,6 +60,12 @@ Item {
     readonly property real actionColumnWidth: TableHost.metrics.actions
     readonly property real columnsWidth: TableColumnLayout.totalWidth(effectiveColumns, widthOverrides, fitWidthOverrides)
     readonly property real tableWidth: tableLayout.width
+    readonly property var summaryRow: columnsController && columnsController.all_cells && effectiveColumns.length ? TableHost.summarize(effectiveColumns, Object.keys(columnsController.all_cells(columnsController.cellRevision)).map(key => ({
+                __search_key__: key
+            })), columnsController.all_cells(columnsController.cellRevision), "bottom") : ({
+            hasSummary: false,
+            values: {}
+        })
     readonly property real contentY: rows.contentY
     readonly property int count: rows.count
     signal actionMenuRequested(string nodeId, var actions, var anchorItem, real localX, real localY, bool below)
@@ -677,6 +683,29 @@ Item {
                     rows.currentIndex = resultRow.index;
                     root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, resultRow.selected);
                     root.requestActionMenu(resultRow.nodeId, rowActions, 0, rowActions.height, true);
+                }
+            }
+        }
+
+        footer: Rectangle {
+            width: root.tableWidth
+            height: root.summaryRow && root.summaryRow.hasSummary ? TableHost.metrics.group : 0
+            visible: Boolean(root.summaryRow && root.summaryRow.hasSummary)
+            color: root.theme ? root.theme.surfaceContainerHigh : "transparent"
+            Repeater {
+                model: root.summaryRow && root.summaryRow.hasSummary ? root.tableLayout.cells : []
+                delegate: Text {
+                    required property var modelData
+                    x: modelData.x + modelData.padding
+                    width: Math.max(0, modelData.width - modelData.padding * 2)
+                    height: parent.height
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                    font.family: root.theme ? root.theme.fontFamily : ""
+                    font.pointSize: Controls.Typography.body
+                    font.bold: true
+                    color: root.theme ? root.theme.primaryText : "#fff"
+                    text: root.displayText(root.summaryRow.values[modelData.name])
                 }
             }
         }

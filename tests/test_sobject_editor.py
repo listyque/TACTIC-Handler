@@ -997,8 +997,45 @@ class SObjectWidgetContractTests(unittest.TestCase):
             )
             model.remove_preview_file(0, 0)
             self.assertEqual(model.preview_paths(), [second.as_posix()])
-            model.clear_preview_files(0)
-            self.assertEqual(model.preview_paths(), [])
+
+    def test_retired_record_rejected_and_check_saved_recovers_uncertain_state(self):
+        controller = SObjectEditorController(lambda: {})
+        controller._request_id = 3
+        controller._mode = "edit"
+        retired = _EditorSObject({"name": "Old", "s_status": "retired"})
+        controller._schema_loaded(
+            3,
+            _EditorStype(),
+            {"sobject": retired},
+            {"EditWdg": {"kwargs": {"search_type": "demo/asset"}}, "InputWidgets": []},
+        )
+        self.assertIn("Retired records cannot be edited", controller.error)
+        self.assertEqual(controller.model.count, 0)
+
+        active = _EditorSObject({"name": "Original"})
+        controller._context_data = {"sobject": active, "search_key": "demo/asset?code=A"}
+        controller._submitted_values = {"name": "Saved"}
+        controller._uncertain = True
+        controller._check_saved_finished(3, {"name": "Original"})
+        self.assertFalse(controller.presentation["uncertain"])
+        self.assertIn("Changes were not saved", controller.error)
+
+        controller._uncertain = True
+        controller._check_saved_finished(3, {"name": "Conflict"})
+        self.assertTrue(controller.presentation["uncertain"])
+        self.assertIn("Record changed on the server", controller.error)
+
+        saved = []
+        controller.saved.connect(saved.append)
+        controller._uncertain = True
+        controller._check_saved_finished(3, {"__search_key__": "demo/asset?code=A", "name": "Saved"})
+        self.assertFalse(controller.presentation["uncertain"])
+        self.assertEqual(saved, ["demo/asset?code=A"])
+
+        model = SObjectFieldModel()
+        model.replace([self._field_descriptor_for_submission("preview", "preview", "")])
+        model.clear_preview_files(0)
+        self.assertEqual(model.preview_paths(), [])
 
     def test_failed_auto_start_naming_finishes_the_quiet_operation(self):
         finished = []

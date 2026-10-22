@@ -460,6 +460,14 @@ class SObjectEditorController(QObject):
             self._set_error("Access to this edit view is denied")
             self.model.clear()
             return
+        sobject = context.get("sobject")
+        if self._mode == "edit" and sobject is not None and (
+            getattr(sobject, "is_retired", lambda: False)()
+            or (sobject.get_info() or {}).get("s_status") == "retired"
+        ):
+            self._set_error("Retired records cannot be edited. Reactivate the record first.")
+            self.model.clear()
+            return
         if context.get("operation") == "publish":
             edit["configured_publish"] = deepcopy((result or {}).get("InputWidgets") or [])
         edit["stype"] = stype
@@ -1382,6 +1390,61 @@ class SObjectEditorController(QObject):
             message = self.tr("The save result is unknown. Close this form and refresh the records before trying again.")
         self._set_error(message or "The server rejected the changes")
         self._notify(self._error)
+
+    @Slot()
+    def check_saved(self) -> None:
+        if self._busy or not self._uncertain:
+            return
+        search_key = str(self._context_data.get("search_key") or "")
+        submitted = self._submitted_values
+        if not search_key or not isinstance(submitted, dict):
+            self._set_error("Close this form and refresh the records before trying again.")
+            return
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+        project_code = str(self._context_data.get("project_code") or "")
+        self._busy = True
+        self._error = ""
+        self.stateChanged.emit()
+
+        def operation():
+            return tc.server_start(project=project_code or None).get_by_search_key(search_key)
+
+        worker = env_inst.server_pool.add_task(operation)
+        request_id = self._request_id
+        self._worker = worker
+        worker.result.connect(lambda current: self._check_saved_finished(request_id, current))
+        worker.error.connect(lambda error: self._save_failed(request_id, error))
+        worker.start()
+
+    def _check_saved_finished(self, request_id: int, current) -> None:
+        if request_id != self._request_id:
+            return
+        if not isinstance(current, dict) or not current:
+            self._set_error("Record changed on the server. Close or refresh before saving.")
+            return
+        submitted = dict(self._submitted_values or {})
+        matches = bool(submitted) and all(
+            str(current.get(col) or "") == str(val or "")
+            for col, val in submitted.items()
+            if not str(col).startswith("__") and "|" not in str(col)
+        )
+        if matches:
+            self._uncertain = False
+            self._save_finished(request_id, current)
+            return
+        sobject = self._context_data.get("sobject")
+        original = dict((sobject.get_info() if sobject is not None and hasattr(sobject, "get_info") else {}) or {})
+        unchanged = bool(original) and all(
+            str(current.get(col) or "") == str(original.get(col) or "")
+            for col in submitted
+            if not str(col).startswith("__") and "|" not in str(col)
+        )
+        if unchanged:
+            self._uncertain = False
+            self._set_error("Changes were not saved. You can save again.")
+        else:
+            self._set_error("Record changed on the server. Close or refresh before saving.")
 
     @Slot(result="QVariantMap")
     def values(self) -> dict:

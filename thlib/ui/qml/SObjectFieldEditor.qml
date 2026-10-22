@@ -34,6 +34,8 @@ Item {
             sobjectEditorController.begin_session();
         else if (event.type === "cancel")
             windowModel.close_window(root.editorWindowId);
+        else if (event.type === "check")
+            sobjectEditorController.check_saved();
         else if (event.type === "submit") {
             if (root.model.batchEnabled && !root.model.batchPreview)
                 sobjectEditorController.preview_batch();
