@@ -1018,7 +1018,8 @@ class ColumnsTableViewTests(unittest.TestCase):
             create_from_class_path=lambda *_args: edit
         )
         config = SimpleNamespace(
-            get_action_options=lambda _name: {}
+            get_action_options=lambda _name: {},
+            get_action_handler=lambda _name: "",
         )
         widget_config_module = ModuleType("pyasm.widget.widget_config")
         widget_config_module.WidgetConfigView = SimpleNamespace(
@@ -1093,7 +1094,10 @@ class ColumnsTableViewTests(unittest.TestCase):
                 "Environment", "Equipment",
             ],
         }[expression])
-        config = SimpleNamespace(get_action_options=lambda _name: {})
+        config = SimpleNamespace(
+            get_action_options=lambda _name: {},
+            get_action_handler=lambda _name: "",
+        )
         widget_config_module = ModuleType("pyasm.widget.widget_config")
         widget_config_module.WidgetConfigView = SimpleNamespace(
             get_by_element_names=lambda *_args, **_kwargs: config

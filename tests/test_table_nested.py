@@ -255,3 +255,56 @@ class NestedTableTests(unittest.TestCase):
             owner.request_connection_removal('nested:row',dict(connectionKey='sthpw/connection?code=C'))
         server.assert_called_once_with(project='two')
         owner.confirm_connection_removal(False)
+
+    def test_filter_sort_page_off_page_selection_and_child_creation(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch, Mock
+        from thlib.ui.table.nested import NestedTableController
+        from thlib.ui.table.services import TableServicesController
+        import tests.test_table_service_workflows as workflows
+        app = workflows.Application()
+        owner = TableServicesController(app)
+        self.addCleanup(owner.shutdown)
+        parent = dict(searchType='sthpw/task', view='table', parentKey=app.node.search_key, projectCode='demo', initialLimit=2)
+        with patch.object(NestedTableController, 'reload') as load:
+            scope = NestedTableController(owner, 'A', parent)
+            self.addCleanup(scope.shutdown)
+            scope._nodes = {
+                'nested:1': SimpleNamespace(search_key='sthpw/task?code=T1', source=SimpleNamespace()),
+                'nested:2': SimpleNamespace(search_key='sthpw/task?code=T2', source=SimpleNamespace()),
+            }
+            scope._model.update(loaded=True, filterField='code', rows=[
+                dict(key='sthpw/task?code=T1', nodeId='nested:1', record=dict(code='T1'), cells={}),
+                dict(key='sthpw/task?code=T2', nodeId='nested:2', record=dict(code='T2'), cells={}),
+            ])
+            scope.activate(dict(type='select', key='sthpw/task?code=T1'))
+            scope.activate(dict(type='page', value=1))
+            self.assertEqual(scope._model['offset'], 2)
+            load.assert_called_once_with()
+        with patch('thlib.environment.env_inst.projects', {'demo': SimpleNamespace()}), \
+             patch('thlib.tactic_classes.SObject', side_effect=lambda record, _project: SimpleNamespace(record=record)):
+            scope._accept(dict(searchType='sthpw/task', hasNext=False,
+                records=[dict(__search_key__='sthpw/task?code=T3', code='T3')],
+                layout=dict(columns=[dict(name='code', title='Code', dataType='string')],
+                            rows={'sthpw/task?code=T3': dict(code=dict(text='T3'))})))
+        self.assertEqual(scope.model['selected'], ['sthpw/task?code=T1'])
+        self.assertIn('nested:1', scope.selected_result_node_ids)
+        app.item_fields_updated.emit('demo', ['sthpw/task?code=T1'])
+        self.assertTrue(scope._reload_timer.isActive())
+        scope._reload_timer.stop()
+        with patch.object(NestedTableController, 'reload') as load:
+            scope.activate(dict(type='filter', value='rig'))
+            scope.activate(dict(type='sort', value='code'))
+            self.assertEqual(scope._model['offset'], 0)
+            self.assertEqual(scope._model['order'], 'code asc')
+            self.assertEqual(scope._model['filter'], 'rig')
+            load.assert_called_once_with()
+        stype = Mock()
+        with patch('thlib.environment.env_inst.get_stype_by_code', return_value=stype) as get_stype, \
+             patch('thlib.ui.sobject_editor.open_sobject_editor') as editor:
+            scope.activate(dict(type='create'))
+            get_stype.assert_called_once_with('sthpw/task', project_code='demo')
+            args = editor.call_args.args[1]
+            self.assertEqual(args['mode'], 'insert')
+            self.assertIs(args['parent_sobject'], app.node.source)
+            self.assertTrue(callable(editor.call_args.kwargs['refresh']))

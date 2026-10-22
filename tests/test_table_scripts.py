@@ -52,7 +52,7 @@ class TableScriptTests(unittest.TestCase):
             return pool.submit(runner.run,source,confirmation).result(timeout=5)
 
     def test_original_client_api_and_resources_are_independent_identical_copies(self):
-        stream = Path('D:/code/TACTIC_VUE/tactic_stream/src')
+        stream = Path('D:/grav/Tactic Stream/TS/tactic_stream/src')
         if not stream.exists():
             self.skipTest('Counterpart checkout is unavailable')
         self.assertEqual((RUNTIME/'client_api.js').read_bytes(),(stream/'pyasm/common/js/client_api.js').read_bytes())

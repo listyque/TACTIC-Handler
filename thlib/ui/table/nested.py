@@ -57,7 +57,7 @@ class NestedTableController(QObject):
                 self._record_saved(search_key)
 
     def _record_saved(self, search_key):
-        if search_key in {self.descriptor.get('parentKey'), *(row['key'] for row in self._model['rows'])}:
+        if search_key in {self.descriptor.get('parentKey'), *self._model['selected'], *(row['key'] for row in self._model['rows'])}:
             self._reload_timer.start(0)
 
     @Slot()
@@ -81,7 +81,7 @@ class NestedTableController(QObject):
         descriptor, state = dict(self.descriptor), dict(self._model)
         arguments = dict(parent_key=descriptor['parentKey'], search_type=descriptor['searchType'],
             view=descriptor.get('view') or 'table', expression=descriptor.get('expression') or '',
-            offset=state['offset'], limit=50, order_by=[state['order']] if state.get('order') else [], filters=[])
+            offset=state['offset'], limit=int(descriptor.get('initialLimit') or 50), order_by=[state['order']] if state.get('order') else [], filters=[])
         if state['filter']:
             arguments['filters'] = [[state['filterField'], 'like', '%' + state['filter'] + '%']]
         def read():
@@ -189,7 +189,7 @@ class NestedTableController(QObject):
             self._edit(action.get('key') if kind == 'edit' else None)
         elif not self._model['busy']:
             if kind == 'page':
-                self._model['offset'] = max(0, self._model['offset'] + int(action['value']) * 50)
+                self._model['offset'] = max(0, self._model['offset'] + int(action['value']) * int(self.descriptor.get('initialLimit') or 50))
             else:
                 self._model['offset'] = 0
                 if kind == 'sort':
@@ -214,7 +214,8 @@ class NestedTableController(QObject):
         parent = owner.source if owner and owner.source and owner.search_key.split('?')[0] != self.descriptor['searchType'] else None
         from thlib.ui.sobject_editor import open_sobject_editor
         open_sobject_editor(app, dict(mode='edit' if key else 'insert', view='edit' if key else 'insert',
-            stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True))
+            stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True),
+            refresh=lambda: (app.refresh_current(), self.services.completed.emit(self.descriptor['parentKey'])))
 
     def suspend(self):
         self._reload_timer.stop()

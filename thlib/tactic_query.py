@@ -8853,7 +8853,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
         if class_name.rsplit('.', 1)[-1] in ('HiddenRowElementWdg', 'HiddenRowToggleWdg', 'RowAddElementWdg'):
             options = dict(column.get('displayOptions') or {})
             if class_name.endswith('.RowAddElementWdg'):
-                options['search_type'] = 'sthpw/task'
+                options.setdefault('search_type', options.get('related_types') or 'sthpw/task')
             return nested_cell(SearchKey.get_by_sobject(sobject), options, column['name'], layout_reader=read_custom_layout)
         if class_name.endswith('.AuxDataWdg'):
             data = widget.get_current_aux_data() if hasattr(widget, 'get_current_aux_data') else {}

@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.129 - 2026-10-22
+
+- Close legacy stage 2.1 (L01) with Stream 0.112.182: nested tables honor initialLimit paging, keep selected rows outside the loaded page and refresh the parent scope after editing.
+- RowAddElementWdg falls back to related_types before sthpw/task; hidden-row and AuxData adapters ignore empty/insert records.
+- Workspace moved to d:/grav/Tactic Stream; tools and tests use the new Handler/Stream roots. Ordinary-user ACL and totals remain in 2.5.
+
 ## 0.6.0.128 - 2026-10-21
 
 - Continue combined legacy stage 2 with Stream 0.112.181: PublishTableElement and GeneralPublishElementWdg open their configured views in the existing native editor; preserve optional preview and explicit Multi Publish header.
