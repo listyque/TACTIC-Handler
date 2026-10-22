@@ -331,6 +331,16 @@ def query_EditWdg(args=None, search_type='', project=''):
             widget_dict['values'] = option_values
         display_values = i_widget.get_values()
 
+        if hasattr(i_widget, 'context_input'):
+            control = i_widget.context_input
+            select_values = getattr(control, 'get_select_values', None)
+            if select_values:
+                labels, values = select_values()
+                default = control.get_value(for_display=True) or (values[0] if values else '')
+                widget_dict['context_input'] = dict(type='select', value=default, labels=list(labels), values=list(values))
+            else:
+                widget_dict['context_input'] = dict(type='text', value=control.get_value(for_display=True) or '')
+
         if display_values:
             widget_dict['__display_values__'] = display_values
         else:
@@ -8888,6 +8898,27 @@ def query_table_layout(search_type, search_keys=None, view='table',
                             code = parent_pipeline.get_process_attrs(task.get_value('process')).get('task_pipeline')
                     return Pipeline.get_by_code(code or 'task') or Pipeline.get_by_code('task')
                 def drop_link_data(parent, options):
+                    background = Search.eval(options.get('css_background-color'), sobjects=parent) if options.get('css_background-color') else ''
+                    if background and not re.fullmatch(r'#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?', str(background)):
+                        raise ValueError('Drop background must be a hexadecimal color')
+                    callback = str(options.get('cbjs_drop_action') or '').strip()
+                    if callback:
+                        if callback != 'file_drop_action(evt, bvr)':
+                            raise ValueError('Custom DOM drop callbacks require a Frame action before they can run in both clients')
+                        return dict(
+                            text='',
+                            links=[],
+                            ingest=True,
+                            available=True,
+                            targetSearchKey=parent.get_search_key(),
+                            projectCode=parent.get_project_code(),
+                            backgroundColor=background,
+                            context=str(options.get('context') or 'publish'),
+                            checkinMode=str(options.get('checkin_mode') or 'default'),
+                            subcontextMode=str(options.get('subcontext_mode') or '{none}'),
+                            subcontext=str(options.get('subcontext') or ''),
+                            transferMode=str(options.get('transfer_mode') or 'free_copy'),
+                        )
                     instance_type, accepted = options.get('instance_type'), options.get('accepted_drop_type')
                     if not instance_type or not accepted:
                         return dict(text='', links=[], available=False, diagnostic='Configure an instance type and accepted Search Type')
@@ -8912,9 +8943,6 @@ def query_table_layout(search_type, search_keys=None, view='table',
                                           id=target.get_id(), code=target.get_code(), name=str(target.get_display_value()))))
                     revision = hashlib.sha256(json.dumps([options, sorted((row.get_data() for row in instances),
                         key=lambda row: str(row.get('id') or row.get('code')))], sort_keys=True, default=str).encode()).hexdigest()
-                    background = Search.eval(options.get('css_background-color'), sobjects=parent) if options.get('css_background-color') else ''
-                    if background and not re.fullmatch(r'#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?', str(background)):
-                        raise ValueError('Drop background must be a hexadecimal color')
                     return dict(text='', links=links, available=True, targetSearchKey=parent.get_search_key(),
                         acceptedType=accepted, instanceType=instance_type, path=path or '', expectedRevision=revision, backgroundColor=background,
                         relation=dict(relationship='instance', instance_type=instance_type, path=path or '', search_type=accepted))
@@ -9123,8 +9151,6 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 if class_name.endswith('.DropElementWdg'):
                     if not sobject or sobject.is_insert():
                         return dict(text='', links=[], available=False)
-                    if options.get('cbjs_drop_action'):
-                        raise ValueError('Custom DOM drop callbacks require a Frame action before they can run in both clients')
                     cell = drop_link_data(sobject, options)
                     return dict(cell, columnName=column['name'], tableView=view)
                 if class_name.endswith('.CustomLayoutElementWdg'):

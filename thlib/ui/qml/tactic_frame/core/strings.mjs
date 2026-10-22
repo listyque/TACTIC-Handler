@@ -1,6 +1,7 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
     'Choose file': 'Выбрать файл',
+    'Choose files': 'Выбрать файлы',
     'Clear file': 'Убрать файл',
     'No file selected': 'Файл не выбран',
     'This configured publish form contains unsupported fields or actions':

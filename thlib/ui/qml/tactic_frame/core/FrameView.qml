@@ -220,9 +220,12 @@ Item {
                 active: !!wrapper.node.dropAction && root.interactive
                 enabled: !!wrapper.node.enabled
                 sourceComponent: DropArea {
-                    keys: ["application/x-tactic-frame"]
+                    keys: wrapper.node.dropAction && wrapper.node.dropAction.name === "file-ingest" ? [] : ["application/x-tactic-frame"]
                     onDropped: drop => {
-                        if (root.dragValue(drop.source) !== undefined) {
+                        if (wrapper.node.dropAction && wrapper.node.dropAction.name === "file-ingest" && drop.hasUrls) {
+                            root.send(wrapper.node.dropAction, Array.from(drop.urls, url => String(url)));
+                            drop.acceptProposedAction();
+                        } else if (root.dragValue(drop.source) !== undefined) {
                             root.send(wrapper.node.dropAction, root.dragValue(drop.source));
                             drop.acceptProposedAction();
                         }

@@ -151,6 +151,58 @@ class TableServicesController(QObject):
             self._checkout.open(str(cell.get('targetSearchKey') or node.search_key),
                 str(cell.get('projectCode') or self._application._current_project_code))
 
+    @Slot(str, 'QVariantMap')
+    @Slot(str, 'QVariantMap', 'QVariantList')
+    def open_ingest(self, node_id, cell, values=None):
+        if self.busy or not self._application.can_manage_tools:
+            return
+        node = self._application._node_for_any(node_id)
+        if node is None:
+            return
+        from pathlib import Path
+        import uuid
+        from PySide6.QtCore import QUrl
+        from PySide6.QtWidgets import QFileDialog
+        from thlib import tactic_classes as tc
+        from .requests import ingest_drop_files
+        raw_values = list(values or [])
+        if not raw_values:
+            raw_values, _ = QFileDialog.getOpenFileNames(None, self.tr('Choose files'))
+        if not raw_values:
+            return
+        target_key = str(cell.get('targetSearchKey') or node.search_key)
+        project = str(cell.get('projectCode') or self._application._current_project_code)
+        try:
+            server = tc.server_start(project=project)
+        except PermissionError as error:
+            self.report_error(str(error))
+            return
+        upload_dir = 'ingest_' + uuid.uuid4().hex
+        def operation():
+            names = []
+            for item in raw_values:
+                url = item if isinstance(item, QUrl) else QUrl(str(item))
+                source = url.toLocalFile() if url.isLocalFile() else str(item)
+                path = Path(source).resolve(strict=True)
+                if not path.is_file():
+                    raise ValueError('Choose files, not directories')
+                server.upload_file(str(path), upload_subdir=upload_dir)
+                names.append(path.name)
+            return tc.execute_procedure_serverside(ingest_drop_files, dict(
+                search_key=target_key,
+                files=names,
+                upload_directory=upload_dir,
+                transfer_mode=str(cell.get('transferMode') or 'free_copy'),
+                checkin_mode=str(cell.get('checkinMode') or 'default'),
+                context=str(cell.get('context') or 'publish'),
+                subcontext_mode=str(cell.get('subcontextMode') or '{none}'),
+                subcontext=str(cell.get('subcontext') or ''),
+            ), project=project, server=server)
+        def saved(result):
+            self._application._notify(f"Ingested {result.get('file_count', 0)} file(s) into [{result.get('code', '')}]")
+            self.completed.emit(target_key)
+        self._run(operation, saved)
+
     @Property(int, notify=nestedChanged)
     def nestedRevision(self):
         return self._nested_revision

@@ -452,6 +452,57 @@ class SObjectWidgetContractTests(unittest.TestCase):
             with self.assertRaises(ConnectionError):
                 editor._commit_publish(dict(title_alias="Published"), server)
 
+    def test_configured_publish_expands_multi_upload_and_submits_named_slots(self):
+        with tempfile.TemporaryDirectory() as directory:
+            icon_path = Path(directory) / "icon.png"
+            main_path = Path(directory) / "asset.ma"
+            icon_path.write_bytes(b"icon")
+            main_path.write_bytes(b"main")
+            controller = SObjectEditorController(lambda: {})
+            sources = [
+                dict(name="images", class_name="pyasm.widget.input_wdg.ThumbInputWdg", action_class=""),
+                dict(
+                    name="files",
+                    class_name="tactic.ui.widget.upload_wdg.UploadWdg",
+                    action_class="pyasm.command.NullAction",
+                    kwargs=dict(names="icon|main"),
+                    subcontext=True,
+                    upload_fields=[dict(name="icon", required=False), dict(name="main", required=True)],
+                    context_input=dict(type="select", value="publish", labels=["publish"], values=["publish"]),
+                ),
+            ]
+            descriptors = controller.build_descriptors(_EditorStype(), dict(operation="publish"), sources, mode="edit")
+            self.assertEqual([item["fieldName"] for item in descriptors], [
+                "images", "files|icon", "files|main", "files|context", "files|subcontext", "files|description", "files|is_revision"
+            ])
+            self.assertEqual(descriptors[0]["fieldType"], "thumbnail")
+            self.assertTrue(descriptors[2]["fieldRequired"])
+            stype = SimpleNamespace(get_project=lambda: SimpleNamespace(get_code=lambda: "demo"))
+            editor = tw.TacticEditWdg(dict(
+                stype=stype,
+                kwargs=dict(input_prefix="edit", view="publish", search_type="demo/asset", search_key="demo/asset?code=A"),
+                configured_publish=[dict(name="files", class_name="tactic.ui.widget.upload_wdg.UploadWdg", kwargs=dict(names="icon|main"), upload_fields=[dict(name="icon"), dict(name="main")])],
+            ))
+            server = Mock()
+            server.get_transaction_ticket.return_value = "ticket-1"
+            server.execute_cmd.return_value = dict(info=dict(sobject=dict(__search_key__="demo/asset?code=A")))
+            with patch.object(tw.tc, "server_start", return_value=server):
+                editor.commit({
+                    "files|icon": str(icon_path),
+                    "files|main": str(main_path),
+                    "files|context": "publish",
+                    "files|subcontext": "hi",
+                    "files|description": "Note",
+                    "files|is_revision": True,
+                })
+            self.assertEqual(server.upload_file.call_count, 2)
+            _command, _args, values = server.execute_cmd.call_args.args
+            self.assertEqual(values["edit|icon|path"], "icon.png")
+            self.assertEqual(values["edit|main|path"], "asset.ma")
+            self.assertEqual(values["edit|files|context"], "publish")
+            self.assertEqual(values["edit|files|subcontext"], "hi")
+            self.assertEqual(values["edit|files|is_revision"], True)
+
     def test_keywords_use_tags_editor_in_insert_and_edit(self):
         for mode in ("insert", "edit"):
             field = SObjectEditorController.describe_field(
@@ -601,6 +652,12 @@ class SObjectWidgetContractTests(unittest.TestCase):
             ),
             "pyasm.widget.input_wdg.ThumbInputWdg": (
                 tw.TacticThumbInputWdg, "thumbnail",
+            ),
+            "pyasm.widget.input_wdg.UploadWdg": (
+                tw.TacticUploadWdg, "multi_upload",
+            ),
+            "tactic.ui.widget.upload_wdg.UploadWdg": (
+                tw.TacticRichUploadWdg, "multi_upload",
             ),
             "pyasm.widget.input_wdg.PasswordWdg": (
                 tw.TacticPasswordWdg, "password",

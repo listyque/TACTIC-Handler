@@ -333,6 +333,39 @@ class TableCheckoutTests(unittest.TestCase):
         self.assertEqual(self.owner.files.rowCount(), 0)
         self.assertFalse(self.owner.model["ready"])
 
+    def test_sequence_checkout_transfers_all_members_and_detects_member_conflict(self):
+        self.data["__files__"] = [
+            dict(
+                code="FSEQ",
+                type="sequence",
+                file_name="shot.####.exr",
+                relative_dir="cg/seq",
+                st_size=12,
+                metadata={},
+                timestamp="2000-01-01 00:00:00",
+                __search_key__="sthpw/file?code=FSEQ",
+                __member_files__=[
+                    dict(file_name="shot.1001.exr", relative_dir="cg/seq", st_size=6),
+                    dict(file_name="shot.1002.exr", relative_dir="cg/seq", st_size=6),
+                ],
+            )
+        ]
+        conflict_frame = self.root / "cg/seq/shot.1002.exr"
+        conflict_frame.parent.mkdir(parents=True)
+        conflict_frame.write_bytes(b"local frame 1002")
+        self.prepare()
+        window, view = self.create(
+            "features/table/SnapshotCheckoutView.qml", dict(owner=self.owner), width=760, height=560
+        )
+        self.click(window, self.item(view, "snapshotCheckoutDownload"))
+        self.wait(lambda: self.owner.model["conflict"])
+        self.http.assert_not_called()
+        self.click(window, self.item(view, "confirmationAccept"))
+        self.wait(lambda: not self.owner.busy)
+        self.assertEqual((self.root / "cg/seq/shot.1001.exr").read_bytes(), b"remote")
+        self.assertEqual((self.root / "cg/seq/shot.1002.exr").read_bytes(), b"remote")
+        self.assertEqual(self.owner.model["message"], "Check out completed")
+
 
 if __name__ == "__main__":
     unittest.main()

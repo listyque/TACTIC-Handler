@@ -54,6 +54,8 @@ Frame.FrameView {
             services.open_checkout(nodeId, cell);
         else if (action.name === "file-append")
             services.open_append(nodeId, cell);
+        else if (action.name === "file-ingest")
+            services.open_ingest(nodeId, cell, Array.isArray(action.value) ? action.value : []);
         else if (action.name === "layout-link")
             services.open_link(action.href);
         else if (["edit-links", "drop-links"].indexOf(action.name) >= 0) {

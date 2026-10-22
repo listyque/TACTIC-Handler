@@ -497,7 +497,8 @@ def read_snapshot_files(search_key, file_code='', expected_revision=''):
     """Read a captured concrete snapshot using only original server methods."""
     import json
     import hashlib
-    from pyasm.biz import Project, Snapshot
+    import os
+    from pyasm.biz import FileGroup, FileRange, Project, Snapshot
     from pyasm.common import Environment
     from pyasm.search import Search, SearchKey
 
@@ -532,13 +533,64 @@ def read_snapshot_files(search_key, file_code='', expected_revision=''):
         files = [file for file in files if file.get_code() == file_code]
         if len(files) != 1:
             raise LookupError('Dependency file is no longer available')
-    # shortcut: Expand native ranges/metadata groups before enabling sequence/UDIM transfers here.
-    if any(file.get_value('file_range', no_exception=True) or (
-            file.get_metadata_dict().get('template') and
-            file.get_metadata_dict().get('type') not in ('file', 'layer_file', 'no_ext')) for file in files):
-        raise ValueError('Sequence and UDIM checkout is not available in this table yet')
+    rows = []
+    for file in files:
+        row = file.get_sobject_dict()
+        meta = file.get_metadata_dict()
+        file_range = str(file.get_value('file_range', no_exception=True) or '').strip()
+        template = str(meta.get('new_template') or meta.get('template') or '').strip()
+        group_type = str(meta.get('type') or '').strip()
+        if file_range or (template and group_type not in ('', 'file', 'layer_file', 'no_ext')):
+            if file_code:
+                raise ValueError('Sequence and UDIM files require Snapshot Checkout')
+            name = file.get_full_file_name()
+            names = []
+            if file_range:
+                rng = FileRange.get(file_range)
+                if rng.get_num_frames() > 5000:
+                    raise ValueError('Sequence or UDIM group exceeds the checkout limit')
+                names = FileGroup.expand_paths(name, rng)
+            else:
+                stem, suffix = os.path.splitext(name)
+                base = str(meta.get('new_filename') or meta.get('filename') or stem)
+                ext = str(meta.get('new_file_ext') or meta.get('ext') or suffix.lstrip('.'))
+                layer = str(meta.get('layer') or '')
+                pad = int(meta.get('new_padding') or meta.get('padding') or 4)
+                render = lambda udim='', frame=None: (template
+                    .replace('$FILENAME', base).replace('$LAYER', layer)
+                    .replace('$UDIM', str(udim)).replace('$UV', str(udim))
+                    .replace('$FRAME', '' if frame is None else str(frame).zfill(pad))
+                    .replace('$EXT', ext))
+                parse_span = lambda item: (int(item[0]), int(item[1])) if isinstance(item, (list, tuple)) else [int(part) for part in str(item).split('-')]
+                if group_type in ('sequence', 'layer_sequence'):
+                    for item in meta.get('frameranges') or []:
+                        start, end = parse_span(item)
+                        if end < start or len(names) + (end - start + 1) > 5000:
+                            raise ValueError('Sequence or UDIM group exceeds the checkout limit')
+                        names.extend(render(frame=frame) for frame in range(start, end + 1))
+                elif group_type in ('udim', 'uv', 'layer_udim', 'layer_uv'):
+                    for udim in meta.get('udims') or []:
+                        if len(names) + 1 > 5000:
+                            raise ValueError('Sequence or UDIM group exceeds the checkout limit')
+                        names.append(render(udim=udim))
+                elif group_type in ('udim_sequence', 'uv_sequence', 'layer_udim_sequence', 'layer_uv_sequence'):
+                    for pair in meta.get('frameranges') or []:
+                        udim, ranges = pair[0], pair[1]
+                        for item in ranges or []:
+                            start, end = parse_span(item)
+                            if end < start or len(names) + (end - start + 1) > 5000:
+                                raise ValueError('Sequence or UDIM group exceeds the checkout limit')
+                            names.extend(render(udim=udim, frame=frame) for frame in range(start, end + 1))
+            if not names or len(set(names)) != len(names):
+                raise ValueError('Sequence or UDIM group has no valid member files')
+            sizes = meta.get('files_sizes') or []
+            row['__member_files__'] = [
+                dict(file_name=member, st_size=int(sizes[idx] or 0) if idx < len(sizes) else 0)
+                for idx, member in enumerate(names)
+            ]
+        rows.append(row)
     data = snapshot.get_sobject_dict()
-    data['__files__'] = [file.get_sobject_dict() for file in files]
+    data['__files__'] = rows
     return json.loads(json.dumps(data, default=str))
 
 
@@ -1093,3 +1145,155 @@ def edit_parent_group(search_key, view, column, action='prepare', source_revisio
     obj.add_relationship(chosen)
     obj.commit()
     return dict(state='saved', searchKey=obj.get_search_key())
+
+
+def ingest_drop_files(
+    search_key,
+    files=None,
+    dirs=None,
+    upload_directory=None,
+    transfer_mode=None,
+    checkin_mode=None,
+    context=None,
+    subcontext_mode=None,
+    subcontext=None,
+):
+    """Self-contained procedure also executed against an original TACTIC server."""
+    import os
+    from pyasm.biz import Project
+    from pyasm.checkin import FileCheckin
+    from pyasm.common import Environment
+    from pyasm.search import SearchKey
+
+    if not search_key:
+        raise ValueError('Select a target item')
+    if SearchKey.extract_project(search_key) not in (None, '', Project.get_project_code()):
+        raise ValueError('The configured table target belongs to another project')
+    sobject = SearchKey.get_by_search_key(search_key)
+    if not sobject or sobject.is_insert():
+        raise ValueError('The configured table target is unavailable')
+
+    base_dir = os.path.abspath(Environment.get_upload_dir())
+    if upload_directory:
+        if upload_directory in ('.', '..') or any(sep in str(upload_directory) for sep in ('/', '\\')):
+            raise ValueError('Invalid staged upload path')
+        base_dir = os.path.abspath(os.path.join(base_dir, str(upload_directory)))
+
+    raw_items = [str(item) for item in (files or dirs or []) if str(item or '').strip()]
+    if not raw_items:
+        raise ValueError('Select at least one file')
+
+    checkin_mode = str(checkin_mode or 'default').strip() or 'default'
+    if checkin_mode not in ('default', 'file', 'file_group'):
+        raise ValueError(f'Unsupported checkin mode: {checkin_mode}')
+    subcontext_mode = str(subcontext_mode or '{none}').strip() or '{none}'
+    if subcontext_mode not in ('{none}', '{leaf}', '{folder}', '{custom}'):
+        raise ValueError(f'Unsupported subcontext mode: {subcontext_mode}')
+    transfer_mode = str(transfer_mode or 'free_copy').strip() or 'free_copy'
+    if transfer_mode not in ('upload', 'uploaded', 'free_copy', 'copy', 'free_move', 'move'):
+        raise ValueError(f'Unsupported transfer mode: {transfer_mode}')
+    transfer_mode = {'upload': 'uploaded', 'free_copy': 'copy', 'free_move': 'move'}.get(transfer_mode, transfer_mode)
+    context = str(context or 'publish').strip('/') or 'publish'
+    subcontext = str(subcontext or '').strip('/')
+
+    paths = []
+    rel_dirs = {}
+    for item in raw_items:
+        rel_norm = os.path.normpath(item.replace('\\', '/')).lstrip('/\\')
+        if not rel_norm or rel_norm in ('.', '..') or rel_norm.startswith('..'):
+            raise ValueError('Invalid staged upload path')
+        full_path = os.path.abspath(os.path.join(base_dir, rel_norm))
+        if os.path.commonpath([base_dir, full_path]) != base_dir:
+            raise ValueError('Invalid staged upload path')
+        if not os.path.exists(full_path):
+            alt_path = os.path.abspath(os.path.join(base_dir, os.path.basename(rel_norm)))
+            if os.path.commonpath([base_dir, alt_path]) == base_dir and os.path.exists(alt_path):
+                full_path = alt_path
+            else:
+                raise ValueError(f'File [{item}] does not exist in staged uploads')
+        if os.path.isdir(full_path):
+            for root, _dirnames, filenames in sorted(os.walk(full_path)):
+                for filename in sorted(filenames):
+                    member = os.path.abspath(os.path.join(root, filename))
+                    paths.append(member)
+                    rel_dirs[member] = os.path.relpath(root, base_dir).replace('\\', '/').strip('.')
+        else:
+            paths.append(full_path)
+            rel_dirs[full_path] = os.path.dirname(rel_norm).replace('\\', '/').strip('.')
+    if not paths:
+        raise ValueError('Select at least one file')
+
+    if not sobject.get_value('code', no_exception=True):
+        sobject.set_value('code', os.path.basename(paths[0]))
+        sobject.commit()
+
+    snapshots = []
+    if checkin_mode in ('file_group', 'file'):
+        folder_part = rel_dirs.get(paths[0], '').strip('/')
+        if subcontext_mode == '{folder}' and folder_part:
+            checkin_context = f"{context}/{folder_part.replace('/', '_')}"
+        elif subcontext:
+            checkin_context = f'{context}/{subcontext}'
+        else:
+            checkin_context = context
+        file_types = [f'ingest{idx}' for idx in range(len(paths))]
+        checkin = FileCheckin(
+            sobject,
+            file_paths=paths,
+            file_types=file_types,
+            context=checkin_context,
+            mode=transfer_mode,
+            description=f'Ingest Files as group check-in [{sobject.get_code()}]',
+        )
+        checkin.execute()
+        if checkin.get_snapshot():
+            snapshots.append(checkin.get_snapshot())
+    elif subcontext_mode == '{none}' and not subcontext:
+        used_types = set()
+        file_types = []
+        for idx, path in enumerate(paths):
+            ext = os.path.splitext(path)[1].lstrip('.') or 'main'
+            file_type = ext if ext not in used_types else f'{ext}_{idx}'
+            used_types.add(file_type)
+            file_types.append(file_type)
+        checkin = FileCheckin(
+            sobject,
+            file_paths=paths,
+            file_types=file_types,
+            context=context,
+            mode=transfer_mode,
+            description=f'Ingest check-in [{sobject.get_code()}]',
+        )
+        checkin.execute()
+        if checkin.get_snapshot():
+            snapshots.append(checkin.get_snapshot())
+    else:
+        for path in paths:
+            folder_part = rel_dirs.get(path, '').strip('/')
+            if subcontext_mode == '{leaf}':
+                checkin_context = f'{context}/{os.path.basename(path)}'
+            elif subcontext_mode == '{folder}' and folder_part:
+                checkin_context = f"{context}/{folder_part.replace('/', '_')}"
+            elif subcontext:
+                checkin_context = f'{context}/{subcontext}'
+            else:
+                checkin_context = context
+            checkin = FileCheckin(
+                sobject,
+                file_paths=[path],
+                file_types=['main'],
+                context=checkin_context,
+                mode=transfer_mode,
+                description=f'Ingest file [{os.path.basename(path)}]',
+            )
+            checkin.execute()
+            if checkin.get_snapshot():
+                snapshots.append(checkin.get_snapshot())
+
+    return dict(
+        search_key=sobject.get_search_key(),
+        code=sobject.get_code(),
+        snapshot_codes=[snap.get_code() for snap in snapshots],
+        file_count=len(paths),
+    )
+

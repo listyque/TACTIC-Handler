@@ -50,6 +50,8 @@ class Ports(QObject):
     def open_task_action(self,action,node,cell):self.calls.append((action,node,dict(cell)))
     @Slot(str,'QVariantMap','QVariantList')
     def open_links(self,node,cell,keys):self.calls.append(('links',node,dict(cell),list(keys)))
+    @Slot(str,'QVariantMap','QVariantList')
+    def open_ingest(self,node,cell,files):self.calls.append(('ingest',node,dict(cell),list(files)))
 
 
 class TableServiceWorkflows(unittest.TestCase):
@@ -211,3 +213,10 @@ class TableServiceWorkflows(unittest.TestCase):
             self.assertTrue(popup.property('opened'))
             owner.shutdown();frames.frame(window)
             self.assertFalse(popup.property('visible'))
+
+    def test_native_file_ingest_cell_routes_to_open_ingest(self):
+        ports=Ports()
+        cell=dict(drop=True,ingest=True,available=True,targetSearchKey='demo/asset?code=A',context='ingest',checkinMode='default',subcontextMode='{leaf}')
+        window,view=self.create('features/table/ServiceCell.qml',dict(controller=frames._TableController(),nodeId='A',services=ports,administration=None,cell=cell),height=90)
+        self.click(window,self.item(view,'dropIngest'))
+        self.assertEqual(ports.calls,[('ingest','A',cell,[])])

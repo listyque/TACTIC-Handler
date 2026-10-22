@@ -29,6 +29,17 @@ export function describe(cell, width, height, language, editable) {
                 }
             )
         );
+    } else if (cell.ingest) {
+        children.push(
+            button(
+                'dropIngest',
+                rect(4, 0, Math.min(inner, 148), 28),
+                translate('Choose files', language),
+                'upload',
+                { type: 'service', name: 'file-ingest' },
+                editable
+            )
+        );
     } else {
         children.push(
             button(
@@ -85,12 +96,15 @@ export function describe(cell, width, height, language, editable) {
                 enabled: true,
                 dropAction:
                     editable && cell.available !== false
-                        ? { type: 'service', name: 'drop-links' }
+                        ? {
+                              type: 'service',
+                              name: cell.ingest ? 'file-ingest' : 'drop-links'
+                          }
                         : null,
                 children: [
                     node('Scroll', 'dropScroll', rect(0, 0, width, height), {
                         contentHeight:
-                            cell.available === false
+                            cell.available === false || cell.ingest
                                 ? 28
                                 : 32 + links.length * 28,
                         scrollbarId: 'dropScrollBar',

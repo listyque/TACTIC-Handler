@@ -4,6 +4,8 @@ from thlib.environment import dl
 input_classes = {
     'tactic': [
         'tactic.ui.widget.upload_wdg.SimpleUploadWdg',
+        'tactic.ui.widget.upload_wdg.UploadWdg',
+        'pyasm.widget.input_wdg.UploadWdg',
         'pyasm.widget.input_wdg.TextWdg',
         'pyasm.widget.input_wdg.TextAreaWdg',
         'pyasm.widget.input_wdg.SelectWdg',
@@ -22,6 +24,8 @@ input_classes = {
     ],
     'handler': [
         'TacticSimpleUploadWdg',
+        'TacticRichUploadWdg',
+        'TacticUploadWdg',
         'TacticTextWdg',
         'TacticTextAreaWdg',
         'TacticSelectWdg',
@@ -349,9 +353,23 @@ class TacticEditWdg(TacticBaseWidget):
     def _commit_publish(self, data, server):
         from pathlib import Path
         sources = self.options_dict['configured_publish']
-        uploads = [Path(data[field['name']]) for field in sources
-            if field['name'] in data and data[field['name']]
-            and field['class_name'] == 'tactic.ui.widget.upload_wdg.SimpleUploadWdg']
+        upload_classes = (
+            'tactic.ui.widget.upload_wdg.SimpleUploadWdg',
+            'tactic.ui.widget.upload_wdg.UploadWdg',
+            'pyasm.widget.input_wdg.UploadWdg',
+        )
+        uploads = []
+        for field in sources:
+            if field['class_name'] not in upload_classes:
+                continue
+            if field['class_name'] == 'tactic.ui.widget.upload_wdg.SimpleUploadWdg':
+                if data.get(field['name']):
+                    uploads.append(Path(data[field['name']]))
+            else:
+                for slot in field.get('upload_fields') or [dict(name=field['name'])]:
+                    key = f"{field['name']}|{slot['name']}"
+                    if data.get(key):
+                        uploads.append(Path(data[key]))
         if len({path.name.casefold() for path in uploads}) != len(uploads):
             raise ValueError('Choose different file names for separate upload fields.')
         if any(not path.is_file() for path in uploads):
@@ -360,10 +378,31 @@ class TacticEditWdg(TacticBaseWidget):
         names = []
         for field in sources:
             name = field['name']
+            prefix = self.input_prefix + '|' + name if self.input_prefix else name
+            if field['class_name'] in ('tactic.ui.widget.upload_wdg.UploadWdg', 'pyasm.widget.input_wdg.UploadWdg'):
+                slots = field.get('upload_fields') or [dict(name=name)]
+                if not any(data.get(f"{name}|{slot['name']}") for slot in slots):
+                    continue
+                names.append(name)
+                values[prefix] = ''
+                options = field.get('kwargs') or {}
+                if options.get('column'):
+                    values[prefix + '|column'] = options['column']
+                for part in ('context', 'subcontext', 'description', 'is_revision'):
+                    values[f'{prefix}|{part}'] = data.get(f'{name}|{part}', '')
+                for slot in slots:
+                    slot_value = data.get(f"{name}|{slot['name']}")
+                    if not slot_value:
+                        continue
+                    path = Path(slot_value)
+                    server.upload_file(str(path))
+                    slot_prefix = self.input_prefix + '|' + slot['name'] if self.input_prefix else slot['name']
+                    values[slot_prefix + '|path'] = path.name
+                    values[slot_prefix + '|ticket'] = server.get_transaction_ticket()
+                continue
             if name not in data:
                 continue
             names.append(name)
-            prefix = self.input_prefix + '|' + name if self.input_prefix else name
             value = data[name]
             if field['class_name'] == 'tactic.ui.widget.upload_wdg.SimpleUploadWdg':
                 values[prefix] = ''
@@ -449,6 +488,19 @@ class TacticSimpleUploadWdg(TacticBaseInputWdg):
     def __init__(self, options_dict=None):
         super().__init__(options_dict=options_dict)
         self.set_class_name('tactic.ui.widget.upload_wdg.SimpleUploadWdg')
+
+
+class TacticUploadWdg(TacticBaseInputWdg):
+    tactic_class = 'pyasm.widget.input_wdg.UploadWdg'
+    editor_kind = 'multi_upload'
+
+    def __init__(self, options_dict=None):
+        super().__init__(options_dict=options_dict)
+        self.set_class_name((options_dict or {}).get('class_name') or self.tactic_class)
+
+
+class TacticRichUploadWdg(TacticUploadWdg):
+    tactic_class = 'tactic.ui.widget.upload_wdg.UploadWdg' 
 
 
 class TacticSelectWdg(TacticBaseInputWdg):

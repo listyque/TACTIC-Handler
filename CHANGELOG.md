@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.130 - 2026-10-22
+
+- Close legacy stage 1.2 (L04 and file remainder of L03) with Stream 0.112.183: CheckoutButtonElementWdg expands sequence and UDIM groups from file_range and metadata templates, checks local conflicts across all member files and cancels remaining transfers on close/failure.
+- Support shipped configured publish widgets (ThumbInputWdg and UploadWdg with multi-slot names and NullAction fallback to MultiUploadAction) in both native and browser editors while keeping NullAction explicit on SimpleUploadWdg.
+- Add DropElementWdg folder_drop / FileIngestCmd callback with an explicit Choose files button, native/browser file drop and staged upload check-in across default, file_group, {leaf} and {folder} subcontext modes.
+
 ## 0.6.0.129 - 2026-10-22
 
 - Close legacy stage 2.1 (L01) with Stream 0.112.182: nested tables honor initialLimit paging, keep selected rows outside the loaded page and refresh the parent scope after editing.

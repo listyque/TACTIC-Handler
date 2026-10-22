@@ -37,7 +37,7 @@ export function describe(
         return Layout.describe(cell, width, height, language, editable, server);
     if (cell.groups && cell.steps)
         return Parallel.describe(cell, width, height, language, expanded);
-    if (cell.links)
+    if (cell.links || cell.ingest)
         return Drop.describe(cell, width, height, language, editable);
     if (cell.label && !cell.text)
         cell = Object.assign({}, cell, {

@@ -507,15 +507,96 @@ class SObjectEditorController(QObject):
         mode: str,
     ) -> list[dict]:
         """Translate one TACTIC Edit View through the shared field catalog."""
-        return [
-            descriptor
-            for source in sources or []
-            if (
-                descriptor := self.describe_field(
-                    stype, context, source, mode=mode
-                )
-            )
+        descriptors = []
+        for source in sources or []:
+            descriptor = self.describe_field(stype, context, source, mode=mode)
+            if not descriptor:
+                continue
+            if descriptor.get("fieldType") == "multi_upload":
+                descriptors.extend(self._expand_multi_upload(descriptor, source))
+            else:
+                descriptors.append(descriptor)
+        return descriptors
+
+    @classmethod
+    def _expand_multi_upload(cls, base: dict, source: dict) -> list[dict]:
+        name = base["fieldName"]
+        slots = source.get("upload_fields") or [dict(name=name, required=base["fieldRequired"])]
+        items = []
+        for slot in slots:
+            slot_name = str(slot.get("name") or name)
+            items.append(dict(
+                base,
+                fieldName=f"{name}|{slot_name}",
+                submitName=f"{name}|{slot_name}",
+                title=slot_name if len(slots) > 1 else base["title"],
+                fieldType="file",
+                fieldValue="",
+                defaultValue="",
+                fieldRequired=bool(slot.get("required")),
+                fieldIcon=cls._field_icons.get("file", "type"),
+            ))
+        ctx = dict(source.get("context_input") or {})
+        ctx_type = "enum" if ctx.get("type") == "select" else "string"
+        ctx_options = [
+            dict(label=str(label), value=value)
+            for label, value in zip(ctx.get("labels") or [], ctx.get("values") or [])
         ]
+        ctx_default = str(ctx.get("value") or (ctx_options[0]["value"] if ctx_options else ""))
+        items.append(dict(
+            base,
+            fieldName=f"{name}|context",
+            submitName=f"{name}|context",
+            title="Context",
+            fieldType=ctx_type,
+            fieldValue=ctx_default,
+            defaultValue=ctx_default,
+            fieldRequired=False,
+            fieldReadOnly=False,
+            fieldOptions=ctx_options,
+            fieldIcon=cls._field_icons.get(ctx_type, "type"),
+        ))
+        if source.get("subcontext"):
+            items.append(dict(
+                base,
+                fieldName=f"{name}|subcontext",
+                submitName=f"{name}|subcontext",
+                title="Subcontext",
+                fieldType="string",
+                fieldValue="",
+                defaultValue="",
+                fieldRequired=False,
+                fieldReadOnly=False,
+                fieldOptions=[],
+                fieldIcon=cls._field_icons.get("string", "type"),
+            ))
+        items.append(dict(
+            base,
+            fieldName=f"{name}|description",
+            submitName=f"{name}|description",
+            title="Comment",
+            fieldType="multiline",
+            fieldValue="",
+            defaultValue="",
+            fieldRequired=False,
+            fieldReadOnly=False,
+            fieldOptions=[],
+            fieldIcon=cls._field_icons.get("multiline", "type"),
+        ))
+        items.append(dict(
+            base,
+            fieldName=f"{name}|is_revision",
+            submitName=f"{name}|is_revision",
+            title="Is revision",
+            fieldType="bool",
+            fieldValue=False,
+            defaultValue=False,
+            fieldRequired=False,
+            fieldReadOnly=False,
+            fieldOptions=[],
+            fieldIcon=cls._field_icons.get("bool", "type"),
+        ))
+        return items
 
     def _schema_failed(self, request_id: int, error) -> None:
         if request_id != self._request_id:
@@ -579,7 +660,21 @@ class SObjectEditorController(QObject):
         if context.get("operation") == "publish":
             action_class = str(source.get("action_class") or "").split('.')[-1]
             if class_name == "tactic.ui.widget.upload_wdg.SimpleUploadWdg":
-                field_type = "file" if action_class == "UploadAction" and not widget.kwargs.get("client_action") else "unsupported"
+                field_type = "file" if action_class in ("", "UploadAction") and not widget.kwargs.get("client_action") else "unsupported"
+            elif class_name == "pyasm.widget.input_wdg.ThumbInputWdg":
+                field_type = "thumbnail" if action_class in ("", "NullAction") else "unsupported"
+            elif class_name in ("tactic.ui.widget.upload_wdg.UploadWdg", "pyasm.widget.input_wdg.UploadWdg"):
+                slots = [str(item.get("name") or "") for item in (source.get("upload_fields") or [])]
+                expected = str(action.get("names") or widget.kwargs.get("names") or name).split("|")
+                valid = (
+                    not widget.kwargs.get("client_action")
+                    and widget.kwargs.get("upload_type") != "arbitrary"
+                    and action.get("upload_type") != "arbitrary"
+                    and (not slots or slots == expected)
+                    and action_class in ("", "UploadAction", "MultiUploadAction", "NullAction")
+                    and (not widget.kwargs.get("names") or action_class in ("", "MultiUploadAction", "NullAction"))
+                )
+                field_type = "multi_upload" if valid else "unsupported"
             elif class_name not in (
                 "pyasm.widget.input_wdg.TextWdg", "pyasm.widget.input_wdg.TextAreaWdg",
                 "pyasm.widget.input_wdg.SelectWdg", "pyasm.widget.input_wdg.CheckboxWdg",
