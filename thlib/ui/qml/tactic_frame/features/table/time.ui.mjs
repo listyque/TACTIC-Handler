@@ -6,7 +6,7 @@ export function date(value) {
     return value ? Date.parse(String(value).slice(0, 10) + 'T00:00:00Z') : NaN;
 }
 
-export function timeline(cell, width, height, language) {
+export function timeline(cell, width, height, language, editable = true) {
     const model = cell.timeline,
         nodes = [],
         start = date(model.start),
@@ -92,9 +92,12 @@ export function timeline(cell, width, height, language) {
                         type: 'service',
                         name: 'table-schedule',
                         taskKey: bar.searchKey,
-                        scheduleIndex: bar.index
+                        scheduleIndex: bar.index,
+                        login: bar.login || cell.login || '',
+                        parentKeys: bar.parentKeys || [],
+                        scope: bar.scope || cell.scope || ''
                     },
-                    enabled: true
+                    enabled: editable && bar.editable !== false
                 }
             )
         );
@@ -110,7 +113,7 @@ export function timeline(cell, width, height, language) {
     };
 }
 
-export function hours(cell, width, height, language) {
+export function hours(cell, width, height, language, editable = true) {
     const days = cell.timeDays || [],
         nodes = [],
         t = (value) => translate(value, language);
@@ -164,7 +167,8 @@ export function hours(cell, width, height, language) {
                             name: 'work-hours',
                             day: value.day,
                             taskKey: cell.taskKey
-                        }
+                        },
+                        enabled: editable
                     }
                 )
             );

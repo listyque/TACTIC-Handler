@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.132 - 2026-10-22
+
+- Close legacy stage 1.4 (L06 Gantt and time tracking inside the table) with Stream 0.112.185: complete `GanttWdg`, `GanttElementWdg` (`GanttCbk` default/cascade), `TimecardInfoTableElement`, `WeekTableElement`, and `WorkHoursElementWdg` (`WorkHoursElementAction`).
+- Support `ResourceUsageGanttWdg` user workload bars on `sthpw/login`, cascade `@SOBJECT(...)` parent resolution, project schedule scope, and week/daily totals across `WeekTableElement` and `WorkHoursElementWdg`.
+- Route table schedule bars to the existing Task Manager Gantt in object, user, project, or related-objects cascade scope and daily hours to the existing Timesheet owner while respecting cell and bar editability.
+
 ## 0.6.0.131 - 2026-10-22
 
 - Close legacy stage 1.3 (remaining L03 saved layouts and configured actions) with Stream 0.112.184: support nested CustomLayout wrappers with `icon_size` (`columns.thumb_view` → `custom_col`), `HiddenRowElementWdg` portable document/action CustomLayouts (`cg/scenes` `script` → `episodes/columns/script` with `show_resize_scroll`), and clear `ValueError` diagnostics on unsupported Mako syntax/tokens.

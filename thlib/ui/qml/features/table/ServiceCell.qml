@@ -74,7 +74,11 @@ Frame.FrameView {
             services.open_task_action(action.name, nodeId, Object.assign({}, cell, {
                 actionTaskCode: action.taskCode,
                 actionTaskKey: action.taskKey,
-                actionProcess: action.process
+                actionProcess: action.process,
+                actionScheduleIndex: action.scheduleIndex,
+                actionLogin: action.login || cell.login || "",
+                actionParentKeys: action.parentKeys || [],
+                actionScope: action.scope || cell.scope || ""
             }));
         else if (action.name === "script")
             services.run_script(nodeId, Object.assign({}, cell, {

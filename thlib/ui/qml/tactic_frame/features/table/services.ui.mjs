@@ -31,8 +31,10 @@ export function describe(
     if (cell.summary) return summary(cell, width, height, language);
     if (cell.connectionRows)
         return Connections.describe(cell, width, height, language);
-    if (cell.timeline) return Time.timeline(cell, width, height, language);
-    if (cell.timeDays) return Time.hours(cell, width, height, language);
+    if (cell.timeline)
+        return Time.timeline(cell, width, height, language, editable);
+    if (cell.timeDays)
+        return Time.hours(cell, width, height, language, editable);
     if (cell.layoutNodes)
         return Layout.describe(cell, width, height, language, editable, server);
     if (cell.groups && cell.steps)

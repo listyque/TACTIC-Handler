@@ -8100,7 +8100,33 @@ def query_table_layout(search_type, search_keys=None, view='table',
 
 
     time_cache = {}
-    def table_schedule(objects, options):
+    def _parse_schedule_actions(action_options):
+        import json
+        import re
+        if not action_options:
+            return []
+        raw = action_options.get('options')
+        if raw:
+            parsed = json.loads(raw) if isinstance(raw, str) else raw
+            if not isinstance(parsed, list):
+                raise ValueError('Unsupported schedule action options')
+            items = parsed
+        else:
+            items = [dict(action_options)]
+        allowed = {'mode', 'prefix', 'start_date_col', 'end_date_col', 'sobjects'}
+        for item in items:
+            if not isinstance(item, dict) or set(item) - allowed:
+                raise ValueError('Unsupported schedule action options')
+            if item.get('mode') not in (None, '', 'default', 'cascade'):
+                raise ValueError('Unsupported schedule action mode')
+            if item.get('prefix') not in (None, '', 'bid', 'actual'):
+                raise ValueError('Unsupported schedule action prefix')
+            expr = item.get('sobjects')
+            if expr and not re.fullmatch(r'\s*@SOBJECT\([^@;{}]*\)\s*', str(expr), re.I):
+                raise ValueError('A schedule action requires an @SOBJECT expression')
+        return items
+
+    def table_schedule(objects, options, action_options=None):
         import calendar
         import datetime
         import json
@@ -8117,6 +8143,11 @@ def query_table_layout(search_type, search_keys=None, view='table',
             raise ValueError('Invalid schedule week start')
         if int(options.get('bar_height') or 12) not in (6,12,18,24):
             raise ValueError('Invalid schedule bar height')
+        for size in ('width', 'cal_margin'):
+            raw = options.get(size)
+            if raw not in (None, '') and (not str(raw).isdecimal() or int(raw) <= 0):
+                raise ValueError('Invalid schedule width')
+        width_hint = int(options.get('width') or 400)
 
         def date_value(value):
             if isinstance(value, (list, tuple)):
@@ -8132,46 +8163,113 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 raise ValueError('A table schedule requires a read-only date expression')
             return date_value(Search.eval(expression, sobjects=record))
 
-        properties = json.loads(options['options']) if options.get('options') else [dict(
-            sobject_expr='@SOBJECT(sthpw/task)', start_date_col='bid_start_date', end_date_col='bid_end_date', color='#888')]
-        if not isinstance(properties, list) or not 1 <= len(properties) <= 32:
-            raise ValueError('Configure between one and 32 schedule bars')
-        allowed = {'start_date_col','end_date_col','start_date_expr','end_date_expr','sobject_expr',
-                   'color','edit','default','hide_empty_bar','label'}
-        for item in properties:
-            if not isinstance(item, dict) or set(item) - allowed:
-                raise ValueError('Unsupported schedule bar options')
-        mode = options.get('color_mode') or ''
+        handlers_raw = str(options.get('handlers') or '').strip()
+        handlers = [h.strip() for h in handlers_raw.split('|') if h.strip()] if handlers_raw else []
+        if any(h not in ('ScheduleGanttWdg', 'ResourceUsageGanttWdg') for h in handlers):
+            raise ValueError('Unsupported Gantt handler')
+        action_items = _parse_schedule_actions(action_options)
+
         result, dates = {}, []
-        for obj in objects:
-            bars = []
-            for index, item in enumerate(properties):
-                expression = item.get('sobject_expr')
-                if expression and not re.fullmatch(r'\s*@SOBJECT\([^@;{}]*\)\s*', expression, re.I):
-                    raise ValueError('A schedule bar requires an @SOBJECT expression')
-                records = Search.eval(expression, sobjects=obj) if expression else [obj]
-                records = records if isinstance(records, (list, tuple)) else [records] if records else []
-                if len(bars) + len(records) > 256:
-                    raise ValueError('A table row can display at most 256 schedule bars')
-                for record in records:
-                    start, end = read_date(record, item, 'start'), read_date(record, item, 'end')
-                    if start and end and start > end:
-                        raise ValueError('Schedule start date is after its end date')
-                    dates.extend(value for value in (start, end) if value)
-                    color = item.get('color') or '#888'
-                    if mode and record.get_base_search_type() == 'sthpw/task':
-                        parent = record.get_parent()
-                        pipeline = Pipeline.get_by_code(record.get_value('pipeline_code') or 'task') if mode == 'status' else (
-                            Pipeline.get_by_code(parent.get_value('pipeline_code')) if parent else None)
-                        process = pipeline.get_process(record.get_value('status' if mode == 'status' else 'process')) if pipeline else None
-                        color = process.get_color() if process and process.get_color() else color
-                    bars.append(dict(index=index, searchKey=record.get_search_key(), start=str(start or ''), end=str(end or ''),
-                        color=str(color), label=str(item.get('label') or record.get_display_value()),
-                        editable=item.get('edit') not in (False, 'false'),
-                        hidden=not (start or end) and (item.get('hide_empty_bar') in (True, 'true') or item.get('default') in (False, 'false'))))
-            parent = obj.get_parent() if obj.get_base_search_type() == 'sthpw/task' else None
-            result[obj.get_search_key()] = dict(text='', widthHint=400, targetSearchKey=parent.get_search_key() if parent else obj.get_search_key(),
-                sourceSearchKey=obj.get_search_key(), timeline=dict(bars=bars))
+        if 'ResourceUsageGanttWdg' in handlers:
+            logins = [str(obj.get_value('login', no_exception=True) or obj.get_code() or '') for obj in objects]
+            task_search = Search('sthpw/task')
+            task_search.add_filters('assigned', [login for login in logins if login] or [''])
+            all_tasks = task_search.get_sobjects()
+            for obj in objects:
+                login = str(obj.get_value('login', no_exception=True) or obj.get_code() or '')
+                user_tasks = [t for t in all_tasks if str(t.get_value('assigned') or '') == login]
+                day_counts = {}
+                for task in user_tasks:
+                    t_start = date_value(task.get_value('bid_start_date'))
+                    t_end = date_value(task.get_value('bid_end_date'))
+                    if not t_start or not t_end or t_start > t_end or (t_end - t_start).days > 3660:
+                        continue
+                    cur = t_start
+                    while cur <= t_end:
+                        day_counts[cur] = min(2, day_counts.get(cur, 0) + 1)
+                        cur += datetime.timedelta(days=1)
+                bars = []
+                for day_key in sorted(day_counts):
+                    count = day_counts[day_key]
+                    color = '#33F' if count == 1 else '#d9534f'
+                    label = '1 task' if count == 1 else 'Overlapping tasks'
+                    if bars and bars[-1]['color'] == color and date_value(bars[-1]['end']) + datetime.timedelta(days=1) == day_key:
+                        bars[-1]['end'] = str(day_key)
+                    else:
+                        bars.append(dict(index=len(bars), searchKey=obj.get_search_key(), start=str(day_key), end=str(day_key),
+                            color=color, label=label, editable=True, hidden=False, login=login))
+                    dates.append(day_key)
+                result[obj.get_search_key()] = dict(text='', widthHint=width_hint, targetSearchKey=obj.get_search_key(),
+                    sourceSearchKey=obj.get_search_key(), login=login, timeline=dict(bars=bars))
+        else:
+            properties = json.loads(options['options']) if options.get('options') else [dict(
+                sobject_expr='@SOBJECT(sthpw/task)', start_date_col='bid_start_date', end_date_col='bid_end_date', color='#888')]
+            if not isinstance(properties, list) or not 1 <= len(properties) <= 32:
+                raise ValueError('Configure between one and 32 schedule bars')
+            allowed = {'start_date_col','end_date_col','start_date_expr','end_date_expr','sobject_expr',
+                       'color','edit','default','hide_empty_bar','label'}
+            for item in properties:
+                if not isinstance(item, dict) or set(item) - allowed:
+                    raise ValueError('Unsupported schedule bar options')
+            mode = options.get('color_mode') or ''
+            for obj in objects:
+                bars = []
+                base_type = obj.get_base_search_type()
+                for index, item in enumerate(properties):
+                    expression = item.get('sobject_expr')
+                    if expression and not re.fullmatch(r'\s*@SOBJECT\([^@;{}]*\)\s*', expression, re.I):
+                        raise ValueError('A schedule bar requires an @SOBJECT expression')
+                    records = Search.eval(expression, sobjects=obj) if expression else [obj]
+                    records = records if isinstance(records, (list, tuple)) else [records] if records else []
+                    if len(bars) + len(records) > 256:
+                        raise ValueError('A table row can display at most 256 schedule bars')
+                    act = action_items[index] if index < len(action_items) else (action_items[0] if len(action_items) == 1 else {})
+                    act_mode = act.get('mode') or ('cascade' if act.get('sobjects') and not act.get('mode') and (
+                        item.get('start_date_expr') or item.get('end_date_expr')) else 'default')
+                    act_prefix = act.get('prefix') or ('actual' if 'actual' in str(item.get('start_date_col') or item.get('start_date_expr') or '') else 'bid')
+                    act_expr = act.get('sobjects') or expression
+                    parent_keys = []
+                    if act_mode == 'cascade' and act_expr and base_type != 'sthpw/project':
+                        rel_tasks = Search.eval(act_expr, sobjects=obj)
+                        rel_tasks = rel_tasks if isinstance(rel_tasks, (list, tuple)) else [rel_tasks] if rel_tasks else []
+                        seen = set()
+                        for rel in rel_tasks:
+                            p_obj = rel.get_parent() if rel.get_base_search_type() == 'sthpw/task' else rel
+                            p_key = p_obj.get_search_key() if p_obj else ''
+                            if p_key and p_key not in seen:
+                                seen.add(p_key)
+                                parent_keys.append(p_key)
+                    for record in records:
+                        start, end = read_date(record, item, 'start'), read_date(record, item, 'end')
+                        if start and end and start > end:
+                            raise ValueError('Schedule start date is after its end date')
+                        dates.extend(value for value in (start, end) if value)
+                        color = item.get('color') or '#888'
+                        if mode and record.get_base_search_type() == 'sthpw/task':
+                            parent = record.get_parent()
+                            pipeline = Pipeline.get_by_code(record.get_value('pipeline_code') or 'task') if mode == 'status' else (
+                                Pipeline.get_by_code(parent.get_value('pipeline_code')) if parent else None)
+                            process = pipeline.get_process(record.get_value('status' if mode == 'status' else 'process')) if pipeline else None
+                            color = process.get_color() if process and process.get_color() else color
+                        bar = dict(index=index, searchKey=record.get_search_key(), start=str(start or ''), end=str(end or ''),
+                            color=str(color), label=str(item.get('label') or record.get_display_value()),
+                            editable=item.get('edit') not in (False, 'false'),
+                            hidden=not (start or end) and (item.get('hide_empty_bar') in (True, 'true') or item.get('default') in (False, 'false')))
+                        if act:
+                            bar.update(mode=act_mode, prefix=act_prefix,
+                                startField=act.get('start_date_col') or item.get('start_date_col') or (act_prefix + '_start_date'),
+                                endField=act.get('end_date_col') or item.get('end_date_col') or (act_prefix + '_end_date'))
+                        if base_type == 'sthpw/project':
+                            bar['scope'] = 'project'
+                        elif parent_keys:
+                            bar['parentKeys'] = parent_keys
+                        bars.append(bar)
+                parent = obj.get_parent() if base_type == 'sthpw/task' else None
+                cell = dict(text='', widthHint=width_hint, targetSearchKey=parent.get_search_key() if parent else obj.get_search_key(),
+                    sourceSearchKey=obj.get_search_key(), timeline=dict(bars=bars))
+                if base_type == 'sthpw/project':
+                    cell['scope'] = 'project'
+                result[obj.get_search_key()] = cell
         start = date_value(options.get('range_start_date')) or (min(dates) if dates else datetime.date.today())
         end = date_value(options.get('range_end_date')) or (max(dates) if dates else start)
         if not options.get('range_start_date'):
@@ -8190,27 +8288,62 @@ def query_table_layout(search_type, search_keys=None, view='table',
     def time_cell(class_name, column, obj, widget):
         import datetime
         import json
+        from dateutil import parser
         from decimal import Decimal
         from pyasm.biz import Project
         from pyasm.common import Environment
         from pyasm.search import Search
         native = getattr(widget, 'get_cell_value', None)
         if native:
-            return dict(native(), tableView=view, columnName=column['name'])
+            return dict(native(), tableView=view, columnName=column['name'], actionOptions=dict(column.get('actionOptions') or {}))
         options = dict(column.get('displayOptions') or {})
+        action_options = dict(column.get('actionOptions') or {})
         if class_name.endswith(('.GanttWdg', '.GanttElementWdg')):
             if column['name'] not in time_cache:
                 if class_name.endswith('.GanttWdg'):
-                    options['options'] = json.dumps([dict(start_date_col=prefix+'_start_date', end_date_col=prefix+'_end_date',
-                        color=color, edit=options.get(prefix+'_edit') in (True, 'true'))
-                        for prefix,color in (('bid','#33F'),('actual','#7abc14'))])
-                time_cache[column['name']] = table_schedule(widget.sobjects, options)
-            return dict(time_cache[column['name']][obj.get_search_key()], columnName=column['name'], tableView=view)
+                    handlers_raw = str(options.get('handlers') or '').strip()
+                    handlers = [h.strip() for h in handlers_raw.split('|') if h.strip()] if handlers_raw else []
+                    if any(h not in ('ScheduleGanttWdg', 'ResourceUsageGanttWdg') for h in handlers):
+                        raise ValueError('Unsupported Gantt handler')
+                    if 'ResourceUsageGanttWdg' not in handlers:
+                        options['options'] = json.dumps([dict(start_date_col=prefix+'_start_date', end_date_col=prefix+'_end_date',
+                            color=color, edit=options.get(prefix+'_edit') in (True, 'true'))
+                            for prefix,color in (('bid','#33F'),('actual','#7abc14'))])
+                time_cache[column['name']] = table_schedule(widget.sobjects, options, action_options)
+            return dict(time_cache[column['name']][obj.get_search_key()], columnName=column['name'], tableView=view, actionOptions=action_options)
         if class_name.endswith('.WeekTableElement'):
+            raw_width = options.get('width')
+            if raw_width not in ('', None) and (not str(raw_width).isdecimal() or int(raw_width) <= 0):
+                raise ValueError('Invalid timecard week width')
             obj = widget.get_current_sobject()
-            days = [dict(day=day, label=day.title(), value=str(obj.get_value(day) or ''))
-                    for day in ('mon','tue','wed','thu','fri','sat','sun')]
-            return dict(text='', widthHint=430, timeDays=days, total=sum(float(item['value'] or 0) for item in days))
+            year = obj.get_value('year', no_exception=True)
+            week_num = obj.get_value('week', no_exception=True)
+            monday = None
+            if year and week_num:
+                try:
+                    monday = datetime.date.fromisocalendar(int(year), max(1, min(53, int(week_num))), 1)
+                except ValueError:
+                    monday = datetime.date(int(year), 1, 1)
+            day_names = ('mon','tue','wed','thu','fri','sat','sun')
+            days = [dict(day=str(monday + datetime.timedelta(days=idx)) if monday else day, label=day.title(), value=str(obj.get_value(day) or ''))
+                    for idx, day in enumerate(day_names)]
+            daily_totals = {day: sum(float(row.get_value(day, no_exception=True) or 0) for row in (widget.sobjects or [obj])) for day in day_names}
+            cell = dict(text='', widthHint=int(raw_width or 430), timeDays=days, total=sum(float(item['value'] or 0) for item in days),
+                        dailyTotals=daily_totals, columnName=column['name'], tableView=view, actionOptions=action_options)
+            if monday:
+                cell['week'] = str(monday)
+            stype = str(obj.get_value('search_type', no_exception=True) or '')
+            sid = obj.get_value('search_id', no_exception=True)
+            if stype and stype.split('?')[0] == 'sthpw/task' and sid:
+                task = Search.get_by_id(stype, sid)
+                if task is not None:
+                    parent = task.get_parent()
+                    login = obj.get_value('login', no_exception=True)
+                    same_user = not login or login == Environment.get_user_name()
+                    cell.update(targetSearchKey=parent.get_search_key() if parent else '', taskKey=task.get_search_key(),
+                        taskCode=task.get_code(), process=task.get_value('process'),
+                        actions=[dict(name='work-hours', label='Work Hours', icon='schedule')] if same_user else [])
+            return cell
         if class_name.endswith('.TimecardInfoTableElement'):
             obj = widget.get_current_sobject()
             search_type = obj.get_value('search_type')
@@ -8227,16 +8360,28 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 targetSearchKey=task.get_search_key(),
                 actions=[dict(name='sobject_detail', label='Open details', icon='search')])
         if class_name.endswith('.WorkHoursElementWdg'):
+            def regular(entry):
+                return Decimal(0) if entry.get_value('category') == 'overtime' else Decimal(str(entry.get_value('straight_time') or 0))
+            def overtime(entry):
+                return Decimal(str(entry.get_value('over_time') or (entry.get_value('straight_time') if entry.get_value('category') == 'overtime' else 0) or 0))
             if column['name'] not in time_cache:
                 widget._entries = []
-                widget._start = datetime.date.today()
-                widget._start -= datetime.timedelta(days=widget._start.weekday())
+                raw_start = widget.get_option('start_date')
+                if raw_start:
+                    widget._start = parser.parse(str(raw_start)).date()
+                else:
+                    widget._start = datetime.date.today()
+                    widget._start -= datetime.timedelta(days=widget._start.weekday())
                 count = int(widget.get_option('days_per_page') or 7)
                 if not 1 <= count <= 31 or widget.get_option('unit') not in ('', 'hour', 'minute'):
                     raise ValueError('Invalid work-hours display range or unit')
                 for flag in ('show_all_users', 'show_overtime', 'use_straight_time'):
                     if widget.get_option(flag) not in ('', True, False, 'true', 'false'):
                         raise ValueError('Invalid work-hours display option')
+                for size in ('width', 'day_width'):
+                    raw_size = widget.get_option(size)
+                    if raw_size not in ('', None) and (not str(raw_size).isdecimal() or int(raw_size) <= 0):
+                        raise ValueError('Invalid work-hours width')
                 search = Search('sthpw/work_hour')
                 search.add_filter('project_code', Project.get_project_code())
                 search.add_filters('task_code', [obj.get_code() for obj in widget.sobjects] or [''])
@@ -8245,11 +8390,13 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 if widget.get_option('show_all_users') not in (True, 'true'):
                     search.add_filter('login', Environment.get_user_name())
                 widget._entries = search.get_sobjects()
+                factor = 60 if widget.get_option('unit') == 'minute' else 1
+                widget._daily_totals = {
+                    str(widget._start + datetime.timedelta(days=idx)): float(sum((regular(entry) for entry in widget._entries
+                        if str(entry.get_value('day'))[:10] == str(widget._start + datetime.timedelta(days=idx))), 0) * factor)
+                    for idx in range(count)
+                }
                 time_cache[column['name']] = True
-            def regular(entry):
-                return Decimal(0) if entry.get_value('category') == 'overtime' else Decimal(str(entry.get_value('straight_time') or 0))
-            def overtime(entry):
-                return Decimal(str(entry.get_value('over_time') or (entry.get_value('straight_time') if entry.get_value('category') == 'overtime' else 0) or 0))
             obj = widget.get_current_sobject()
             if obj.get_base_search_type() != 'sthpw/task':
                 raise ValueError('Work Hours requires a task row')
@@ -8258,25 +8405,32 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 raise ValueError('Invalid work-hours display range or unit')
             start = widget._start
             all_users = widget.get_option('show_all_users') in (True, 'true')
+            show_overtime = widget.get_option('show_overtime') in (True, 'true')
             entries = [entry for entry in widget._entries if entry.get_value('task_code') == obj.get_code()]
             factor = 60 if widget.get_option('unit') == 'minute' else 1
             days = []
+            overtime_total = 0.0
             for index in range(count):
                 day = start + datetime.timedelta(days=index)
                 matched = [entry for entry in entries if str(entry.get_value('day'))[:10] == str(day)]
-                regular = sum((regular(entry) for entry in matched), 0) * factor
-                overtime = sum((overtime(entry) for entry in matched), 0) * factor
+                reg_val = sum((regular(entry) for entry in matched), 0) * factor
+                ot_val = sum((overtime(entry) for entry in matched), 0) * factor
+                overtime_total += float(ot_val)
                 clock = widget.get_option('use_straight_time') in (False, 'false')
-                days.append(dict(day=str(day), label=day.strftime('%a'), value=str(regular),
+                days.append(dict(day=str(day), label=day.strftime('%a'), value=str(reg_val),
                     start=' / '.join(str(entry.get_value('start_time') or '') for entry in matched) if clock else '',
                     end=' / '.join(str(entry.get_value('end_time') or '') for entry in matched) if clock else '',
-                    overtime=str(overtime) if widget.get_option('show_overtime') in (True, 'true') else ''))
+                    overtime=str(ot_val) if show_overtime else ''))
             parent = obj.get_parent()
-            return dict(text='', widthHint=int(widget.get_option('width') or 380), timeDays=days, total=sum(float(day['value']) for day in days),
+            return dict(text='', widthHint=int(widget.get_option('width') or 380), timeDays=days,
+                total=sum(float(day['value']) for day in days),
+                overtimeTotal=overtime_total if show_overtime else 0.0,
+                dailyTotals=dict(getattr(widget, '_daily_totals', {})),
                 targetSearchKey=parent.get_search_key() if parent else '', taskKey=obj.get_search_key(),
                 taskCode=obj.get_code(), process=obj.get_value('process'), week=str(start), allUsers=all_users,
                 unit=widget.get_option('unit') or 'hour', dayWidth=int(widget.get_option('day_width') or 35),
-                actions=[] if all_users else [dict(name='work-hours', label='Work Hours', icon='schedule')])
+                actions=[] if all_users else [dict(name='work-hours', label='Work Hours', icon='schedule')],
+                columnName=column['name'], tableView=view, actionOptions=action_options)
 
     def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0, _behaviors=None):
         import ast
@@ -9528,6 +9682,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
             else:
                 widget = config.get_display_widget(name)
             widget.set_sobjects(sobjects)
+            widget.action_options = column.get('actionOptions') or {}
             if hasattr(widget, 'get_cell_value') or widget.__class__.__name__ not in ('GanttWdg','GanttElementWdg','WeekTableElement','TimecardInfoTableElement','WorkHoursElementWdg'):
                 widget.preprocess()
             widgets[name] = widget

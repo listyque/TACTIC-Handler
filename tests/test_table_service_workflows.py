@@ -220,3 +220,15 @@ class TableServiceWorkflows(unittest.TestCase):
         window,view=self.create('features/table/ServiceCell.qml',dict(controller=frames._TableController(),nodeId='A',services=ports,administration=None,cell=cell),height=90)
         self.click(window,self.item(view,'dropIngest'))
         self.assertEqual(ports.calls,[('ingest','A',cell,[])])
+
+    def test_native_table_schedule_routes_user_project_and_cascade_scopes(self):
+        app=Application()
+        tasks=Mock()
+        owner=TableServicesController(app,tasks=tasks)
+        owner.open_task_action('table-schedule','A',dict(targetSearchKey='sthpw/login?code=admin',actionLogin='admin'))
+        tasks.open_for_user.assert_called_once_with('admin')
+        tasks.set_view_mode.assert_called_with('gantt')
+        owner.open_task_action('table-schedule','A',dict(targetSearchKey='sthpw/project?code=demo',actionScope='project'))
+        tasks.use_project.assert_called_once_with()
+        owner.open_task_action('table-schedule','A',dict(targetSearchKey='demo/seq?code=SQ1',actionParentKeys=['demo/shot?code=SH1','demo/shot?code=SH2']))
+        tasks.use_related_objects.assert_called_once_with(['demo/shot?code=SH1','demo/shot?code=SH2'])

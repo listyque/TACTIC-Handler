@@ -512,6 +512,23 @@ class TableServicesController(QObject):
     def open_task_action(self, action, node_id, cell):
         if self.busy or self._tasks is None:
             return
+        if action == 'table-schedule':
+            login = str(cell.get('actionLogin') or cell.get('login') or '')
+            if login:
+                self._tasks.open_for_user(login)
+                self._tasks.set_view_mode('gantt')
+                return
+            if str(cell.get('actionScope') or cell.get('scope') or '') == 'project':
+                self._tasks.use_project()
+                self._tasks._show_workspace_surface('browser')
+                self._tasks.set_view_mode('gantt')
+                return
+            parent_keys = [str(item) for item in (cell.get('actionParentKeys') or []) if item]
+            if len(parent_keys) > 1:
+                self._tasks.use_related_objects(parent_keys)
+                self._tasks._show_workspace_surface('browser')
+                self._tasks.set_view_mode('gantt')
+                return
         key = str(cell.get('targetSearchKey') or '')
         if not key:
             return
