@@ -115,6 +115,7 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
     from xml.etree import ElementTree as ET
     from mako.template import Template
     from mako.lexer import Lexer
+    from mako.exceptions import MakoException
     from pyasm.search import Search
     from pyasm.common import Environment
     if not Environment.get_security().is_admin():
@@ -174,15 +175,18 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
         reserved = data_names | pure_builtins | {'context','self','local','parent','next','pageargs','loop','caller','capture','UNDEFINED','STOP_RENDERING'}
         pure_methods = {'get','format','replace','find','strip','upper','lower','join'}
         trees = []
-        for part in Lexer(template_source).parse().nodes:
-            kind = type(part).__name__
-            if kind in ('Text', 'Comment'):
-                continue
-            if kind not in ('Code', 'Expression') or (kind=='Code' and part.ismodule):
-                raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
-            if kind=='Expression' and any(name.strip() not in ('n','h','str','trim','u','entity') for name in part.escapes.split(',') if name.strip()):
-                raise ValueError('CustomLayout Mako filter is not supported')
-            trees.append(ast.parse(textwrap.dedent(part.text).strip(),mode='eval' if kind=='Expression' else 'exec'))
+        try:
+            for part in Lexer(template_source).parse().nodes:
+                kind = type(part).__name__
+                if kind in ('Text', 'Comment'):
+                    continue
+                if kind not in ('Code', 'Expression') or (kind=='Code' and part.ismodule):
+                    raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
+                if kind=='Expression' and any(name.strip() not in ('n','h','str','trim','u','entity') for name in part.escapes.split(',') if name.strip()):
+                    raise ValueError('CustomLayout Mako filter is not supported')
+                trees.append(ast.parse(textwrap.dedent(part.text).strip(),mode='eval' if kind=='Expression' else 'exec'))
+        except (SyntaxError, MakoException):
+            raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution') from None
         local_names = {target.id for tree in trees for item in ast.walk(tree) if isinstance(item,ast.Assign)
                        for target in item.targets if isinstance(target,ast.Name)}
         # CG binds `parent` to its JSON search key, before any output; never expose Mako's parent namespace.
@@ -274,7 +278,11 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
             handler = display['attrs'].get('class') or display['attrs'].get('widget')
             options = {child['tag']: (''.join(markup(part) for part in child['children']) if child['tag']=='html' else text(child).strip()) for child in display['children'] if isinstance(child, dict)}
             if handler in ('tactic.ui.panel.CustomLayoutWdg', 'tactic.ui.table.CustomLayoutElementWdg', 'custom_layout'):
-                nodes.extend(read_custom_layout(search_key, _depth=_depth+1, _behaviors=behaviors, **options)['layoutNodes'])
+                if set(options) - {'view', 'html', 'include_mako', 'show_resize_scroll', 'icon_size', 'search_key'}:
+                    raise ValueError('Unsupported CustomLayout options')
+                nodes.extend(read_custom_layout(options.get('search_key') or search_key, view=options.get('view') or '',
+                    html=options.get('html') or '', include_mako=options.get('include_mako', True),
+                    _depth=_depth+1, _behaviors=behaviors)['layoutNodes'])
             elif handler in ('tactic.ui.panel.TableLayoutWdg', 'tactic.ui.panel.FastTableLayoutWdg', 'tactic.ui.panel.ViewPanelWdg'):
                 allowed = {'search_type','search_key','view','expression','show_search_limit','show_insert',
                            'show_row_select','show_select','show_gear','show_search','show_shelf','init_load_num'}

@@ -761,6 +761,18 @@ class ColumnsEditorController(QObject):
                 "config/widget_config", record["code"],
                 project_code=project_code,
             )
+            current = next((
+                row for row in server.query(
+                    "config/widget_config",
+                    [("code", record["code"])] if record["code"] else [],
+                ) or []
+                if isinstance(row, dict) and (
+                    record["code"] and str(row.get("code") or "") == record["code"]
+                    or search_key and str(row.get("__search_key__") or "") == search_key
+                )
+            ), None)
+            if current is not None and str(current.get("config") or "") != record["config"]:
+                raise ValueError("Interface configuration changed. Reload before saving.")
             server.insert_update(
                 search_key, {"config": xml}, triggers=False
             )
@@ -816,11 +828,7 @@ class ColumnsEditorController(QObject):
 
     @staticmethod
     def _view_tree(value, view="table"):
-        root = (
-            ElementTree.fromstring(value)
-            if str(value or "").strip()
-            else ElementTree.Element("config")
-        )
+        root = ColumnsEditorController._catalog_xml_root(str(value or "").strip())
         view_node = ColumnsEditorController._find_view(root, view)
         if view_node is None:
             view_node = ElementTree.SubElement(root, view)

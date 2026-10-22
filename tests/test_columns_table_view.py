@@ -2108,6 +2108,14 @@ class ColumnsTableViewTests(unittest.TestCase):
             application.stype.project.views.config_dict[2]["config"],
             "<config><table/></config>",
         )
+        application.stype.project.views.config_dict[2]["config"] = "<config><table marker=\"external\"/></config>"
+        with (
+            patch("thlib.tactic_classes.server_start", return_value=server),
+            patch.object(env_inst, "server_pool", _Pool()),
+        ):
+            self.assertTrue(controller.save_catalog_xml(row, "<config><table marker=\"stale\"/></config>"))
+        self.assertIn("Reload before saving", controller.error)
+        self.assertEqual(len(updates), 1)
 
     def test_catalog_unknown_write_requires_readback_and_local_start_failure_is_safe(self):
         application = _Application(_SType())

@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.131 - 2026-10-22
+
+- Close legacy stage 1.3 (remaining L03 saved layouts and configured actions) with Stream 0.112.184: support nested CustomLayout wrappers with `icon_size` (`columns.thumb_view` → `custom_col`), `HiddenRowElementWdg` portable document/action CustomLayouts (`cg/scenes` `script` → `episodes/columns/script` with `show_resize_scroll`), and clear `ValueError` diagnostics on unsupported Mako syntax/tokens.
+- Default empty `config/custom_script` `language` values to `'javascript'` in `ButtonElementWdg`, and align browser `runConfiguredScript` target/selection context with native `TableServicesController.run_script`.
+- Preserve XML comments when parsing table views in `ColumnsEditorController._view_tree` and check server `config` revision before saving catalog XML; keep unresolved config references (`asset_panel_wdg`, `asset_cost_breakdown`, `inline_add_item`, bare `custom_col`) explicit.
+
 ## 0.6.0.130 - 2026-10-22
 
 - Close legacy stage 1.2 (L04 and file remainder of L03) with Stream 0.112.183: CheckoutButtonElementWdg expands sequence and UDIM groups from file_range and metadata templates, checks local conflicts across all member files and cancels remaining transfers on close/failure.

@@ -8287,6 +8287,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
         from xml.etree import ElementTree as ET
         from mako.template import Template
         from mako.lexer import Lexer
+        from mako.exceptions import MakoException
         from pyasm.search import Search
         from pyasm.common import Environment
         if not Environment.get_security().is_admin():
@@ -8346,15 +8347,18 @@ def query_table_layout(search_type, search_keys=None, view='table',
             reserved = data_names | pure_builtins | {'context','self','local','parent','next','pageargs','loop','caller','capture','UNDEFINED','STOP_RENDERING'}
             pure_methods = {'get','format','replace','find','strip','upper','lower','join'}
             trees = []
-            for part in Lexer(template_source).parse().nodes:
-                kind = type(part).__name__
-                if kind in ('Text', 'Comment'):
-                    continue
-                if kind not in ('Code', 'Expression') or (kind=='Code' and part.ismodule):
-                    raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
-                if kind=='Expression' and any(name.strip() not in ('n','h','str','trim','u','entity') for name in part.escapes.split(',') if name.strip()):
-                    raise ValueError('CustomLayout Mako filter is not supported')
-                trees.append(ast.parse(textwrap.dedent(part.text).strip(),mode='eval' if kind=='Expression' else 'exec'))
+            try:
+                for part in Lexer(template_source).parse().nodes:
+                    kind = type(part).__name__
+                    if kind in ('Text', 'Comment'):
+                        continue
+                    if kind not in ('Code', 'Expression') or (kind=='Code' and part.ismodule):
+                        raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
+                    if kind=='Expression' and any(name.strip() not in ('n','h','str','trim','u','entity') for name in part.escapes.split(',') if name.strip()):
+                        raise ValueError('CustomLayout Mako filter is not supported')
+                    trees.append(ast.parse(textwrap.dedent(part.text).strip(),mode='eval' if kind=='Expression' else 'exec'))
+            except (SyntaxError, MakoException):
+                raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution') from None
             local_names = {target.id for tree in trees for item in ast.walk(tree) if isinstance(item,ast.Assign)
                            for target in item.targets if isinstance(target,ast.Name)}
             # CG binds `parent` to its JSON search key, before any output; never expose Mako's parent namespace.
@@ -8446,7 +8450,11 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 handler = display['attrs'].get('class') or display['attrs'].get('widget')
                 options = {child['tag']: (''.join(markup(part) for part in child['children']) if child['tag']=='html' else text(child).strip()) for child in display['children'] if isinstance(child, dict)}
                 if handler in ('tactic.ui.panel.CustomLayoutWdg', 'tactic.ui.table.CustomLayoutElementWdg', 'custom_layout'):
-                    nodes.extend(read_custom_layout(search_key, _depth=_depth+1, _behaviors=behaviors, **options)['layoutNodes'])
+                    if set(options) - {'view', 'html', 'include_mako', 'show_resize_scroll', 'icon_size', 'search_key'}:
+                        raise ValueError('Unsupported CustomLayout options')
+                    nodes.extend(read_custom_layout(options.get('search_key') or search_key, view=options.get('view') or '',
+                        html=options.get('html') or '', include_mako=options.get('include_mako', True),
+                        _depth=_depth+1, _behaviors=behaviors)['layoutNodes'])
                 elif handler in ('tactic.ui.panel.TableLayoutWdg', 'tactic.ui.panel.FastTableLayoutWdg', 'tactic.ui.panel.ViewPanelWdg'):
                     allowed = {'search_type','search_key','view','expression','show_search_limit','show_insert',
                                'show_row_select','show_select','show_gear','show_search','show_shelf','init_load_num'}
@@ -8490,12 +8498,12 @@ def query_table_layout(search_type, search_keys=None, view='table',
             'dynamic_class', 'dynamic', 'search_type', 'view', 'expression',
             'icon', 'title_icon', 'icon_tip', 'label', 'mode', 'init_load_num',
             'show_search_limit', 'show_insert', 'show_row_select', 'show_select',
-            'show_gear', 'show_search', 'show_shelf', 'related_types', 'include_mako', 'html',
+            'show_gear', 'show_search', 'show_shelf', 'show_resize_scroll', 'related_types', 'include_mako', 'html',
         }
         if set(options) - allowed:
             raise ValueError('Unsupported nested table options: ' + ', '.join(sorted(set(options) - allowed)))
         for flag in ('show_search_limit', 'show_insert', 'show_row_select', 'show_select',
-                     'show_gear', 'show_search', 'show_shelf'):
+                     'show_gear', 'show_search', 'show_shelf', 'show_resize_scroll'):
             if options.get(flag, '') not in ('', True, False, 'true', 'false'):
                 raise ValueError('Invalid nested table display option: ' + flag)
         # shortcut: nested column authoring awaits the scoped Columns editor; never ignore an explicit request.
@@ -8512,10 +8520,12 @@ def query_table_layout(search_type, search_keys=None, view='table',
             layout = layout_reader(search_key, view=options.get('view') or '', html=options.get('html') or '',
                                    include_mako=options.get('include_mako', True))
             nodes = layout['layoutNodes']
-            if len(nodes) != 1 or nodes[0]['kind'] != 'table':
-                raise ValueError('A hidden CustomLayout must contain one migrated table')
-            return dict(text='', targetSearchKey=search_key, columnName=column,
-                nestedTable=nodes[0]['table'], actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
+            if len(nodes) == 1 and nodes[0]['kind'] == 'table':
+                return dict(text='', targetSearchKey=search_key, columnName=column,
+                    nestedTable=nodes[0]['table'], actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
+            if nodes:
+                return dict(layout, columnName=column)
+            raise ValueError('A hidden CustomLayout must contain one migrated table')
         if handler not in ('tactic.ui.panel.TableLayoutWdg', 'tactic.ui.panel.FastTableLayoutWdg',
                            'tactic.ui.panel.ViewPanelWdg'):
             raise ValueError('Nested widget is not a migrated table: ' + str(handler))
@@ -9058,7 +9068,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
                         raise ValueError('Table button color must be a hexadecimal color')
                     return dict(text=text, columnName=column['name'], align=options.get('align') or 'center', targetSearchKey=obj.get_search_key(),
                                 scriptKey=source.get_search_key() if source else '',
-                                scriptLanguage=source.get_value('language') if source else 'javascript',
+                                scriptLanguage=(source.get_value('language') if source else '') or 'javascript',
                                 actions=[dict(name='script', label=options.get('icon_tip') or options.get('hint') or 'Run script',
                                               icon=str(icon), iconSize=int(size), iconColor=str(color), iconAction=True,
                                               translateLabel=not bool(options.get('icon_tip') or options.get('hint')))])
