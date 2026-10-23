@@ -411,8 +411,7 @@ class SnapshotDetailsMixin:
             return list(records.values())
 
         use_combined_query = (
-            process is not None
-            and callable(getattr(sobject, "get_code", None))
+            callable(getattr(sobject, "get_code", None))
             and callable(getattr(sobject, "get_project", None))
             and sobject.get_project() is not None
         )

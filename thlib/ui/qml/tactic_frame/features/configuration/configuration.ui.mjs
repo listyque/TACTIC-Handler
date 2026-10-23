@@ -296,7 +296,9 @@ export function describe(model, width, height, language) {
     const headerBox = nodes.find((item) => item.id === 'configurationHeader');
     headerBox.titlebar = true;
     headerBox.radius = 0;
-    headerBox.chromeRight = 86;
+    headerBox.chromeRight = 94;
+    headerBox.chromeTop = 12;
+    headerBox.chromeHeight = 34;
     headerBox.children = headerNodes;
     const contentNodes = nodes.filter(
         (item) => item !== headerBox && !headerNodes.includes(item)

@@ -346,7 +346,7 @@ export function describe(model, ui, width, height, language) {
     head.push(
         button(
             'administrationHelpButton',
-            rect(g.body - 92, 10, 38, 38),
+            rect(g.body - 92, g.mobile ? 10 : 19, 38, 38),
             'Help',
             'help',
             {
@@ -357,7 +357,7 @@ export function describe(model, ui, width, height, language) {
     head.push(
         button(
             'administrationCloseButton',
-            rect(g.body - 48, 10, 38, 38),
+            rect(g.body - 48, g.mobile ? 10 : 19, 38, 38),
             'Close administration',
             'close',
             {

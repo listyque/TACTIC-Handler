@@ -295,5 +295,36 @@ class ResultSelectionTests(unittest.TestCase):
         self.assertEqual(controller.tab.selected_node_ids, ["two", "three"])
 
 
+    def test_prepare_sobject_details_uses_combined_query_without_process(self):
+        from unittest.mock import patch, MagicMock
+        from thlib.ui.controllers.snapshot_details import SnapshotDetailsMixin
+
+        class _Harness(SnapshotDetailsMixin):
+            def __init__(self):
+                self.workspace_model = MagicMock()
+
+        harness = _Harness()
+        fake_sobject = MagicMock()
+        fake_sobject.info = {}
+        fake_sobject.get_code.return_value = "EP02"
+        fake_sobject.get_project.return_value = MagicMock()
+        fake_sobject.project = fake_sobject.get_project()
+        harness.workspace_model.source_for_search_key.return_value = fake_sobject
+        harness.workspace_model.snapshot_nodes_for.return_value = []
+
+        with patch("thlib.tactic_classes.get_tasks_and_notes") as mock_get:
+            mock_get.return_value = ({"t1": MagicMock()}, {"n1": MagicMock()})
+            sobject, tasks, notes, snapshots = harness._prepare_sobject_details(
+                "episode?code=EP02", process=None
+            )
+            mock_get.assert_called_once_with(
+                sobject=fake_sobject,
+                process=None,
+                include_all_tasks=True,
+            )
+            self.assertEqual(len(tasks), 1)
+            self.assertEqual(len(notes), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

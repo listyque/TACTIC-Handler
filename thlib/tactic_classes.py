@@ -782,7 +782,7 @@ class SObject(object):
         else:
             filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
 
-        self.notes_sobjects = get_sobjects(search_type, filters, include_snapshots=False, project_code=self.project.info['code'])
+        self.notes_sobjects = get_sobjects(search_type, filters, include_snapshots=True, project_code=self.project.info['code'])
 
         return self.notes_sobjects
 

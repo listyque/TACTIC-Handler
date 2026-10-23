@@ -122,7 +122,7 @@ ApplicationWindow {
         fadeAnimationsEnabled: appController.fade_animations_enabled
         popupAnimationsEnabled: appController.popup_animations_enabled
         onTopBarChanged: Qt.callLater(window.syncNativeFrame)
-        suppressToolTips: drawer.opened || projectChooser.opened || userMenu.opened || configMenu.opened || connectionMenu.opened || dccClientMenu.opened
+        suppressToolTips: drawer.opened || projectChooser.opened || userMenu.opened || configMenu.opened || connectionMenu.opened || dccClientMenu.opened || appearancePopup.opened
     }
     Material.theme: window.dark ? Material.Dark : Material.Light
     Material.accent: theme.action
@@ -172,6 +172,8 @@ ApplicationWindow {
             connectionMenu.close();
         if (dccClientMenu !== exceptPopup && dccClientMenu.opened)
             dccClientMenu.close();
+        if (appearancePopup !== exceptPopup && appearancePopup.opened)
+            appearancePopup.close();
     }
     function projectAcronym() {
         const words = window.projectTitle.replace(/_/g, " ").split(/\s+/);
@@ -764,6 +766,7 @@ ApplicationWindow {
             }
 
             Controls.CompactIconButton {
+                id: appearanceButton
                 readonly property var frameGeometry: topAppBar.controls.mainAppearance
                 property string frameId: "mainAppearance"
                 x: frameGeometry.x
@@ -775,8 +778,14 @@ ApplicationWindow {
                 iconName: "theme_mode"
                 iconColor: theme.primaryText
                 round: true
-                toolTip: window.dark ? qsTr("Use light theme") : qsTr("Use dark theme")
-                onClicked: appController.toggle_theme()
+                toolTip: qsTr("Appearance")
+                onPressed: appearancePopup.sourceWasOpen = appearancePopup.opened
+                onClicked: {
+                    if (drawer.opened)
+                        drawer.close();
+                    window.closeTopBarPopups(appearancePopup);
+                    appearancePopup.toggleBelow(appearanceButton);
+                }
             }
 
             Controls.CompactIconButton {
@@ -1039,6 +1048,10 @@ ApplicationWindow {
             if (command.indexOf("dcc_client:") === 0)
                 handlerServerController.select_client_id(command.slice(11));
         }
+    }
+    AppearancePopup {
+        id: appearancePopup
+        theme: theme
     }
     Rectangle {
         id: accessGate

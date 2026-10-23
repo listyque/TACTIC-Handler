@@ -22,13 +22,14 @@ Window {
             cancelable: true,
             canHelp: true
         })
+    readonly property var preferredScene: UI.describe(root.frameModel, root.width, 0, root.language)
     transientParent: ownerWindow
     modality: blocksMainWindow ? Qt.ApplicationModal : Qt.NonModal
     flags: Qt.Dialog | Qt.FramelessWindowHint
     color: "transparent"
     visible: appController.authentication_dialog_visible
     width: 440
-    height: 376
+    height: preferredScene && preferredScene.contentHeight ? preferredScene.contentHeight : 376
     minimumWidth: 400
     minimumHeight: 350
     title: qsTr("Sign in to TACTIC")

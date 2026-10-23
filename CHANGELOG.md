@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.135 - 2026-10-23
+
+- Polish UI layout and controls across Handler and Stream 0.112.188: align Configuration and Administration titlebar window controls with header buttons (`chromeTop`, `chromeHeight`, `chromeRight`), stabilize Notes message bubbles and attachments, align Task Inspector header/task card labels with Handler, fix LoginDialog clipping/scrollbar and AppearancePopup menu in QML, and ensure snapshot preview loading on first Notes open.
+
 ## 0.6.0.134 - 2026-10-22
 
 - Close legacy stage 2.1 (L10 projects, plugins, schema/import/export) with Stream 0.112.187: align Handler remote procedures (`schema_api.py`, `schema_delete_api.py`, `workflow_api.py`, `search_types_api.py`) with Stream's server command contracts (`schema_cmd.py`, `schema_delete_cmd.py`, `workflow_cmd.py`, `search_types_cmd.py`).
