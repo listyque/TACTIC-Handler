@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.138 - 2026-10-23
+
+- Close legacy stage 2.4 (L11 SQLite/PostgreSQL matrix and Stage 2 as a whole) with Stream 0.112.191: fix multi-filter `Update.get_statement()` `WHERE` conjunction on SQLite (`' AND '` instead of `', '`), enable named savepoints (`has_savepoint`, `set_savepoint`, `rollback_savepoint`, `release_savepoint`) on `SqliteImpl` to match `PostgresImpl`, and wire the L08/L09 workflow/trigger/notification/expression/persistence/remote-repo/checkin matrix and `FileUndoReplay` check-in/undo/redo compensation into the side-by-side SQLite and Docker PostgreSQL 18.6 verification suites (`foundation`, `schema`, `project`, `plugin`, `command`, `queue`, `diagnostics`).
+
 ## 0.6.0.137 - 2026-10-23
 
 - Close legacy stage 2.3 (L08 API, native Python, TEL/Naming) with Stream 0.112.190: resolve `palette` in `ExpressionParser` (`@SOBJECT(palette)`, `@GET(palette.<key>)` with and without root `sobjects`), implement `BaseInputWdg` persistence (`FilterData` display values and `WidgetSettings` DB state) and `SelectWdg` method-based `query` options (`sthpw/login|get_code()|get_name()`), support IP-masked remote repository matching (`Common.match_ip`, `Web.get_request_host`, `DirNaming.get_remote_repo`), enable `File.makedirs`, and accept `Snapshot.add_file` `upload`/`uploaded`/`manual` modes while preserving all transaction, Sudo, ACL, and request-context guards.
