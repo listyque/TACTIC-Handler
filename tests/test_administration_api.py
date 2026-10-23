@@ -24,8 +24,14 @@ class AdministrationApiTests(unittest.TestCase):
         self.count_queries = []
         self.tables = {
             'demo/asset': [],
-            'sthpw/search_object': [dict(code='demo/asset', title='Assets', namespace='demo',
-                                        description='', color='', table_name='asset', database='{project}')],
+            'sthpw/search_object': [
+                dict(code='demo/asset', title='Assets', namespace='demo',
+                     description='', color='', table_name='asset', database='{project}'),
+                dict(code='sthpw/search_object', title='Search Objects', namespace='sthpw',
+                     description='', color='', table_name='search_object', database='sthpw'),
+                dict(code='sthpw/pipeline', title='Pipelines', namespace='sthpw',
+                     description='', color='', table_name='pipeline', database='sthpw'),
+            ],
             'sthpw/schema': [dict(code='demo', schema='<schema custom="yes"><search_type name="demo/asset"/></schema>')],
             'sthpw/pipeline': [dict(code='demo/assets', project_code='demo', name='Assets',
                                    description='Keep', color='#667788', search_type='demo/asset',
@@ -235,12 +241,23 @@ class AdministrationApiTests(unittest.TestCase):
         self.security = SimpleNamespace(is_admin=lambda: self.admin, reset_access_manager=lambda: None)
         self.project = SimpleNamespace(
             get_database_name=lambda: 'sthpw' if self.project_code == 'admin' else self.project_code,
-            get_search_types=lambda **_: Search('sthpw/search_object').get_sobjects())
+            get_project_db_resource=lambda: SimpleNamespace(
+                get_key=lambda: 'sthpw' if self.project_code == 'admin' else self.project_code),
+            get_search_types=lambda **_: [
+                row for row in Search('sthpw/search_object').get_sobjects()
+                if not row.get_code().startswith('sthpw/')
+            ])
         self.local_api = SimpleNamespace(create_search_type=create_type, add_column_to_search_type=add_column,
                                          execute_cmd=lambda *args, **kwargs: None)
+        db_impl = SimpleNamespace(
+            lock_collection_table=lambda sql, table, timeout=None: None,
+            lock_table_for_drop=lambda sql, table, timeout=None: None,
+        )
         modules = {
             'pyasm.common': SimpleNamespace(Environment=SimpleNamespace(get_security=lambda: self.security)),
             'pyasm.search': SimpleNamespace(Search=Search,
+                DbContainer=SimpleNamespace(get=lambda *_: SimpleNamespace(
+                    get_database_impl=lambda: db_impl)),
                 SearchKey=SimpleNamespace(get_by_sobject=lambda obj, **_: obj.get_search_key()),
                 SearchType=SimpleNamespace(
                 get=lambda code: get_by_code('sthpw/search_object', code),
@@ -251,6 +268,9 @@ class AdministrationApiTests(unittest.TestCase):
                 get_sql_by_search_type=lambda code: SimpleNamespace(table_exists=lambda table:
                     table in {key.split('/')[-1] for key in self.tables},
                     get_database_name=lambda: get_by_code('sthpw/search_object', code.split('?')[0]).get_database(),
+                    get_db_resource=lambda: SimpleNamespace(
+                        get_key=lambda: get_by_code('sthpw/search_object', code.split('?')[0]).get_database()),
+                    get_database_impl=lambda: db_impl,
                     get_column_info=lambda table, use_cache=True: copy.deepcopy(self.columns[code.split('?')[0]])),
                 clear_column_cache=lambda code: None)),
             'pyasm.biz': SimpleNamespace(

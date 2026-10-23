@@ -3,6 +3,16 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.134 - 2026-10-22
+
+- Close legacy stage 2.1 (L10 projects, plugins, schema/import/export) with Stream 0.112.187: align Handler remote procedures (`schema_api.py`, `schema_delete_api.py`, `workflow_api.py`, `search_types_api.py`) with Stream's server command contracts (`schema_cmd.py`, `schema_delete_cmd.py`, `workflow_cmd.py`, `search_types_cmd.py`).
+- Add `PluginReloader` (`PluginUninstaller` + `PluginInstaller`), verify `ProjectTemplateInstallCmd` / `ProjectTemplateDownloadCmd` / `ProjectTemplateDeleteCmd` / `ProjectTemplateExportCmd`, and exercise live `is_template=True` cloning and rollback in `ProjectTemplateInstallerCmd`.
+- Guard built-in `admin` and `sthpw` projects in `ProjectArchiveAction`, allow `EditCmd` to reactivate retired `sthpw/project` rows through `ProjectArchiveAction`, and preserve `PartialCommitException` when a database has already committed.
+
+## 0.6.0.133 - 2026-10-22
+
+- Close legacy stage 1.5 (L07b and Stage 1 / B07) with Stream 0.112.186: support `bottom`, `group_bottom`, and `total_summary` across table views, nested `show_gear` column authoring, ordinary-user ACL on table/object operations, and `expected_revision` conflict detection in `EditCmd` / `RecordForm.vue`.
+
 ## 0.6.0.132 - 2026-10-22
 
 - Close legacy stage 1.4 (L06 Gantt and time tracking inside the table) with Stream 0.112.185: complete `GanttWdg`, `GanttElementWdg` (`GanttCbk` default/cascade), `TimecardInfoTableElement`, `WeekTableElement`, and `WorkHoursElementWdg` (`WorkHoursElementAction`).

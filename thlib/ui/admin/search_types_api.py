@@ -26,6 +26,13 @@ def search_types_request(action: str, project_code: str, identity: str = '',
         raise ValueError('Select a project before editing Search Types')
     if action not in ('list', 'load', 'save'):
         raise ValueError('Unknown Search Type operation')
+    if action == 'save':
+        from pyasm.search import DbContainer
+        sql = DbContainer.get('sthpw')
+        # ponytail: registry-wide lock; use row locks if simultaneous admin editing needs it.
+        sql.get_database_impl().lock_collection_table(sql, SearchType.get('sthpw/search_object').get_table())
+        if identity:
+            SearchType.clear_column_cache(identity)
     if schema_revision is not None:
         if action != 'save' or identity:
             raise ValueError('Schema context is only valid when creating a Search Type')

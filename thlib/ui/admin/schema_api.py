@@ -42,6 +42,12 @@ def schema_request(action: str, project_code: str, identity: str = '',
     identity = identity or project_code
     if identity != project_code:
         raise ValueError('This schema is not part of the selected project')
+    if action == 'save':
+        from pyasm.search import DbContainer
+        sql = DbContainer.get('sthpw')
+        # Same registry lock as SearchTypesCmd: creation also updates schema XML.
+        sql.get_database_impl().lock_collection_table(sql, SearchType.get('sthpw/search_object').get_table())
+        Schema.get(reset_cache=True, project_code=project_code)
     item = Schema.get(project_code=project_code) if builtin else Schema.get_by_code(project_code)
     original = item.get_value('schema') if item else '<schema/>'
     revision = hashlib.sha256(original.encode()).hexdigest()
@@ -109,7 +115,7 @@ def schema_request(action: str, project_code: str, identity: str = '',
                      'bigint': 'bigint', 'int8': 'bigint', 'smallint': 'smallint',
                      'numeric': 'numeric', 'boolean': 'boolean', 'uuid': 'uuid'}
             if value in ('varchar', 'character varying'):
-                size = info.get('size')
+                size = info.get('size') or info.get('character_maximum_length')
                 if size is None:
                     return 'varchar'
                 if not isinstance(size, int) or size <= 0:

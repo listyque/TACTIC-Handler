@@ -14,6 +14,13 @@ def workflow_request(action: str, project_code: str, identity: str = '',
     from pyasm.search import Search, SearchType
     from tactic.ui.tools.pipeline_wdg import NewProcessInfoCmd
 
+    if action == 'save':
+        from pyasm.search import DbContainer
+        sql = DbContainer.get('sthpw')
+        # ponytail: pipeline registry lock; use per-pipeline locks if editing contention matters.
+        sql.get_database_impl().lock_collection_table(sql, SearchType.get('sthpw/pipeline').get_table())
+        Pipeline.clear_cache()
+
     if not Environment.get_security().is_admin():
         memberships = Search('sthpw/login_in_group')
         memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
@@ -174,7 +181,7 @@ def workflow_request(action: str, project_code: str, identity: str = '',
         xml = str(data.get('xml') or '')
         if '<!DOCTYPE' in xml.upper() or '<!ENTITY' in xml.upper():
             raise ValueError('Document types and XML entities are not supported')
-        root = ET.fromstring(xml)
+        root = ET.fromstring(xml, parser=ET.XMLParser(target=ET.TreeBuilder(insert_comments=True, insert_pis=True)))
         if root.tag != 'pipeline':
             raise ValueError('The document must have a pipeline root')
         names = set()

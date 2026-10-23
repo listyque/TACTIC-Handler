@@ -34,6 +34,13 @@ class SchemaDeletionApiTests(unittest.TestCase):
             table_exists=lambda table: 'demo/' + table in self.fixture.tables,
             get_database_type=lambda: 'PostgreSQL',
             is_in_transaction=lambda: True,
+            get_db_resource=lambda: SimpleNamespace(
+                get_key=lambda: self.native.SearchType.get('demo/asset').get_database()),
+            get_database_impl=lambda: SimpleNamespace(
+                lock_table_for_drop=lambda _sql, table, timeout=None: (
+                    _sql.do_update("SET LOCAL lock_timeout = '3s'"),
+                    _sql.do_update('LOCK TABLE "%s" IN ACCESS EXCLUSIVE MODE' % table)),
+                lock_collection_table=lambda _sql, table, timeout=None: None),
             do_update=self.locks.append, clear_table_cache=Mock(),
             get_column_info=lambda table, **_: self.fixture.columns['demo/' + table])
         self.enterContext(patch.object(native.SearchType, 'get_sql_by_search_type', return_value=self.sql))
@@ -140,7 +147,8 @@ class SchemaDeletionApiTests(unittest.TestCase):
         self.native_delete.side_effect = None
         with self.assertRaisesRegex(RuntimeError, 'did not delete'):
             self.save(review)
-        self.assertEqual(self.fixture.calls, [])
+        self.In = self.assertIn
+        self.assertFalse(any(call[0] == 'commit' for call in self.fixture.calls))
         self.assertIn('demo/asset', self.fixture.tables['sthpw/schema'][0]['schema'])
 
     def test_deletion_outside_a_native_transaction_is_rejected(self):
