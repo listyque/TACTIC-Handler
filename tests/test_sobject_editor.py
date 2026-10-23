@@ -719,6 +719,29 @@ class SObjectWidgetContractTests(unittest.TestCase):
             {"label": "saved", "value": "saved"},
         ])
 
+    def test_select_method_query_options_and_persistent_default(self):
+        controller = SObjectEditorController(lambda: {})
+        descriptor = controller.describe_field(
+            _EditorStype({"owner": "varchar"}),
+            {},
+            {
+                "name": "owner",
+                "title": "Owner",
+                "class_name": "pyasm.widget.input_wdg.SelectWdg",
+                "values": ["USER001", "USER002"],
+                "labels": ["Alice", "Bob"],
+                "__display_values__": ["USER002"],
+                "action_options": {},
+                "kwargs": {"query": "sthpw/login|get_code()|get_name()"},
+            },
+            mode="insert",
+        )
+        self.assertEqual(descriptor["fieldOptions"], [
+            {"label": "Alice", "value": "USER001"},
+            {"label": "Bob", "value": "USER002"},
+        ])
+        self.assertEqual(descriptor["fieldValue"], "USER002")
+
     def test_pipeline_submits_display_code_instead_of_pipeline_label(self):
         controller = SObjectEditorController(lambda: {})
         descriptor = controller.describe_field(

@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.137 - 2026-10-23
+
+- Close legacy stage 2.3 (L08 API, native Python, TEL/Naming) with Stream 0.112.190: resolve `palette` in `ExpressionParser` (`@SOBJECT(palette)`, `@GET(palette.<key>)` with and without root `sobjects`), implement `BaseInputWdg` persistence (`FilterData` display values and `WidgetSettings` DB state) and `SelectWdg` method-based `query` options (`sthpw/login|get_code()|get_name()`), support IP-masked remote repository matching (`Common.match_ip`, `Web.get_request_host`, `DirNaming.get_remote_repo`), enable `File.makedirs`, and accept `Snapshot.add_file` `upload`/`uploaded`/`manual` modes while preserving all transaction, Sudo, ACL, and request-context guards.
+- Add `SelectWdg` method-based `query` and persistent default coverage in `tests/test_sobject_editor.py`.
+
 ## 0.6.0.136 - 2026-10-23
 
 - Close legacy stage 2.2 (L09 Workflow, Triggers, notifications) with Stream 0.112.189: port and verify pipeline task rule triggers (`PipelineTaskStatusTrigger`, `PipelineTaskTrigger`, `PipelineParentStatusTrigger`, `PipelineTaskCreateTrigger`, `PipelineTaskDateTrigger`, `RelatedTaskUpdateTrigger`, `TaskCreatorTrigger`, `TaskCompleteTrigger`), async/queued trigger wrappers (`SubprocessTrigger`, `QueueTrigger`, `ScriptTrigger`), deferred trigger deduplication without dropping distinct scripts/notifications, and email/notification delivery (`GroupNotification`, `EmailHandler`, `EmailTrigger`, `EmailTrigger2`, `EmailTriggerTest`, `EmailTriggerTestCmd`, `SendEmail`, `NotificationTestCmd`, `NotificationLogScope`) with project privacy filtering and recipient deduplication.
