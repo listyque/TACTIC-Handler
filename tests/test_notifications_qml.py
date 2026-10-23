@@ -13,6 +13,7 @@ from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
 from PySide6.QtTest import QTest
 
+from thlib.ui.notifications import NotificationController
 from thlib.ui.workspace_models.records import RecordListModel
 
 
@@ -531,6 +532,110 @@ class NotificationsQmlTests(unittest.TestCase):
             theme.deleteLater()
             engine.deleteLater()
             image_dir.cleanup()
+
+    def test_notification_controller_deduplication_sinks_and_active_retention(self):
+        class _FakeRepoSync(QObject):
+            downloads_finished = Signal()
+            task_failed = Signal(str)
+
+        class _FakeApp(QObject):
+            notification_changed = Signal(str)
+            loading_changed = Signal()
+            activity_log_changed = Signal()
+
+            def __init__(self):
+                super().__init__()
+                self.repository_sync = _FakeRepoSync()
+                self.loading = False
+                self.loading_message = ""
+                self.activity_log = []
+
+        class _FakeMessages(QObject):
+            newMessageNotification = Signal(dict)
+            quickReplySent = Signal(str)
+            quickReplyFailed = Signal(str, str)
+
+            def __init__(self):
+                super().__init__()
+                self.opened = []
+                self.replies = []
+
+            def open_conversation(self, conv_id):
+                self.opened.append(conv_id)
+
+            def send_quick_reply(self, notif_id, conv_id, body):
+                self.replies.append((notif_id, conv_id, body))
+                return True
+
+        class _FakeActivity(QObject):
+            activityNotification = Signal(dict)
+
+            def __init__(self):
+                super().__init__()
+                self.sink_active = False
+
+            def set_notification_sink_active(self, active):
+                self.sink_active = bool(active)
+
+        app = _FakeApp()
+        messages = _FakeMessages()
+        activity = _FakeActivity()
+        controller = NotificationController(
+            app, messages=messages, activity=activity
+        )
+        try:
+            self.assertTrue(activity.sink_active)
+            # Duplicate within 5s window is deduplicated
+            self.assertTrue(controller._push("info", "Same notice"))
+            self.assertFalse(controller._push("info", "Same notice"))
+            self.assertEqual(controller.count, 1)
+
+            # Distinct message notification and activity sink payloads
+            messages.newMessageNotification.emit({
+                "conversationId": "conv-1",
+                "senderTitle": "Alice",
+                "excerpt": "Review ready",
+                "conversationTitle": "Lighting",
+            })
+            # Duplicate message notification is suppressed
+            messages.newMessageNotification.emit({
+                "conversationId": "conv-1",
+                "senderTitle": "Alice",
+                "excerpt": "Review ready",
+                "conversationTitle": "Lighting",
+            })
+            self.assertEqual(controller.count, 2)
+
+            # Open quick reply on the message toast (row 1) so it is protected from eviction
+            controller.begin_reply(1)
+            self.assertTrue(controller.replyEditing)
+
+            # Push two more activity notifications -> active limit stays 3 while preserving replyOpen row
+            activity.activityNotification.emit({
+                "eventId": "ev-1",
+                "actorTitle": "Trigger 1",
+                "detail": "Step 1 done",
+                "title": "Workflow",
+            })
+            activity.activityNotification.emit({
+                "eventId": "ev-2",
+                "actorTitle": "Trigger 2",
+                "detail": "Step 2 done",
+                "title": "Workflow",
+            })
+            self.assertEqual(controller.count, 3)
+            self.assertTrue(controller.replyEditing)
+            active_messages = [r["message"] for r in controller.model._records]
+            self.assertIn("Alice", active_messages)
+
+            # History records all 4 deduplicated events and filters by group
+            controller.set_visible(True)
+            self.assertEqual(len(controller.history._records), 4)
+            controller.set_history_group("server")
+            self.assertEqual(len(controller.filtered_history._records), 3)
+        finally:
+            controller.shutdown()
+            self.assertFalse(activity.sink_active)
 
 
 if __name__ == "__main__":

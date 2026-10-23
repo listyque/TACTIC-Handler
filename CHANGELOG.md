@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.136 - 2026-10-23
+
+- Close legacy stage 2.2 (L09 Workflow, Triggers, notifications) with Stream 0.112.189: port and verify pipeline task rule triggers (`PipelineTaskStatusTrigger`, `PipelineTaskTrigger`, `PipelineParentStatusTrigger`, `PipelineTaskCreateTrigger`, `PipelineTaskDateTrigger`, `RelatedTaskUpdateTrigger`, `TaskCreatorTrigger`, `TaskCompleteTrigger`), async/queued trigger wrappers (`SubprocessTrigger`, `QueueTrigger`, `ScriptTrigger`), deferred trigger deduplication without dropping distinct scripts/notifications, and email/notification delivery (`GroupNotification`, `EmailHandler`, `EmailTrigger`, `EmailTrigger2`, `EmailTriggerTest`, `EmailTriggerTestCmd`, `SendEmail`, `NotificationTestCmd`, `NotificationLogScope`) with project privacy filtering and recipient deduplication.
+- Add `NotificationController` unit test coverage in `tests/test_notifications_qml.py` for 5-second/active signature deduplication, message and activity notification sinks, history group filtering, and active toast retention when quick reply is open.
+
 ## 0.6.0.135 - 2026-10-23
 
 - Polish UI layout and controls across Handler and Stream 0.112.188: align Configuration and Administration titlebar window controls with header buttons (`chromeTop`, `chromeHeight`, `chromeRight`), stabilize Notes message bubbles and attachments, align Task Inspector header/task card labels with Handler, fix LoginDialog clipping/scrollbar and AppearancePopup menu in QML, and ensure snapshot preview loading on first Notes open.
