@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.140 - 2026-10-24
+
+- Pair with Stream 0.112.193 for the portable Windows/Electron delivery. Support `TACTIC_HANDLER_SETTINGS_DIR` through the existing configuration owner and instance guard so packaged Handler settings survive replacing the program directory; isolated test settings retain priority. Reuse shared EN/RU desktop confirmations and avoid the bundled NTLM regex escape warning under Python 3.14.
+
 ## 0.6.0.139 - 2026-10-23
 
 - Pair with Stream 0.112.192 for the L12 delivery checkpoint: synchronize Stream release metadata and verify its installed wheel, unchanged Handler client, and standalone PostgreSQL/Apache server package. Windows EXE/Electron and migration acceptance remain pending.

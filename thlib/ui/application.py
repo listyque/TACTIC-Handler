@@ -212,9 +212,12 @@ def main() -> int:
         set_app_id("TACTIC.Handler.Desktop")
 
     smoke_offline = os.environ.get("TACTIC_QML_SMOKE_OFFLINE", "") == "1"
-    test_settings_dir = os.environ.get("TACTIC_QML_TEST_SETTINGS_DIR", "")
-    if test_settings_dir:
-        settings_path = Path(test_settings_dir).resolve()
+    settings_dir = (
+        os.environ.get("TACTIC_QML_TEST_SETTINGS_DIR", "").strip()
+        or os.environ.get("TACTIC_HANDLER_SETTINGS_DIR", "").strip()
+    )
+    if settings_dir:
+        settings_path = Path(settings_dir).resolve()
         settings_path.mkdir(parents=True, exist_ok=True)
         from thlib.environment import env_mode
         env_mode.set_current_path(str(settings_path))
@@ -252,7 +255,7 @@ def main() -> int:
         app = QApplication(sys.argv)
     app.setApplicationName("TacticHandler_Client")
     single_instance = SingleInstanceGuard(
-        instance_server_name(app.applicationName(), test_settings_dir),
+        instance_server_name(app.applicationName(), settings_dir),
         app,
     )
     if not single_instance.start():
@@ -280,7 +283,7 @@ def main() -> int:
         app,
         PROJECT_ROOT,
         application_icon_path,
-        diagnostics_root=settings_path if test_settings_dir else PROJECT_ROOT,
+        diagnostics_root=settings_path if settings_dir else PROJECT_ROOT,
         server_pool=env_inst.server_pool,
     )
     controller = runtime.controller
@@ -530,7 +533,7 @@ def main() -> int:
     if smoke_exit_ms and not smoke_windows:
         QTimer.singleShot(smoke_exit_ms, app.quit)
     ui_hang_watchdog = UiHangWatchdog(
-        settings_path if test_settings_dir else PROJECT_ROOT,
+        settings_path if settings_dir else PROJECT_ROOT,
         parent=app,
     )
     ui_hang_watchdog.start()

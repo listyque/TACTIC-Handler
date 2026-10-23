@@ -82,3 +82,13 @@ My Profile shows identity, groups, task counters, work-hour totals permitted by 
 The child editor includes profile and account fields, address, a new password, avatar and group/access settings when permitted. Leave the new password empty to retain the current one. Cancel/Escape asks before discarding a changed draft; Keep editing preserves it. Save commits both editor pages through the existing account operation and revision checks; switching Profile/Groups does not discard the other page. An unknown write result disables another Save until Reload from server; entered passwords are cleared after submission or close. Server permissions decide which fields/actions are available. Handler immediately queues an avatar for an existing account; discarding text changes does not undo an already uploaded avatar. Stream submits its selected avatar with Save.
 
 Recent activity initially shows six events. Show more reveals the remaining events already loaded for the profile; Show less returns to the preview without another request. Open full activity opens the separate activity feed. Long snapshot filenames remain available in the expanded events.
+
+## Portable Windows bundle
+
+`Handler.cmd` in the Stream bundle starts this native application with its
+bundled Python and PySide6. The profile lives outside the program folder at
+`%APPDATA%\TACTIC Stream\handler`; `TACTIC_HANDLER_SETTINGS_DIR` selects another
+profile root. Server presets, login and project selection use the existing
+Configuration workflow. For a local server, start Stream first and use its
+window address. Remote connections do not require the local Stream EXE.
+Close Handler and back up its profile before replacing the program folder.

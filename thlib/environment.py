@@ -724,7 +724,7 @@ class Mode(object):
         else:
             isolated_path = os.environ.get(
                 'TACTIC_QML_TEST_SETTINGS_DIR', ''
-            ).strip()
+            ).strip() or os.environ.get('TACTIC_HANDLER_SETTINGS_DIR', '').strip()
             self.current_path = (
                 os.path.abspath(isolated_path)
                 if isolated_path

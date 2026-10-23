@@ -13,6 +13,29 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class EnvironmentImportTests(unittest.TestCase):
+    def test_portable_profile_uses_native_settings_and_test_override_wins(self):
+        probe = """
+from pathlib import Path
+from thlib.environment import env_mode, env_write_config, env_read_config
+env_write_config({'portable': True}, filename='delivery', unique_id='ui_main', long_abs_path=True)
+assert env_read_config(filename='delivery', unique_id='ui_main', long_abs_path=True)['portable']
+print('SETTINGS_ROOT=' + str(Path(env_mode.get_current_path()).resolve()))
+"""
+        with tempfile.TemporaryDirectory(prefix='handler-portable-') as directory:
+            root = Path(directory)
+            environment = os.environ.copy()
+            environment.pop('TACTIC_QML_TEST_SETTINGS_DIR', None)
+            environment['TACTIC_HANDLER_SETTINGS_DIR'] = str(root / 'production')
+            for test_override in (False, True):
+                if test_override:
+                    environment['TACTIC_QML_TEST_SETTINGS_DIR'] = str(root / 'isolated')
+                result = subprocess.run([sys.executable, '-c', probe], cwd=ROOT, env=environment,
+                                        capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                expected = root / ('isolated' if test_override else 'production')
+                self.assertIn('SETTINGS_ROOT=' + str(expected.resolve()), result.stdout)
+                self.assertTrue((expected / 'settings').is_dir())
+
     def test_import_preserves_recursion_limit_and_runtime_state_is_owned(self):
         probe = """
 import json

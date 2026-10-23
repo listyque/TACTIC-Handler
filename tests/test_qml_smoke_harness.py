@@ -78,8 +78,9 @@ class QmlSmokeHarnessTests(unittest.TestCase):
         source = (ROOT / "thlib/ui/application.py").read_text(encoding="utf-8")
         self.assertIn("TACTIC_QML_SMOKE_OFFLINE", source)
         self.assertIn("TACTIC_QML_TEST_SETTINGS_DIR", source)
+        self.assertIn("TACTIC_HANDLER_SETTINGS_DIR", source)
         self.assertIn(
-            "diagnostics_root=settings_path if test_settings_dir else PROJECT_ROOT",
+            "diagnostics_root=settings_path if settings_dir else PROJECT_ROOT",
             source,
         )
         guarded_startup = source[source.index("if not smoke_offline:"):]

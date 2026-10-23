@@ -31,7 +31,7 @@
     "core/frame.mjs": "d449e91cf7ae6511b9e76e12963142071f58b87df8653a1cb85980d45f52fd3a",
     "core/icons.mjs": "e3a6fc26d36521986bcc2fe3ebaae2e1866bfb5fc4ce09c9591db41620553181",
     "core/interaction.mjs": "fd043ede2490d7d70735d1c98ebc968506828d7130009cbf7e095d76158f9405",
-    "core/strings.mjs": "7dfca1f440680bccd3a1f41ebe47c0257a38de07a815810e6d359db51c35664c",
+    "core/strings.mjs": "36447a17e3205f58efcc542064ba85ad70930756ba7a1a3154caf3bb2572cb35",
     "features/activity/calendar.ui.mjs": "16f09ceb0f88c4a7465885c7757842063ac2f7a9ec42e6e5fde503f352f71d2e",
     "features/activity/event.ui.mjs": "9293c7051f72b0553ee8227e03788e5f9f196f6f296f550aaafff94dae36560e",
     "features/activity/feed.ui.mjs": "15de6d00da9e61260a8ca17335c333ec9381831fc721422d33b1dc7a37228f43",

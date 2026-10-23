@@ -953,3 +953,13 @@ Selecting a native `file_project` project opens a separate QML workspace through
 Depot/stream/directories are on the left; numbered, expandable changelists and their selectable file rows occupy the main work area on the right. Children load in bounded pages. Move/unshelve accept the project number (for example `#42`) through the native command and existing owner/depot checks.
 
 Handler Help → Perforce-like workspace documents all actions, the explicit reconciliation workflow and current history/preview limits. Stream provides browser inspection/server administration, not desktop filesystem operations. Test counterpart: Stream tests/test_handler_file_workspace_ui.py loads the installed real QML against its own temporary HTTP server. Millions of physical files/TB GUI IO, automatic text merge and continuous filesystem watching are unmeasured or not implemented.
+
+### Portable desktop profile
+
+The Windows Stream bundle launches the existing native Handler with its bundled
+Python and pinned PySide6. `TACTIC_HANDLER_SETTINGS_DIR` selects the external
+profile root through the existing `env_read_config`/`env_write_config` owner;
+the default bundle profile is `%APPDATA%\TACTIC Stream\handler`.
+`TACTIC_QML_TEST_SETTINGS_DIR` takes priority for isolated tests. Existing server
+presets, login and project selection remain unchanged. Close Handler before
+replacing the program directory and back up the profile separately.
