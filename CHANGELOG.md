@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.147 - 2026-10-24
+
+- Fix Check-in (Full) cells for tasks and notes: remove a conditional import that shadowed the query-level re module and caused UnboundLocalError. Preserve parent/self target resolution and numeric context suffix normalization. Pair with Stream 0.112.201 regression coverage; restart Handler to load the new Python procedure.
+
 ## 0.6.0.146 - 2026-10-24
 
 - Preserve configured nested search/edit/insert views and open the VFX bidding form for child task creation and editing. Pair with Stream 0.112.200, including scoped saved conditions, computed totals and safe currency formatting under C locale.

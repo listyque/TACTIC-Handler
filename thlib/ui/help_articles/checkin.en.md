@@ -99,3 +99,8 @@ Process mapping and Context mapping in Matching Templates accept both existing
 choices and typed custom values. An empty mapping applies to all processes or
 contexts. Mandatory templates remain locked. Test a filename before saving;
 changing templates rematches prepared Drop Plate files without publishing them.
+
+
+## Full check-in from a task table
+
+Check-in (Full) on a task or note normally targets its parent object and keeps its process and context. A numeric context suffix (for example model/001) uses the process context. A configured self target uses the task or note itself. The button prepares the existing Drop Plate/check-in workflow; it does not publish files on its own. After updating Handler Python code, restart Handler to load the corrected table procedure.

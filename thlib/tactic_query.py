@@ -8955,7 +8955,6 @@ def query_table_layout(search_type, search_keys=None, view='table',
             native = getattr(widget, 'get_cell_value', None)
             if callable(native):
                 return native()
-            import re
             options = column.get('displayOptions') or {}
             general = class_name.endswith('.GeneralPublishElementWdg')
             publish_view = (options.get('view') or 'publish') if general else 'publish'
