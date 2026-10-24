@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.145 - 2026-10-24
+
+- Register the migrated SnapshotInfoWdg value adapter for Checkin Log owner captions, preserving names, codes and missing-reference labels without a pyasm.prod alias. Pair with Stream 0.112.199.
+- Share the supported log definition and its exact snapshot file rows; omit the excluded legacy RenderSubmission entry from the built-in log.
+
 ## 0.6.0.144 - 2026-10-24
 
 - Support legacy SnapshotFilesWdg hidden rows as scoped file tables, with file links, directory metadata, types, ranges and sizes. Use the exact snapshot XML file membership, including empty versions, in the independently shipped native procedure. Pair with Stream 0.112.198.

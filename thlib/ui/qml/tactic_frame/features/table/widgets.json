@@ -181,6 +181,16 @@
     "adapter": "structured"
   },
   {
+    "value": "tactic.ui.table.SnapshotInfoWdg",
+    "label": "Parent",
+    "class": "tactic.ui.table.snapshot_element_wdg.SnapshotInfoWdg",
+    "aliases": [
+      "tactic.ui.table.SnapshotInfoWdg",
+      "tactic.ui.table.snapshot_element_wdg.SnapshotInfoWdg"
+    ],
+    "adapter": "value"
+  },
+  {
     "value": "tactic.ui.table.SnapshotVersionElementWdg",
     "label": "Snapshot version",
     "class": "tactic.ui.table.snapshot_element_wdg.SnapshotVersionElementWdg",

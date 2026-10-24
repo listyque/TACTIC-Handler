@@ -191,7 +191,7 @@
     "features/table/publish.ui.mjs": "f0c7e29bb287f946609ae98ffdc87ebc56dfa6516d40e77decdfc1cea2db17c3",
     "features/table/services.ui.mjs": "895f50f6be01c83698c254e40a76648f20b041e3a9bfbf1d62d3dc1c907af85b",
     "features/table/time.ui.mjs": "b4ffa9eb388ae6735e574850e314b733cbf7ed5eec6e7bdf1e0acd38ff43365d",
-    "features/table/widgets.json": "8dd9559089692dd605d825f7e7fe1b846bb43b84df0b4b5fd30b8b36c372da15",
+    "features/table/widgets.json": "21f2f9f6b28cd911eb581203bada5eb1cd589664175016a63f06d79370eea9db",
     "features/tasks/bulk.ui.mjs": "24df7ff54cd1def494d5f50a9f07d79195dd6e9c44c011b3ccee78bfd0d5d707",
     "features/tasks/calendar.ui.mjs": "6dc23258e56d2bbcdc599047e128a15cd47fb3a9e79922b7bc3089a549a9dcf1",
     "features/tasks/cells.ui.mjs": "dd37e0fab5bef67bf66629c685539726e4dc31f73412438b87618998ed257219",

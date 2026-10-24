@@ -621,3 +621,6 @@ Native configured publication accepts text, multiline, select, checkbox, thumbna
 ## Snapshot history files
 
 The Files cell in snapshot history expands a table of files registered in that exact snapshot: file link, repository directory, type, frame range, size and timestamp. Filtering and paging stay within that snapshot; an empty version shows no files. Ordinary file links use the configured repository URL. Sequence rows retain their frame pattern and range; the link does not download an entire sequence. Directory packages remain registered file records; their recursive disk contents are not expanded here. Maya/applet actions are excluded.
+
+
+Checkin Log shows the referenced object name and code in Code, as in legacy TACTIC. A missing or excluded owner displays n/a. Files opens the exact version file list. The old RenderSubmission action is part of the excluded production subsystem and is omitted from the built-in log.
