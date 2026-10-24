@@ -103,6 +103,24 @@ class NestedTableTests(unittest.TestCase):
         self.assertEqual(context['view'],'nested_tasks')
         self.assertEqual(context['records'],{selected.search_key:{'code':'S'}})
 
+    def test_file_table_filters_by_filename_instead_of_internal_code(self):
+        from unittest.mock import patch
+        from thlib.environment import env_inst
+        from thlib.ui.table.nested import NestedTableController
+        from thlib.ui.table.services import TableServicesController
+        import tests.test_table_service_workflows as workflows
+        app = workflows.Application()
+        owner = TableServicesController(app)
+        self.addCleanup(owner.shutdown)
+        with patch.object(NestedTableController, 'reload'):
+            scope = NestedTableController(owner, 'A', dict(searchType='sthpw/file', view='snapshot_files',
+                parentKey='sthpw/snapshot?code=S', projectCode='demo'))
+        columns = [dict(name='file_name', className='tactic.ui.table.SnapshotFileElementWdg'),
+                   dict(name='code', className='')]
+        with patch.object(env_inst, 'projects', {'demo': object()}):
+            scope._accept(dict(records=[], hasNext=False, searchType='sthpw/file', layout=dict(columns=columns, rows={})))
+        self.assertEqual(scope.model['filterField'], 'file_name')
+
     def test_time_cell_loads_its_task_and_week_and_rejects_stale_completion(self):
         from unittest.mock import patch, Mock
         from types import SimpleNamespace

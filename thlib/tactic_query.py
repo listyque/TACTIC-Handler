@@ -8678,6 +8678,10 @@ def query_table_layout(search_type, search_keys=None, view='table',
         if handler == 'tactic.ui.widget.SObjectCheckinHistoryWdg':
             options = dict(options, search_type='sthpw/snapshot', view='checkin_history', show_insert=False)
             handler = 'tactic.ui.panel.TableLayoutWdg'
+        if handler == 'tactic.ui.checkin.SnapshotFilesWdg':
+            options = dict(options, search_type='sthpw/file', view='snapshot_files',
+                           show_insert=False, show_select=False, show_gear=False)
+            handler = 'tactic.ui.panel.TableLayoutWdg'
         if handler in ('tactic.ui.table.CustomLayoutElementWdg', 'tactic.ui.panel.CustomLayoutWdg'):
             if layout_reader is None:
                 from tactic.ui.table.custom_layout_element_wdg import read_custom_layout
@@ -9507,9 +9511,15 @@ def query_table_layout(search_type, search_keys=None, view='table',
             if class_name.endswith('.SnapshotFileElementWdg'):
                 import os
                 from urllib.parse import urlsplit
-                path = sobject.get_web_path_by_type()
-                filename = os.path.basename(path)
-                if sobject.get_value('snapshot_type') == 'sequence':
+                if sobject.get_base_search_type() == 'sthpw/file':
+                    path = sobject.get_web_path()
+                    filename = sobject.get_file_name()
+                    if sobject.get_file_range():
+                        filename = '%s (%s)' % (filename, sobject.get_file_range())
+                else:
+                    path = sobject.get_web_path_by_type()
+                    filename = os.path.basename(path)
+                if sobject.get_base_search_type() == 'sthpw/snapshot' and sobject.get_value('snapshot_type') == 'sequence':
                     filename = '%s (%s)' % (filename, sobject.get_file_range().get_display())
                 url = urlsplit(path)
                 safe = not any(char.isspace() or ord(char) < 32 for char in path) and '\\' not in path and (

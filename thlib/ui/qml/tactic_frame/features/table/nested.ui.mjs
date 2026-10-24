@@ -281,7 +281,9 @@ export function row(model, record, language, viewportWidth = 0) {
                     weight: field.index === 0 ? 600 : 400,
                     column: field,
                     record: record.record,
-                    cell: record.cells[field.name] || { text: '' },
+                    cell: record.cells[field.name] || {
+                        text: record.record[field.field || field.name] ?? ''
+                    },
                     key: record.key,
                     nodeId: record.nodeId,
                     nestedState: model.children?.[record.key],

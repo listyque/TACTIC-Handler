@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.144 - 2026-10-24
+
+- Support legacy SnapshotFilesWdg hidden rows as scoped file tables, with file links, directory metadata, types, ranges and sizes. Use the exact snapshot XML file membership, including empty versions, in the independently shipped native procedure. Pair with Stream 0.112.198.
+- Restore ordinary nested-table record values when no computed cell exists, and filter file tables by filename.
+- Recursive contents of directory packages and Maya/applet actions are outside this checkpoint.
+
 ## 0.6.0.143 - 2026-10-24
 
 - Open imported legacy ViewPanel sidebar searches as tables by default, including direct searches for a configured type. Preserve explicit view modes, Handler-specific preferences and retained tabs. Pair with Stream 0.112.197.

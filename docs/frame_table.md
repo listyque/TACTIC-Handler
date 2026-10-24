@@ -90,3 +90,15 @@ Notification recipient tables are bootstrapped through the existing schema
 upgrade. This checkpoint adds read projection, not a public notification insert
 or email-delivery implementation. PostgreSQL production data, physical touch
 hardware and all historical widget options have not been certified.
+
+
+## Snapshot history files: Stream .198 / Handler .144
+
+Legacy HiddenRowElementWdg targeting tactic.ui.checkin.SnapshotFilesWdg now opens the existing nested table host with a read-only snapshot_files file view. Both shipped procedures resolve membership from Snapshot.get_all_file_objects(), including XML references, instead of selecting every file by parent type or project. Columns retain native web links, repository directory, file type, range, size and timestamp. A non-snapshot owner uses its original publish-context snapshots. The browser table-action Worker copies JSON record context before postMessage, including nested Vue proxies, and disposes its resources if serialization or sending fails. Native Qt script execution has no browser Worker boundary.
+
+This checkpoint does not implement recursive directory-package browsing in this hidden row, downloading a whole frame sequence from its pattern link, or Maya/applet actions. Existing Submit/RV adapters and other legacy gaps are not certified by this fix. Source changes need a BAT server restart and browser reload; no new packaged EXE is qualified here.
+
+
+The nested shared renderer now falls back to the configured record field when no computed cell is returned, preserving zero, false and deliberately empty computed cells. Both file-table filters prefer file_name over internal code. Validation includes 37 file/nested/value regressions, the browser Worker regression (including disposal after serialization failure), real browser/QML input on three AST001 files from the main SQLite fixture, and direct source reads of all 180 VFX snapshots / 516 files. Three live repository URLs returned byte-identical files. These renderer checks use extracted main-data responses in isolated test hosts; they do not claim that the running server has reloaded Python modules. The offscreen QML comparison uses MD3 dark, EN, Segoe UI, scale 1 at 600 x 320.
+
+Final acceptance: all 156 Frame platform stages passed on unchanged final source fingerprints; native-file-workspace-journey passed its recorded serial retry. Gate: .test-tmp/snapshot-files-platform-verified.log and tools/frame_foundation/output/platform/gate.json (SHA-256 e21385aa7d7ac2b526038834c45dbefaf1a1d03f0807039ac0e2e7f12e6a5c14). Earlier incomplete/failed runs are not acceptance.

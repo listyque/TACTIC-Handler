@@ -160,7 +160,7 @@ class NestedTableController(QObject):
         self._model.update(columns=columns, rows=rows, hasNext=result['hasNext'], busy=False, loaded=True,
             insert=bool(self.descriptor.get('insert', True) and self.application.can_manage_tools),
             gear=bool(self.descriptor.get('gear', True) and self.application.can_manage_tools),
-            filterField=next((name for name in ('name', 'title', 'code') if any(column['name'] == name for column in columns)), 'id'))
+            filterField=next((name for name in ('name', 'title', 'file_name', 'code') if any(column['name'] == name for column in columns)), 'id'))
         self.changed.emit()
         self.services._nested_changed()
         if self._pending_reload:
