@@ -1,10 +1,8 @@
-# B13 scripts and native tools
+# Tactic Frame: Scripts and native tools
 
-Delivered in Stream 0.112.166 / Handler 0.6.0.117. The final platform gate
-passes 134 stages, including the existing 64-case Batch Manager suite. Current
-source-checked evidence covers 384 original/current native pairs and 144 native/Vue
-compositions (3,456 rectangles and 2,280 style checks). The production frontend
-build and connected editor/shelf workflows pass. B07's unrelated gaps remain open.
+This contract describes source ownership, behavior and verification scope.
+TH and TS ship independently; native-only actions remain native capabilities.
+Use [the shared contract](contract.md) and [the feature index](index.md).
 
 ## Composition and ownership
 
@@ -52,7 +50,7 @@ visible scrolling, keyboard/mouse input, resize, clear, hide/reopen and close
 cleanup. Close the example before reloading its Python module during development.
 Batch Manager remains a separate tool with its existing execution owners.
 
-## Corrections found by actual input
+## Execution and lifecycle requirements
 
 - Completion after a newline no longer matches the previous word; an empty
   prefix starts at the cursor in both products.
@@ -85,49 +83,20 @@ Cancel in native confirmation cancels a pending request. It does not safely
 terminate already running Python. Server/browser execution retains its existing
 limitation; the UI does not invent forced interruption.
 
-## Reproducible acceptance
+## Verification
 
-Run from the Stream checkout with its configured Python environment:
+Run the focused drivers under `tools/frame_scripts/` from the Stream development
+checkout, with the actual Handler checkout supplied using `--handler-root`
+where supported. The complete shared gate is:
 
 ```powershell
-python tools/format_tactic_frame.py --handler-root D:/code/th_codex --check
-python tools/sync_tactic_frame.py --handler-root D:/code/th_codex --check
-python tools/frame_foundation/check_platform.py --handler-root D:/code/th_codex
-python tools/frame_scripts/capture.py --handler-root D:/code/th_codex --reference-archive .tmp/b13/original-handler.zip
-node frontend/tests/frame_scripts.mjs
-python tools/frame_scripts/report.py
+python tools/frame_foundation/check_platform.py --handler-root "../../TH"
 ```
 
-Ignored pre-B13 Git archives are immutable originals. The report refuses quick,
-partial or stale evidence. The matrix covers eight native surfaces, three themes,
-light/dark, EN/RU, 720/900 px and normal/locked states: 384 original/current native
-pairs and 144 corresponding native/Vue compositions. Native-only tools have no
-invented browser counterpart. Full authenticated editor/shelf workflows run on
-disposable CG servers, separately from presentation fixtures. Native checks
-exercise exact mutation payloads, virtualized drafts, retained dock contexts, selected DCC,
-real local service start/demo/command failure/recovery/stop and window cleanup.
-
-Batch Manager's existing 64 tests cover native QML and its web UI without
-production rendering or server check-in. Two stale expectations were updated to
-its implemented active-removal and process-kill fallback; implementation was not
-rewritten. Font fixtures consume responses before closing, avoiding test-created
-broken pipes. Only the known offscreen-platform raise diagnostic is exempted.
-
-Optional `tools/frame_scripts/check_batch.py --script <private legacy copy>`
-checks older standalone copies offline without running jobs. Two local legacy
-copies had a broken status translator (`split("")`); originals were backed up
-under ignored `.tmp/b13/private-batch-backup` before the one-line fix. Private
-scripts are neither bundled nor committed.
-
-The renderer gate writes `tools/frame_foundation/output/platform/gate.json`.
-The fresh comparison report is `tools/frame_scripts/output/index.html`.
-Generated screenshots, runtime databases, logs and private scripts stay outside Git.
-
-Real Maya/render jobs, production check-in and a complete packaged EXE release
-were not run for B13. The showcase was also inspected in a real Windows window
-with the system font; its snapshot is ignored `output/example-native.png`.
-
-The cached-project Script Editor unit fixture now substitutes `_request_sync`,
-the actual mirror-request boundary, and asserts that it is called. Its obsolete
-`_request_load` substitution had allowed an unrelated real request to outlive the
-test and crash a later worker test. Runtime synchronization is unchanged.
+Adjust that path relative to the working directory; in the two-repository
+workspace, Stream commands run from `TS/tactic_stream` and Handler is `../../TH`.
+Use isolated data, actual input, fresh source fingerprints and independent-package
+checks. Generated reports belong in the ignored tool `output/` directories.
+Historical release counts and captures are local archive material, not current
+acceptance. Offscreen checks do not establish physical touch/IME, compositor,
+DCC or deployment readiness; exercise those when the feature requires them.

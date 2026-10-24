@@ -1,13 +1,8 @@
-# Tactic Frame B12: files, check-in and repository queues
+# Tactic Frame: Files, check-in and queues
 
-Status: **delivered**, 2026-10-18. Implementation and bounded release acceptance
-passed on the final sources; hardware/deployment limits are listed below.
-
-The original reference is Handler commit
-`d1973ded2e30052effc851f91d05a716579b29bf`. Both products ship
-independent portable copies. Native Qt controls, filesystem/DCC adapters,
-repository rules, request generations, file identities, transfer journals and
-mutation owners stay with their existing hosts.
+This contract describes source ownership, behavior and verification scope.
+TH and TS ship independently; native-only actions remain native capabilities.
+Use [the shared contract](contract.md) and [the feature index](index.md).
 
 ## Scope and owners
 
@@ -92,7 +87,7 @@ The renderer reuses house TabButton, editable ComboBox, CheckBox, graph scaling
 and character-wrapped text. It reveals focused form controls without creating
 feature-specific replacements for base controls.
 
-## Ownership and correctness fixes
+## Ownership and lifecycle requirements
 
 - Browser queue validation, clipboard and capture retain their session,
   operation and source identity. Disposal/account changes invalidate callbacks;
@@ -116,95 +111,20 @@ feature-specific replacements for base controls.
   schedule dialog computes scene width from explicit paddings, avoiding a
   binding loop exposed by shared dialog metrics.
 
-## Acceptance evidence
+## Verification
 
-Generated evidence stays local and ignored; regenerate it after source changes.
-The drivers reject changed source/archive fingerprints instead of blessing old
-images. The original archive is a Git archive of the pinned commit above.
-
-- `tools/frame_files/capture.py`, `frontend/tests/frame_files.mjs` and
-  `tools/frame_files/report.py` build `tools/frame_files/output/index.html`.
-  The complete matrix contains 300 current Qt/Vue pairs across three themes,
-  light/dark, EN/RU and affected desktop/narrow sizes, plus 56 original/current
-  native capability pairs. That is 712 native/original and 300 browser images.
-  A separate 150% DPI matrix contains 50 Qt/Vue and 56 native capability pairs.
-- Full-content comparisons check shared rectangles, typography, fills and
-  control interiors. Commit Queue uses explicitly marked `shared-fragments`
-  comparisons because native server-queue and local/DCC capability regions
-  differ. Complete original/current screenshots remain visible beside them.
-  Original screenshots are reference evidence, not assertions that every
-  old/new pixel is identical; OS chrome/compositor shadows are outside scope.
-- 137 owner/layout cases pass together with normal GC, and separately in
-  isolated Qt processes.
-  The mandatory gate separately exercises native queue/sync/screenshot/prompts,
-  Object Check-in, Workspace layout and connected native/browser file journeys.
-  **121/121 mandatory stages passed**, including the combined owner suite.
-  The final gate's status is recorded in
-  `tools/frame_foundation/output/platform/gate.json`.
-- Real disposable-server checks cover uploaded check-in, append/revision and
-  group guards, related ingest conflicts/rollback, native Workspace submission,
-  shelves/history/file identity, browser inspection/catalog/storage, reload and
-  lost-write-response handling. Native Sync downloads use localhost HTTP and
-  preset publication uses the actual XML-RPC owner.
-- Actual input includes custom mappings, keyboard focus, confirmation/stale-path
-  guards, editable stream creation, retained tabs/splitters, clipboard/capture
-  ownership and virtualized 1000-row queues. Browser file selection in the table
-  journey opens the enabled Attach files button's real chooser rather than
-  bypassing the loading guard with a hidden input.
-- B12 quality comparison against the pinned original adds no structure/lint
-  regressions: existing structure failures decrease from eleven to nine;
-  unqualified warnings 5386→4951, unused imports 41→40, other category budgets
-  unchanged. Native smoke has no font/runtime warnings. This does not claim
-  the older accumulated foundation baseline is clean.
-- EN/RU Help, control atlas and release metadata are updated. Independent
-  packaging and the mandatory final platform gate pass. Build warnings about
-  existing mixed static/dynamic imports remain informational; no new dependency
-  or runtime bridge was introduced.
-
-## Combined native owner regression
-
-The combined 137-case owner/layout suite initially crashed with Windows access
-violation during a later Screenshot Maker or Matching Templates scene, although
-each module passed separately. A native DbgHelp stack identified
-`QCoreApplication::notifyInternal2` called from the Windows timer dispatcher.
-The receiver address matched Repository Sync's `_active_row_timer`, created by
-`test_start_checked_dispatches_only_pool_capacity`.
-
-That test replaced the controller's real QThreadPool with an inert fake and
-left its active timers/queued work alive after the assertions. The fixture now
-restores the real pool, invokes the normal shutdown owner and schedules QObject
-deletion in cleanup, including assertion failures. Four complete combined runs
-passed afterwards with ordinary Python GC and no diagnostic patches. The full
-owner suite passes inside the mandatory platform gate; no GC/cache/rendering
-workaround was added to either product. The complete 137-case suite also passes
-on native Windows/OpenGL. Screenshot Maker now explicitly focuses its keyboard
-scope after hiding the invoking windows, preserving Escape cancellation there.
-
-Physical touch hardware, OS IME, desktop capture pixels, compositor/DCC and live
-production PostgreSQL remain deployment acceptance limits. The native preset
-integration process also reports Python exit-time uncollectable-object warnings;
-its successful mutations do not establish warning-free resource teardown.
-
-Three consecutive real preset mutation cycles additionally report zero runtime
-uncollectable objects after normal collection; the interpreter-exit warning
-above is recorded separately from those runtime observations.
-
-## Reproduce the visual comparison
-
-From the Stream root, prepare the immutable reference in a new work directory:
+Run the focused drivers under `tools/frame_files/` from the Stream development
+checkout, with the actual Handler checkout supplied using `--handler-root`
+where supported. The complete shared gate is:
 
 ```powershell
-New-Item -ItemType Directory -Force .tmp/b12 | Out-Null
-git -C D:/code/th_codex archive --format=zip --output=D:/code/TACTIC_VUE/tactic_stream/.tmp/b12/original-handler.zip d1973ded2e30052effc851f91d05a716579b29bf
-Expand-Archive -LiteralPath .tmp/b12/original-handler.zip -DestinationPath .tmp/b12/original
-python -B -X utf8 tools/frame_files/capture.py
-node frontend/tests/frame_files.mjs
-python -B -X utf8 tools/frame_files/report.py
+python tools/frame_foundation/check_platform.py --handler-root "../../TH"
 ```
 
-Use an empty reference directory; never overwrite the pinned original with staged
-or current presenters. For the smaller 150% matrix set `QT_SCALE_FACTOR=1.5`,
-`FILES_FRAME_OUTPUT=tools/frame_files/output/scale-1.5` and pass `--smoke` to
-the native capture. Set `QT_QUICK_CONTROLS_STYLE=Basic` for native unit checks.
-The platform gate is `tools/frame_foundation/check_platform.py --handler-root
-D:/code/th_codex`; independent copies are checked by `tools/sync_tactic_frame.py`.
+Adjust that path relative to the working directory; in the two-repository
+workspace, Stream commands run from `TS/tactic_stream` and Handler is `../../TH`.
+Use isolated data, actual input, fresh source fingerprints and independent-package
+checks. Generated reports belong in the ignored tool `output/` directories.
+Historical release counts and captures are local archive material, not current
+acceptance. Offscreen checks do not establish physical touch/IME, compositor,
+DCC or deployment readiness; exercise those when the feature requires them.

@@ -1,21 +1,7 @@
-# UI complexity review implementation
+# UI performance ownership and checks
 
-This tracks the twelve approved review items, implemented on 2026-09-07.
-Checked means implemented and covered by focused offline regression tests, not
-certified against a live deployment.
-
-1. [x] Server-side task filters, ordering and pagination, preserving drafts.
-2. [x] Demand-driven task projections (list, Gantt, calendar).
-3. [x] Shared bounded script AST cache and error-position prefix recovery.
-4. [x] Linear overlap detection after sorting Gantt intervals.
-5. [x] Demand-driven sObject information and worker-owned file inspection.
-6. [x] Shared search field presentation and input behavior.
-7. [x] Shared image selection with controller-owned staged state.
-8. [x] Shared user filtering/grouping and identity lookup.
-9. [x] Shared composer draft persistence through ConfigWriteQueue.
-10. [x] Shared compact field layout for edit/create/duplicate forms.
-11. [x] Lazy commit queue naming details.
-12. [x] Remove shadowed client method and unreachable protocol branch.
+These rules identify the existing owners and focused verification paths.
+Use them when extending the interface; past review checklists are kept locally.
 
 ## Ownership and checks
 
@@ -96,6 +82,6 @@ configured. Live SQL latency, deployment permissions, desktop GPU/DPI and DCC
 behavior are not inferred from the offline checks.
 
 See [performance fixtures and measured medians](qml_performance.md),
-[task query/presentation contract](tasks_workspace_implementation_plan.md) and
+[task query/presentation contract](tasks_workspace.md) and
 [shared component ownership](ui_component_map.md). Synthetic Python timings are
 not production frame rates; no claim of instant server responses is made.

@@ -2,7 +2,7 @@
 
 ## Scope and precedence
 
-- For shared QML/Vue interfaces, read and follow `docs/shared_ui_contract.md`: one shared skeleton and state rules, native house controls in both engines, and real paired input/geometry/screenshot checks. Do not embed WebEngine, WebView or HTML in QML without an explicit user instruction; record incomplete features and platform limits.
+- For shared QML/Vue interfaces, read and follow `docs/frame/contract.md`: one shared skeleton and state rules, native house controls in both engines, and real paired input/geometry/screenshot checks. Do not embed WebEngine, WebView or HTML in QML without an explicit user instruction; record incomplete features and platform limits.
 
 - User clarification, 2026-10-13: implement corresponding Handler and Stream interfaces identically in layout, dimensions, actions and behavior. Compare both on the same data, theme, language, scale and window size; resolve differences in the same change. Never claim parity after checking only one implementation. Record unavoidable platform differences explicitly.
 

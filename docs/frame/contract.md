@@ -203,8 +203,8 @@ harness and its source map rather than replacing production widgets with it.
 
 ## TH reference map
 
-- [Native component policy](ui_component_policy.md) and [map](ui_component_map.md)
-- [Handler architecture](application_architecture.md) and [client API](handler_api.md)
-- [Files](frame_files.md), [support/connection](frame_support.md), [tables](frame_table.md)
-- [Stream source layout](../../TS/tactic_stream/src/tactic_stream/shared_ui/README.md)
-- [TH and TS API/source boundaries](../../TS/tactic_stream/docs/admin_agent/SOURCES.md)
+- [Native component policy](../ui_component_policy.md) and [map](../ui_component_map.md)
+- [Handler architecture](../application_architecture.md) and [client API](../handler_api.md)
+- [Files](files.md), [support/connection](support.md), [tables](table.md)
+- [Stream source layout](../../../TS/tactic_stream/src/tactic_stream/shared_ui/README.md)
+- [TH and TS API/source boundaries](../../../TS/tactic_stream/docs/admin_agent/SOURCES.md)

@@ -1,9 +1,8 @@
-# Tactic Frame B05: Configuration and projects
+# Tactic Frame: Configuration and projects
 
-Configuration and project composition is portable JavaScript under
-`shared_ui/features/configuration` and `shared_ui/features/projects`. Handler
-ships a physical copy in `thlib/ui/qml/tactic_frame`. Neither runtime imports
-the other checkout. QML uses native controls and QJSEngine; no embedded browser.
+This contract describes source ownership, behavior and verification scope.
+TH and TS ship independently; native-only actions remain native capabilities.
+Use [the shared contract](contract.md) and [the feature index](index.md).
 
 ## Composition and command ownership
 
@@ -58,61 +57,20 @@ is retried. Ticket/context changes invalidate late reads and completions.
   existing Configuration link is retained. Native presets already use the B04
   shared composition.
 
-## Reproduction and evidence
+## Verification
 
-From the Stream checkout, use its development Python with Qt installed:
+Run the focused drivers under `tools/frame_configuration/` from the Stream development
+checkout, with the actual Handler checkout supplied using `--handler-root`
+where supported. The complete shared gate is:
 
 ```powershell
-python tools/sync_tactic_frame.py --handler-root D:/code/th_codex --copy-from stream
-node frontend/tests/frame_configuration_state.mjs
-python tools/frame_configuration/capture.py
-node frontend/tests/frame_configuration.mjs
-python tools/frame_configuration/report.py
-python tools/frame_foundation/check_platform.py --handler-root D:/code/th_codex
+python tools/frame_foundation/check_platform.py --handler-root "../../TH"
 ```
 
-`tools/frame_configuration/output/index.html` is a local, generated comparison.
-It includes actual original/current QML, Vue of the same portable native-capability
-model, three themes, light/dark, EN/RU, 1100/800/360 px and alternate states.
-Dirty-close, cache-clear and template confirmation pairs capture their real modal content; the legacy image
-shows the original whole popup. Old screens come from the tracked pre-Frame ZIP;
-the later template manager and its dependencies come from Handler commit
-`dfd985c040a258d6fa793324f4e985542a4397a8`. Hash checks reject stale or partial
-reports. Common coordinates, font settings, colors, indicators and corner radii
-are measured; both engines reject truncated action captions. Actual ImagePicker
-preview/Choose/Undo bounds are included. This does not assert identical
-Qt/Chromium glyph rasterization.
-
-Actual operations are checked separately by Handler's configuration/appearance/
-layout/project tests and Stream Transport tests for browser Configuration,
-project creation, project editor lifecycle, XML revision/secrets/validation,
-repository paths and ACL. Browser scenes use a private SQLite installation and
-real commands. They do not mutate the running user server. Native inputs use
-isolated configuration and deterministic catalogues; controller worker tests
-exercise command branches. Physical touch hardware, live production PostgreSQL
-and installing a release on another machine are outside this evidence.
-
-Settings captions reserve common word-wrap bounds for the shipped Segoe UI EN/RU text. Actual Qt and Chromium captures reject clipped descriptions. Arbitrary fonts or new scripts require measured font advances before that scope is advertised.
-
-## Verified release
-
-Handler 0.6.0.109 / Stream 0.112.158: 70 native tests, 456 portable scene
-contracts, three disposable-server browser journeys and six focused API scenarios.
-The platform gate passes 44/44 stages. The comparison contains 720 original and
-1080 current QML images, 1080 Vue pairs, 32,210 rectangles, 18,840 styles and
-228 control interiors. Original images are reference evidence; strict geometry
-and control comparisons apply to the current native/browser pairs.
-
-## Existing verification limits
-
-The quality-baseline comparison keeps unrelated structure/lint failures visible;
-passing it means no new debt and a clean native window smoke, not a clean whole
-repository. Browser Transport journeys run in separate processes: its existing
-class fixture deletes the temporary data directory between tests while the
-update collector is running, which can produce a collector error in a combined run.
-
-The unrelated Stream test
-`tests.test_project_creation.ProjectCreation.test_lifecycle_sqlite_and_optional_postgres`
-still fails its expected exception-text assertion. The same failure was reproduced
-on clean pre-B05 commit `5cc76e9d96f686ec6c6ec059939f17c0137256d7`; B05 does not
-claim that test as passed or change the file-transaction exception contract.
+Adjust that path relative to the working directory; in the two-repository
+workspace, Stream commands run from `TS/tactic_stream` and Handler is `../../TH`.
+Use isolated data, actual input, fresh source fingerprints and independent-package
+checks. Generated reports belong in the ignored tool `output/` directories.
+Historical release counts and captures are local archive material, not current
+acceptance. Offscreen checks do not establish physical touch/IME, compositor,
+DCC or deployment readiness; exercise those when the feature requires them.

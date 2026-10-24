@@ -1,8 +1,8 @@
-# Tactic Frame B08: objects and inspector docks
+# Tactic Frame: Objects and inspector docks
 
-B08 is **delivered** in Stream **0.112.161** and Handler **0.6.0.112**.
-Object, operation and Inspector presenters use independent Frame copies. B07's
-40 unfinished usable legacy widgets remain B07.
+This contract describes source ownership, behavior and verification scope.
+TH and TS ship independently; native-only actions remain native capabilities.
+Use [the shared contract](contract.md) and [the feature index](index.md).
 
 ## Source and ownership map
 
@@ -93,67 +93,20 @@ on a project/session change. Browser
 link previews use the existing protected endpoint, per-context generations and
 revocable private-file URLs. Replies and edit history remain browser capabilities.
 
-## Reproduction and evidence
+## Verification
 
-Run from the Stream application folder with its installed development environment:
+Run the focused drivers under `tools/frame_objects/` from the Stream development
+checkout, with the actual Handler checkout supplied using `--handler-root`
+where supported. The complete shared gate is:
 
 ```powershell
-.venv/Scripts/python.exe -X utf8 tools/sync_tactic_frame.py --handler-root D:/code/th_codex --copy-from stream
-.venv/Scripts/python.exe -X utf8 tools/frame_objects/capture.py
-node frontend/tests/frame_objects.mjs
-.venv/Scripts/python.exe -X utf8 tools/frame_objects/report.py
-.venv/Scripts/python.exe -X utf8 tools/frame_foundation/check_platform.py --handler-root D:/code/th_codex
+python tools/frame_foundation/check_platform.py --handler-root "../../TH"
 ```
 
-`--smoke` captures 53 scenes in three themes at 320/880 px, dark EN (318 per host). The full run covers
-three themes, light/dark, EN/RU and 320/880 px. The source-checked review page
-uses original/current QML and Vue columns. `reference.json` identifies the
-pre-B08 Handler checkpoint (already containing earlier Frame work). Git archive
-reconstructs it into an ignored cache; there is no dependency on a developer's
-untracked backup ZIP. Archived missing icons are recorded; current icons must resolve.
-
-References use production QML and its actual models. Editor/inspector regions
-are cropped from the corresponding archived screen; note header/body and child content are
-verbatim extracted render fragments (fixture text initializes the original editor). Current field captures exercise the label,
-card and validation surface, with value adapters checked through the control
-catalog and actual forms. Fixtures and screenshots do not replace server tests.
-The gallery is component evidence, not a connected Handler/server acceptance run.
-
-Real temporary-server journeys cover description drafts, create/edit, batch
-preview/create, advanced duplication and conflicts, two-list link/unlink,
-report ACL/data/pages/context navigation, snapshot files, dependency deletion,
-unknown writes and 320/360px touch forms. The dock driver covers exact task and
-project, revisions, stale reads, float/stack/restore, themes and phone Back/Help.
-Native suites exercise their original controllers and actual Qt input.
-
-## Release acceptance
-
-- **60 platform stages passed** on the final source fingerprints, including
-  real input, IME events, resize, dock lifecycle, three DPI scales and packaging.
-- **101 native object tests** passed. Another **12 offline window/archive tests**
-  verify all registered windows reopen/shut down without QML warnings and that
-  Handler's update archive contains the new object components and portable files.
-- **2544 original/current native captures** and **1272 paired QML/Vue states**
-  passed across three themes, light/dark, EN/RU and 320/880 px. Real description,
-  toolbar and status input plus 100-row dependency virtualization/scroll checks
-  run after the visual matrix. Matching the two current hosts is checked
-  separately from the original-layout review.
-- Real temporary-server object journeys and the full native-table/mobile journeys
-  passed; original mutation owners, ACL/revisions, lost replies, private file
-  previews, exact task context and retained drafts are covered.
-- EN/RU Help includes usage examples and host-specific screenshots. The versioned
-  reproduction tools and pinned original checkpoint regenerate the local gallery
-  at `tools/frame_objects/output/index.html`; generated bulk output stays ignored.
-
-Conversation lists/general messaging remain B11, complete Task Manager remains
-B09, scheduling remains B10. Those are separate scopes, not unfinished B08 work.
-
-The broader legacy Messages suite has two pre-existing failures outside this
-block: `test_message_lists_use_a_bottom_anchor` and
-`test_message_text_has_compact_header_gap_and_side_padding`. Both reproduce on
-checkpoint `000c6a4a009f` with `QT_QUICK_CONTROLS_STYLE=Material` and
-`QT_QPA_FONTDIR=C:/Windows/Fonts`; they are recorded for B11 rather than hidden
-by weakening expectations. The focused B08 note/controller/input checks pass.
-
-Physical touch/OS IME and compositor/GPU behavior need hardware acceptance.
-This block's temporary-server journeys use SQLite, not production PostgreSQL.
+Adjust that path relative to the working directory; in the two-repository
+workspace, Stream commands run from `TS/tactic_stream` and Handler is `../../TH`.
+Use isolated data, actual input, fresh source fingerprints and independent-package
+checks. Generated reports belong in the ignored tool `output/` directories.
+Historical release counts and captures are local archive material, not current
+acceptance. Offscreen checks do not establish physical touch/IME, compositor,
+DCC or deployment readiness; exercise those when the feature requires them.

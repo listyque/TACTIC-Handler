@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.150 - 2026-10-24
+
+- Organize maintained documentation around client APIs, native UI contracts and shared Frame ownership. Rename former implementation-plan documents as contracts, move Frame guides into one directory, and keep historical verification journals outside the repositories. Runtime behavior and product Help are unchanged.
+
 ## 0.6.0.149 - 2026-10-24
 
 - Separate Handler client APIs, native structures and Help from Stream server references in agent documentation. Keep shared UI/table contracts in English and move development journals and the cleanup backlog out of the product repositories. Product localization and runtime behavior are unchanged.
@@ -644,7 +648,7 @@ Versions use `major.minor.build.revision`; routine updates increment `revision`.
 - Extend the separate file-project lifecycle with bounded review dialogs, selected shelving and immutable shelf replacement history, explicit ownership handoff, integration comparison and undoable paired rename resolution.
 - Add Files Details / Checked Out By / Preview, cancellable local reconciliation, native Windows change notifications and verified external comparison copies. Read-only views remain usable during a write without replacing its progress or selection.
 - Show manifested upload names and per-file transfer states, phase progress and lost-submit reconciliation. Synchronize native APIs, SDK and EN/RU help with Stream 0.112.75; Classic remains separate.
-- Full lifecycle acceptance is tracked in FILE_WORKSPACE_UI_PLAN.md. Million-file/TB, production PostgreSQL, complete restart recovery and packaged delivery are not claimed; the existing PySide6 shutdown ResourceWarning remains open.
+- Full lifecycle acceptance is tracked in FILE_WORKSPACE_SCOPE.md. Million-file/TB, production PostgreSQL, complete restart recovery and packaged delivery are not claimed; the existing PySide6 shutdown ResourceWarning remains open.
 
 ## 0.6.0.36 - 2026-10-12
 

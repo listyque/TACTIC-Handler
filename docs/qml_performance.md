@@ -62,7 +62,7 @@ Notes and Messages use one composer draft owner per composer and the existing
 serial `ConfigWriteQueue`; context changes and shutdown flush pending drafts.
 Commit Queue naming rows exist only while their details are expanded. Runtime
 checks cover actual QML creation, input and narrow/wide geometry, not just source
-assertions. See [the implementation checklist](ui_review_implementation.md).
+assertions. See [the implementation checklist](ui_performance_rules.md).
 
 ## Earlier delegate baseline
 

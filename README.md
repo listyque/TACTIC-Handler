@@ -4,6 +4,9 @@
 
 [Changelog](CHANGELOG.md) records the changes shipped in each version.
 
+[Documentation index](docs/index.md) separates native client APIs, UI contracts,
+product Help, shared Frame references and original server-schema documentation.
+
 TACTIC-Handler is a Python 3 and Qt Quick desktop client for
 [Southpaw TACTIC](https://github.com/Southpaw-TACTIC/TACTIC). It provides one
 workspace for project navigation, search, object and task management, review,
