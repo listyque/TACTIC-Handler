@@ -1,4 +1,5 @@
 // Semantic names and fallback policy from the native Handler icon catalog.
+import { legacyName } from './legacy_icons.mjs';
 const semanticAliases = {
     WORK: 'workspaces',
     work: 'workspaces',
@@ -96,6 +97,7 @@ export const aliases = {
     'drive-file-rename-outline': 'edit',
     'edit-note': 'sticky-note',
     error: 'exclamation-circle',
+    extension: 'puzzle-piece',
     'expand-less': 'chevron-up',
     'expand-more': 'chevron-down',
     failed: 'exclamation-circle',
@@ -324,6 +326,7 @@ export const materialAliases = {
     emoji: 'emoticon',
     envelope: 'email',
     error: 'alert-circle',
+    extension: 'puzzle',
     'exclamation-circle': 'alert-circle',
     failed: 'alert-circle',
     'filter-alt': 'filter',
@@ -512,6 +515,7 @@ export const fluentAliases = {
     'dynamic-feed': 'timeline',
     'edit-note': 'note-edit',
     error: 'error-circle',
+    extension: 'puzzle-piece',
     'expand-less': 'chevron-up',
     'expand-more': 'chevron-down',
     failed: 'error-circle',
@@ -679,12 +683,16 @@ export function ownValue(values, name) {
 }
 
 export function semanticName(source) {
-    const name = String(source || '').replace(/_/g, '-');
+    const name = (legacyName(source) || String(source || '')).replace(
+        /_/g,
+        '-'
+    );
     return ownValue(semanticAliases, name) || name;
 }
 
 export function resolve(source, pack, glyph, forceSolid = false) {
     if (!source) return null;
+    source = legacyName(source) || source;
     const prefix = /^(FA|FAS|FAR|MDI)_(.+)$/i.exec(source);
     if (prefix) {
         let family = 'fontawesome-solid';

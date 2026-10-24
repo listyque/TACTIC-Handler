@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.148 - 2026-10-24
+
+- Resolve legacy template IconWdg symbols and known raster names/paths through the shared modern icon catalogue, including VFX navigation, Bootstrap LIST_ALT and the old Font Awesome TELEVISION spelling. Preserve project XML and custom icon diagnostics. Pair with Stream 0.112.202; all five supplied icon sets use the same policy.
+
 ## 0.6.0.147 - 2026-10-24
 
 - Fix Check-in (Full) cells for tasks and notes: remove a conditional import that shadowed the query-level re module and caused UnboundLocalError. Preserve parent/self target resolution and numeric context suffix normalization. Pair with Stream 0.112.201 regression coverage; restart Handler to load the new Python procedure.

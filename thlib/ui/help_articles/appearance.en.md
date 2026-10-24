@@ -45,3 +45,8 @@ light and dark mode also updates native window title bars.
 If OpenGL stutters while resizing and Vulkan works on this computer, select Vulkan explicitly;
 Automatic currently selects OpenGL on Windows.
 Software rendering shows preview images without rounded clipping because Qt's graphical effects are unavailable there.
+
+
+## Legacy template icons
+
+Known icons from legacy templates are mapped to modern symbols in the shared icon catalogue. For example, PICTURE_EDIT uses an image, DETAILS a document, PHOTOS an image collection, FILM/MOVIE_VIEW a film and PLUGIN a puzzle piece. Old built-in PNG filenames and exact /context/icons/... references use the same mappings. The selected icon set still applies; an explicitly qualified font icon keeps its family. Project XML is preserved. This catalogue covers the shipped template references, not every historical IconWdg icon or custom plugin image. Unknown custom names, paths and remote images are not guessed from their labels. Restart Handler after installing the updated UI; reload the browser after updating Stream.
