@@ -261,8 +261,11 @@ class FakeSObject(FakeRecord):
         return []
 
 
-class FakeWindowModel:
+class FakeWindowModel(QObject):
+    windowVisibilityChanged = Signal(str, bool)
+
     def __init__(self, visible=False):
+        super().__init__()
         self.visible = visible
 
     def is_window_visible(self, window_id):
@@ -280,6 +283,80 @@ class CountingSObject(FakeSObject):
 
 
 class SObjectInfoControllerTests(unittest.TestCase):
+    def test_first_report_open_initializes_without_a_qml_visibility_change(self):
+        application = FakeApplication()
+        application.window_model = FakeWindowModel()
+        root = FakeSObject(FakeProcess(FakeContext([], [])))
+        application.workspace_state._selected_sobject = root
+        controller = SObjectInfoController(application)
+        with patch.object(controller, "refresh") as refresh:
+            application.window_model.visible = True
+            application.window_model.windowVisibilityChanged.emit("sobject_info", True)
+        self.assertIs(controller._report_sobject, root)
+        refresh.assert_called_once()
+        self.assertEqual(controller.summary["searchKey"], root.get_search_key())
+
+    def test_modal_report_retains_object_during_background_selection_restore(self):
+        first = FakeSObject(FakeProcess(FakeContext([], [])))
+        second = FakeSObject(FakeProcess(FakeContext([], [])))
+        second._search_key = "skey://demo/assets?code=OTHER"
+        application = FakeApplication()
+        application.window_model = FakeWindowModel(visible=True)
+        application.workspace_state._selected_sobject = first
+        controller = SObjectInfoController(application)
+        with patch.object(controller, "refresh"):
+            controller.window_opened()
+            application.workspace_state._selected_sobject = second
+            controller._selection_changed()
+            controller._rebuild()
+            self.assertEqual(controller.summary["searchKey"], first.get_search_key())
+            controller.window_opened()
+            self.assertEqual(controller.summary["searchKey"], second.get_search_key())
+
+    def test_task_refresh_without_project_search_type_uses_own_project(self):
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+        from unittest.mock import MagicMock
+
+        class Project(FakeProject):
+            def get_stypes(self):
+                return {}
+
+        project = Project()
+        info = dict(__search_key__="sthpw/task?code=TASK0001", code="TASK0001",
+                    project_code="demo", process="model", search_code="ROBOT")
+        with patch.object(env_inst, "projects", {"demo": project}):
+            task = tc.Task(info, project=object())
+        self.assertIs(task.get_project(), project)
+        self.assertEqual(SObjectInfoController._query_related_children(task), [])
+
+        asset = tc.SObject(dict(__search_key__="demo/assets?code=ROBOT", code="ROBOT"), project=project)
+        for root, children, title in ((task, [], "model · ROBOT"), (asset, [task], "ROBOT")):
+            application = FakeApplication()
+            application.workspace_state._selected_sobject = root
+            controller = SObjectInfoController(application)
+            pool = MagicMock(is_stopped=False)
+            with patch.object(env_inst, "server_pool", pool), patch.object(
+                root, "get_tasks_sobjects", return_value=children
+            ), patch.object(root, "update_snapshots"), patch.object(
+                tc, "get_sobjects", return_value=[]
+            ), patch.object(tc, "query_work_hours", return_value={}) as work_hours, patch.object(
+                tc, "get_user_recent_activity", return_value=[]
+            ):
+                controller.refresh()
+                result = pool.add_task.call_args.args[0]()
+            self.assertEqual(result["children"], [])
+            work_hours.assert_called_once_with(["TASK0001"], "demo", include_rates=True, parent_codes=[])
+            self.assertEqual(controller.summary["title"], title)
+
+    def test_task_report_title_uses_process_and_parent_identity(self):
+        sobject = FakeSObject(FakeProcess(FakeContext([], [])))
+        sobject._info.update(__search_type__='sthpw/task', code='TASK0001', process='model', search_code='ROBOT')
+        application = FakeApplication()
+        application.workspace_state._selected_sobject = sobject
+        controller = SObjectInfoController(application)
+        self.assertEqual(controller.summary['title'], 'model · ROBOT')
+
     def test_projection_restore_does_not_build_intermediate_report(self):
         sobject = CountingSObject(FakeProcess(FakeContext([], [])))
         application = FakeApplication()
@@ -364,7 +441,7 @@ class SObjectInfoControllerTests(unittest.TestCase):
             return_value=[],
         ), patch(
             "thlib.tactic_classes.get_sobjects", return_value=[]
-        ), patch(
+        ) as note_query, patch(
             "thlib.tactic_classes.query_work_hours", return_value={}
         ), patch(
             "thlib.tactic_classes.get_user_recent_activity",
@@ -373,6 +450,7 @@ class SObjectInfoControllerTests(unittest.TestCase):
             controller.refresh()
             result = pool.worker.operation()
 
+        self.assertIn(("search_type", "in", "demo/assets|demo/assets?project=demo"), note_query.call_args.kwargs["filters"])
         self.assertEqual(result["activity"], activity_records)
         activity_query.assert_called_once()
         kwargs = activity_query.call_args.kwargs

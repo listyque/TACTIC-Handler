@@ -16,7 +16,7 @@ UNCONFIGURED_KEY = 'Column_Manager@Column_Manager'
 SEARCH_KEY = 'config/naming@naming'
 
 
-def sidebar_project(*, with_search=True, handler_view=False):
+def sidebar_project(*, with_search=True, handler_view=False, display_options=''):
     # This is the actual shape of the reported admin sidebar entry. It has no
     # search_type, widget_key or class_name; its name must never become a query.
     unconfigured = (
@@ -24,7 +24,7 @@ def sidebar_project(*, with_search=True, handler_view=False):
         '<display class="LinkWdg"/></element>'
     )
     search = (
-        '<element name="naming" title="Naming"><display class="LinkWdg"/>'
+        '<element name="naming" title="Naming"><display class="LinkWdg">' + display_options + '</display>'
         '<search_type>config/naming</search_type></element>'
     ) if with_search else ''
     project = tc.Project({'code': 'admin', 'name': 'Admin', 'type': ''})
@@ -89,6 +89,19 @@ class SidebarNavigationTargetTests(unittest.TestCase):
                 self.assertTrue(entries[1].available)
                 self.assertEqual(entries[1].search_type, 'config/naming')
         self.rpc.assert_not_called()
+
+    def test_legacy_view_panel_defaults_to_table_and_keeps_explicit_modes(self):
+        for handler, options, expected in (
+            (False, '<widget_key>view_panel</widget_key>', 'table'),
+            (False, '', 'table'),
+            (False, '<view_mode>continious</view_mode>', 'continious'),
+            (False, '<widget_key>tile_layout</widget_key>', 'tiles'),
+            (True, '<widget_key>view_panel</widget_key>', ''),
+        ):
+            with self.subTest(handler=handler, options=options):
+                project = sidebar_project(handler_view=handler, display_options=options)
+                entry = next(row for row in sidebar_entries(project) if row.key == SEARCH_KEY)
+                self.assertEqual(entry.view_mode, expected)
 
     def test_configured_empty_handler_sidebar_does_not_show_web_sidebar(self):
         project = sidebar_project()
@@ -285,6 +298,11 @@ class SidebarNavigationTargetTests(unittest.TestCase):
         section = self.controller._create_section('config/naming', 'Naming')
         self.assertEqual(section.search_type, 'config/naming')
         self.rpc.assert_not_called()
+
+    def test_direct_search_keeps_the_matching_sidebar_initial_mode(self):
+        self.controller.navigation_model.replace(sidebar_entries(sidebar_project(display_options='<widget_key>view_panel</widget_key>')))
+        section = self.controller._create_section('config/naming', 'Naming')
+        self.assertEqual(section.tabs[0].view_mode, 'table')
 
 
 if __name__ == '__main__':

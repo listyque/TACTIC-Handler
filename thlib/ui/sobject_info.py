@@ -31,6 +31,9 @@ class SObjectInfoController(QObject):
         self._navigation = navigation
         self._tasks_controller = tasks
         self._clock = clock
+        self._report_sobject = None
+        self._report_tasks = ()
+        self._report_notes = ()
         self._summary = {}
         self._metrics = {}
         self._busy = False
@@ -119,6 +122,9 @@ class SObjectInfoController(QObject):
         self.properties = RecordListModel(("label", "value"))
 
         state = application.workspace_state
+        windows = getattr(application, "window_model", None)
+        if windows is not None:
+            windows.windowVisibilityChanged.connect(self._window_visibility_changed)
         state.selection_changed.connect(self._selection_changed)
         state.task_model.contentReplaced.connect(self._rebuild)
         state.note_model.contentReplaced.connect(self._rebuild)
@@ -413,6 +419,8 @@ class SObjectInfoController(QObject):
         self._worker = self._file_worker = self._activity_worker = None
 
     def _selection_changed(self) -> None:
+        if self._report_sobject is not None and self._window_visible():
+            return
         if self._worker is not None:
             self._worker.cancel()
         if self._file_worker is not None:
@@ -453,8 +461,23 @@ class SObjectInfoController(QObject):
 
     @Slot()
     def window_opened(self) -> None:
-        self._rebuild()
-        self.refresh()
+        state = self._application.workspace_state
+        sobject = getattr(state, "_selected_sobject", None)
+        self._report_tasks = tuple(getattr(state, "_task_sobjects", ()))
+        self._report_notes = tuple(getattr(state, "_note_sobjects", ()))
+        self._report_sobject = None
+        self._selection_changed()
+        self._report_sobject = sobject
+
+    @Slot(str, bool)
+    def _window_visibility_changed(self, window_id: str, visible: bool) -> None:
+        if window_id == "sobject_info" and visible:
+            self.window_opened()
+
+    def _selected_object(self):
+        if self._report_sobject is not None and self._window_visible():
+            return self._report_sobject
+        return getattr(self._application.workspace_state, "_selected_sobject", None)
 
     def _window_visible(self) -> bool:
         windows = getattr(self._application, "window_model", None)
@@ -466,7 +489,7 @@ class SObjectInfoController(QObject):
             return False
 
     def _rebuild(self) -> None:
-        if getattr(
+        if self._report_sobject is None and getattr(
             self._application.workspace_state,
             "_selection_projection_restoring",
             False,
@@ -481,7 +504,7 @@ class SObjectInfoController(QObject):
             return
         self._projection_dirty = False
         state = self._application.workspace_state
-        sobject = getattr(state, "_selected_sobject", None)
+        sobject = self._selected_object()
         if not sobject:
             self._clear()
             return
@@ -493,6 +516,10 @@ class SObjectInfoController(QObject):
             info.get("__search_type__")
             or search_key.removeprefix("skey://").split("?", 1)[0]
         )
+        if search_type.split("?", 1)[0] == "sthpw/task":
+            title = " · ".join(
+                str(info[name]) for name in ("process", "search_code") if info.get(name)
+            ) or title
         try:
             stype = sobject.get_stype()
             type_title = str(stype.get_pretty_name() or search_type)
@@ -511,12 +538,12 @@ class SObjectInfoController(QObject):
         tasks = list(
             self._refreshed_tasks
             if self._refreshed_tasks is not None
-            else getattr(state, "_task_sobjects", ())
+            else self._report_tasks if self._report_sobject is not None else getattr(state, "_task_sobjects", ())
         )
         notes = list(
             self._refreshed_notes
             if self._refreshed_notes is not None
-            else getattr(state, "_note_sobjects", ())
+            else self._report_notes if self._report_sobject is not None else getattr(state, "_note_sobjects", ())
         )
         snapshot_objects = self._loaded_snapshots(sobject)
         if self._page == 3:
@@ -1136,6 +1163,8 @@ class SObjectInfoController(QObject):
         cls, sobject, force=False
     ) -> list[tuple[dict, object, object]]:
         stype = sobject.get_stype()
+        if stype is None:
+            return []
         project = stype.get_project()
         stypes = project.get_stypes() or {}
         schema = stype.get_schema()
@@ -1150,6 +1179,9 @@ class SObjectInfoController(QObject):
             child_code = str(relation.get("from") or "")
             child_stype = stypes.get(child_code)
             if not child_code or child_stype is None:
+                continue
+            metadata = child_stype.get_info() if hasattr(child_stype, "get_info") else {}
+            if metadata.get("__record_read__", {}).get("available") is False:
                 continue
             kwargs = dict(
                 child_stype=child_stype,
@@ -1316,7 +1348,7 @@ class SObjectInfoController(QObject):
     @Slot()
     def refresh(self) -> None:
         state = self._application.workspace_state
-        sobject = getattr(state, "_selected_sobject", None)
+        sobject = self._selected_object()
         if not sobject or self._busy:
             return
         self._file_inspection_error = False
@@ -1345,39 +1377,27 @@ class SObjectInfoController(QObject):
             project = sobject.get_project()
             project_code = str(project.get_code() or "")
             root_code = str(sobject.get_code() or "")
-            root_id = str(self._object_info(sobject).get("id") or "")
-            task_codes = [
-                str(self._object_info(task).get("code") or "")
-                for task in task_objects
-            ]
-            task_ids = [
-                str(self._object_info(task).get("id") or "")
-                for task in task_objects
-            ]
-            note_parent_ids = [
-                value for value in [root_id, *task_ids] if value
-            ]
-            note_parent_codes = [
-                code for code in [root_code, *task_codes] if code
-            ]
-            note_parent_field = (
-                "search_id" if note_parent_ids else "search_code"
-            )
-            note_parent_values = (
-                note_parent_ids if note_parent_ids else note_parent_codes
-            )
-            note_objects = self._records(tc.get_sobjects(
-                "sthpw/note",
-                filters=[
-                    (
-                        note_parent_field, "in",
-                        "|".join(note_parent_values),
-                    ),
-                    ("project_code", project_code),
-                ],
-                include_snapshots=False,
-                project_code=project_code,
-            )) if note_parent_values else []
+            root_type = selected_key.removeprefix("skey://").split("?", 1)[0]
+            note_objects = []
+            for parent_type, parents in ((root_type, [sobject]), ("sthpw/task", task_objects)):
+                if not parents:
+                    continue
+                parent_info = [self._object_info(parent) for parent in parents]
+                field = "id" if all(row.get("id") is not None for row in parent_info) else "code"
+                values = [str(row[field]) for row in parent_info if row.get(field) is not None]
+                if not values:
+                    continue
+                parent_types = {parent_type, tc.TacticServerStub(setup=False).build_search_type(parent_type, project_code)}
+                note_objects.extend(self._records(tc.get_sobjects(
+                    "sthpw/note",
+                    filters=[
+                        ("search_" + field, "in", "|".join(values)),
+                        ("project_code", project_code),
+                        ("search_type", "in", "|".join(sorted(parent_types))),
+                    ],
+                    include_snapshots=False,
+                    project_code=project_code,
+                )))
 
             child_objects = self._query_related_children(sobject, force=True)
 
@@ -1385,9 +1405,13 @@ class SObjectInfoController(QObject):
                 order_bys=["timestamp desc"], force=True
             )
 
+            is_task = root_type == "sthpw/task"
+            hour_task_codes = [root_code] if is_task else [
+                str(self._object_info(task).get("code") or "") for task in task_objects
+            ]
             work_hours = tc.query_work_hours(
-                [], project_code, include_rates=True,
-                parent_codes=[root_code],
+                hour_task_codes, project_code, include_rates=True,
+                parent_codes=[] if hour_task_codes else [root_code],
             )
             object_scope, instance_relations = self._activity_query_context(
                 sobject, task_objects, note_objects, child_objects,
@@ -1440,7 +1464,7 @@ class SObjectInfoController(QObject):
             return
         result = dict(result or {})
         search_key = str(result.get("searchKey") or "")
-        current = getattr(self._application.workspace_state, "_selected_sobject", None)
+        current = self._selected_object()
         if current and self._search_key(current) == search_key:
             self._refreshed_tasks = list(result.get("tasks") or [])
             self._refreshed_notes = list(result.get("notes") or [])
@@ -1462,7 +1486,7 @@ class SObjectInfoController(QObject):
     @Slot()
     def load_more_activity(self) -> None:
         state = self._application.workspace_state
-        sobject = getattr(state, "_selected_sobject", None)
+        sobject = self._selected_object()
         if (
                 not sobject or self._busy or self._activity_loading_more
                 or not self._activity_has_more
@@ -1535,9 +1559,7 @@ class SObjectInfoController(QObject):
         if request_id != self._activity_request_id:
             return
         result = dict(result or {})
-        current = getattr(
-            self._application.workspace_state, "_selected_sobject", None
-        )
+        current = self._selected_object()
         if (
                 not current
                 or self._search_key(current)
@@ -1621,12 +1643,19 @@ class SObjectInfoController(QObject):
     def open_search_key(self, search_key: str) -> None:
         search_key = str(search_key or "").strip()
         if search_key:
+            self._leave_report()
             self._application.open_search_key(search_key)
+
+    def _leave_report(self) -> None:
+        windows = getattr(self._application, "window_model", None)
+        if windows is not None:
+            windows.close_window("sobject_info")
 
     def _open_root_process(self, process: str, panel: str = "") -> None:
         root_key = str(self._summary.get("searchKey") or "")
         if not root_key:
             return
+        self._leave_report()
         if process:
             self._application.open_search_key_in_process(root_key, process)
         else:
@@ -1638,6 +1667,7 @@ class SObjectInfoController(QObject):
     def open_task(self, task_code: str, process: str = "") -> None:
         root_key = str(self._summary.get("searchKey") or "")
         if self._tasks_controller is not None and root_key:
+            self._leave_report()
             self._tasks_controller.open_object_context(
                 root_key, str(task_code or ""), str(process or "")
             )
@@ -1646,6 +1676,7 @@ class SObjectInfoController(QObject):
     def open_tasks_filter(self, field: str, value: str) -> None:
         root_key = str(self._summary.get("searchKey") or "")
         if self._tasks_controller is not None and root_key:
+            self._leave_report()
             self._tasks_controller.open_object_filter(
                 root_key, str(field or ""), str(value or "")
             )
@@ -1660,6 +1691,7 @@ class SObjectInfoController(QObject):
         process = str(record.get("process") or "")
         task_code = str(record.get("taskCode") or "")
         if self._navigation is not None and search_key:
+            self._leave_report()
             self._navigation.open_in_context(
                 search_key, root_key, process, task_code
             )
@@ -1676,6 +1708,7 @@ class SObjectInfoController(QObject):
         if not 0 <= row < len(self.activity._records):
             return
         record = self.activity._records[row]
+        self._leave_report()
         kind = str(record.get("kind") or "")
         search_key = str(record.get("searchKey") or "")
         root_key = str(self._summary.get("searchKey") or "")
@@ -1699,6 +1732,7 @@ class SObjectInfoController(QObject):
     @Slot(str)
     def open_participant(self, login: str) -> None:
         if self._users is not None and str(login or "").strip():
+            self._leave_report()
             self._users.open_profile(str(login))
 
     @Slot(str)

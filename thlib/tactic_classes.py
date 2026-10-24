@@ -491,6 +491,10 @@ class SObject(object):
         # INPUT VARS
         self.info = in_sobj
         self.project = project
+        if in_sobj and in_sobj.get('project_code'):
+            record_project = (env_inst.projects or {}).get(in_sobj['project_code'])
+            if record_project is not None:
+                self.project = record_project
 
         # OUTPUT VARS
         self.process = {}

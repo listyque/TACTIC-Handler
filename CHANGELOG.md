@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.143 - 2026-10-24
+
+- Open imported legacy ViewPanel sidebar searches as tables by default, including direct searches for a configured type. Preserve explicit view modes, Handler-specific preferences and retained tabs. Pair with Stream 0.112.197.
+- Fix task SObject Info refresh without a project Search Type, resolve the task's own project and work hours, and show process and referenced object code in its title.
+- Initialize reports on the first native window opening and retain their selected object through background selection restores.
+- Make object reports, record editors and relation editors modal; close reports when navigating to workspace task, note and object contexts. Match Stream report geometry to the native report.
+
 ## 0.6.0.142 - 2026-10-24
 
 - Query related objects through the saved owner's identity, including native connection relations and ID-only records. Keep excluded record classes out of the expandable tree, matching navigation availability.

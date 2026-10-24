@@ -169,6 +169,7 @@ class NavigationModel(QAbstractListModel):
         if not current_login:
             return []
         handler_configured = False
+        legacy_view = False
         if not views or not views.has_definition():
             definitions, requested = [], []
         else:
@@ -178,12 +179,14 @@ class NavigationModel(QAbstractListModel):
                 requested = views.get_view("SideBarWdg", "tactic_handler")
                 if not requested:
                     requested = views.get_view("SideBarWdg", "project_view")
+                    legacy_view = True
             else:
                 handler_configured = any(
                     str(record.get("search_type") or "") == "SideBarWdg"
                     and str(record.get("view") or "") == "tactic_handler"
                     for record in records
                 )
+                legacy_view = not handler_configured
                 requested = views.get_view(
                     "SideBarWdg",
                     "tactic_handler" if handler_configured else "project_view",
@@ -322,6 +325,9 @@ class NavigationModel(QAbstractListModel):
                     view_mode = (
                         "tiles" if widget_key == "tile_layout"
                         else "compact" if widget_key == "fast_layout"
+                        else "table" if legacy_view
+                        and display_class in {"LinkWdg", "pyasm.widget.LinkWdg"}
+                        and widget_key in {"", "view_panel"}
                         else ""
                     )
                 table_view_node = display_node.find('view') if display_node else None

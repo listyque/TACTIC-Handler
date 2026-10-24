@@ -387,3 +387,8 @@ Each search tab keeps its own draft. Closing and reopening the dock retains that
 **Group items → Task status by process** groups objects by the chosen process's task status, including separate No status and No task groups. Process/status names remain server data. **Sort by column** uses the actual Search Type columns. Page number, page size and Pages/Continuous are available from the result footer.
 
 A single card click selects; double click or its Open action enters its contents. Long lists and card grids render only visible entries, preserving loaded data, expansion and selection. On a focused result, Home/End and Up/Down move through the collection, including offscreen entries. Phone navigation retains its explicit Back/Open controls.
+
+
+## Initial view for legacy projects
+
+Imported `project_view` sidebar searches open as tables when no explicit result mode is configured, matching the legacy ViewPanel default. A direct search for a configured type uses the same initial mode. Explicit sidebar modes and previously saved tab modes remain authoritative; switch the current tab through the result-view menu. Handler-specific sidebar definitions retain their client defaults.

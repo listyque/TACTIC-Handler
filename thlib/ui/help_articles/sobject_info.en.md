@@ -62,8 +62,12 @@ Publications keep their source project. Expand a process to inspect snapshots
 and files; empty, loading and error states remain visible. Cost data is absent
 unless the server grants the relevant access.
 
+When inspecting a task record itself, the title shows its process and referenced object code (for example, `model · ROBOT`). The task code remains available in the metadata. Stream excludes service relations that cannot be read through the ordinary record API; they do not prevent the task report from loading.
+
 ## Presentation examples
 
 Examples use test data and show the panel content. The surrounding window or dock keeps its normal behavior.
 
 ![Object report header](media/frame-objects-report-header-en.png)
+
+Object reports and record editors are modal windows. Close the report to return to the workspace; selecting a task, note or linked object closes it and opens that context. Tasks use their own project, including when opened from another project, and show logged hours for that exact task.

@@ -403,13 +403,16 @@ class NavigationMixin:
             dict(record)
             for record in (entry.filter_records if entry else ())
         ]
+        mode_entry = entry or next(
+            iter(self.navigation_model.entries_for_search_type(search_type)), None
+        )
         tab = create_search_tab(
             key,
             title,
             tab_kind="base",
             limit=self._page_size,
             view_mode=(
-                entry.view_mode if entry and entry.view_mode
+                mode_entry.view_mode if mode_entry and mode_entry.view_mode
                 else self._default_view_mode
             ),
             records=filter_records,

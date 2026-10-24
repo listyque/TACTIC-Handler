@@ -208,8 +208,6 @@ Window {
                 filterEditorController.begin_session();
             else if (root.kind === "user_profile")
                 userController.window_opened();
-            else if (root.kind === "sobject_info")
-                sobjectInfoController.window_opened();
             else if (root.kind === "watch_folders")
                 watchFoldersController.reload();
             Qt.callLater(function () {
