@@ -8658,6 +8658,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
 
         allowed = {
             'dynamic_class', 'dynamic', 'search_type', 'view', 'expression',
+            'search_view', 'edit_view', 'insert_view',
             'icon', 'title_icon', 'icon_tip', 'label', 'mode', 'init_load_num',
             'show_search_limit', 'show_insert', 'show_row_select', 'show_select',
             'show_gear', 'show_search', 'show_shelf', 'show_resize_scroll', 'related_types', 'include_mako', 'html',
@@ -8706,16 +8707,21 @@ def query_table_layout(search_type, search_keys=None, view='table',
         return dict(text=str(label or ''), targetSearchKey=search_key, columnName=column,
                     nestedTable=dict(searchType=options.get('search_type') or obj.get_base_search_type(),
                         view=view, parentKey=search_key,
+                        searchView=options.get('search_view') or '',
+                        editView=options.get('edit_view') or 'edit',
+                        insertView=options.get('insert_view') or 'insert',
                         selection=options.get('show_row_select', options.get('show_select')) not in (False, 'false'),
                         insert=options.get('show_insert') not in (False, 'false'),
-                         shelf=options.get('show_shelf') not in (False, 'false'),
+                        shelf=options.get('show_shelf') not in (False, 'false'),
                         gear=options.get('show_gear') not in (False, 'false'),
                         search=options.get('show_search') not in (False, 'false'),
                         searchLimit=options.get('show_search_limit') not in (False, 'false'),
                         expression=options.get('expression') or ''),
                     actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
 
+
     connection_cache = {}
+
     def read_connection_cells(search_keys, direction='dst', icon_size=60):
         import hashlib
         import json

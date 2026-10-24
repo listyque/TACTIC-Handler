@@ -324,5 +324,13 @@ class NestedTableTests(unittest.TestCase):
             get_stype.assert_called_once_with('sthpw/task', project_code='demo')
             args = editor.call_args.args[1]
             self.assertEqual(args['mode'], 'insert')
+            self.assertEqual(args['view'], 'insert')
             self.assertIs(args['parent_sobject'], app.node.source)
             self.assertTrue(callable(editor.call_args.kwargs['refresh']))
+            scope.descriptor.update(insertView='schedule_task_edit', editView='schedule_task_edit')
+            scope.activate(dict(type='create'))
+            self.assertEqual(editor.call_args.args[1]['view'], 'schedule_task_edit')
+            scope.activate(dict(type='edit', key='sthpw/task?code=T1'))
+            self.assertEqual(editor.call_args.args[1]['mode'], 'edit')
+            self.assertEqual(editor.call_args.args[1]['view'], 'schedule_task_edit')
+            self.assertIsNone(editor.call_args.args[1]['parent_sobject'])

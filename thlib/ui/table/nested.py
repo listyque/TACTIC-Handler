@@ -81,6 +81,7 @@ class NestedTableController(QObject):
         descriptor, state = dict(self.descriptor), dict(self._model)
         arguments = dict(parent_key=descriptor['parentKey'], search_type=descriptor['searchType'],
             view=descriptor.get('view') or 'table', expression=descriptor.get('expression') or '',
+            search_view=descriptor.get('searchView') or '',
             offset=state['offset'], limit=int(descriptor.get('initialLimit') or 50), order_by=[state['order']] if state.get('order') else [], filters=[])
         if state['filter']:
             arguments['filters'] = [[state['filterField'], 'like', '%' + state['filter'] + '%']]
@@ -214,9 +215,10 @@ class NestedTableController(QObject):
             self.changed.emit()
             return
         owner = app._node_for_any(self.owner_node_id)
-        parent = owner.source if owner and owner.source and owner.search_key.split('?')[0] != self.descriptor['searchType'] else None
+        parent = owner.source if not key and owner and owner.source and owner.search_key.split('?')[0] != self.descriptor['searchType'] else None
         from thlib.ui.sobject_editor import open_sobject_editor
-        open_sobject_editor(app, dict(mode='edit' if key else 'insert', view='edit' if key else 'insert',
+        view = (self.descriptor.get('editView') or 'edit') if key else (self.descriptor.get('insertView') or 'insert')
+        open_sobject_editor(app, dict(mode='edit' if key else 'insert', view=view,
             stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True),
             refresh=lambda: (app.refresh_current(), self.services.completed.emit(self.descriptor['parentKey'])))
 

@@ -624,3 +624,8 @@ The Files cell in snapshot history expands a table of files registered in that e
 
 
 Checkin Log shows the referenced object name and code in Code, as in legacy TACTIC. A missing or excluded owner displays n/a. Files opens the exact version file list. The old RenderSubmission action is part of the excluded production subsystem and is omitted from the built-in log.
+
+
+### Schedule Bidding
+
+In the VFX template, expand Tasks beside a schedule phase to see its bidding tasks and dates. Add and Edit use the configured bidding form, including cost, hours, start/due dates and color. Saving refreshes the phase total. Tasks stay scoped to their phase; a saved view can supply filters and default ordering. Stream adds missing nullable bidding fields during its normal startup upgrade. Monetary formats use the configured server locale; if it has no currency conventions, dollar formats use USD.

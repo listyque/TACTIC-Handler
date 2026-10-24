@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.146 - 2026-10-24
+
+- Preserve configured nested search/edit/insert views and open the VFX bidding form for child task creation and editing. Pair with Stream 0.112.200, including scoped saved conditions, computed totals and safe currency formatting under C locale.
+
 ## 0.6.0.145 - 2026-10-24
 
 - Register the migrated SnapshotInfoWdg value adapter for Checkin Log owner captions, preserving names, codes and missing-reference labels without a pyasm.prod alias. Pair with Stream 0.112.199.

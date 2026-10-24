@@ -325,14 +325,14 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
 
 
 def read_nested_scope(parent_key, search_type, view='table', expression='', offset=0,
-                      limit=50, filters=None, order_by=None):
+                      limit=50, filters=None, order_by=None, search_view=''):
     """Self-contained original-server procedure; never return an unscoped table."""
     import re
     from pyasm.biz import Project, Snapshot
     from pyasm.common import Environment
     from pyasm.search import Search, SearchKey, SearchType
 
-    if not __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().is_admin() and (not __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().is_logged_in() or __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().get_user_name() == 'admin' or not (__import__('pyasm.biz', fromlist=['Project']).Project.get_project_code() in ('admin', 'sthpw') or __import__('pyasm.common', fromlist=['Environment']).Environment.get_security().check_access('project', [{'code': '*'}, {'code': __import__('pyasm.biz', fromlist=['Project']).Project.get_project_code()}], 'allow', default='deny'))):
+    if not Environment.get_security().is_admin() and (not Environment.get_security().is_logged_in() or Environment.get_security().get_user_name() == 'admin' or not (Project.get_project_code() in ('admin', 'sthpw') or Environment.get_security().check_access('project', [{'code': '*'}, {'code': Project.get_project_code()}], 'allow', default='deny'))):
         raise PermissionError('Administration requires administrator access')
     if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError('Invalid nested table page')
@@ -381,6 +381,44 @@ def read_nested_scope(parent_key, search_type, view='table', expression='', offs
         else:
             search.add_parent_filter(parent)
     columns = SearchType.get_column_info(base)
+    if search_view:
+        if not isinstance(search_view, str) or not re.fullmatch(r'[A-Za-z_][\w.:@-]{0,255}', search_view):
+            raise ValueError('Invalid search view name')
+        try:
+            from tactic_stream.server.search_configuration import apply_filters, unpack_filters, validate_filters
+        except ImportError:
+            from tactic.ui.app import SearchWdg
+            saved = Search(search_type)
+            SearchWdg(search_type=search_type, view=search_view, display=True).alter_search(saved)
+            saved.add_column('id')
+            search.add_search_filter('id', saved)
+        else:
+            from pyasm.search import WidgetDbConfig
+            from pyasm.common import Container
+            from tactic_stream.server.api import check_record_access
+            from tactic_stream.server.search_configuration import deny_expression_write
+            config = WidgetDbConfig.get_by_search_type(search_type, search_view)
+            if config is None:
+                raise ValueError('Search view is not available')
+            conditions, packed = unpack_filters(config.get_value('config'))
+            conditions = [row for row in conditions if row['column']]
+            validate_filters(conditions, columns)
+            previous_read = Container.get('Expression:check_record_access')
+            previous_write = Container.get('Expression:check_method_access')
+            Container.put('Expression:check_record_access', check_record_access)
+            Container.put('Expression:check_method_access', deny_expression_write)
+            try:
+                # Keep saved OR conditions inside the mandatory parent scope.
+                saved = Search(search_type)
+                apply_filters(saved, conditions)
+                saved.add_column('id')
+                search.add_search_filter('id', saved)
+            finally:
+                Container.put('Expression:check_record_access', previous_read)
+                Container.put('Expression:check_method_access', previous_write)
+            if not order_by:
+                order = next((row.get('order', '') for row in packed if row.get('prefix') == 'group'), '')
+                order_by = [part.strip() for part in order.split(',') if part.strip()]
     if not isinstance(filters or [], list) or len(filters or []) > 20:
         raise ValueError('Invalid nested table filters')
     for item in filters or []:
