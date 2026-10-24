@@ -37,6 +37,7 @@ class NavigationEntry:
     search_type: str = ""
     search_view: str = ""
     view_mode: str = ""
+    table_view: str = "table"
     layout_preset: str = ""
     script_shelf: str = ""
     filter_records: tuple = ()
@@ -323,6 +324,8 @@ class NavigationModel(QAbstractListModel):
                         else "compact" if widget_key == "fast_layout"
                         else ""
                     )
+                table_view_node = display_node.find('view') if display_node else None
+                table_view = table_view_node.get_text(strip=True) if table_view_node else 'table'
                 entries.append(NavigationEntry(
                     key=f"{search_type or name}@{name}",
                     title=title,
@@ -338,6 +341,7 @@ class NavigationModel(QAbstractListModel):
                     search_type=search_type,
                     search_view=search_view,
                     view_mode=view_mode,
+                    table_view=table_view or 'table',
                     layout_preset=layout_preset,
                     script_shelf=script_shelf,
                     filter_records=filter_records,

@@ -1491,11 +1491,13 @@ class SearchContractTests(unittest.TestCase):
 
     def test_new_tab_does_not_restart_a_request_started_by_standard(self):
         controller = _SearchTabsHarness(standard_starts_load=True)
+        controller.section.tabs[0].table_view = "sequence"
 
         controller.add_search_tab()
 
         self.assertEqual(controller.load_calls, [])
         self.assertTrue(controller.section.tabs[-1].loading)
+        self.assertEqual(controller.section.tabs[-1].table_view, "sequence")
         self.assertEqual(
             controller.section.tabs[-1].workspace_layout,
             {"layout": "current"},

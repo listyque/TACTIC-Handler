@@ -3,6 +3,7 @@ import QtQuick
 import "../.." as Tables
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/table/nested.ui.mjs" as UI
+import "../../tactic_frame/features/tasks/cells.ui.mjs" as TaskCells
 
 Item {
     id: root
@@ -94,7 +95,7 @@ Item {
                 previewActive: true
                 previewUrl: cellHost.frameNode.cell.image || ""
                 previewRevealed: true
-                title: String(cellHost.frameNode.record.name || cellHost.frameNode.record.code || "")
+                title: TaskCells.initials(cellHost.frameNode.record.name || cellHost.frameNode.record.title || cellHost.frameNode.record.code || "")
                 accent: root.theme.action
                 comments: 0
                 tasks: 0

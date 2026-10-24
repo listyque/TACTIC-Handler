@@ -414,6 +414,7 @@ class NavigationMixin:
             ),
             records=filter_records,
             ensure_name_row=True,
+            table_view=entry.table_view if entry else 'table',
         )
         section = SectionSession(
             entry_key=key,
@@ -622,6 +623,7 @@ class NavigationMixin:
                     ),
                     records=records,
                     ensure_name_row=True,
+                    table_view=section.tabs[0].table_view if section.tabs else 'table',
                 ))
         except (AttributeError, TypeError, ValueError) as error:
             self._sidebar_preset_requests.pop(key, None)

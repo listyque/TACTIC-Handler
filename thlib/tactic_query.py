@@ -7145,7 +7145,8 @@ def query_user_recent_activity(
                 parent_type, project_code
             )
         parent_search = Search(parent_query_type)
-        parent_search.add_filters('code', list(codes))
+        parent_column = 'code' if 'code' in parent_search.get_columns() else 'id'
+        parent_search.add_filters(parent_column, list(codes))
         for parent in parent_search.get_sobjects():
             parent_data = parent.get_data()
             parent_code = str(parent.get_code() or '')
@@ -7962,7 +7963,10 @@ def query_sobjects_snapshots_updated(search_type, filters=[], order_bys=[], proj
         for op, expression_filter in expressions_filters_list:
             eval_sobjects = Search.eval(expression_filter)
             if eval_sobjects:
-                search.add_relationship_filters(eval_sobjects, op=op)
+                if all(item.get_search_type() == search.get_search_type() for item in eval_sobjects):
+                    search.add_filters('id', [item.get_id() for item in eval_sobjects], op=op)
+                else:
+                    search.add_relationship_filters(eval_sobjects, op=op)
             elif op == 'in':
                 search.set_null_filter()
 
@@ -8671,6 +8675,9 @@ def query_table_layout(search_type, search_keys=None, view='table',
             if str(options['init_load_num']) != '-1' and not str(options['init_load_num']).isdecimal():
                 raise ValueError('Invalid initial row rendering limit')
         handler = options.get('dynamic_class') or options.get('dynamic') or 'tactic.ui.panel.TableLayoutWdg'
+        if handler == 'tactic.ui.widget.SObjectCheckinHistoryWdg':
+            options = dict(options, search_type='sthpw/snapshot', view='checkin_history', show_insert=False)
+            handler = 'tactic.ui.panel.TableLayoutWdg'
         if handler in ('tactic.ui.table.CustomLayoutElementWdg', 'tactic.ui.panel.CustomLayoutWdg'):
             if layout_reader is None:
                 from tactic.ui.table.custom_layout_element_wdg import read_custom_layout
@@ -9389,6 +9396,10 @@ def query_table_layout(search_type, search_keys=None, view='table',
                         progress = max(0, min(100, progress))
             return {'text': str(body), 'messageLabel': title,
                     'author': object_value(sobject, 'login'), 'progress': progress}
+        if class_name.endswith('.ExpressionElementWdg'):
+            native = getattr(widget, 'get_cell_value', None)
+            if native:
+                return native()
         if class_name.endswith((
                 '.ArrayTableElementWdg', '.XmlWdg', '.JsonElementWdg',
                 '.SnapshotVersionElementWdg')):
@@ -9890,7 +9901,10 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
             if op in ['in', 'not in']:
                 eval_sobjects = Search.eval(expression_filter)
                 if eval_sobjects:
-                    search.add_relationship_filters(eval_sobjects, op=op)
+                    if all(item.get_search_type() == search.get_search_type() for item in eval_sobjects):
+                        search.add_filters('id', [item.get_id() for item in eval_sobjects], op=op)
+                    else:
+                        search.add_relationship_filters(eval_sobjects, op=op)
                 elif op == 'in':
                     search.set_null_filter()
             else:

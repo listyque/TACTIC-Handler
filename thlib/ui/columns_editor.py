@@ -1741,6 +1741,22 @@ class ColumnsEditorController(QObject):
         if not mapped:
             return
         self._cells.update(mapped)
+        if not self._dirty:
+            columns = {item["name"]: item for item in payload.get("columns") or []}
+            records = [dict(record) for record in self.model._records]
+            for record in records:
+                attributes = columns.get(record["name"], {}).get("attributes") or {}
+                raw_width = str(attributes.get("width") or "").strip().removesuffix("px")
+                if re.fullmatch(r'[+-]?\d+', raw_width):
+                    continue
+                hint = next(((row.get(record["name"]) or {}).get("widthHint")
+                             for row in mapped.values()), None)
+                if hint:
+                    record["displayWidth"] = self._width(hint)
+            if records != self.model._records:
+                self.model.replace(records)
+                self._source_records = [dict(record) for record in records]
+                self.stateChanged.emit()
         group_column = parse_column_group_mode(
             str(getattr(self._application, "result_group_mode", "") or "")
         )

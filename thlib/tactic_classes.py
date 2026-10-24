@@ -829,7 +829,7 @@ class SObject(object):
             return title
 
     def get_code(self):
-        return self.info['code']
+        return self.info['code'] if 'code' in self.info else str(self.info['id'])
 
     def get_info(self, value=None):
         if value:
@@ -906,21 +906,25 @@ class SObject(object):
 
         relationship = relations.get('relationship')
 
+        if relationship in ('general', 'search_type', 'search_code', 'search_id', 'id'):
+            owner_type = child_stype if path == 'parent' else parent_stype
+            column = 'id' if self.info.get('id') is not None else 'code'
+            value = self.info.get(column)
+            if value is None:
+                raise ValueError('A saved object is required for a relationship query')
+            return "@SOBJECT({0}['{1}', {2}].{3})".format(
+                owner_type.get_code(), column, repr(value), related_type
+            )
+
         if relationship:
 
-            if relationship in ['code', 'search_type']:
-                # Schema relations are directed from child to parent.  A
-                # search_type relationship uses the standard search_code
-                # column; a direct code relationship uses the declared
-                # foreign key (or the conventional <parent>_code column).
+            if relationship == 'code':
+                # Schema relations are directed from child to parent.
                 related_from_column = relations.get('from_col')
                 if not related_from_column:
-                    if relationship == 'search_type':
-                        related_from_column = 'search_code'
-                    else:
-                        related_from_column = '{0}_code'.format(
-                            relations.get('to').split('/')[-1]
-                        )
+                    related_from_column = '{0}_code'.format(
+                        relations.get('to').split('/')[-1]
+                    )
                 related_to_column = relations.get('to_col') or 'code'
 
                 if path == 'parent':
@@ -977,7 +981,7 @@ class SObject(object):
 
                 related_code = self.info.get('code')
 
-        if relationship not in ('code', 'search_type', 'instance'):
+        if relationship not in ('code', 'instance'):
             raise ValueError(
                 'Unsupported relationship {0} between {1} and {2}'.format(
                     relationship,
@@ -1227,7 +1231,7 @@ class Project(SObject):
                     else:
                         conn['parents'].append(connect)
 
-                if pipe.attrs['name'] == connect['to']:
+                if connect['to'] in (pipe.attrs['name'], '*'):
                     if connect.get('path'):
                         if connect['path'] == 'parent':
                             conn['parents'].append(connect)
@@ -1538,12 +1542,18 @@ class Schema(object):
         for child in self.children:
             if child['from'] == child_stype and child['to'] == parent_stype:
                 return child
+        for child in self.children:
+            if child['from'] == child_stype and child['to'] == '*':
+                return dict(child, to=parent_stype)
 
     def get_parent(self, parent_stype, child_stype):
 
         for parent in self.parents:
             if parent['to'] == parent_stype and parent['from'] == child_stype:
                 return parent
+        for parent in self.parents:
+            if parent['to'] == '*' and parent['from'] == child_stype:
+                return dict(parent, to=parent_stype)
 
     def get_child_instance(self, instance_type, related_type):
         for child in self.children:

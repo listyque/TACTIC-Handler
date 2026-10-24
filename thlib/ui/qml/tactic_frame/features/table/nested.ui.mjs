@@ -28,7 +28,16 @@ export function rows(model) {
 export function columns(model) {
     let left = model.selection === false ? 0 : metrics.selection;
     return (model.columns || []).map((column, index) => {
-        const width = Math.max(48, Math.min(640, Number(column.width) || 160));
+        const titleWidth = String(column.title || column.name).length * 8 + 20;
+        const minimum = column.cell?.kind === 'text' ? 160 : 48;
+        const width = Math.min(
+            640,
+            Math.max(
+                minimum,
+                titleWidth,
+                Number.parseFloat(column.width) || 160
+            )
+        );
         const result = Object.assign({}, column, { index, x: left, width });
         left += width;
         return result;

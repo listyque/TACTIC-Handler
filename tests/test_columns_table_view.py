@@ -757,6 +757,25 @@ class _TableColumns(QObject):
 
 
 class ColumnsTableViewTests(unittest.TestCase):
+    def test_loaded_cell_width_hint_respects_config_and_unsaved_widths(self):
+        controller = ColumnsEditorController(_Application(_SType()))
+        controller._table_widgets = {'schedule': table_widgets.TacticSimpleTableWidget()}
+        controller.model.replace([dict(name='schedule', displayWidth=160)])
+        payload = dict(columns=[dict(name='schedule', attributes={})],
+                       rows={'A': {'schedule': dict(text='', widthHint=400)}})
+        controller._table_rows_loaded(controller._row_request_id, payload)
+        self.assertEqual(controller.model._records[0]['displayWidth'], 400)
+        self.assertEqual(controller._source_records, controller.model._records)
+        controller.model.replace([dict(name='schedule', displayWidth=220)])
+        payload['columns'][0]['attributes']['width'] = '220px'
+        controller._table_rows_loaded(controller._row_request_id, payload)
+        self.assertEqual(controller.model._records[0]['displayWidth'], 220)
+        payload['columns'][0]['attributes'] = {}
+        controller._dirty = True
+        controller._table_rows_loaded(controller._row_request_id, payload)
+        self.assertEqual(controller.model._records[0]['displayWidth'], 220)
+        self.assertTrue(controller._dirty)
+
     def test_group_collapse_reuses_existing_task_cards(self):
         from tests.profile_result_table import benchmark
 

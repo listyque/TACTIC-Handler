@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.142 - 2026-10-24
+
+- Query related objects through the saved owner's identity, including native connection relations and ID-only records. Keep excluded record classes out of the expandable tree, matching navigation availability.
+- Pair with Stream 0.112.195: show check-in history in the scoped snapshot table and preserve readable headers and code columns in nested VFX tables. The adapted VFX example uses native frame fields and the object inspector instead of excluded production widgets.
+- Honor the sidebar's configured table view when opening its section, saved searches and new search tabs; Sequence now opens its Shots and schedule columns instead of silently selecting the default table.
+- Retain wildcard child relations, filter evaluated objects by identity instead of walking the same relation twice, and preserve formatted expression cells. Apply server width hints to clean table layouts without replacing explicit or unsaved widths.
+
 ## 0.6.0.141 - 2026-10-24
 
 - Honor global and wildcard navigation grants, project-specific overrides and view access for ordinary users; keep each project's parsed rules in an independent cache.

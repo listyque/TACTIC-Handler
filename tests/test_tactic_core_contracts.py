@@ -10,6 +10,23 @@ import thlib.tactic_query as tq
 
 
 class TacticCoreContractTests(unittest.TestCase):
+    def test_id_only_record_has_the_same_code_fallback_as_the_server(self):
+        self.assertEqual(tc.SObject({'id': 7}).get_code(), '7')
+        self.assertEqual(tc.SObject({'id': 0}).get_code(), '0')
+        self.assertEqual(tc.SObject({'code': 'A'}).get_code(), 'A')
+
+    def test_project_schema_keeps_wildcard_children_and_resolves_the_owner(self):
+        project = tc.Project({'code': 'demo'})
+        stypes = project.get_all_search_types([
+            {'code': 'vfx/sequence'}, {'code': 'vfx/art_reference'}], [],
+            '<schema><search_type name="vfx/sequence"/><search_type name="vfx/art_reference"/>'
+            '<connect from="vfx/art_reference" to="*" relationship="general"/></schema>', [])
+        sequence = stypes['vfx/sequence'].get_schema()
+        reference = stypes['vfx/art_reference'].get_schema()
+        self.assertEqual(sequence.get_child('vfx/art_reference', 'vfx/sequence')['to'], 'vfx/sequence')
+        self.assertEqual(reference.get_parent('vfx/sequence', 'vfx/art_reference')['to'], 'vfx/sequence')
+        self.assertEqual(reference.parents[0]['to'], '*')
+
     class _GatewayError(RuntimeError):
         def __init__(self, status):
             self.code = status
@@ -82,6 +99,8 @@ class TacticCoreContractTests(unittest.TestCase):
 
     def test_sobject_query_uses_the_read_only_retry_boundary(self):
         payload = {"sobjects_list": []}
+        server = Mock()
+        server.build_search_type.return_value = "demo/asset?project=demo"
         with patch.object(
                 tc, "_execute_read_only_procedure_serverside",
                 return_value=payload,
@@ -90,6 +109,8 @@ class TacticCoreContractTests(unittest.TestCase):
                 side_effect=AssertionError("unsafe raw query boundary"),
         ), patch.object(
                 tc, "hydrate_sobjects_payload", return_value=(object(), {})
+        ), patch.object(
+                tc, "server_start", return_value=server
         ):
             tc.get_sobjects(
                 "demo/asset", project_code="demo", return_payload=True
@@ -214,7 +235,7 @@ class TacticCoreContractTests(unittest.TestCase):
         self.assertEqual(raised.exception.project, "demo")
         self.assertIn("ValueError: broken", raised.exception.server_traceback)
 
-    def test_search_type_relationship_uses_search_code(self):
+    def test_search_type_relationship_resolves_columns_on_server(self):
         schema = Mock()
         schema.get_child.return_value = {
             "relationship": "search_type",
@@ -236,8 +257,25 @@ class TacticCoreContractTests(unittest.TestCase):
 
         self.assertEqual(
             expression,
-            "@SOBJECT(sthpw/note['search_code', 'ASSET0001'])",
+            "@SOBJECT(demo/asset['code', 'ASSET0001'].sthpw/note)",
         )
+
+    def test_general_relationship_uses_saved_identity_in_both_directions(self):
+        schema = Mock()
+        schema.get_child.return_value = {'relationship': 'general'}
+        schema.get_parent.return_value = {'relationship': 'general'}
+        child_stype = Mock()
+        child_stype.get_code.return_value = 'vfx/art_reference'
+        child_stype.get_schema.return_value = schema
+        parent_stype = Mock()
+        parent_stype.get_code.return_value = 'vfx/sequence'
+        parent_stype.get_schema.return_value = schema
+        owner = tc.SObject({'id': 7})
+        for path, expected in (
+            ('child', "@SOBJECT(vfx/sequence['id', 7].vfx/art_reference)"),
+            ('parent', "@SOBJECT(vfx/art_reference['id', 7].vfx/sequence)"),
+        ):
+            self.assertEqual(owner.get_related_sobjects_tel_string(child_stype, parent_stype, path), expected)
 
     def test_code_relationship_uses_declared_columns_in_both_directions(self):
         relation = {

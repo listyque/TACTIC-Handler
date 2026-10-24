@@ -484,6 +484,8 @@ class LoadingMixin:
                 child_stype = project.stypes.get(child_code)
                 if not child_stype:
                     continue
+                if (getattr(child_stype, "info", {}).get("__record_read__") or {}).get("available") is False:
+                    continue
                 relation_nodes.append(WorkspaceNode(
                     node_id=(
                         f"{node.node_id}:relation:"

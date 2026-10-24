@@ -206,3 +206,7 @@ Changelist shows the selected change description, files, shelves and linked task
 ## Support window ownership
 
 Help, Debug Log, UI responsiveness and profile remain independently reopenable tool windows. Profile editing and installation confirmation are owned dialogs. Escape first closes the active child; unsaved or busy profile edits guard closing the parent. Signing out removes account-owned browser state while Help and Debug Log remain available on sign-in. Local file pickers, native title bars and portable installers remain platform operations.
+
+VFX template support: use the adapted VFX stream.1 example for native frame fields and object details. Sequence trees use real connection records; table Task Status and aggregate shot schedules use native task data. History opens the scoped snapshot table with all versions and its normal filters. Nested headers and code columns keep a readable minimum width and scroll horizontally. Import success alone does not certify all VFX views. Maya and applet workflows are excluded by the user; other gaps remain listed in the release VFX support inventory.
+
+Sidebar entries keep their configured table view when opening a section, saved searches or new search tabs; a manual per-tab view remains separate.

@@ -161,6 +161,7 @@ class SearchTabsMixin:
             limit=self._page_size,
             view_mode=self._default_view_mode,
             ensure_name_row=True,
+            table_view=current.table_view if current else 'table',
         )
         if current is not None:
             tab.workspace_layout = deepcopy(current.workspace_layout)

@@ -129,6 +129,7 @@ class SidebarSearchContractTests(unittest.TestCase):
             "<element name='cards' title='Cards' is_visible='on'>"
             "<display class='LinkWdg'><widget_key>view_panel</widget_key>"
             "<view_mode>tiles</view_mode>"
+            "<view>review_assets</view>"
             "<layout_preset>workspace_layout@review</layout_preset>"
             "<script_shelf>script_shelf@review</script_shelf>"
             "</display>"
@@ -163,6 +164,7 @@ class SidebarSearchContractTests(unittest.TestCase):
 
         self.assertEqual([entry.title for entry in entries], ["Cards"])
         self.assertEqual(entries[0].view_mode, "tiles")
+        self.assertEqual(entries[0].table_view, "review_assets")
         self.assertEqual(
             entries[0].layout_preset, "workspace_layout@review",
         )
@@ -244,6 +246,7 @@ class SidebarSearchContractTests(unittest.TestCase):
             search_type="demo/assets",
             search_view="my_assets",
             view_mode="tiles",
+            table_view="review_assets",
             filter_records=tuple(records),
         )
         controller = _SidebarHarness(entry)
@@ -265,6 +268,7 @@ class SidebarSearchContractTests(unittest.TestCase):
         self.assertEqual(reopened.tabs[0].tab_kind, "base")
         self.assertEqual(reopened.tabs[0].filter_records, records)
         self.assertEqual(reopened.tabs[0].view_mode, "tiles")
+        self.assertEqual(reopened.tabs[0].table_view, "review_assets")
         self.assertEqual(
             reopened.tabs[0].extra_filters,
             [("_expression", "in", "@SOBJECT(sthpw/task['assigned', '$LOGIN'])")],
