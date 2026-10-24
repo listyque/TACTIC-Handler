@@ -7,7 +7,7 @@
 - User clarification, 2026-10-13: implement corresponding Handler and Stream interfaces identically in layout, dimensions, actions and behavior. Compare both on the same data, theme, language, scale and window size; resolve differences in the same change. Never claim parity after checking only one implementation. Record unavoidable platform differences explicitly.
 
 - This file defines repository-wide engineering rules. A nested `AGENTS.md` may add stricter domain-specific requirements but must not weaken this baseline.
-- User clarification, 2026-10-11: review and apply user-reported fixes in both TACTIC-Handler and TACTIC Stream (`D:/code/TACTIC_VUE/tactic_stream`). Synchronize equivalent behavior, regression checks and user help; explicitly identify a missing counterpart instead of claiming parity.
+- User clarification, 2026-10-11: review and apply user-reported fixes in both TACTIC-Handler and TACTIC Stream (`D:/grav/Tactic Stream/TS/tactic_stream`). Synchronize equivalent behavior, regression checks and user help; explicitly identify a missing counterpart instead of claiming parity.
 - Follow explicit user requirements first, then the nearest applicable `AGENTS.md`, then established local conventions. When two rules appear to conflict, preserve the more specific safety, data-integrity, or project requirement and document the decision.
 - Inspect the current implementation, call sites, tests, configuration, and relevant original workflow before changing code. Conversation history is context, not proof of the current state.
 - Never infer behavior from file, module, class, or function names alone. Verify the implementation, call sites, and actual execution flow before drawing conclusions.
@@ -106,6 +106,8 @@
 ## Documentation
 
 - Keep developer documentation in English. Preserve server-defined identifiers, commands, paths, API names, and code examples exactly unless they are obsolete.
+- Keep Handler's client API, native objects and desktop Help distinct from Stream's server API, core structures and web Help. A shared search key or Frame description does not unify execution environments, transports or object lifetimes. Original TACTIC server schema references stored under `docs/tactic_database` are not Handler's in-memory object model.
+- Keep agent backlog, handoffs and work journals outside both repositories in the workspace's `agent-work/` directory. Use its `CURRENT.md` for the working queue; keep durable contracts and reproducible procedures in product docs. Never include local process history in releases. Preserve English/Russian product Help and translation dictionaries.
 - Document why a constraint exists, its owner, and how it is verified. Avoid aspirational documentation that is not enforced by code, tests, or review.
 - Update user help, developer docs, and operational notes in the same change as the behavior they describe.
 - Follow the canonical [Modern UI QML component contract](docs/ui_component_policy.md) for every new or changed QML interface.
@@ -126,7 +128,7 @@ These primary sources inform the general rules above. Project-specific rules in 
 ## Git workflow
 
 - Commit every completed task after reviewing its diff and running relevant checks. Include its tests, documentation, changelog and version metadata; stage explicit paths or hunks and preserve unrelated work from other tasks.
-- Keep this repository independent from TACTIC Stream at `D:/code/TACTIC_VUE`. For shared changes, commit both projects and report both commit ids.
+- Keep this repository independent from TACTIC Stream at `D:/grav/Tactic Stream/TS`. For shared changes, commit both projects and report both commit ids.
 - Never stage credentials, runtime databases, user settings, transfer journals, caches, logs or generated build/test artifacts. Review new files and the staged diff; ignored files remain on disk.
 - Preserve existing history and the configured upstream. Do not rewrite history or force-push; push only to an explicitly authorized destination. Local Git history does not replace backups of user data.
 - The user authorized NAS backups under `\\ListyNAS\home\codex_backups`. Push completed commits and tags to the configured `backup` remote without force. If NAS is unavailable, retain local commits and report the pending backup. Do not publish to the public `upstream` by default.

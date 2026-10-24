@@ -84,6 +84,8 @@ _tmp/
 /temp_custom_scripts/
 /updates/
 /.artifacts/
+/agent-work/
+/docs/ui_architecture_cleanup_plan.md
 /.tmp/
 /.codex-smoke-*/
 /.ruff_cache/

@@ -1,347 +1,210 @@
-# Общий скелет QML / Vue
+# Shared QML / Vue contract
 
-Рабочее имя общего слоя — **Tactic Frame**. Описание UI состоит из обычных
-JavaScript-объектов; `.mjs` — стандартное расширение JavaScript-модуля, а не
-самостоятельный язык. UI и состояние хранятся отдельно; новый синтаксис,
-парсер или расширение файлов не вводятся. Устройство прототипа описано в
-`tools/shared_ui_demo/README.md`.
+**Tactic Frame** describes UI with ordinary JavaScript objects in standard `.mjs`
+modules. Keep UI descriptions and state separate; do not introduce a new language,
+parser or file extension. This contract applies to shared screens and prototypes.
+It supplements each product's AGENTS and component policies. Do not rewrite an
+unrelated working screen merely to adopt the contract.
 
-Это обязательный контракт для новых общих экранов и прототипов. Он дополняет
-`AGENTS.md`, `UI_ARCHITECTURE.md` и компонентную политику Handler. Уже работающие
-экраны не переписываются целиком без отдельной задачи.
+## Product boundaries
 
-Current foundation work is tracked in `shared_ui_foundation_plan.md`. The
-Administration comparisons below are a previous checkpoint, not proof of
-original-Handler parity. New acceptance compares archived Handler → Frame
-Handler → Frame Stream, preserving explicit platform capabilities. Source
-layout and readability rules are in `src/tactic_stream/shared_ui/README.md`.
-Support/identity/connection composition and existing command owners are mapped in
-`docs/frame_support.md`; native file/update capabilities and browser session
-storage remain explicit. Historical original-UI reports are checkpoints, not
-fresh acceptance evidence after a renderer changes.
+TH and TS are independent products, repositories and bundles. TH ships Python,
+QML and its own `.mjs` copy; TS ships its server and built Vue resources. Normal
+startup/build/update must not require the other checkout, shared runtime folders
+or symlinks. No separate shared package is required at this stage.
 
-## Единственные владельцы
+The skeleton is logically shared; apply changes to both physical copies. Each
+client retains its controls, domain controllers, transport, authentication and
+file capabilities. An identical UI description does not make a TH API object
+interchangeable with a Stream HTTP payload or server-side SObject.
 
-### Контрол, инфраструктура и форма
+Frame copies live in TS `src/tactic_stream/shared_ui` and TH
+`thlib/ui/qml/tactic_frame`. From the Stream product directory, verify with
+`tools/sync_tactic_frame.py --handler-root <handler-checkout> --check` (the default
+mode). Copy only explicitly with `--copy-from stream` or `--copy-from handler`;
+this tool is not part of ordinary product builds.
 
-Классифицировать по ответственности, а не по папке, имени, размеру файла или
-количеству вложенных элементов. **Базовый набор состоит из примитивов и
-нейтральных составных контролов.** Составной контрол не становится формой
-только потому, что внутри несколько кнопок и полей.
+## Single owners
 
-| Уровень | Ответственность | Примеры |
+### Controls, infrastructure and forms
+
+Classify by responsibility, not location, filename, size or nested element count.
+The base library contains primitives and neutral composite controls. Several
+buttons/fields do not automatically make a component a domain form.
+
+| Layer | Responsibility | Examples |
 | --- | --- | --- |
-| Примитив | Одно значение, действие или визуальный сигнал; нейтральные свойства и события | Button, CheckBox, TextField, Icon |
-| Базовый составной контрол | Переиспользуемое взаимодействие; получает готовые данные, выдаёт события | ComboBox, SearchField с очисткой, DateField с календарём, UserPicker, TabRail, Menu, SettingRow |
-| Инфраструктура | Ввод, рендеринг, размещение и жизненный цикл | ActivationHandler, FrameView, popup coordinator, window/dock host |
-| Форма / предметный фрагмент | Конкретный сценарий, его данные, проверки и операции | Groups editor, TaskInspector, Task Calendar, ProjectCard, ProcessSelectionTree |
+| Primitive | One value, action or signal with neutral properties/events | Button, CheckBox, TextField, Icon |
+| Base composite control | Reusable interaction; accepts prepared data, emits events | ComboBox, clearable SearchField, DateField/calendar, UserPicker, TabRail, Menu, SettingRow |
+| Infrastructure | Input, rendering, placement and lifecycle | ActivationHandler, FrameView, popup coordinator, window/dock host |
+| Form / domain fragment | A particular workflow, data, validation and operations | Groups editor, TaskInspector, Task Calendar, ProjectCard, ProcessSelectionTree |
 
-Проверка границы: можно ли использовать компонент в другом сценарии, передав
-нейтральные данные и обработчики, без проекта, Search Type, task code, ACL или
-предметного контроллера? Если нет — это форма или её фрагмент. Отсутствие прямого
-HTTP-запроса само по себе не делает компонент базовым: знание предметной модели
-тоже относится к сценарию. Текст Send и состояние sending у кнопки не равны
-знанию message id и операции отправки сообщения.
+Can the component serve another workflow using neutral data/handlers, without a
+project, Search Type, task code, ACL or domain controller? If not, it is a form or
+domain fragment. No direct HTTP call does not imply a neutral control: domain
+knowledge also belongs to the workflow. A Send label and sending state are neutral;
+a message ID and message-send operation are domain knowledge.
 
-Контрол владеет локальным вводом, фокусом, раскрытием и отображением ошибки.
-Форма владеет предметной валидацией, черновиком, загрузкой, сохранением,
-подтверждениями и обработкой результата. Picker получает пользователей, но не
-меняет членство группы; календарь выбирает дату, но не загружает расписание
-задач. Общая шапка содержит слоты действий; TaskWorkspaceModeSwitcher вызывает
-команды задач и остаётся предметным фрагментом.
+Controls own local input, focus, expansion and error display. Forms own domain
+validation, drafts, loading, saving, confirmations and results. A picker receives
+users but does not change membership; a calendar chooses a date but does not
+load task schedules. A shared header provides action slots; a task mode switcher
+that invokes task commands remains a domain fragment. Location cannot change
+these rules: ProjectCard, ProjectFilterToggles and ProcessSelectionTree remain
+domain components even under controls/. SettingRow is base composition;
+ConfigurationPage is a form. Do not create a base type per form or move domain
+commands into a control just to reuse its appearance.
 
-Расположение не переопределяет этот контракт: QML ProjectCard,
-ProjectFilterToggles и ProcessSelectionTree сейчас находятся в controls/, но
-это предметные компоненты. SettingRow — базовая композиция, ConfigurationPage —
-форма. Не создавать новый базовый тип на каждую форму, и не переносить предметные
-команды в общий контрол ради повторного использования внешнего вида.
-
-Полный индекс и очередь разборов воспроизводятся командой
-`python tools/frame_controls/elements.py --handler-root <checkout-ТХ>`:
-`tools/frame_controls/output/ui-elements.html`. Реестр семейств и вариантов —
-`tools/frame_controls/element_catalog.json`. Статическое присутствие, парный
-снимок и проверенное поведение — отдельные признаки; состояние «на разбор»
-нельзя считать готовностью. Каталог из 372 состояний покрывает только текущую
-выборку, а не всю библиотеку. B02 расширяет её 144 самостоятельными примерами:
-`controls/catalog/variants.mjs`, рабочий `tools/frame_controls/output/catalog.html`
-и парный `output/variants/index.html`. Команды, владельцы и границы проверки —
-[`frame_control_catalog.md`](frame_control_catalog.md). Число примеров и число
-состояний по-прежнему не являются числом базовых типов.
-
-### Владение общими правилами
-
-| Что | Где определяется | Что запрещено в адаптерах |
+| Concern | Owner | Forbidden in adapters |
 | --- | --- | --- |
-| Структура, идентификаторы, размеры, интервалы и адаптивные правила | Общая спецификация и общий расчёт компоновки | Две независимые разметки одной страницы, локальная подгонка координат |
-| Состояние экрана, переходы, правила жестов | Один независимый модуль | Повторять проверки, расчёты дат, drag, zoom или undo в QML и Vue |
-| Нативная отрисовка и ввод | Именованные кирпичики движка | API, знание проекта, бизнес-правила |
-| Цвет, типографика, иконки, motion | Действующие общие владельцы темы | Копии палитры в страницах, произвольные SVG штатных действий |
-| Доступность функций клиента | Явный контракт возможностей | Молча скрывать функцию, менять смысл команды или выдавать заглушку за реализацию |
-| TACTIC, ACL, сохранение и обработка ошибок | Действующие предметные контроллеры и серверные команды | Второе независимое сохранение из контрола, клиентская подмена ACL |
+| Structure, IDs, dimensions, spacing, responsiveness | Shared description and layout calculation | Independent page layouts or local coordinate corrections |
+| Screen state, transitions, gesture rules | One engine-independent module | Duplicated validation, date arithmetic, drag, zoom or undo |
+| Native paint/input | Named engine primitives | API calls, project knowledge or business rules |
+| Colors, typography, icons, motion | Existing theme owners | Per-page palettes or custom SVGs for standard actions |
+| Client feature availability | Explicit capability contract | Silent hiding, altered command meaning or placeholder success |
+| TACTIC, ACL, persistence, errors | Existing domain controllers and server commands | A second save path in controls or client substitutes for server ACL |
 
-Имена кирпичиков соответствуют их смыслу: `Button`, `CheckBox`, `TextField`,
-`Label`. В QML используются контролы Handler, в Vue — соответствующие `App*`.
-Нельзя вкладывать целый независимо написанный экран в два одинаковых контейнера
-и называть это общим скелетом.
+Primitive names express their meaning: Button, CheckBox, TextField, Label. QML
+uses Handler controls; Vue uses matching App* controls. Wrapping two independently
+implemented screens in matching containers is not a shared skeleton.
 
-## Обязательный порядок изменения
+## Required change procedure
 
-1. Прочитать существующий экран Handler, вложенные контролы и обработчики.
-   Зафиксировать операции, состояния, тип хоста и возможности клиента.
-2. Изменить общий скелет и правила. Если нужен новый кирпичик, определить его
-   имя, размеры, типографику, все состояния и событие один раз.
-3. Реализовать кирпичик в обоих движках через существующие house controls.
-   Адаптер преобразует ввод в общее событие; общий модуль решает, что произошло.
-4. Выполнить те же сценарии реальным вводом в настоящем Qt и браузере. Одинаковы
-   данные, тема, язык, масштаб и размер окна. Проверять default, disabled,
-   focus/hover/pressed по затронутому контролу, ошибки, пустое состояние,
-   повторное открытие, Escape, отмену и сохранение.
-5. Сравнить не только модель, но фактическую геометрию контролов, цвета и
-   типографику. Снять обе реализации, приложить парные снимки и найденные
-   ограничения. Исправить выявленные различия в этой же задаче.
-6. Обновить описание и справку затронутых рабочих сценариев. Незавершённое
-   прямо обозначить; не объявлять экран готовым по наличию меню или backend API.
+1. Inspect the existing Handler screen, nested controls and handlers. Identify
+   operations, states, host type and client capabilities.
+2. Change shared structure/rules. Define a new primitive's name, dimensions,
+   typography, states and event contract once if one is actually needed.
+3. Implement it in both engines through existing house controls. The adapter
+   normalizes input; the shared module decides the state transition.
+4. Exercise identical scenarios through actual Qt/browser input, with identical
+   data, theme, language, scale and window size. Check relevant default,
+   disabled, focus/hover/pressed, error/empty, reopen, Escape, cancel and save states.
+5. Compare real control geometry, colors and typography, not only models. Capture
+   both implementations, document limits and fix differences in the same task.
+6. Update the affected contract and product help. A menu or backend entry point
+   does not certify the complete workflow; identify unsupported parts explicitly.
 
-Неподдерживаемый узел или команда должны давать явную ошибку. Запрещены silent
-fallback, `eval` серверного UI и page-specific CSS, исправляющий геометрию только
-одного движка. Изменение общих стилей требует проверки их потребителей.
+Unsupported nodes/commands fail explicitly. No silent fallback, server-UI `eval`
+or page-specific CSS repairing only one engine. Check consumers after shared
+style changes. WebEngine/WebView/HTML inside QML requires an explicit user
+instruction; visual convenience is not authorization. Python/QML Script Editor
+and standalone Batch Manager retain their native execution systems.
 
-**WebEngine, WebView и HTML внутри QML запрещены без отдельного явного указания
-пользователя.** Python/QML Script Editor и standalone Batch Manager сохраняют
-нативную систему скриптов. «Так проще добиться сходства» не является разрешением.
+Shared geometry depends on the primitive contract. It does not guarantee identical
+font rasterization, system menus or OS capabilities. Do not promise pixel parity
+without measurements and screenshots. Headless browser captures must not hide
+scrollbars. Preserve native disabled behavior and actual input/focus semantics.
 
-Одинаковый скелет обеспечивает одинаковую геометрию при соблюдении контракта
-кирпичиков. Он не гарантирует одинаковую растеризацию шрифта, системные меню или
-возможности ОС. Нельзя обещать пиксельную идентичность без измерений и снимков.
+## Screen and editor contracts
 
-## Проверяемый сложный пример
+Groups uses shared `groups.ui.mjs` / `groups.state.mjs` for catalogue, tabs, form,
+membership, warnings and permitted actions. Users uses `users.ui.mjs` /
+`users.state.mjs` for search, archived accounts, Profile/Account/Groups, fields,
+password and membership. Existing client controllers keep persistence ownership.
+Confirm save/reset; an unknown write result blocks retry until successful readback.
+Never return passwords in catalogues. A legacy server field such as license type
+may be shown only where that server actually provides it; this does not restore
+excluded Stream licensing.
 
-`tools/shared_ui_demo/gantt.json` задаёт размеры и строки, `gantt.ui.mjs` —
-компоновку и элементы, `gantt.state.mjs` — состояние, переходы и расчёты.
-`GanttDemo.qml` / `GanttDemo.vue` рисуют один граф примитивов
-и нормализуют ввод. Тема экспортирована из настоящего Handler; данные взяты из
-существующей фикстуры расписания. На стенде нет production-запросов.
+Access rules uses `security.ui.mjs` / `security.state.mjs` for scopes, matrix,
+lists/editor, group settings, XML/JSON/inherited values and local buffer state.
+`admin.document.mjs` shares draft actions and confirmations; domain controllers
+retain validation and permission resolution. Choice and virtualized Grid retain
+fixed headers and separate scrollbars. Load FrameGrid.qml by URL after the current
+scene exists to avoid recursive FrameView compilation. Read Qt list models by
+named roles and JavaScript arrays through modelData.
 
-Проверка: `gantt_qml.py --capture`, затем из `frontend`
-`node tests/shared_gantt_demo.mjs` с `STREAM_BROWSER_CHANNEL=msedge`.
-Тест проверяет хеши исходников, одинаковый граф сцены, реальные прямоугольники и
-одинаковую историю операций, фактические цвета и шрифты в 160 состояниях. Отчёт:
-`tools/shared_ui_demo/output/gantt-report.html`.
-Два интерактивных окна запускаются через `tools/shared_ui_demo/start_demo.cmd`.
+Raw database, Sidebar and Columns use their shared ui/state modules, including
+the nested Cell editor. `controls/forms/sections.ui.mjs` defines form rows.
+Unapplied Sidebar/Columns fields participate in dirty/close guards; invalid text
+survives navigation. Unknown writes require readback. Native Grid publishes a
+stable row-vector snapshot before model reset; its URL loader owns bindings
+separately from delegates.
 
-Это доказательство общей сложной компоновки, а не завершённая миграция рабочего
-Ганта. Серверное сохранение, все production-команды, большие наборы данных,
-масштабирование ОС, мобильная компоновка и полный набор hover/focus/pressed
-состояний ещё не проверены. Прототип не подменяет существующие виджеты.
+Administration has ten sections: Groups, Users, Access rules, Search Types,
+Project schema, Workflow, Columns Editor, Raw database, Layout Editor and Sidebar.
+Naming, process dependencies, type deletion/creation and the window shell also
+use Frame. `administration.ui/state.mjs` describes the common shell. View may host
+a migrated child Frame screen or an empty host port, not an independently laid
+out old screen presented as a shared implementation. Ports retain editor instances;
+shared modules place them. Toolbars observe their port size, not the whole dialog.
+Search Types/Schema → Workflow and Sidebar → Groups use the main sections,
+preserve drafts and do not reload the pipeline just because navigation returns.
 
-## Рабочий экран Administration → Groups
+Code uses native SourceEditor/CodeEditor with shared `code.ui.mjs` actions for
+undo/redo, clipboard, find/replace, help, font size and history. TH uses a private
+QObject with its own Qt Slot declarations and highlighter, not a borrowed Script
+Editor session/settings. Update QTextDocument input imperatively and synchronize
+Python responses after the current event so stale intermediate text cannot reset
+the cursor. List delegates retain stable keys; selection must not destroy a drag
+source by replacing the entire JavaScript model.
 
-С 2026-10-14 Groups в обоих клиентах использует Tactic Frame. Спецификация
-хранится физическими дубликатами: `src/tactic_stream/shared_ui` в ТС и
-`thlib/ui/qml/tactic_frame` в ТХ. `groups.ui.mjs` задаёт весь каталог,
-вкладки, форму, участников, предупреждения и действия; `groups.state.mjs` —
-переходы и разрешённые команды; `frame.mjs` — контракт узлов и виртуализацию.
-Это стандартные ESM-модули, исполняемые без преобразования и в Qt V4, и в браузере.
+Layout uses standard minidom/DOMParser. Shared layout.document/state/ui/preview
+owns structural edits, templates, movement, layers, conditions, bindings and
+preview. Preserve unknown attributes/nodes/comments; forbid DTD/external entities.
+Save requires server validation of the exact current XML and confirmation.
+Keep server ACL, revisions and native commands; never retry an unknown write
+without reading its outcome. Project reset reads the Layout catalogue from memory;
+uncached projects discover through the existing read-only worker procedure with
+captured server/ticket. Late replies cannot change another project's editor.
 
-Кирпичики: `frontend/src/frame/FrameView.vue` и
-`D:/code/th_codex/thlib/ui/qml/tactic_frame/core/FrameView.qml`. Они рисуют узлы через
-существующие App*/Controls.*; предметных запросов в рендерах нет. Views Groups
-проецируют данные существующих контроллеров и исполняют команды общего модуля.
-Удалена независимая разметка Groups. Оболочка Administration пока не считается
-мигрированной; ход остальных разделов указан в начале UI_ARCHITECTURE.md.
+## Explicit capability differences
 
-ТХ и ТС — отдельные продукты, каталоги и сборки. ТХ поставляет собственные Python,
-QML и `.mjs`; ТС — свой backend и собранный Vue UI. Импорты из соседнего проекта,
-общие runtime-каталоги, symlink и обязательное присутствие второго checkout при
-обычной сборке запрещены. На этом этапе отдельный общий пакет не создаётся.
+- TH Layout Editor is native; Open view runs configured SObject layouts in the
+  system browser with its own authorized session, never a ticket in the URL.
+  TS opens the layout in its working window. Layout validation/writes use the
+  installed Stream layout-authoring API, not imports from a neighboring checkout.
+- Naming keeps Handler's native local simulation and browser-side server checks
+  explicit. Preview does not run arbitrary scripts.
+- TH opens related objects through its existing object opener. The additional
+  browser read-only details window uses Frame; it does not imply desktop file
+  operations are available in a browser.
+- Native files/DCC and browser inspection/administration remain separate
+  capabilities. Share applicable semantics without inventing a browser equivalent
+  for every desktop action. Compare editor contents, not system window chrome.
 
-Скелет логически один: правки применяются к обеим локальным копиям, а контролы,
-адаптеры и transport каждого клиента остаются его собственными. Для явной сверки:
-`tools/sync_tactic_frame.py --handler-root D:/code/th_codex --check` (это также
-действие по умолчанию). Копирование запускается только вручную с
-`--copy-from stream` или `--copy-from handler`; ни одна копия не является
-runtime-зависимостью другой. Инструмент не подключён к обычной сборке продуктов.
-Сравнение байтов, SHA-256 и двух клиентов выполняется отдельным интеграционным
-прогоном: `python -m unittest tools.frame_groups.test_contract`.
-Python-контроллеры, серверные TACTIC-операции и права остаются существующими.
+## Verification and source navigation
 
-Повторная проверка: `tools/frame_groups/capture_qml.py`, затем из `frontend`
-`node tests/frame_groups.mjs`; `tools/frame_groups/report.py` собирает парный
-отчёт `tools/frame_groups/output/groups-report.html`. Native UI/input, общий
-state, браузерный тач, явное сохранение, потерянный ответ, конфликт, откат и
-совпадение ревизий процедур ТХ/endpoint ТС покрыты отдельными проверками.
-База тестов временная. Проверка 108 состояний: EN/RU, dark/light, ширины
-1100/800/360, Qt Material как в рабочем Handler; одно- и двухстрочные подписи
-участников. Внутренние отступы контрола не могут менять прямоугольник сцены.
-Геометрия строки дополнительно проверена при Qt scale factor 1.5.
-Текст Qt/Chromium растеризуется по-разному; остальные масштабы ОС,
-все акцентные темы и другие СУБД этим прогоном не проверены.
+From TS's product directory, `tools/frame_controls/elements.py --handler-root`
+reproduces the control inventory; `element_catalog.json` records families/variants.
+Presence, paired screenshots and tested behavior are separate evidence. Sample
+or state counts do not count base control types or certify the whole library.
 
-## Рабочий экран Administration → Users
+Use the relevant `tools/frame_<screen>/capture_qml.py` and frontend scenario;
+Users reuses Groups with `--users`. `tools/frame_admin/native_regression.py`
+uses separate application processes because repeated full test-application
+construction is unstable in the installed PySide. `--failed` reruns failures
+without losing the combined log. A normal product remains one native application.
+Use `tools/frame_admin/capture.py`, `node tools/frame_admin/browser_regression.mjs`,
+`tools/frame_admin/report.py <screen>` and `tools/frame_admin/catalog.py` for paired
+capture/reporting. Source hashes must match current local modules, controls and
+themes; a run must fail if sources change during capture. Tests use isolated data.
 
-`users.ui.mjs` и `users.state.mjs` задают весь каталог, поиск, архивные аккаунты,
-Profile / Account / Groups, поля, пароль, членство, подтверждения и адаптивную
-компоновку. `AdminUsersView.qml` и `SecurityUsers.vue` подключают эти описания к
-своим существующим контроллерам. Старая независимая разметка и её стили удалены.
-License type отображается и сохраняется при наличии поля в схеме сервера.
-Сохранение и сброс подтверждаются; неизвестный результат блокирует повторную
-запись до успешного обновления данных. Пароль не возвращается в каталог.
+Compare state, scene structure, real geometry, colors/fonts, internal indicators,
+button glyphs and input. Qt/Chromium text widths differ: measure label width for
+centering rather than loosening control-rectangle tolerances. `check_focus.py`
+checks mouse, Tab and programmatic focus. `check_icons.py` and
+`frontend/tests/frame_icons.mjs` verify all five icon packs and reject unresolved
+native fallback glyphs. The real built-app Administration scenario uses temporary
+SQLite and HTTP; it is not a production/PostgreSQL certification. Paired capture
+harnesses never submit destructive type deletion.
 
-Повторная проверка использует те же инструменты с `--users`:
-`tools/frame_groups/capture_qml.py --users`, `node tests/frame_groups.mjs --users`,
-`tools/frame_groups/report.py --users`. Отчёт —
-`tools/frame_users/output/users-report.html`. Проверяется 132 состояния,
-включая read-only, busy и неизвестный ответ. Сравниваются не только внешние
-прямоугольники, но и значок создания, внутренние индикаторы и доступность
-полос прокрутки. Headless-браузер запускается без `--hide-scrollbars`.
-Изолированные проверки ввода охватывают создание, поля, пароль, группы,
-подтверждения, конфликт и защиту от повторной записи. Контроллеры и протоколы
-сохранения остаются собственными у каждого продукта.
+Legacy icon resolution belongs to shared `core/legacy_icons.mjs` and
+`core/icons.mjs`. Admit only known bare raster names and exact original
+`/context/icons/...` paths; custom/remote basenames do not inherit an alias.
+Keep unresolved behavior for unknown project names/prototype keys. PROCESS retains
+its original tile-grid meaning; modern process keeps its separate semantic.
+Catalogue registration does not promise all historical IconWdg/plugin coverage.
 
-## Access rules: матрица и технические редакторы
+The shared Gantt prototype demonstrates a common primitive graph and state
+transitions; it does not certify production persistence, large data, mobile
+layout, every OS scale or complete input-state coverage. Use the existing demo
+harness and its source map rather than replacing production widgets with it.
 
-`security.ui.mjs` задаёт все области доступа, матрицу, списки/редактор правил,
-настройки группы и XML/JSON/inherited. `security.state.mjs` владеет выбором,
-локальным поиском, текстовым буфером, подтверждениями и разрешёнными командами.
-`admin.document.mjs` содержит общий цикл действий над черновиком; серверную
-валидацию и разрешение прав сохраняют действующие предметные контроллеры.
-Независимые разметки `AdminSecurityView.qml` / `SecurityRules.vue` заменены
-тонкими адаптерами, у которых нет собственных расчётов компоновки.
+## TH reference map
 
-Новые кирпичики — Choice и виртуализированный Grid с закреплёнными заголовками
-и отдельными полосами прокрутки. `FrameGrid.qml` загружается по URL после
-создания текущей сцены, чтобы не входить повторно в компиляцию FrameView.
-Qt-модели списков читаются через именованные роли; JS-массивы — через modelData.
-
-Проверка: `tools/frame_security/capture_qml.py`, затем из frontend
-`node tests/frame_security.mjs`, затем `tools/frame_admin/report.py security`.
-Отчёт — `tools/frame_security/output/security-report.html`: 264 состояния,
-EN/RU, dark/light, 1100/800/360 px. Проверены настоящие клики, клавиатура,
-тач, прокрутка, XML, локальный apply, подтверждения, конфликт и неизвестный
-ответ. Геометрия индикаторов измеряется отдельно. SQLite-проверки сохраняют
-контроль ревизий, ACL и атомарного отката. Боевые данные не используются.
-После последующих изменений кирпичиков отчёты необходимо переснять.
-
-## Raw database, Sidebar и Columns Editor
-
-Рабочие экраны используют `raw.ui/state.mjs`, `sidebar.ui/state.mjs` и
-`columns.ui/state.mjs`. Вложенный Cell editor также описан в raw-модулях.
-`controls/forms/sections.ui.mjs` задаёт общие строки формы; `admin.document.mjs` — действия
-над черновиком и подтверждения. Numeric row состоит из тех же Field/Button,
-а Switch, IconChoice и Splitter используют house controls каждого клиента.
-Независимые DefinitionCatalogEditor/DefinitionCatalogWizard QML удалены.
-
-Обработчики XML и таблиц остаются у действующих предметных владельцев.
-Неприменённые поля Sidebar и Columns участвуют в dirty/close guards,
-невалидный текст не теряется при переходе. После неизвестной записи нужен
-readback. Нативная модель Grid публикует стабильный снимок вектора строк
-до model reset; URL-loader Grid владеет bindings отдельно от delegate.
-
-Проверки: `tools/frame_raw`, `tools/frame_sidebar`, `tools/frame_columns`,
-затем `frontend/tests/frame_*.mjs` и `tools/frame_admin/report.py <screen>`.
-Стенды сравнивают граф, состояние, фактические координаты, цвета/шрифты и
-снимки, включая пропавшие в одном движке элементы. Хеши локальных .mjs
-должны совпадать; новый прогон прекращается при изменении исходников во
-время съёмки. Отчёт сохраняется рядом со снимками в output.
-
-## Administration целиком
-
-Все десять разделов используют Frame: Groups, Users, Access rules, Search Types,
-Project schema, Workflow, Columns Editor, Raw database, Layout Editor и Sidebar.
-В том же слое находятся Naming, зависимости процессов, удаление Search Type,
-создание типа из схемы и общий каркас окна. В TH и TS поставляются отдельные
-физические копии модулей Frame; запуск, сборка и обновление продукта не требуют
-второго checkout. Общая оболочка — `administration.ui/state.mjs`, не два
-независимых окна в одинаковом контейнере.
-
-`View` размещает уже переведённый дочерний Frame-экран либо пустой порт хоста.
-Вложить старую независимую QML/Vue-разметку целиком и объявить её общим скелетом
-нельзя. Ports оболочки только сохраняют экземпляры редакторов; их координаты
-задаёт общий модуль. Toolbar наблюдает размер своего порта, а не всего диалога.
-Переходы Search Types/Schema → Workflow и Sidebar → Groups используют основной
-раздел, сохраняют черновики и не загружают pipeline повторно при возврате.
-
-`Code` использует штатные SourceEditor/CodeEditor. Общий `code.ui.mjs` задаёт
-панель undo/redo, буфера обмена, поиска/замены, справки, размера шрифта и истории.
-TH предоставляет приватный QObject с собственными Qt Slot-декларациями и
-highlighter; сеанс Script Editor и настройки пользователя не заимствуются.
-Ввод QTextDocument обновляется императивно, а ответ Python синхронизируется
-после текущего события: промежуточное старое значение не должно сбрасывать
-курсор. List сохраняет делегаты по ключу; замена JS-модели при выборе строки
-не должна уничтожать источник drag.
-
-Layout XML разбирают стандартные minidom/DOMParser. Общие `layout.document`,
-`layout.state`, `layout.ui` и `layout.preview` владеют структурными изменениями,
-шаблонами, перемещением, слоями, условиями, bindings и preview. Сохраняются
-посторонние XML-атрибуты/узлы/комментарии; DTD и внешние сущности запрещены.
-Save требует серверной проверки именно текущего XML и подтверждения.
-Неизвестную запись нельзя повторять до чтения результата; серверные ACL,
-ревизии и штатные команды остаются обязательными.
-
-### Явные различия возможностей
-
-- Layout Editor в TH нативный. WebEngine/WebView/QWebChannel удалены из этого
-  пути. Настоящее выполнение настроенного SObject layout по Open view происходит
-  в системном браузере; понадобится его собственная авторизованная сессия.
-  Ticket не попадает в URL. TS открывает тот же layout в своём рабочем окне.
-- Серверная проверка и запись Layout используют установленный layout-authoring
-  API TACTIC Stream, как прежний веб-редактор. Клиент TH не импортирует TS с диска.
-- Naming сохраняет нативную локальную симуляцию Handler и серверную проверку
-  браузера как явные возможности. Произвольные скрипты не запускаются preview.
-- Просмотр связанного объекта из зависимостей в TH идёт через существующий
-  object opener. Дополнительное браузерное окно read-only details сохранено;
-  его тело также описывается Frame. Это не перенос настольных файловых операций.
-- Парные отчёты сравнивают содержимое редакторов. Системная рамка Qt и рамка
-  браузерного окна принадлежат хостам и не сравниваются как растровые пиксели.
-
-### Повторяемая проверка
-
-`tools/frame_admin/native_regression.py` запускает Qt-проверки в отдельных
-процессах приложения: многократная пересборка полного тестового приложения в
-одном процессе нестабильна в установленной PySide. Один продукт при этом
-остаётся одним обычным нативным приложением. `--failed` повторяет только
-непрошедшие проверки, сохраняя общий журнал. Тесты не используют боевые базы.
-
-Нативные снимки всех разделов: `tools/frame_admin/capture.py`. Отдельный стенд:
-`tools/frame_<screen>/capture_qml.py` (Users: Groups с `--users`).
-Затем `node tools/frame_admin/browser_regression.mjs` проверяет все 14 стендов.
-Хеши модулей, Frame, house controls и темы должны соответствовать текущим
-локальным файлам. `tools/frame_admin/check_icons.py` и
-`frontend/tests/frame_icons.mjs` проверяют разрешение имён во всех пяти наборах.
-Снимки также отклоняют нативную запасную пиктограмму вместо неизвестного имени.
-Сравниваются состояния,
-структура, настоящая геометрия, цвета/шрифты, индикаторы, наличие glyph на кнопках
-и ввод. Ширина букв Qt и Chromium различается: при проверке центрированной
-подписи/значка используется измеренная ширина текста, а не ослабление допуска
-для прямоугольника контрола. `tools/frame_admin/check_focus.py` проверяет
-полное раскрытие поля мышью, Tab и программным фокусом.
-`tools/frame_admin/report.py <screen>` строит автономные отчёты;
-`tools/frame_admin/catalog.py` проверяет свежесть и собирает общий каталог.
-`frontend/tests/administration.mjs` дополнительно проверяет собранное приложение
-с реальным API отдельной временной SQLite-базы; это не проверка боевого сервера
-или PostgreSQL. Удаление типа в парных стендах никогда не отправляется.
-
-Каталог Layout при сбросе проекта читается только из памяти. Если проект ещё не
-кэширован, открытие редактора запускает штатную read-only процедуру discovery
-в worker с захваченным server/ticket; запоздалый ответ не меняет другой проект.
-
-## B12 files and queues
-
-Handler 0.6.0.116 / Stream 0.112.165 use the shared `features/files` descriptions
-for Workspace, check-in/ingest, matching, Drop Plate and queues. Native adapters
-are organized in `qml/features/files`; the independent portable copy remains
-under `qml/tactic_frame`. Native files/DCC and browser inspection/admin remain
-explicit capabilities. The source map, 121-stage gate, connected workflows,
-comparisons and deployment limits are documented in [frame_files.md](frame_files.md).
-The combined 137-case owner suite includes correct fake-pool shutdown; never
-disable GC to make lifecycle tests pass.
-
-
-## Legacy template icon mapping (.202 / .148)
-
-The shared core/legacy_icons.mjs catalogue maps 38 original IconWdg symbols used by packaged templates and their original raster names/paths to semantic icons. core/icons.mjs owns application-wide resolution; both independent products ship identical copies. This fixes the actual VFX PICTURE_EDIT, DETAILS, PROCESS, MOVIE_VIEW, PHOTOS, FILM, PLUGIN and lowercase date/contents/folder_go inputs without rewriting sidebar XML. PROCESS retains the old tile-grid meaning; ordinary modern process keeps its existing semantic meaning. The extension semantic has explicit Font Awesome, Material and Fluent equivalents. BS_LIST_ALT and the old FAS_TELEVISION spelling have bounded explicit aliases.
-
-Only known bare raster filenames and exact original /context/icons/... paths are admitted; a custom or remote path ending in the same basename does not inherit an alias. Unknown project names and prototype keys retain the existing unresolved behavior. The catalogue intentionally covers the shipped template references at this checkpoint, not the complete historical 284-entry IconWdg image library or arbitrary plugin assets. The retained 195-reference fixture covers packaged plugin/CG/core XML references, main VFX sidebar values and the supported raster aliases. The browser contract checks every reference in every supplied icon pack; the native QML checker also consumes those legacy references and paired tests compare font family and Unicode, rather than merely checking for a nonempty glyph.
-
-
-Legacy icon acceptance: all 156 Frame stages passed on unchanged UI source fingerprints, including the recorded serial retry of native-table. Gate SHA-256: 867b16be5ad0a2e663d75c4c71242d759d4e5cbcc96f40540d60fd9d8da9c5dd; log: .test-tmp/legacy-icons-platform.log. The five-pack browser contract resolves all 195 retained references and checks known raster aliases against their semantic replacements while custom/remote paths remain unresolved. A separate real QML/browser catalogue comparison matched font family and Unicode for 1055 selections, with no missing icons. The current main SQLite VFX navigation was opened in a fresh browser and its enriched sidebar model was rendered by native NavigationDrawer at EN/dark/Segoe UI/scale 1 on the same 360 x 960 panel: all eight problematic glyphs match exactly (PICTURE_EDIT, DETAILS, PROCESS, MOVIE_VIEW, PHOTOS, FILM, PLUGIN, date), with original accents and disabled states retained. Screenshots/data: .test-tmp/legacy-icons-browser.png/json, legacy-icons-native.png/log, legacy-icons-navigation.json and legacy-icons-viewlinks.json. No project XML or database record was edited. The main server was left running; Handler must restart its cached QML modules and the browser must reload the rebuilt icon bundle. No EXE qualification or complete historical raster-library coverage is claimed.
+- [Native component policy](ui_component_policy.md) and [map](ui_component_map.md)
+- [Handler architecture](application_architecture.md) and [client API](handler_api.md)
+- [Files](frame_files.md), [support/connection](frame_support.md), [tables](frame_table.md)
+- [Stream source layout](../../TS/tactic_stream/src/tactic_stream/shared_ui/README.md)
+- [TH and TS API/source boundaries](../../TS/tactic_stream/docs/admin_agent/SOURCES.md)

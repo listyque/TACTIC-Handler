@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.149 - 2026-10-24
+
+- Separate Handler client APIs, native structures and Help from Stream server references in agent documentation. Keep shared UI/table contracts in English and move development journals and the cleanup backlog out of the product repositories. Product localization and runtime behavior are unchanged.
+
 ## 0.6.0.148 - 2026-10-24
 
 - Resolve legacy template IconWdg symbols and known raster names/paths through the shared modern icon catalogue, including VFX navigation, Bootstrap LIST_ALT and the old Font Awesome TELEVISION spelling. Preserve project XML and custom icon diagnostics. Pair with Stream 0.112.202; all five supplied icon sets use the same policy.
