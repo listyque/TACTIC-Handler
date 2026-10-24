@@ -1855,16 +1855,24 @@ class Login(SObject):
         if self.get_code() == 'admin':
             return 'allow'
 
-        current_login_groups = self.get_login_groups()
-
-        for login_group in current_login_groups:
-            if login_group:
-                security_group = login_group.get_security_group(group, project)
-                if security_group:
-                    for security in security_group:
-                        attr, name = path.split(':')
-                        if security.attrs[attr] == name:
-                            return security.attrs['access']
+        attr, separator, name = path.partition(':')
+        if not separator:
+            return None
+        levels = ('deny', 'view', 'edit', 'insert', 'retire', 'delete', 'allow')
+        matches = []
+        for login_group in self.get_login_groups():
+            for rule in login_group.get_security_group(group, project) or []:
+                scope = rule.attrs.get('project') or '*'
+                if scope not in ('*', project):
+                    continue
+                value = rule.attrs.get(attr)
+                access = rule.attrs.get('access') if value is not None else rule.attrs.get('default')
+                if access not in levels or value not in (name, '*', None):
+                    continue
+                rank = (1 if value == name else 0 if value == '*' else -1,
+                        int(project is not None and scope == project), levels.index(access))
+                matches.append((rank, access))
+        return max(matches)[1] if matches else None
 
 
 class LoginGroup(SObject):
@@ -1913,28 +1921,19 @@ class LoginGroup(SObject):
         self.group_logins.append(login_obj)
 
     def get_security(self, project=None):
-        if project:
-            if self.projects_security.get(project):
-                return self.projects_security[project]
-        elif self.security:
-            return self.security
-
+        if project in self.projects_security:
+            return self.projects_security[project]
         bs = parse_tactic_xml(self.info['access_rules'])
-
-        self.security = {}
+        security = {}
         for element in bs.find_all(name='rule'):
-            if project:
-                if element.get('project') == project:
-                    self.security.setdefault(element.attrs['group'], []).append(element)
-            else:
-                self.security.setdefault(element.attrs['group'], []).append(element)
-
-        self.projects_security[project] = self.security
-
-        if project:
-            return self.projects_security.get(project)
-        else:
-            return self.security
+            if project is None or element.get('project') in (None, '', '*', project):
+                group = element.get('group') or element.get('category')
+                if group:
+                    security.setdefault(group, []).append(element)
+        self.projects_security[project] = security
+        if project is None:
+            self.security = security
+        return security
 
     def get_security_group(self, group, project=None):
         security = self.get_security(project)

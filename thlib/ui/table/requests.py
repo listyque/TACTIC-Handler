@@ -131,7 +131,10 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
     if not html:
         search = Search('config/widget_config')
         search.add_filter('view', view)
-        configs = [row for row in search.get_sobjects() if row.get_value('category', no_exception=True) == 'CustomLayoutWdg']
+        configs = [row for row in search.get_sobjects()
+                   if row.get_value('category', no_exception=True) == 'CustomLayoutWdg'
+                   or (not row.get_value('category', no_exception=True)
+                       and row.get_value('search_type') == 'CustomLayoutWdg')]
         configs.sort(key=lambda row: float(row.get_value('priority', no_exception=True) or 0), reverse=True)
         if not configs:
             raise ValueError('CustomLayout is not configured: ' + view)

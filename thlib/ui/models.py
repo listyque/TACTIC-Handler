@@ -211,7 +211,7 @@ class NavigationModel(QAbstractListModel):
                     path=f"element:{name}",
                     project=project.get_code(),
                 )
-                if access != "allow":
+                if access not in {"allow", "view", "edit", "insert", "retire", "delete"}:
                     continue
                 display_node = item.find("display")
                 display = display_node.get("class") if display_node else []

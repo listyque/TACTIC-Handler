@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.141 - 2026-10-24
+
+- Honor global and wildcard navigation grants, project-specific overrides and view access for ordinary users; keep each project's parsed rules in an independent cache.
+- Pair with Stream 0.112.194: recognize legacy CustomLayout records identified by `search_type` as well as category in both table request paths. Keep data-only rendering validation and administrator access checks; stored legacy code does not gain permission to execute imports, writes or I/O.
+
 ## 0.6.0.140 - 2026-10-24
 
 - Pair with Stream 0.112.193 for the portable Windows/Electron delivery. Support `TACTIC_HANDLER_SETTINGS_DIR` through the existing configuration owner and instance guard so packaged Handler settings survive replacing the program directory; isolated test settings retain priority. Reuse shared EN/RU desktop confirmations and avoid the bundled NTLM regex escape warning under Python 3.14.

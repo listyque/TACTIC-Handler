@@ -65,4 +65,6 @@ an inset corner gap, including while resizing.
 
 ## Draft and template safety
 
+Navigation honors global and project-specific link rules, including wildcard and view grants. Opening an asset does not grant Administration access. Legacy Handler RPC workflows require an explicitly trusted Python-command role; that permission executes server-side code and is not a sandbox for untrusted users.
+
 The four shared steps retain their draft when moving Back. A changed draft requires confirmation before closing; busy operations cannot be closed. After an unknown creation result, refresh the catalogue before another attempt. If the code already exists, retry only opening the project. Select a template in the manager before Download archive or Delete; deletion opens a separate blocking confirmation. Installing ZIP archives and choosing images use the client's own file picker.

@@ -351,6 +351,33 @@ class NoteMutationTests(unittest.TestCase):
 
 
 class LoginMembershipTests(unittest.TestCase):
+    def test_navigation_rules_keep_global_grants_and_project_overrides(self):
+        group = tc.LoginGroup({
+            "login_group": "artists", "code": "GROUP_ARTISTS", "project_code": "one",
+            "access_rules": '<rules><rule category="link" element="*" access="allow"/>'
+                            '<rule group="link" element="assets" project="one" access="deny"/>'
+                            '<rule group="link" element="assets" project="two" access="view"/></rules>',
+        })
+        login = tc.Login({"login": "artist", "code": "artist", "project_code": "one"},
+                         [group], [{"login": "artist", "login_group": "artists"}])
+        self.assertEqual(login.check_security('link', 'element:assets', 'one'), 'deny')
+        self.assertEqual(login.check_security('link', 'element:assets', 'two'), 'view')
+        self.assertEqual(login.check_security('link', 'element:other', 'one'), 'allow')
+        self.assertEqual(login.check_security('link', 'element:assets'), 'allow')
+        self.assertIsNot(group.get_security('one'), group.get_security('two'))
+        self.assertEqual(len(group.get_security('one')['link']), 2)
+
+    def test_navigation_project_grant_does_not_leak(self):
+        group = tc.LoginGroup({
+            "login_group": "artists", "code": "GROUP_ARTISTS", "project_code": "one",
+            "access_rules": '<rules><rule group="link" element="assets" project="one" access="view"/></rules>',
+        })
+        login = tc.Login({"login": "artist", "code": "artist", "project_code": "one"},
+                         [group], [{"login": "artist", "login_group": "artists"}])
+        self.assertEqual(login.check_security('link', 'element:assets', 'one'), 'view')
+        self.assertIsNone(login.check_security('link', 'element:assets', 'two'))
+        self.assertIsNone(login.check_security('link', 'element:assets'))
+
     def test_login_constructor_builds_reverse_group_membership(self):
         group = tc.LoginGroup({
             "login_group": "artists",
