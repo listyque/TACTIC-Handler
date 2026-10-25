@@ -64,6 +64,7 @@ from thlib.ui.quick_filter_editor import QuickFilterEditorController
 from thlib.ui.repository_editor import RepositoryEditorController
 from thlib.ui.repository_sync_editor import RepositorySyncEditorController
 from thlib.ui.script_editor import ScriptEditorController
+from thlib.ui.agent_request import AgentRequestController
 from thlib.ui.script_shelf import ScriptShelfController
 from thlib.ui.script_triggers import ScriptTriggerController
 from thlib.ui.server_updates import ServerUpdateService
@@ -269,6 +270,7 @@ class DeliveryBundle:
     server_presets: ServerPresetsController
     screenshot: ScreenshotController
     script_editor: ScriptEditorController
+    agent_request: AgentRequestController
     script_shelf: ScriptShelfController
     script_triggers: ScriptTriggerController
     update: UpdateController
@@ -289,6 +291,7 @@ class DeliveryBundle:
             "serverPresetsModel": self.server_presets.model,
             "screenshotController": self.screenshot,
             "scriptEditorController": self.script_editor,
+            "agentRequestController": self.agent_request,
             "scriptEditorModel": self.script_editor.model,
             "scriptEditorTabModel": self.script_editor.tabs,
             "scriptTriggerController": self.script_triggers,
@@ -623,6 +626,7 @@ def _build_delivery(
     script_editor = ScriptEditorController(
         controller, core.debug_log, users=collaboration.users
     )
+    agent_request = AgentRequestController(controller, server_pool)
     collaboration.server_updates.batchReady.connect(
         script_editor.apply_server_batch
     )
@@ -706,6 +710,7 @@ def _build_delivery(
         server_presets=server_presets,
         screenshot=screenshot,
         script_editor=script_editor,
+        agent_request=agent_request,
         script_shelf=script_shelf,
         script_triggers=script_triggers,
         update=update,

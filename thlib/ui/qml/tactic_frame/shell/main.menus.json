@@ -26,6 +26,12 @@
   ],
   "configuration": [
     {
+      "title": "External agent",
+      "icon": "comment",
+      "command": "open_agent_request",
+      "admin": true
+    },
+    {
       "title": "Configuration",
       "icon": "settings",
       "command": "open_configuration"

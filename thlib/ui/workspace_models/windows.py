@@ -90,6 +90,7 @@ class FloatingWindowModel(QAbstractListModel):
         "screenshot_maker",
         "naming_editor",
         "error",
+        "agent_request",
     })
 
     _configuration_pages = frozenset({
@@ -117,6 +118,7 @@ class FloatingWindowModel(QAbstractListModel):
         "screenshot_maker": "ScreenshotMakerView.qml",
         "handler_server": "HandlerServerView.qml",
         "script_editor": "ScriptEditorView.qml",
+        "agent_request": "features/scripts/AgentRequestView.qml",
         "script_shelf_editor": "ScriptShelfEditorView.qml",
         "script_trigger_editor": "ScriptTriggerEditorView.qml",
         "help": "features/support/help/HelpView.qml",
@@ -167,6 +169,7 @@ class FloatingWindowModel(QAbstractListModel):
     @staticmethod
     def _defaults() -> list[FloatingWindow]:
         return [
+            FloatingWindow("agent_request", "External agent", "agent_request", .14, .08, .72, .84, blocking=True),
             FloatingWindow("configuration", "Configuration", "configuration", .15, .10, .70, .76),
             FloatingWindow("server", "Server Settings", "server", .23, .16, .54, .62),
             FloatingWindow("project", "Project Settings", "project", .22, .15, .56, .64),

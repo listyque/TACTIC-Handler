@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.157 - 2026-10-25
+
+- Send requests to a connected external agent from the native modal, capturing the current project, page, table view and selected objects. Review context, authorize configuration changes, follow progress, cancel and reopen durable requests. Script activation remains separately reviewed.
+
 ## 0.6.0.156 - 2026-10-25
 
 - Review agent-authored drafts and isolated trial reports inside Script Editor, using the same Frame layout as Stream. Inspect the exact source and binding, distinguish stale reports, and explicitly confirm activation with revision checks and durable retry receipts. The review panel never executes draft code.

@@ -1,5 +1,40 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Agent request worker is unavailable':
+        'Обработчик обращений к агенту недоступен',
+    'Request queued': 'В очереди',
+    'Agent working': 'Выполняется',
+    'Request cancelling': 'Отменяется',
+    'Request cancelled': 'Отменено',
+    'Request completed': 'Завершено',
+    'Request failed': 'Ошибка',
+    'Request interrupted': 'Прервано',
+
+    'External agent': 'Внешний агент',
+    'Agent requests': 'Обращения к агенту',
+    'New request': 'Новое обращение',
+    'External agent connected': 'Внешний агент подключён',
+    'External agent is offline': 'Внешний агент не подключён',
+    'Context sent to the agent': 'Контекст обращения',
+    'What should the agent do?': 'Что должен сделать агент?',
+    'Allow the requested configuration changes':
+        'Разрешить запрошенные изменения конфигурации',
+    'Send to agent': 'Отправить агенту',
+    'Cancel request': 'Отменить обращение',
+    'Agent progress and answer': 'Ход работы и ответ агента',
+    'The answer and operation results will appear here.':
+        'Здесь появятся ответ и результаты операций.',
+    'Script activation remains a separate action in the Script Editor.':
+        'Активация скриптов выполняется отдельно в редакторе скриптов.',
+    'Select a project before contacting the agent':
+        'Перед обращением к агенту выберите проект',
+    'External agent started': 'Внешний агент начал работу',
+    'External agent disconnected. Inspect changes before sending a new request.':
+        'Связь с агентом потеряна. Проверьте изменения перед новым обращением.',
+    'Cancelled. Changes already applied are preserved; inspect them before retrying.':
+        'Отменено. Уже применённые изменения сохранены; проверьте их перед повтором.',
+    'Agent request failed': 'Не удалось выполнить обращение к агенту',
+
     'Stale source': 'Исходник изменился',
     'Historical report': 'Исторический отчёт',
     'Agent drafts': 'Черновики агента',

@@ -32,7 +32,7 @@
     "core/icons.mjs": "94967d67725d7c557602f1f5b4430f971aca2bd9c2cd1116921b9ab7f8554f49",
     "core/interaction.mjs": "fd043ede2490d7d70735d1c98ebc968506828d7130009cbf7e095d76158f9405",
     "core/legacy_icons.mjs": "a9bae9608d3c24bc369071f80ab4301ec7833bcb1daf9a9792922bcaa2940d14",
-    "core/strings.mjs": "66012f16e26a16652ed3917d85856bdf8ebc4f4a46da68983198d2282ebbc285",
+    "core/strings.mjs": "85d35fd83ae1bc5cf152f0538ef5a43ce06e7b63f9c022ea6380f7392e79535f",
     "features/activity/calendar.ui.mjs": "16f09ceb0f88c4a7465885c7757842063ac2f7a9ec42e6e5fde503f352f71d2e",
     "features/activity/event.ui.mjs": "9293c7051f72b0553ee8227e03788e5f9f196f6f296f550aaafff94dae36560e",
     "features/activity/feed.ui.mjs": "15de6d00da9e61260a8ca17335c333ec9381831fc721422d33b1dc7a37228f43",
@@ -147,6 +147,7 @@
     "features/scripts/bar.ui.mjs": "b2fa6f2a9be536ceac753bfb6ba5d9d80914e98d07bf317be20aae0d904fdc47",
     "features/scripts/drafts.ui.mjs": "f7003e707cb56e3476c3f89c10086b82a23d246f324ec0e54ac68fd946220797",
     "features/scripts/editor.ui.mjs": "4671883f52f0ce63fc6dfa238d39a9318b059c283e831d911571d9369461f581",
+    "features/scripts/request.ui.mjs": "b7da8fcf86eba68ddf48fd61863ca95280c43a0834c6dd8726fce29e7a047cb5",
     "features/scripts/shelf.ui.mjs": "f9672cf23a03e4fa36f95a1ee16991e0713c8cc035b9474e3c4cb396024b045d",
     "features/scripts/source.ui.mjs": "bb2d0a9403b211d849ed11b456dff3ae08f4d0f9c409f4b107a7b28092d35e9a",
     "features/scripts/triggers.ui.mjs": "c8780d28470d9f21f173f6169e89e40938c36139d6afe15430606e9f391ab077",
@@ -222,13 +223,13 @@
     "shell/dock.placement.mjs": "6789b7b6883eeb78d77f04eaa5795c3ccc87baae1f53fe5dbf6c03ba37661da4",
     "shell/dock.surface.mjs": "f3fd31d357a874981bd3264e6201e27455200f6ac4c597aabc478fa33f47e3d4",
     "shell/dock_chrome.ui.mjs": "e329ce2345dba16c2c2860433f346792640657edd366882cd24c16ffa7183e91",
-    "shell/main.menus.json": "a548c13143892486bbb4ca2186bdc0186607774a76d327d7f6272d0fe4a7e4bd",
+    "shell/main.menus.json": "d6acc376416d1ae7f1b99175545836e3f65e029f0adc9c1e8062eded3e42ffcc",
     "shell/main.menus.mjs": "fc2ed99935bf0afe187b1c8f5cdd33b47da73bc89ef8c6ddb84ed8e2f1d68b1c",
     "shell/main_toolbar.ui.mjs": "7de67b65ef5bdcaf18aa94b1582c8b2e62b357ca87711afdd5e09b67b8d8eb48",
     "shell/navigation.ui.mjs": "9de9a9f68977b8f1e9efc77295f03e9edaa14f80c6dc3264b57f8cb80f59d359",
     "shell/projects.ui.mjs": "53689eef944b5374d74109b161008313a9e391f68066d1ca6a176e65971849af",
     "shell/window.geometry.mjs": "8469a62e2a3ab57ded751f8d9a01485501bddc9d0a6c2329bc68e56684665562",
-    "shell/window.sizing.mjs": "955136c4582c7239543b4ed9529d16f7563d05150dca2a28229ddca6052b3069",
+    "shell/window.sizing.mjs": "356dfe4dc6c1bc0740f2957fb649359d2c16bbe20d7075da430145f26c293820",
     "shell/workspace.ui.mjs": "2fedc716275a3f79ea25d7e431a3cb63012f6103581cda11266ab14b2c7cc5f1"
   }
 }
