@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import io
 import json
 import sys
@@ -13,14 +12,13 @@ import types
 import uuid
 from collections.abc import Callable, Mapping
 
-from PySide6.QtCore import QObject, Property, Signal, Slot
+from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 
 from tactic_handler_dcc.connectors import dcc_trigger_actions
 from thlib.ui.workspace_models.records import RecordListModel
 
 
 SCRIPT_TRIGGER_TYPE = "handler_script_hook"
-SCRIPT_TRIGGER_EVENT_PREFIX = "handler|"
 
 _RULE_ROLES = (
     "ruleId", "code", "title", "description", "action", "phase",
@@ -45,10 +43,6 @@ _ACTIONS = (
 _HANDLER_LANGUAGES = {"local_python", "python", "server_js"}
 
 
-def _event_name(action: str, phase: str) -> str:
-    return SCRIPT_TRIGGER_EVENT_PREFIX + "|".join((phase, *action.split(".")))
-
-
 def _search_type(search_key: str) -> str:
     return str(search_key or "").removeprefix("skey://").split("?", 1)[0]
 
@@ -63,33 +57,6 @@ def _search_keys(value: object) -> list[str]:
     return list(dict.fromkeys(
         str(item or "").strip() for item in values if str(item or "").strip()
     ))
-
-
-def _rule_payload(rule: Mapping) -> dict:
-    return {
-        "version": 1,
-        "action": str(rule.get("action") or ""),
-        "phase": str(rule.get("phase") or "after"),
-        "search_type": str(rule.get("searchType") or ""),
-        "search_keys": _search_keys(rule.get("searchKeysText")),
-        "process": str(rule.get("process") or ""),
-        "context": str(rule.get("context") or ""),
-        "order": int(rule.get("order") or 0),
-    }
-
-
-def _revision(records: list[dict]) -> str:
-    owned = [{
-        key: record.get(key)
-        for key in (
-            "code", "title", "description", "event", "script_path",
-            "trigger_type", "data", "s_status", "timestamp",
-        )
-    } for record in records if str(record.get("trigger_type") or "") == SCRIPT_TRIGGER_TYPE]
-    owned.sort(key=lambda item: str(item.get("code") or ""))
-    return hashlib.sha256(json.dumps(
-        owned, sort_keys=True, default=str, separators=(",", ":")
-    ).encode("utf-8")).hexdigest()
 
 
 def _project_rule(record: Mapping, index: int) -> dict:
@@ -175,6 +142,7 @@ class ScriptTriggerController(QObject):
         self._original: list[dict] = []
         self._dcc_runs: dict[str, tuple[dict, Callable]] = {}
         self._active_hook_runs = 0
+        self._pending_after_hooks = []
         self.rules = RecordListModel(_RULE_ROLES, identity_role="ruleId")
         application.project_changed.connect(self._project_changed)
         application.window_model.windowVisibilityChanged.connect(
@@ -386,14 +354,13 @@ class ScriptTriggerController(QObject):
             import thlib.tactic_classes as tc
 
             server = tc.server_start(project=project_code)
-            records = server.query(
-                "config/trigger",
-                [("trigger_type", SCRIPT_TRIGGER_TYPE)],
-                show_retired=True,
-            ) or []
-            if isinstance(records, dict):
-                records = [records]
-            return project_code, generation, records, _revision(records)
+            result = server.execute_cmd(
+                "tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd",
+                dict(action="read", project_code=project_code),
+            )["info"]
+            if isinstance(result, str):
+                result = json.loads(result)
+            return project_code, generation, result["records"], result["revision"]
 
         self._run_server(operation, self._refreshed)
 
@@ -411,63 +378,20 @@ class ScriptTriggerController(QObject):
         generation = self._generation
         expected_revision = self._revision
 
+        operation_id = str(uuid.uuid4())
+
         def operation():
             import thlib.tactic_classes as tc
 
             server = tc.server_start(project=project_code)
-            current = server.query(
-                "config/trigger",
-                [("trigger_type", SCRIPT_TRIGGER_TYPE)],
-                show_retired=True,
-            ) or []
-            if isinstance(current, dict):
-                current = [current]
-            if _revision(current) != expected_revision:
-                raise RuntimeError(
-                    self.tr(
-                        "Script triggers changed on the server. Reload before saving."
-                    )
-                )
-            native = {str(item.get("code") or ""): item for item in current}
-            retained = set()
-            for rule in rules:
-                data = {
-                    "title": rule["title"].strip(),
-                    "description": rule["description"].strip(),
-                    "event": _event_name(rule["action"], rule["phase"]),
-                    "script_path": rule["script"].strip().strip("/"),
-                    "trigger_type": SCRIPT_TRIGGER_TYPE,
-                    "data": json.dumps(
-                        _rule_payload(rule), ensure_ascii=False,
-                        separators=(",", ":"),
-                    ),
-                    "s_status": "" if rule["enabled"] else "retired",
-                }
-                code = str(rule.get("code") or "")
-                if code:
-                    key = server.build_search_key(
-                        "config/trigger", code, project_code=project_code
-                    )
-                    server.insert_update(key, data, triggers=True)
-                    retained.add(code)
-                else:
-                    created = server.insert(
-                        "config/trigger", data, triggers=True
-                    ) or {}
-                    retained.add(str(created.get("code") or ""))
-            for code in set(native) - retained:
-                key = server.build_search_key(
-                    "config/trigger", code, project_code=project_code
-                )
-                server.delete_sobject(key)
-            records = server.query(
-                "config/trigger",
-                [("trigger_type", SCRIPT_TRIGGER_TYPE)],
-                show_retired=True,
-            ) or []
-            if isinstance(records, dict):
-                records = [records]
-            return project_code, generation, records, _revision(records)
+            result = server.execute_cmd(
+                "tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd",
+                dict(action="save_hooks", project_code=project_code, rules=rules,
+                     expected_revision=expected_revision, operation_id=operation_id),
+            )["info"]
+            if isinstance(result, str):
+                result = json.loads(result)
+            return project_code, generation, result["records"], result["revision"]
 
         self._run_server(operation, self._saved)
 
@@ -490,8 +414,18 @@ class ScriptTriggerController(QObject):
         finished: Callable[[bool, str], None],
     ) -> None:
         payload = self._context(action, phase, context)
-        if int(payload.get("trigger_depth") or 0) > 0 or self._active_hook_runs:
+        payload.setdefault('_handler_generation', self._generation)
+        if payload['project_code'] != self._project_code or payload['_handler_generation'] != self._generation:
+            finished(False, self.tr("The project changed before the script trigger could run."))
+            return
+        if int(payload.get("trigger_depth") or 0) > 0:
             finished(True, "")
+            return
+        if self._active_hook_runs:
+            if phase == 'after':
+                self._pending_after_hooks.append((action, payload, finished))
+            else:
+                finished(False, self.tr("Another script trigger is running. Retry after it completes."))
             return
         matches = [
             rule for rule in self.rules.records()
@@ -507,6 +441,9 @@ class ScriptTriggerController(QObject):
         def complete(success: bool, error: str) -> None:
             self._active_hook_runs = max(0, self._active_hook_runs - 1)
             finished(success, error)
+            if self._pending_after_hooks:
+                next_action, next_context, callback = self._pending_after_hooks.pop(0)
+                QTimer.singleShot(0, lambda: self.run_after(next_action, next_context, callback))
 
         self._run_sequence(matches, payload, phase, complete)
 
@@ -514,6 +451,9 @@ class ScriptTriggerController(QObject):
         self, rules: list[dict], payload: dict, phase: str,
         finished: Callable[[bool, str], None],
     ) -> None:
+        if payload['project_code'] != self._project_code or payload['_handler_generation'] != self._generation:
+            finished(False, self.tr("The project changed before the script trigger could run."))
+            return
         if not rules:
             finished(True, "")
             return
@@ -598,6 +538,10 @@ class ScriptTriggerController(QObject):
             with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
                 exec(compile(source, module.__file__, "exec"), module.__dict__)
             return {"result": getattr(module, "RESULT", None), "output": output.getvalue()}
+        except Exception as error:
+            if output.getvalue():
+                error.add_note('Script output:\n' + output.getvalue())
+            raise
         finally:
             sys.modules.pop(module_name, None)
 

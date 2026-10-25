@@ -29,3 +29,9 @@ it is not a replacement scheduler or another web version. Native and browser-onl
 capabilities must remain explicit when sharing a description.
 
 Close the example before reloading its Python module during development.
+
+Pass `modal=True` to `show` or `create_window` for a native window-modal tool.
+The existing owner window and QML engine are retained; closing releases the
+window, model and component. Agent-authored shelf scripts receive their captured
+selection in `TACTIC_SCRIPT_KWARGS["search_keys"]`; supply those explicit identities
+instead of reading a later active tab.

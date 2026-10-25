@@ -626,3 +626,38 @@ commands and cancellation, nested workflow/pipeline/schema/dependency results,
 SearchResult continuation, the real thin-client TCP transport, and a subprocess
 that rejects Qt/UI imports. TACTIC server mutations and Maya-native execution are
 isolated; this suite does not replace acceptance against a live TACTIC/Maya setup.
+
+## Handler automation authoring
+
+`th.project(code).automation` exposes fixed `read()`, `preview(document)`,
+`save_draft(document, expected_revision, operation_id)`, `draft(draft_id)`,
+`activate(draft_id, draft_revision, expected_revision, operation_id)`,
+`operation(operation_id)` and `save_hooks(rules, expected_revision, operation_id)`.
+The same domain object is available through the existing remote API. Obtain it
+inside the API worker/session; it captures the project's server stub. No Qt
+objects or arbitrary RPC names are accepted. These operations require TS
+0.112.207 with upgraded project schema and administrator access.
+
+Preview compiles Python syntax without running it. Saving creates inactive
+private draft metadata. Activation separately checks native execution permission,
+source revision and configuration dependencies, then publishes a normal Local
+Python script with a Handler check-in hook or tab-specific shared shelf binding.
+Use an identical operation UUID/payload after lost replies. Receipts are historical;
+read current configuration separately. Drafts/receipts share the project DB with
+the native configuration mutation and must be backed up with it.
+
+`run_checkin_program(argv, TACTIC_SCRIPT_KWARGS, timeout=60, per_file=False)` from
+`tactic_handler_api.automation` invokes an absolute executable on the desktop
+without a shell (Windows batch files are rejected). It captures output and raises
+on nonzero exit or timeout. Named argument tokens include `{file}`, project,
+search key, process/context, operation ID and completed snapshot key; see Script
+Triggers Help. Native programs own their child-process/external-effect cleanup.
+This is normal user-authorized execution, not a sandbox or exactly-once service.
+Client hooks do not enforce headless/other-client check-ins.
+
+Local shelf scripts receive captured `TACTIC_SCRIPT_KWARGS` with project, entry,
+tab and selected search keys. They create UI on the existing GUI thread/engine;
+submit slow work through the existing API workers. The small native Frame example
+supports `show(records, modal=True)` and releases its window after close.
+Saving, syntax validation and activation remain separate from execution.
+An isolated trial runner is unavailable; never call a normal script run isolated.

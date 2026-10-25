@@ -668,6 +668,7 @@ class CommitQueueController(QObject):
                 continue
             operation_id = uuid.uuid4().hex
             identities[identity] = operation_id
+            safe_payload["operation_id"] = operation_id
             self._operations[operation_id] = safe_payload
             self._current_session_ids.add(operation_id)
             records.append(self._record(operation_id, safe_payload, title))
@@ -690,6 +691,7 @@ class CommitQueueController(QObject):
         decision = str(decision or "ignore")
         if decision == "replace" and pending["existingId"] != self._active_id:
             operation_id = pending["existingId"]
+            pending["payload"]["operation_id"] = operation_id
             self._operations[operation_id] = pending["payload"]
             self._current_session_ids.add(operation_id)
             row = self._row_for_id(operation_id)
@@ -705,6 +707,7 @@ class CommitQueueController(QObject):
             self._request_validation(operation_id)
         elif decision == "add":
             operation_id = uuid.uuid4().hex
+            pending["payload"]["operation_id"] = operation_id
             self._operations[operation_id] = pending["payload"]
             self._current_session_ids.add(operation_id)
             self.model.append(self._record(
@@ -1364,6 +1367,7 @@ class CommitQueueController(QObject):
                 or repaired_repository
             )
             operation_id = str(entry.get("id") or uuid.uuid4().hex)
+            payload["operation_id"] = operation_id
             self._operations[operation_id] = payload
             record = self._record(
                 operation_id, payload, str(entry.get("title") or "sObject")

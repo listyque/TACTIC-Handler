@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.151 - 2026-10-25
+
+- Add project-scoped automation authoring to the public and fixed remote Handler API: inactive drafts, guarded activation and durable receipts are stored by native TS commands. The trigger editor now saves its complete rule set atomically; TS 0.112.207 and the normal schema upgrade are required.
+- Supply captured input files, operation identity and completed snapshot to check-in hooks. Reject overlapping Before actions instead of bypassing validation, defer After hooks, respect cancellation during a validator and preserve failure output. Add an explicit executable/argv helper with timeout and exit-code checks.
+- Pass a captured project/tab/selection context to Local Python shelf scripts; native modal Frame tools reuse the current engine and dispose on close. Keep draft saving separate from code activation; no isolated arbitrary-code runner is provided.
+
 ## 0.6.0.150 - 2026-10-24
 
 - Organize maintained documentation around client APIs, native UI contracts and shared Frame ownership. Rename former implementation-plan documents as contracts, move Frame guides into one directory, and keep historical verification journals outside the repositories. Runtime behavior and product Help are unchanged.

@@ -1132,7 +1132,7 @@ class ScriptEditorTests(unittest.TestCase):
         observed = {}
         event_loop = QEventLoop()
 
-        def run_local(_source, tab_id):
+        def run_local(_source, tab_id, context=None):
             observed["thread"] = QThread.currentThread()
             return {
                 "kind": "run", "tabId": tab_id, "output": "local ok"
@@ -1153,6 +1153,14 @@ class ScriptEditorTests(unittest.TestCase):
 
         self.assertEqual(observed.get("thread"), self.app.thread())
         self.assertIn("local ok", self.controller.output)
+
+    def test_local_shelf_context_is_data_and_does_not_leak_to_next_script(self):
+        source = "print(TACTIC_SCRIPT_KWARGS['search_keys'])"
+        result = self.controller._run_local(source, 'owned', dict(search_keys=['first']))
+        self.assertIn('first', result['output'])
+        self.assertNotIn('TACTIC_SCRIPT_KWARGS', self.controller._local_consoles['owned'].locals)
+        result = self.controller._run_local('print(TACTIC_SCRIPT_KWARGS)', 'owned')
+        self.assertIn('{}', result['output'])
 
     def test_run_button_worker_error_stays_in_output(self):
         from thlib.environment import env_inst

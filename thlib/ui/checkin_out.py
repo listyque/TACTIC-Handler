@@ -8,6 +8,7 @@ import re
 import tempfile
 import traceback
 import threading
+import uuid
 
 from PySide6.QtCore import (
     QCoreApplication, QObject, Property, Qt, QTimer, Signal, Slot, QUrl,
@@ -1379,6 +1380,7 @@ class CheckinOutController(QObject):
         except (AttributeError, TypeError, ValueError):
             sequence_padding = 3
         payload = {
+            "operation_id": uuid.uuid4().hex,
             "searchKey": tab.get("searchKey", ""),
             "context": self._context,
             "process": self._process,
@@ -1705,10 +1707,16 @@ class CheckinOutController(QObject):
             )
             return
         self._before_hook_pending = True
+        self._operation_cancel_requested = False
+        self._operation_cancel_event.clear()
         self.preparationChanged.emit()
 
         def start(success: bool, error: str) -> None:
             self._before_hook_pending = False
+            if self._operation_cancel_requested:
+                self._queue_operation = queued
+                self._operation_cancelled(self._operation_id)
+                return
             if not success:
                 self._queue_operation = queued
                 self._hook_blocked(error)
@@ -1953,6 +1961,10 @@ class CheckinOutController(QObject):
         triggers = getattr(self, "_script_triggers", None)
         if triggers is not None:
             context = self._trigger_context(payload)
+            snapshots = _naming_snapshots(result)
+            if snapshots:
+                context['snapshot'] = deepcopy(snapshots[0])
+                context['result_search_key'] = str(snapshots[0].get('__search_key__') or '')
             triggers.run_after("snapshot.save", context)
         self.operationResult.emit(deepcopy(result))
         self._queue_operation = False
@@ -2127,6 +2139,10 @@ class CheckinOutController(QObject):
                 pass
         scene = dict(payload.get("dccScene") or {})
         return {
+            "operation_id": str(payload.get("operationId") or payload.get("operation_id") or ""),
+            "files": deepcopy(payload.get("files") or []),
+            "snapshot": deepcopy(payload.get("_serverSnapshot") or {}),
+            "result_search_key": str((payload.get("_serverSnapshot") or {}).get("__search_key__") or ""),
             "project_code": project_code,
             "search_key": search_key,
             "process": str(payload.get("process") or ""),

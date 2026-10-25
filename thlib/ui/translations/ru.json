@@ -1,4 +1,6 @@
 {
+  "The project changed before the script trigger could run.": "Проект изменился до запуска триггера скрипта.",
+  "Another script trigger is running. Retry after it completes.": "Другой триггер скрипта ещё выполняется. Повторите действие после его завершения.",
   "Parent group": "Группа по родителю",
   "Change parent": "Изменить родителя",
   "Find parent": "Найти родителя",

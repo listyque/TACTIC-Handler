@@ -726,7 +726,15 @@ class NavigationMixin:
         if section is None:
             return {}
         entry = self.navigation_model.entry(section.entry_key)
+        tab = self._current_tab()
+        keys = []
+        for identity in tab.selected_node_ids if tab else []:
+            node = self.workspace_model.node_for(identity)
+            if node and node.search_key:
+                keys.append(node.search_key)
         return {
+            "search_keys": list(dict.fromkeys(keys)),
+            "tab_id": tab.tab_id if tab else '',
             "entryKey": section.entry_key,
             "title": section.title,
             "shelfPreset": str(entry.script_shelf or "") if entry else "",

@@ -2,6 +2,7 @@
 
 METHODS = {
     "HandlerAPI": "projects project sobject snapshot logins login".split(),
+    "Automation": "read preview save_hooks save_draft draft activate operation".split(),
     "Project": "get_code get_info stypes stype workflow download_scripts".split(),
     "SType": "get_code get_info get_project get_columns_info get query new pipelines schema".split(),
     "SObject": "get_code get_info get_search_key get_value get_project get_stype commit refresh dependencies delete link related tasks notes snapshots".split(),
@@ -27,7 +28,7 @@ METHODS = {
 }
 
 PROPERTIES = {
-    "Project": ["definitions"],
+    "Project": ["definitions", "automation"],
     "SType": ["definitions"],
     "SearchResult": "items offset limit total has_more".split(),
     "QueueItem": ["id", "state"],

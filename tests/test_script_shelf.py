@@ -91,7 +91,7 @@ class _ScriptEditor(QObject):
              "language": "local_python"},
         ]
 
-    def run_saved_script(self, path):
+    def run_saved_script(self, path, context=None):
         self.started.append(path)
         self.busy = True
         self.stateChanged.emit()

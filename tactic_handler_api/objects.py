@@ -76,6 +76,11 @@ class Project:
         return [deepcopy(value.get_info()) for value in scripts.values()]
 
     @property
+    def automation(self):
+        from .automation import Automation
+        return Automation(self._api, self.get_code())
+
+    @property
     def definitions(self):
         from .definitions import DefinitionCatalog
 

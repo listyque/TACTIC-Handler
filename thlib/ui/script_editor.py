@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import code
 import contextlib
+from copy import deepcopy
 import io
 import json
 import pprint
@@ -1192,7 +1193,7 @@ class ScriptEditorController(QObject):
         self.request_run(mode, language, source)
 
     @Slot(str, result=bool)
-    def run_saved_script(self, path):
+    def run_saved_script(self, path, context=None):
         path = str(path or "").strip("/")
         record = next((
             row for row in self._scripts
@@ -1222,6 +1223,7 @@ class ScriptEditorController(QObject):
             "source": source,
             "tabId": self._current_tab_id,
             "savedScript": path,
+            "scriptContext": deepcopy(context or {}),
         }
         self.confirm_run()
         return self._busy
@@ -1257,6 +1259,7 @@ class ScriptEditorController(QObject):
             self._pending = {}
             return
         payload, self._pending = self._pending, {}
+        self._operation_script_context = payload.get('scriptContext') or {}
         from thlib.environment import env_inst
 
         self._operation_tab_id = payload["tabId"]
@@ -1372,7 +1375,9 @@ class ScriptEditorController(QObject):
 
     def _execute_local_on_gui(self, source, tab_id):
         try:
-            result = self._run_local(source, tab_id)
+            context = getattr(self, '_operation_script_context', {})
+            self._operation_script_context = {}
+            result = self._run_local(source, tab_id, context)
         except BaseException as error:
             self._failed({
                 "exception": error,
@@ -1407,16 +1412,23 @@ class ScriptEditorController(QObject):
             str(source_code or ""), self._current_tab_id
         )
 
-    def _run_local(self, source, tab_id=""):
+    def _run_local(self, source, tab_id="", context=None):
         output = io.StringIO()
         console = self._local_consoles.setdefault(
             str(tab_id or "default"),
             code.InteractiveConsole({"__name__": "__main__"}),
         )
-        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
-            console.runsource(
-                source, "<TACTIC Script Editor>", "exec"
-            )
+        missing = object()
+        previous = console.locals.get('TACTIC_SCRIPT_KWARGS', missing)
+        console.locals['TACTIC_SCRIPT_KWARGS'] = deepcopy(context or {})
+        try:
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+                console.runsource(source, "<TACTIC Script Editor>", "exec")
+        finally:
+            if previous is missing:
+                console.locals.pop('TACTIC_SCRIPT_KWARGS', None)
+            else:
+                console.locals['TACTIC_SCRIPT_KWARGS'] = previous
         return {
             "kind": "run", "tabId": str(tab_id or ""),
             "output": output.getvalue(),

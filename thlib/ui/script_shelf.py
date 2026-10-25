@@ -1237,7 +1237,9 @@ class ScriptShelfController(QObject):
             self._application._notify(self.tr("This shelf script is unavailable"))
             return
         self._running_id = str(button_id)
-        if not self._script_editor.run_saved_script(button["script"]):
+        context = self._context()
+        context['project_code'] = self._project_code
+        if not self._script_editor.run_saved_script(button["script"], context):
             self._running_id = ""
             self._application._notify(
                 str(

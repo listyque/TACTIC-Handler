@@ -129,3 +129,11 @@ before/after hooks remain the execution owner. Reordering preserves rule
 identity. Choosing a script is ignored if the rule, action or document lifetime
 has changed. Reload asks before discarding unsaved changes. Handler/DCC hooks
 remain native capabilities; the browser does not install them.
+
+## External agent configuration
+
+An external administrator agent can save an inactive draft, validate Python syntax and separately publish a normal Local Python script with a Before or After check-in hook. Publication requires explicit host authorization for the concrete source and binding plus server execution permission. Drafts do not execute. There is no isolated arbitrary-code trial runner.
+
+Handler 0.6.0.151 uses one revision-checked native command to save the complete hook set (TS 0.112.207 and its schema upgrade are required). Input file paths and the queue operation ID are captured before check-in; After hooks also receive the completed snapshot and its search key. An unrelated Before action is rejected while another hook runs, and After hooks wait their turn. Cancelling during validation prevents the subsequent check-in once the current program returns.
+
+Local Python can use `tactic_handler_api.automation.run_checkin_program(argv, TACTIC_SCRIPT_KWARGS, timeout=60, per_file=True)`. Supply an existing absolute executable and individual arguments; `{file}` uses captured input paths. Nonzero exit, missing executable and timeout raise an error. `{result_search_key}` is available after publication. Output remains in the script error/console. This is ordinary desktop execution; programs own their external effects and child-process cleanup. Client hooks do not enforce uploads made by other clients or headless APIs.

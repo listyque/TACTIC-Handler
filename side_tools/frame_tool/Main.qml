@@ -16,6 +16,7 @@ ApplicationWindow {
     }
     property string batchName: "Selection"
     property string preview: ""
+    property bool modal: false
     signal disposeRequested
     onClosing: root.disposeRequested()
     readonly property string language: typeof localizationController === "undefined" ? Qt.uiLanguage : localizationController.current_language
@@ -25,7 +26,7 @@ ApplicationWindow {
     minimumWidth: 420
     minimumHeight: 400
     transientParent: root.applicationRoot
-    modality: Qt.NonModal
+    modality: root.modal ? Qt.WindowModal : Qt.NonModal
     color: toolTheme.workspace
 
     Connections {

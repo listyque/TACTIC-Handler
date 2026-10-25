@@ -112,6 +112,15 @@ class TacticDccSdkTests(unittest.TestCase):
     def run_api(self, callback):
         return self.worker.submit(callback).result(5)
 
+    def test_project_automation_uses_fixed_remote_domain_commands(self):
+        self.tactic.execute_cmd.return_value = dict(status='OK', info=dict(revision='native', records=[]))
+        automation = self.run_api(lambda: self.api.project('demo').automation)
+        self.assertEqual(automation._type_name, 'Automation')
+        self.assertEqual(self.run_api(automation.read)['revision'], 'native')
+        owner, values = self.tactic.execute_cmd.call_args.args
+        self.assertEqual(owner, 'tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd')
+        self.assertEqual(values, dict(action='read', project_code='demo'))
+
     def test_project_query_and_staged_commit_without_legacy_bridge(self):
         def query():
             result = self.api.project("demo").stype("types/object").query(limit=1)
@@ -301,10 +310,10 @@ class TacticDccSdkTests(unittest.TestCase):
     def test_domain_contract_names_real_methods_and_properties(self):
         import inspect
         from thlib import tactic_classes, global_functions
-        from tactic_handler_api import api, objects, files, checkin, definitions
+        from tactic_handler_api import api, objects, files, checkin, definitions, automation
         from thlib.ui import tactic_rpc
 
-        modules = (api, objects, files, checkin, definitions, tactic_rpc)
+        modules = (api, objects, files, checkin, definitions, automation, tactic_rpc)
         instances = {
             "QueueItem": checkin.QueueItem(SimpleNamespace(_api=None), "Q1"),
             "DefinitionElement": definitions.DefinitionElement(None, "field"),

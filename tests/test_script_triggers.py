@@ -17,7 +17,6 @@ from PySide6.QtTest import QTest
 from thlib.ui.script_triggers import (
     ScriptTriggerController,
     _project_rule,
-    _revision,
 )
 import thlib.tactic_classes as tc
 from thlib.ui.workspace_models.records import RecordListModel
@@ -101,6 +100,17 @@ class _Scripts(QObject):
 class _Server:
     def __init__(self):
         self.records = []
+
+    def execute_cmd(self, owner, values):
+        assert owner == 'tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd'
+        assert values['expected_revision'] == 'original-server-revision'
+        assert values['operation_id']
+        self.records = []
+        import json
+        for rule in values['rules']:
+            self.insert('config/trigger', dict(trigger_type='handler_script_hook', script_path=rule['script'],
+                title=rule['title'], data=json.dumps(dict(version=1, action=rule['action'], phase=rule['phase']))))
+        return dict(status='OK', info=dict(records=self.records, revision='saved-server-revision'))
 
     def query(self, search_type, _filters, show_retired=False):
         assert search_type == "config/trigger"
@@ -197,6 +207,35 @@ class ScriptTriggerTests(unittest.TestCase):
 
         self.assertEqual(calls, ["first", "second", "third"])
         self.assertEqual(completed, [(True, "")])
+
+    def test_concurrent_before_does_not_bypass_validation_and_after_is_deferred(self):
+        self.controller.rules.replace(self.controller._present([
+            _rule('check', 'tools/one', action='snapshot.save'),
+            _rule('done', 'tools/two', action='snapshot.save', phase='after'),
+        ]))
+        waiting, called, completed = [], [], []
+        def execute(rule, payload, callback):
+            called.append(rule['ruleId'])
+            waiting.append(callback)
+        self.controller._execute_rule = execute
+        self.controller.run_before('snapshot.save', dict(search_type='demo/asset'), lambda *args: completed.append(args))
+        self.controller.run_before('snapshot.save', dict(search_type='demo/asset'), lambda *args: completed.append(args))
+        self.assertFalse(completed[0][0])
+        self.controller.run_after('snapshot.save', dict(search_type='demo/asset'))
+        self.assertEqual(called, ['check'])
+        waiting.pop(0)(True, '')
+        self.app.processEvents()
+        self.assertEqual(called, ['check', 'done'])
+        waiting.pop(0)(True, '')
+
+    def test_session_change_during_validator_rejects_completed_before_result(self):
+        self.controller.rules.replace(self.controller._present([_rule('check', 'tools/one')]))
+        callbacks, results = [], []
+        self.controller._execute_rule = lambda rule, payload, callback: callbacks.append(callback)
+        self.controller.run_before('object.update', dict(search_type='demo/asset'), lambda *values: results.append(values))
+        self.controller._generation += 1
+        callbacks[0](True, '')
+        self.assertFalse(results[-1][0])
 
     def test_before_failure_blocks_remaining_scripts_but_after_continues(self):
         self.controller.rules.replace(self.controller._present([
@@ -370,7 +409,7 @@ class ScriptTriggerTests(unittest.TestCase):
     def test_rules_are_saved_as_project_trigger_records(self):
         server = _Server()
         self.controller._project_code = "demo"
-        self.controller._revision = _revision([])
+        self.controller._revision = 'original-server-revision'
         rules = [
             _rule("first", "tools/one", order=0),
             _rule("second", "tools/two", order=1),
