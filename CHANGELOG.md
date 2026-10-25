@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.159 - 2026-10-26
+
+- Replace the external-agent form with a native shared chat, compact context chips, Markdown answers, attachments from the clipboard/file picker/drop, account-supplied model selection, active-turn corrections, retained follow-ups and completion notifications.
+- Extend the companion Stream tools to native existing-project workflows, entity edits and attached-file check-in with revisions and durable retry receipts. Offer guarded Undo for the latest entity-field patch; preserve later edits and explicitly exclude other operation kinds.
+
 ## 0.6.0.158 - 2026-10-26
 
 - Use compact 40 px captions with 13 px titles, neutral themed header colors and visible outer frames for shared dialogs. Keep native operating-system frames on standalone windows; synchronize Stream window styling and Help.

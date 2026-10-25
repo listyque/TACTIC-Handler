@@ -68,6 +68,10 @@ Primitive names express their meaning: Button, CheckBox, TextField, Label. QML
 uses Handler controls; Vue uses matching App* controls. Wrapping two independently
 implemented screens in matching containers is not a shared skeleton.
 
+`Area.flat` is a transparent multiline editor inside a composite surface, such
+as the agent chat composer. Both native renderers retain the house text input,
+selection, caret, placeholder and scrolling while omitting its separate frame.
+
 ## Required change procedure
 
 1. Inspect the existing Handler screen, nested controls and handlers. Identify

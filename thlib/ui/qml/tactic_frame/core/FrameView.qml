@@ -791,9 +791,9 @@ Item {
                             editor.forceActiveFocus();
                         }
                         background: Rectangle {
-                            color: root.effectiveTheme.surfaceContainerHigh
+                            color: wrapper.node.flat ? "transparent" : root.effectiveTheme.surfaceContainerHigh
                             radius: root.effectiveTheme.surfaceRadius
-                            border.width: wrapper.node.notice ? 0 : editor.activeFocus ? 2 : 1
+                            border.width: wrapper.node.flat || wrapper.node.notice ? 0 : editor.activeFocus ? 2 : 1
                             border.color: wrapper.node.error ? root.effectiveTheme.error : editor.activeFocus ? root.effectiveTheme.action : root.effectiveTheme.outline
                         }
                         Item {

@@ -5,11 +5,12 @@ from types import SimpleNamespace
 import json
 import os
 import time
+import tempfile
 import unittest
 from unittest.mock import patch
 
-from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QFont, QFontDatabase
+from PySide6.QtCore import QObject, Qt, Signal, QMimeData, QUrl, QPoint, QPointF, QCoreApplication
+from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QImage, QColor, QDragEnterEvent, QDropEvent
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTest import QTest
 
@@ -25,6 +26,7 @@ from thlib.environment import env_inst
 class Application(QObject):
     authentication_changed = Signal()
     signing_out = Signal()
+    notification_changed = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -50,17 +52,29 @@ class Server:
     def __init__(self):
         self.requests = {}
         self.last = None
+        self.files = {}
 
     def execute_cmd(self, command, values):
         action = values['action']
-        if action == 'state':
-            result = dict(hosts=[dict(host_id='host', label='Codex', capabilities=dict(changes=True, trials=False))],
+        if 'AgentAttachmentCmd' in command:
+            code = values['attachment_id']
+            if action == 'start':
+                self.files[code] = dict(attachment_id=code, name=values['name'], size=values['size'], media_type=values['media_type'])
+            result = self.files[code]
+        elif action == 'state':
+            result = dict(hosts=[dict(host_id='host', label='Codex', capabilities=dict(changes=True, trials=False, steering=True, models=[dict(id='fixture',label='Fixture model')]))],
                 requests=[dict(request_id=key, prompt=row['document']['prompt'], status=row['status']) for key, row in self.requests.items()])
         elif action == 'submit':
             result = dict(request_id=values['request_id'], document=deepcopy(values['document']),
-                          status='running', events=['External agent started'], answer='', error='')
+                          status='running', events=['External agent started'], answer='', error='',
+                          messages=[dict(id=values['request_id'], role='user', text=values['document']['prompt'],
+                              attachments=[self.files[code] for code in values['document'].get('attachments', [])])])
             self.requests[result['request_id']] = result
             self.last = result
+        elif action == 'message':
+            result = self.requests[values['request_id']]
+            result['messages'].append(dict(id=values['message_id'], role='user', text=values['text'], attachments=[]))
+            result['status'] = 'running'
         elif action == 'cancel':
             result = self.requests[values['request_id']]
             result['status'] = 'cancelled'
@@ -85,6 +99,8 @@ class AgentRequestUI(unittest.TestCase):
                 QFontDatabase.addApplicationFont(str(Path(os.environ['WINDIR'])/'Fonts'/name))
             surface.app.setFont(QFont('Segoe UI'))
         app = Application()
+        notices = []
+        app.notification_changed.connect(notices.append)
         controller = AgentRequestController(app, env_inst.server_pool)
         server = Server()
         with patch('thlib.tactic_classes.server_start', return_value=server):
@@ -108,6 +124,36 @@ class AgentRequestUI(unittest.TestCase):
                 frame(window)
 
             wait()
+            clipboard = QGuiApplication.clipboard()
+            saved_clipboard = QMimeData()
+            original = clipboard.mimeData()
+            for format in original.formats() if original else []:
+                saved_clipboard.setData(format, original.data(format))
+            if original and original.formats():
+                self.addCleanup(clipboard.setMimeData, saved_clipboard)
+            else:
+                self.addCleanup(clipboard.clear)
+            image = QImage(32, 32, QImage.Format_RGB32)
+            image.fill(QColor('red'))
+            clipboard.setImage(image)
+            surface.item(view, 'agentRequestPrompt').forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_V, Qt.ControlModifier)
+            wait()
+            self.assertEqual(len(controller.model['attachments']), 1)
+            self.assertTrue(controller.model['previews'])
+            with tempfile.TemporaryDirectory(prefix='native-agent-drop-') as directory:
+                path = Path(directory)/'dropped.bin'
+                path.write_bytes(b'Native drop fixture')
+                mime = QMimeData()
+                mime.setUrls([QUrl.fromLocalFile(str(path))])
+                enter = QDragEnterEvent(QPoint(400, 250), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
+                QCoreApplication.sendEvent(window, enter)
+                surface.app.processEvents()
+                drop = QDropEvent(QPointF(400, 250), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
+                QCoreApplication.sendEvent(window, drop)
+                wait()
+                self.assertTrue(drop.isAccepted())
+                self.assertEqual(len(controller.model['attachments']), 2)
             surface.fill(window, surface.item(view, 'agentRequestPrompt'), 'Explain the selected shots')
             surface.click(window, surface.item(view, 'agentRequestChanges'))
             self.assertTrue(controller.model['allowChanges'])
@@ -119,6 +165,20 @@ class AgentRequestUI(unittest.TestCase):
             wait()
             self.assertEqual(server.last['document']['context']['search_keys'], app.keys)
             self.assertEqual(server.last['document']['context']['page'], 'cg/shot@shots')
+            self.assertEqual(len(server.last['document']['attachments']), 2)
+            surface.fill(window, surface.item(view, 'agentRequestPrompt'), 'Use the reference process')
+            surface.click(window, surface.item(view, 'agentRequestSend'))
+            wait()
+            self.assertEqual(server.last['messages'][-1]['text'], 'Use the reference process')
+            server.last.update(status='completed', outcome='completed', answer='**Done**')
+            server.last['messages'].append(dict(id='answer', role='assistant', text='**Done**', attachments=[]))
+            controller._request('poll')
+            wait()
+            self.assertIn('Task completed', notices)
+            surface.fill(window, surface.item(view, 'agentRequestPrompt'), 'Summarize the result')
+            surface.click(window, surface.item(view, 'agentRequestSend'))
+            wait()
+            self.assertEqual(len(server.last['messages']), 4)
             app.current_project_code = 'two'
             app.keys = ['cg/shot?project=two&code=OTHER']
             self.assertEqual(controller.model['request']['document']['context']['project'], 'one')

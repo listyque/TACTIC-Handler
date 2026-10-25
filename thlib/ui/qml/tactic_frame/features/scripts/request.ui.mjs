@@ -1,6 +1,12 @@
 import { node, rect, label, button, muted } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
+export const metrics = {
+    inset: 12,
+    bubblePadding: 14,
+    messageGap: 16,
+    attachmentHeight: 28
+};
 export function initial(context = {}) {
     return {
         context,
@@ -12,198 +18,423 @@ export function initial(context = {}) {
         request: {},
         busy: false,
         error: '',
-        pending: null
+        pending: null,
+        attachments: [],
+        uploading: false,
+        model: '',
+        contextExpanded: false
     };
 }
-
 export function active(model) {
     return ['queued', 'running', 'cancelling'].includes(model.request?.status);
 }
-
+export function host(model) {
+    const allowed = model.hosts.filter(
+        (item) =>
+            !(model.request?.document?.allow_changes ?? model.allowChanges) ||
+            item.capabilities.changes
+    );
+    return (
+        allowed.find((item) => item.host_id === model.request?.host_id) ||
+        allowed[0]
+    );
+}
 export function canSend(model) {
+    const connected = host(model);
     return (
         !model.busy &&
-        !model.selected &&
+        !model.uploading &&
         !!model.context?.project &&
         !!model.prompt.trim() &&
         model.prompt.length <= 12000 &&
-        !!model.hosts.length &&
-        (!model.allowChanges ||
-            model.hosts.some((host) => host.capabilities.changes))
+        !!connected &&
+        (!model.allowChanges || connected.capabilities.changes) &&
+        (!model.selected || model.request.status !== 'cancelling') &&
+        (!active(model) || connected.capabilities.steering === true)
     );
 }
-
-export function describe(model, width, height, language) {
-    const tr = (text) => translate(text, language);
-    const inset = 8,
-        gap = 8,
-        inner = Math.max(0, width - inset * 2);
-    const current = model.request || {},
-        context = current.document?.context || model.context || {};
-    const statusText = (value) =>
-        tr(
-            {
-                queued: 'Request queued',
-                running: 'Agent working',
-                cancelling: 'Request cancelling',
-                cancelled: 'Request cancelled',
-                completed: 'Request completed',
-                failed: 'Request failed',
-                interrupted: 'Request interrupted'
-            }[value] || value
-        );
-    const status =
-        model.error ||
-        (model.busy
-            ? tr('Loading…')
-            : current.status
-              ? statusText(current.status)
-              : model.hosts.length
-                ? tr('External agent connected') +
-                  ': ' +
-                  model.hosts.map((host) => host.label).join(', ')
-                : tr('External agent is offline'));
-    const contextText = [
-        context.client,
-        context.project,
-        context.title || context.page,
-        context.search_type,
-        context.view,
-        ...(context.search_keys || [])
-    ]
-        .filter(Boolean)
-        .join('\n');
-    const output = [
-        model.error ? tr(model.error) : '',
-        current.error ? tr(current.error) : '',
-        ...(current.events || [])
-            .filter((value) => value !== current.answer)
-            .map((value) => tr(value)),
-        current.answer || ''
-    ]
-        .filter(Boolean)
-        .join('\n\n');
-    const actionsTop = 326,
-        outputTop = actionsTop + 44;
-    return {
-        nodes: [
-            node(
-                'Choice',
-                'agentRequestHistory',
-                rect(inset, 8, Math.max(0, inner - 88), 36),
+export function messages(model) {
+    const current = model.request || {};
+    const rows = current.messages?.length
+        ? current.messages
+        : current.document
+          ? [
                 {
-                    label: tr('Agent requests'),
-                    value: model.selected,
-                    enabled: !model.busy,
-                    options: [
-                        { value: '', label: tr('New request') },
-                        ...(model.requests || []).map((row) => ({
-                            value: row.request_id,
-                            label: statusText(row.status) + ' · ' + row.prompt
-                        }))
-                    ],
-                    action: { type: 'select' }
+                    id: current.request_id,
+                    role: 'user',
+                    text: current.document.prompt,
+                    attachments: []
+                },
+                ...(current.answer
+                    ? [
+                          {
+                              id: 'answer',
+                              role: 'assistant',
+                              text: current.answer,
+                              attachments: []
+                          }
+                      ]
+                    : [])
+            ]
+          : [];
+    return rows.concat(
+        current.output && active(model)
+            ? [
+                  {
+                      id: 'progress',
+                      role: 'assistant',
+                      text: current.output,
+                      attachments: []
+                  }
+              ]
+            : []
+    );
+}
+export function safeMarkdown(text) {
+    return String(text || '')
+        .replace(/<[^>]*>/g, (value) =>
+            value.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        )
+        .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+        .replace(/!\[/g, '[');
+}
+export function messageGeometry(width, role, bodyHeight, attachments) {
+    const inner = Math.min(800, Math.max(0, width - 32)),
+        bubbleWidth = Math.min(role === 'user' ? 640 : 800, inner);
+    const padding = role === 'user' ? metrics.bubblePadding : 0;
+    return {
+        x: (width - inner) / 2 + (role === 'user' ? inner - bubbleWidth : 0),
+        width: bubbleWidth,
+        padding,
+        height:
+            padding * 2 +
+            Math.max(20, bodyHeight) +
+            attachments * metrics.attachmentHeight
+    };
+}
+
+export function contextItems(context, language) {
+    const tr = (text) => translate(text, language);
+    return [
+        { value: context.project || '', icon: 'folder' },
+        { value: context.title || context.page || '', icon: 'table' },
+        { value: context.search_type || '', icon: 'database' },
+        {
+            value:
+                tr('Selected objects') +
+                ': ' +
+                (context.search_keys || []).length,
+            icon: 'check'
+        }
+    ]
+        .filter((item) => item.value)
+        .map((item) =>
+            Object.assign({}, item, {
+                width: Math.min(220, Math.max(80, item.value.length * 7 + 40))
+            })
+        );
+}
+export function status(model, language) {
+    const tr = (text) => translate(text, language),
+        current = model.request || {};
+    if (model.error || current.error)
+        return {
+            text: tr(model.error || current.error),
+            color: 'error',
+            icon: 'error'
+        };
+    if (current.status === 'completed')
+        return current.outcome === 'needs_input'
+            ? {
+                  text: tr('Waiting for your reply'),
+                  color: 'action',
+                  icon: 'help'
+              }
+            : current.outcome === 'blocked'
+              ? {
+                    text: tr('Task blocked — see the answer'),
+                    color: 'error',
+                    icon: 'warning'
                 }
+              : {
+                    text: tr(
+                        current.outcome === 'completed'
+                            ? 'Task completed'
+                            : 'Agent finished — review the answer'
+                    ),
+                    color: 'green',
+                    icon: 'check'
+                };
+    const texts = {
+        queued: 'Request queued',
+        running: 'Agent working',
+        cancelling: 'Request cancelling',
+        cancelled: 'Request cancelled',
+        failed: 'Request failed',
+        interrupted: 'Request interrupted'
+    };
+    return {
+        text: tr(
+            texts[current.status] ||
+                (model.hosts.length
+                    ? 'External agent connected'
+                    : 'External agent is offline')
+        ),
+        color: 'secondaryText',
+        icon: active(model) ? 'sync' : 'chat'
+    };
+}
+export function describe(model, width, height, language) {
+    const tr = (text) => translate(text, language),
+        current = model.request || {},
+        context = current.document?.context || model.context || {};
+    const inset = metrics.inset,
+        inner = Math.max(0, width - inset * 2),
+        narrow = width < 640,
+        connected = host(model);
+    const composerWidth = Math.min(880, inner),
+        composerX = (width - composerWidth) / 2;
+    const contextHeight = model.contextExpanded ? 122 : 38;
+    const composerHeight =
+        158 + contextHeight + (model.attachments.length ? 42 : 0);
+    const composerTop = Math.max(180, height - composerHeight - 12),
+        modelWidth = narrow ? 142 : 200;
+    const state = status(model, language),
+        working = active(model),
+        sendVisible = !working || !!model.prompt.trim();
+    const nodes = [
+        node(
+            'Choice',
+            'agentRequestHistory',
+            rect(inset, 10, Math.max(70, inner - 88), 32),
+            {
+                label: tr('Agent requests'),
+                value: model.selected,
+                enabled: !model.busy && !model.uploading,
+                options: [
+                    { value: '', label: tr('New conversation') },
+                    ...(model.requests || []).map((row) => ({
+                        value: row.request_id,
+                        label: row.prompt
+                    }))
+                ],
+                action: { type: 'select' }
+            }
+        ),
+        button(
+            'agentRequestNew',
+            rect(width - inset - 72, 10, 32, 32),
+            tr('New conversation'),
+            'add',
+            { type: 'select', value: '' },
+            !model.busy && !model.uploading,
+            { iconOnly: true }
+        ),
+        button(
+            'agentRequestRefresh',
+            rect(width - inset - 32, 10, 32, 32),
+            tr('Refresh'),
+            'refresh',
+            { type: 'refresh' },
+            !model.busy && !model.uploading,
+            { iconOnly: true }
+        ),
+        node('Icon', 'agentRequestStatusIcon', rect(inset, 52, 18, 18), {
+            icon: state.icon,
+            color: state.color
+        }),
+        label(
+            'agentRequestStatus',
+            rect(
+                inset + 26,
+                50,
+                Math.max(0, inner - 26 - (current.undo_operation ? 142 : 0)),
+                24
             ),
-            button(
-                'agentRequestNew',
-                rect(width - inset - 80, 8, 36, 36),
-                tr('New request'),
-                'add',
-                { type: 'select', value: '' },
-                !model.busy,
-                { iconOnly: true }
+            state.text,
+            Object.assign({}, muted, { color: state.color, role: 'alert' })
+        ),
+        node(
+            'View',
+            'agentRequestOutput',
+            rect(0, 84, width, Math.max(70, composerTop - 96)),
+            {
+                view: 'transcript',
+                messages: messages(model),
+                events: (current.events || [])
+                    .filter((text) => /^[a-z_]+:/.test(text))
+                    .slice(-4),
+                active: working
+            }
+        ),
+        node(
+            'Box',
+            'agentComposerSurface',
+            rect(
+                composerX,
+                composerTop,
+                composerWidth,
+                height - composerTop - 12
             ),
-            button(
-                'agentRequestRefresh',
-                rect(width - inset - 36, 8, 36, 36),
-                tr('Refresh'),
-                'refresh',
-                { type: 'refresh' },
-                !model.busy,
-                { iconOnly: true }
+            {
+                background: 'surfaceContainerHigh',
+                border: 'outlineVariant',
+                borderWidth: 1,
+                radius: 20
+            }
+        ),
+        node(
+            'View',
+            'agentRequestContext',
+            rect(
+                composerX + 12,
+                composerTop + 10,
+                Math.max(0, composerWidth - 24),
+                contextHeight
             ),
-            label(
-                'agentRequestStatus',
-                rect(inset, 48, inner, 28),
-                status,
-                muted
+            { view: 'context', context, expanded: model.contextExpanded }
+        ),
+        node(
+            'Area',
+            'agentRequestPrompt',
+            rect(
+                composerX + 10,
+                composerTop + contextHeight + 18,
+                Math.max(0, composerWidth - 20),
+                64
             ),
-            node('Area', 'agentRequestContext', rect(inset, 80, inner, 100), {
-                label: tr('Context sent to the agent'),
-                text: contextText,
-                readOnly: true,
-                enabled: true
-            }),
-            node('Area', 'agentRequestPrompt', rect(inset, 188, inner, 96), {
-                label: tr('What should the agent do?'),
-                text: current.document?.prompt || model.prompt,
-                readOnly: !!model.selected || !!model.pending,
+            {
+                label: tr(
+                    working
+                        ? 'Add a correction while the agent works'
+                        : 'What should the agent do?'
+                ),
+                placeholder: tr(
+                    working
+                        ? 'Add a correction while the agent works'
+                        : 'Describe the task. Attach files or paste an image.'
+                ),
+                text: model.prompt,
+                flat: true,
+                readOnly: !!model.pending,
                 enabled: !model.busy,
                 action: { type: 'prompt' }
-            }),
-            node(
-                'CheckBox',
-                'agentRequestChanges',
-                rect(inset, 290, inner, 30),
-                {
-                    text: tr('Allow the requested configuration changes'),
-                    wrapText: true,
-                    checked:
-                        current.document?.allow_changes ?? model.allowChanges,
-                    enabled: !model.busy && !model.selected && !model.pending,
-                    action: { type: 'changes' }
-                }
+            }
+        ),
+        node(
+            'CheckBox',
+            'agentRequestChanges',
+            rect(
+                composerX + 16,
+                height - 84,
+                Math.max(0, composerWidth - 32),
+                26
             ),
+            {
+                text: tr('Allow requested changes'),
+                wrapText: true,
+                checked: current.document?.allow_changes ?? model.allowChanges,
+                enabled: !model.busy && !model.selected && !model.pending,
+                action: { type: 'changes' }
+            }
+        ),
+        button(
+            'agentRequestAttach',
+            rect(composerX + 12, height - 52, 32, 32),
+            tr('Attach files'),
+            'add',
+            { type: 'attach' },
+            !model.uploading && !model.pending && !model.busy,
+            { iconOnly: true }
+        ),
+        button(
+            'agentRequestPaste',
+            rect(composerX + 50, height - 52, 32, 32),
+            tr('Paste attachment'),
+            'content-paste',
+            { type: 'paste' },
+            !model.uploading && !model.pending && !model.busy,
+            { iconOnly: true }
+        )
+    ];
+    if (sendVisible)
+        nodes.push(
             button(
                 'agentRequestSend',
-                rect(inset, actionsTop, Math.min(220, (inner - gap) / 2), 36),
-                tr('Send to agent'),
-                'send',
+                rect(
+                    composerX + composerWidth - 44 - (working ? 40 : 0),
+                    height - 52,
+                    32,
+                    32
+                ),
+                tr(working ? 'Send correction' : 'Send to agent'),
+                'arrow-upward',
                 { type: 'send' },
-                canSend(model)
-            ),
+                canSend(model),
+                { iconOnly: true, highlighted: true }
+            )
+        );
+    if (working)
+        nodes.push(
             button(
                 'agentRequestCancel',
-                rect(
-                    inset + Math.min(220, (inner - gap) / 2) + gap,
-                    actionsTop,
-                    Math.min(200, (inner - gap) / 2),
-                    36
-                ),
+                rect(composerX + composerWidth - 44, height - 52, 32, 32),
                 tr('Cancel request'),
-                'close',
+                'stop',
                 { type: 'cancel' },
-                !model.busy && active(model) && current.status !== 'cancelling'
-            ),
+                !model.busy && current.status !== 'cancelling',
+                { iconOnly: true }
+            )
+        );
+    if (connected?.capabilities.models?.length)
+        nodes.push(
             node(
-                'Area',
-                'agentRequestOutput',
+                'Choice',
+                'agentRequestModel',
                 rect(
-                    inset,
-                    outputTop,
-                    inner,
-                    Math.max(80, height - outputTop - 42)
+                    composerX +
+                        composerWidth -
+                        modelWidth -
+                        52 -
+                        (working && sendVisible ? 40 : 0),
+                    height - 52,
+                    modelWidth,
+                    32
                 ),
                 {
-                    label: tr('Agent progress and answer'),
-                    text:
-                        output ||
-                        tr(
-                            'The answer and operation results will appear here.'
-                        ),
-                    readOnly: true,
-                    enabled: true
+                    label: tr('Model'),
+                    value: model.model || current.model || '',
+                    enabled: !model.busy && !working,
+                    options: [
+                        { value: '', label: tr('Agent default') },
+                        ...connected.capabilities.models.map((item) => ({
+                            value: item.id,
+                            label: item.label
+                        }))
+                    ],
+                    action: { type: 'model' }
                 }
-            ),
-            label(
-                'agentRequestBoundary',
-                rect(inset, height - 34, inner, 28),
-                tr(
-                    'Script activation remains a separate action in the Script Editor.'
-                ),
-                Object.assign({}, muted, { wrap: true })
             )
-        ]
-    };
+        );
+    if (model.attachments.length)
+        nodes.push(
+            node(
+                'View',
+                'agentRequestAttachments',
+                rect(composerX + 12, height - 126, composerWidth - 24, 36),
+                { view: 'attachments', files: model.attachments }
+            )
+        );
+    if (current.undo_operation)
+        nodes.push(
+            button(
+                'agentRequestUndo',
+                rect(width - inset - 134, 50, 134, 26),
+                tr('Undo field change'),
+                'undo',
+                { type: 'undo' },
+                !working && !model.busy && !model.uploading
+            )
+        );
+    return { nodes };
 }
