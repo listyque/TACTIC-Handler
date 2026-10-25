@@ -60,8 +60,9 @@ export const controls = {
     dialog: {
         padding: 20,
         spacing: 12,
-        headerHeight: 62,
-        titleSize: 16,
+        headerHeight: 40,
+        headerPadding: 12,
+        titleSize: 13,
         shadowY: 6,
         shadowBlur: 14
     },

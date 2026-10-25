@@ -10,6 +10,9 @@ order: 25
 
 ## Help and unfinished gestures
 
+Embedded dialogs use a compact title bar, a neutral themed caption and a visible outer frame.
+Standalone windows retain the operating system's native title bar and frame.
+
 Help keeps the selected article, search and each article's scroll position when closed and reopened.
 A contextual Help button selects its article in the same window. Search includes article contents.
 Reload rereads the files and preserves the current position; changing the interface language while

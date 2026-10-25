@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.158 - 2026-10-26
+
+- Use compact 40 px captions with 13 px titles, neutral themed header colors and visible outer frames for shared dialogs. Keep native operating-system frames on standalone windows; synchronize Stream window styling and Help.
+
 ## 0.6.0.157 - 2026-10-25
 
 - Send requests to a connected external agent from the native modal, capturing the current project, page, table view and selected objects. Review context, authorize configuration changes, follow progress, cancel and reopen durable requests. Script activation remains separately reviewed.

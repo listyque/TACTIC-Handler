@@ -11,7 +11,7 @@ Basic.Dialog {
     required property var theme
     property bool translateTitle: true
     property bool draggable: false
-    property real headerPadding: leftPadding
+    property real headerPadding: Foundation.controls.dialog.headerPadding
 
     modal: false
     spacing: Foundation.controls.dialog.spacing
@@ -30,6 +30,7 @@ Basic.Dialog {
     }
 
     header: Item {
+        objectName: "dialogTitleBar"
         implicitHeight: control.title.length > 0 ? Foundation.controls.dialog.headerHeight : 0
         visible: implicitHeight > 0
         clip: true
@@ -53,14 +54,16 @@ Basic.Dialog {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
+            anchors.leftMargin: 1
+            anchors.rightMargin: 1
+            anchors.topMargin: 1
             height: parent.height + control.theme.dialogRadius
             radius: control.theme.dialogRadius
-            color: control.theme.surfaceContainerHighest
-            border.width: 1
-            border.color: control.theme.outlineVariant
+            color: control.theme.topBar
         }
 
         Text {
+            objectName: "dialogTitle"
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
@@ -78,6 +81,8 @@ Basic.Dialog {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
+            anchors.leftMargin: 1
+            anchors.rightMargin: 1
             height: 1
             color: control.theme.outlineVariant
         }
@@ -96,11 +101,12 @@ Basic.Dialog {
         }
         Rectangle {
             id: surface
+            objectName: "dialogSurface"
             anchors.fill: parent
             radius: control.theme.dialogRadius
             color: control.theme.surfaceContainerHigh
             border.width: 1
-            border.color: control.theme.outlineVariant
+            border.color: control.theme.outline
         }
     }
 }
