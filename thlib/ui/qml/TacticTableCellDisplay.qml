@@ -108,6 +108,7 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 textFormat: Text.PlainText
                 text: Cells.text(root.cell, root.textValue, root.language)
+                wrapMode: root.cell.multiline ? Text.Wrap : Text.NoWrap
                 elide: Text.ElideRight
                 background: Rectangle {
                     color: root.cell.statusColor || "transparent"

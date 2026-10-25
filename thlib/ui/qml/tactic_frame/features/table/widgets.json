@@ -779,5 +779,16 @@
       "tactic.ui.table.table_element_wdg.GeneralPublishElementWdg"
     ],
     "adapter": "commands"
+  },
+  {
+    "value": "WikiElementWdg",
+    "label": "Multiline text",
+    "class": "pyasm.widget.table_element_wdg.WikiElementWdg",
+    "aliases": [
+      "WikiElementWdg",
+      "pyasm.widget.WikiElementWdg",
+      "pyasm.widget.table_element_wdg.WikiElementWdg"
+    ],
+    "adapter": "value"
   }
 ]

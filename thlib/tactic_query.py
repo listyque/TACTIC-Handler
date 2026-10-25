@@ -8657,7 +8657,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
         from pyasm.search import Search
 
         allowed = {
-            'dynamic_class', 'dynamic', 'search_type', 'view', 'expression',
+            'dynamic_class', 'dynamic', 'search_type', 'view', 'expression', 'width',
             'search_view', 'edit_view', 'insert_view',
             'icon', 'title_icon', 'icon_tip', 'label', 'mode', 'init_load_num',
             'show_search_limit', 'show_insert', 'show_row_select', 'show_select',
@@ -8665,6 +8665,8 @@ def query_table_layout(search_type, search_keys=None, view='table',
         }
         if set(options) - allowed:
             raise ValueError('Unsupported nested table options: ' + ', '.join(sorted(set(options) - allowed)))
+        if options.get('width') not in (None, '', '100%'):
+            raise ValueError('Nested table width must fill its native container (100%)')
         for flag in ('show_search_limit', 'show_insert', 'show_row_select', 'show_select',
                      'show_gear', 'show_search', 'show_shelf', 'show_resize_scroll'):
             if options.get(flag, '') not in ('', True, False, 'true', 'false'):
@@ -9405,6 +9407,9 @@ def query_table_layout(search_type, search_keys=None, view='table',
                         progress = max(0, min(100, progress))
             return {'text': str(body), 'messageLabel': title,
                     'author': object_value(sobject, 'login'), 'progress': progress}
+        if class_name.endswith('.WikiElementWdg'):
+            value = sobject.get_value(options.get('column') or column['name'], no_exception=True)
+            return {'text': '' if value is None else str(value), 'multiline': True}
         if class_name.endswith('.ExpressionElementWdg'):
             native = getattr(widget, 'get_cell_value', None)
             if native:
@@ -9480,19 +9485,27 @@ def query_table_layout(search_type, search_keys=None, view='table',
                      'Filter': 'If set to [multi], It generally applies to filters in the filter box for Artist Tab.',
                      'Quick Text': 'A list of | separated phrases a user can pick from to enter into the note area of Note Sheet.'}
             return {'text': sobject.get_description(), 'tooltip': hints.get(sobject.get_value('title'), '')}
-        if class_name.endswith('.DiscussionWdg'):
+        if class_name.endswith(('.DiscussionWdg', '.DiscussionElementWdg')):
             native = getattr(widget, 'get_cell_value', None)
             if native:
                 return native()
+            if class_name.endswith('.DiscussionElementWdg'):
+                index = widget.get_current_index()
+                widget = widget.discussion
+                widget.set_current_index(index)
+                widget.preprocess_notes()
             counts = {}
             for note in widget.get_notes():
                 if not note.get_parent_id():
                     process = note.get_process() or 'publish'
                     counts[process] = counts.get(process, 0) + 1
             parent = widget.parent
+            process = widget.process
+            if widget.use_parent in (True, 'true') and widget.parent_processes:
+                process = widget.parent_processes[widget.get_current_index()]
             return {'text': str(sum(counts.values())), 'count': sum(counts.values()),
                 'search_key': SearchKey.get_by_sobject(parent, use_id=False) if parent else '',
-                'process': widget.process, 'contexts': widget.contexts or [],
+                'process': process, 'contexts': widget.contexts or [],
                 'processes': [{'process': process, 'count': count} for process, count in counts.items()]}
         if class_name.endswith('.CheckboxColWdg'):
             return {'text': '', 'search_key': SearchKey.get_by_sobject(sobject, use_id=False)}

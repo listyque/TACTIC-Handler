@@ -6,6 +6,43 @@ order: 36
 
 # Table View: B07 typed cells
 
+
+## Standard VFX forms and cells
+
+`TextInputWdg` now opens the ordinary native text editor in Handler and Stream.
+The VFX Art Reference and Layer forms retain their values, required/read-only
+flags, defaults and native EditCmd saving. This checkpoint covers their plain
+text configuration; custom DOM validation and callbacks remain unsupported.
+
+`WikiElementWdg` displays plain text with line breaks in both clients. Its original
+WikiUtil escaped tags and converted newlines; neither client executes markup from
+the value. The cell keeps the configured inline editor. A historical catalogue
+label incorrectly excluded this working original because of its old docstring;
+that exclusion is removed.
+
+VFX Review accepts HiddenRow's `width=100%`; its child table still uses its own
+query/selection scope. Other explicit widths remain unsupported. Shot/Sequence
+Planner accepts the original DropElementAction when its instance type and path
+match the display configuration. Add/remove uses the existing revision-guarded
+instance-link command, including conflict rejection and rollback. It does not
+execute arbitrary legacy actions. Shot Sheet task notes accept the old
+`show_note_expand=false` and `context_hidden` declarations and retain their task
+parent/process target through the shared inspector.
+
+The prepared VFX example corrects Camera's shot selector to `vfx/shot` and retains
+its file upload. Existing project XML is not rewritten automatically; the new
+camera `edit` configuration must be applied explicitly to an existing project.
+
+This is a standard-widget checkpoint, not complete VFX-template acceptance.
+Planner/Shot Sheet composition and script actions remain separate work. The old
+Submit chain through `pyasm.prod.web.SubmissionWdg`, production detail panels,
+Maya and applet execution remain excluded; unavailable columns are not proof
+that those subsystems were restored.
+
+| Wiki, MD3 dark, identical text and 360x58 cell | Handler | Stream |
+| --- | --- | --- |
+| Escaped markup and two lines | ![Handler](media/vfx-wiki-native.png) | ![Stream](media/vfx-wiki-stream.png) |
+
 ## Parent groups and changing a parent
 
 ```xml

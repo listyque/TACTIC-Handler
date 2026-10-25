@@ -314,7 +314,7 @@ class FrameTableTests(unittest.TestCase):
         self.assertEqual(model.selectableCount, 1)
 
     def test_table_values_are_plain_text(self):
-        text = "User <b>value</b>"
+        text = "User <b>value</b>\nSecond line"
         window, view = self.create(
             "TacticTableCellDisplay.qml",
             dict(
@@ -323,7 +323,7 @@ class FrameTableTests(unittest.TestCase):
                 userModel=None,
                 nodeId="row",
                 kind="text",
-                cell={"text": text},
+                cell={"text": text, "multiline": True},
                 textValue=text,
                 columnIndex=1,
                 previewActive=False,
@@ -349,6 +349,27 @@ class FrameTableTests(unittest.TestCase):
         self.assertFalse(expression.hasError(), expression.error().toString())
         self.assertFalse(undefined)
         self.assertTrue(result)
+        self.assertEqual(label.property("lineCount"), 2)
+
+    def test_vfx_text_input_uses_the_real_native_keyboard_editor(self):
+        from thlib.ui.sobject_editor import SObjectEditorController
+        from tests.test_sobject_editor import _EditorStype
+        descriptor = SObjectEditorController.describe_field(
+            _EditorStype({'name': 'varchar'}), {},
+            dict(name='name', class_name='tactic.ui.input.text_input_wdg.TextInputWdg',
+                 __display_values__=['Original'], kwargs={}, action_options={}), mode='insert')
+        window, view = self.create('SObjectValueEditor.qml',
+            dict(fieldType=descriptor['fieldType'], fieldValue=descriptor['fieldValue'], fieldOptions=[]),
+            width=360, height=48)
+        edited = []
+        view.valueEdited.connect(edited.append)
+        field = self.item(view, 'sobjectValueTextEditor')
+        self.click(window, field)
+        QTest.keyClick(window, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(window, Qt.Key_Z)
+        frame(window)
+        self.assertEqual(edited[-1], 'z')
+        self.assertEqual(field.property('text'), 'z')
 
     def test_embedded_message_uses_plain_text_and_shared_progress(self):
         from thlib.ui.workspace_models.records import RecordListModel

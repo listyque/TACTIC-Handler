@@ -7,6 +7,7 @@ input_classes = {
         'tactic.ui.widget.upload_wdg.UploadWdg',
         'pyasm.widget.input_wdg.UploadWdg',
         'pyasm.widget.input_wdg.TextWdg',
+        'tactic.ui.input.text_input_wdg.TextInputWdg',
         'pyasm.widget.input_wdg.TextAreaWdg',
         'pyasm.widget.input_wdg.SelectWdg',
         'pyasm.widget.input_wdg.CheckboxWdg',
@@ -27,6 +28,7 @@ input_classes = {
         'TacticRichUploadWdg',
         'TacticUploadWdg',
         'TacticTextWdg',
+        'TacticTextInputWdg',
         'TacticTextAreaWdg',
         'TacticSelectWdg',
         'TacticCheckboxWdg',
@@ -472,6 +474,17 @@ class TacticTextWdg(TacticBaseInputWdg):
     def __init__(self, options_dict=None):
         super().__init__(options_dict=options_dict)
         self.set_class_name(self.tactic_class)
+
+
+class TacticTextInputWdg(TacticTextWdg):
+    tactic_class = 'tactic.ui.input.text_input_wdg.TextInputWdg'
+
+    def get_editor_kind(self, data_type='text'):
+        if any(self.kwargs.get(name) for name in (
+                'validation_js', 'validation_scheme', 'display_format',
+                'custom_cbk', 'onblur', 'password', 'type')):
+            return 'unsupported'
+        return super().get_editor_kind(data_type)
 
 
 class TacticTextAreaWdg(TacticTextWdg):

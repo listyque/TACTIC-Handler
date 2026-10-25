@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.152 - 2026-10-25
+
+- Render VFX TextInputWdg through the native text editor and transport WikiElementWdg as safe multiline text, including the original-server table query. Retain configured form values, required/read-only flags and ordinary EditCmd saving.
+- Synchronize the standard Wiki table catalogue with TS 0.112.209 and document the paired VFX checkpoint: scoped Review tables, guarded Planner Drop links, parent task notes and the prepared Camera form. Old production submission/detail and Maya/applet workflows remain excluded; VFX composition and scripts are not declared complete.
+
 ## 0.6.0.151 - 2026-10-25
 
 - Add project-scoped automation authoring to the public and fixed remote Handler API: inactive drafts, guarded activation and durable receipts are stored by native TS commands. The trigger editor now saves its complete rule set atomically; TS 0.112.207 and the normal schema upgrade are required.

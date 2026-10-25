@@ -614,6 +614,7 @@ class SObjectWidgetContractTests(unittest.TestCase):
                 tw.TacticSimpleUploadWdg, "preview",
             ),
             "pyasm.widget.input_wdg.TextWdg": (tw.TacticTextWdg, "string"),
+            "tactic.ui.input.text_input_wdg.TextInputWdg": (tw.TacticTextInputWdg, "string"),
             "pyasm.widget.input_wdg.TextAreaWdg": (
                 tw.TacticTextAreaWdg, "multiline",
             ),
@@ -699,6 +700,24 @@ class SObjectWidgetContractTests(unittest.TestCase):
             {"label": "In progress", "value": "ip"},
             {"label": "Complete", "value": "done"},
         ])
+
+    def test_vfx_text_input_keeps_native_value_required_and_read_only(self):
+        source = dict(name='name', title='Name',
+                      class_name='tactic.ui.input.text_input_wdg.TextInputWdg',
+                      kwargs={'required': 'true', 'read_only': 'true'},
+                      __display_values__=['Original'], action_options={})
+        descriptor = SObjectEditorController.describe_field(
+            _EditorStype({'name': 'varchar'}), {}, source, mode='insert')
+        self.assertEqual(descriptor['fieldType'], 'string')
+        self.assertEqual(descriptor['fieldValue'], 'Original')
+        self.assertTrue(descriptor['fieldRequired'])
+        self.assertTrue(descriptor['fieldReadOnly'])
+        descriptor.update(fieldValue='', fieldReadOnly=False)
+        self.assertEqual(SObjectFieldModel._error_for(descriptor), 'This field is required')
+        source['kwargs'] = {'validation_js': 'custom()'}
+        descriptor = SObjectEditorController.describe_field(
+            _EditorStype({'name': 'varchar'}), {}, source, mode='insert')
+        self.assertEqual(descriptor['fieldType'], 'unsupported')
 
     def test_select_omits_unlabeled_blank_but_keeps_named_default(self):
         widget = tw.TacticSelectWdg({
