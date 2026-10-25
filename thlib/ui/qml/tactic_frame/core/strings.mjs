@@ -1,5 +1,29 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Stale source': 'Исходник изменился',
+    'Historical report': 'Исторический отчёт',
+    'Agent drafts': 'Черновики агента',
+    'Back to editor': 'Назад в редактор',
+    'Agent draft': 'Черновик агента',
+    'Refresh agent drafts': 'Обновить черновики агента',
+    'Ready for source review': 'Готово к проверке исходника',
+    'Fresh passing trials are required':
+        'Нужны успешные прогоны с текущими зависимостями',
+    'Select an agent draft': 'Выберите черновик агента',
+    'Current dependencies': 'Текущие зависимости',
+    'Stale dependencies': 'Зависимости изменились',
+    'Runs on the Handler desktop after activation.':
+        'После активации выполняется в ТХ.',
+    'Draft source': 'Исходник черновика',
+    'No isolated trial reports yet.':
+        'Отчётов изолированной проверки пока нет.',
+    'Isolated trial reports': 'Отчёты изолированной проверки',
+    'I reviewed the source, binding and execution owner':
+        'Я проверил(а) исходник, привязку и место выполнения',
+    'Confirm activation on the desktop': 'Подтвердить активацию для ТХ',
+    'Activate reviewed draft': 'Активировать проверенный черновик',
+    'External host reports do not replace source review.':
+        'Отчёты внешнего исполнителя не заменяют проверку исходника.',
     'Administrator initialization was cancelled or failed.':
         'Первичная установка отменена или завершилась ошибкой.',
     'Local server did not start. See server/temp/log/desktop.log.':

@@ -103,6 +103,9 @@ class ScriptEditorController(QObject):
             Qt.ConnectionType.QueuedConnection,
         )
         self._run_error_owner = "script-editor-run"
+        from thlib.ui.agent_drafts import AgentDraftsController
+        self._agent_drafts = AgentDraftsController(self)
+        self._agent_drafts.activated.connect(self.refresh_scripts_tree)
         self._run_error_output_active = False
         self._local_consoles = {}
         self._dcc_bridge = None
@@ -124,6 +127,10 @@ class ScriptEditorController(QObject):
     @Property(bool, notify=stateChanged)
     def busy(self):
         return self._busy
+
+    @Property(QObject, constant=True)
+    def agentDrafts(self):
+        return self._agent_drafts
 
     @Property(bool, notify=stateChanged)
     def canEdit(self):

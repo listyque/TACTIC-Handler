@@ -10,6 +10,7 @@ Item {
     id: root
     required property var theme
     property string token: ""
+    property bool reviewingAgent: false
     readonly property bool canEdit: scriptEditorController.canEdit
     property bool applyingEditorState: false
     property bool editorReady: false
@@ -277,6 +278,8 @@ Item {
             root.runCurrent(true);
         else if (action.type === "triggers")
             scriptTriggerController.open_editor();
+        else if (action.type === "drafts")
+            root.reviewingAgent = true;
         else if (action.type === "refresh")
             scriptEditorController.refresh_scripts_tree();
         else if (action.type === "tree")
@@ -302,6 +305,7 @@ Item {
         color: root.theme.workspace
     }
     Item {
+        visible: !root.reviewingAgent
         x: root.bounds.main.x
         y: root.bounds.main.y
         width: root.bounds.main.width
@@ -555,7 +559,7 @@ Item {
         y: root.bounds.treeSplitter.y
         width: root.bounds.treeSplitter.width
         height: root.bounds.treeSplitter.height
-        visible: root.bounds.treeVisible
+        visible: !root.reviewingAgent && root.bounds.treeVisible
         theme: root.theme
         scene: UI.splitter(root.presentation, width, height, false, root.uiLanguage)
         onEvent: action => root.frameEvent(action)
@@ -566,7 +570,7 @@ Item {
         y: root.bounds.tree.y
         width: root.bounds.tree.width
         height: root.bounds.tree.height
-        visible: root.bounds.treeVisible
+        visible: !root.reviewingAgent && root.bounds.treeVisible
         radius: 12
         color: root.theme.panel
         border.width: 1
@@ -730,6 +734,15 @@ Item {
         function onCloseAllConfirmationRequested(count) {
             closeAllConfirmation.dirtyCount = count;
             closeAllConfirmation.open();
+        }
+    }
+    Loader {
+        anchors.fill: parent
+        active: root.reviewingAgent
+        sourceComponent: AgentDraftsView {
+            controller: scriptEditorController.agentDrafts
+            theme: root.theme
+            onBack: root.reviewingAgent = false
         }
     }
 }

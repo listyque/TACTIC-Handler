@@ -112,3 +112,15 @@ render jobs. Close releases the window and its model. The three example files
 separate portable composition, native event adaptation and Python lifetime.
 Batch Manager keeps its existing scheduler and web UI; this is an example of
 reusing controls, not another Batch Manager.
+
+## Agent drafts and isolated reports
+
+Open **Agent drafts** in Script Editor to inspect your saved agent drafts, exact
+source and binding, and reports published by the external test host. The review
+panel runs no code. Stale reports stay readable but cannot authorize activation.
+Ask the connected agent for fresh trials, then refresh. Before check-in requires
+passing allow and reject cases; After requires allow; a shelf requires a modal
+case. Review the source and execution owner, check the review box, and confirm
+activation. Scripts targeting Handler run on its desktop after activation; the
+Stream browser does not execute Local Python/QML. Return to the editor without
+losing its open buffers. Reports belong to their author and project.

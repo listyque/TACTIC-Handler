@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.156 - 2026-10-25
+
+- Review agent-authored drafts and isolated trial reports inside Script Editor, using the same Frame layout as Stream. Inspect the exact source and binding, distinguish stale reports, and explicitly confirm activation with revision checks and durable retry receipts. The review panel never executes draft code.
+
 ## 0.6.0.155 - 2026-10-25
 
 - Open table column display declarations from the header menu instead of form input definitions. Resolve inherited definitions and custom named views, show exact widget identifiers, and search saved configuration XML in both clients.

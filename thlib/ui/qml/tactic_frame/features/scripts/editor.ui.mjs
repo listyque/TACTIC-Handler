@@ -62,6 +62,7 @@ export function commands(model) {
         run: idle && model.editable && !!model.source?.trim(),
         refresh: idle,
         triggers: idle && model.canEdit && model.native,
+        drafts: idle && model.canEdit,
         closeAll: idle && model.tabCount > 0
     };
 }
@@ -93,7 +94,7 @@ export function toolbar(model, width, language) {
             { iconOnly: true }
         )
     );
-    const fieldWidth = (contentWidth - 312) / 2;
+    const fieldWidth = (contentWidth - 340) / 2;
     nodes.push(
         node('Field', 'scriptFolder', rect(72, 1, fieldWidth, 30), {
             text: model.folder || '',
@@ -138,6 +139,7 @@ export function toolbar(model, width, language) {
     );
     [
         ['triggers', 'Script triggers', 'bolt'],
+        ['drafts', 'Agent drafts', 'code'],
         ['refresh', 'Refresh scripts from server', 'refresh'],
         [
             'tree',

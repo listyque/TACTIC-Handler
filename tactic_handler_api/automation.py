@@ -31,11 +31,17 @@ class Automation:
     def save_hooks(self, rules, expected_revision, operation_id):
         return self._call('save_hooks', rules=rules, expected_revision=expected_revision, operation_id=operation_id)
 
-    def save_draft(self, document, expected_revision, operation_id):
-        return self._call('save_draft', document=document, expected_revision=expected_revision, operation_id=operation_id)
+    def save_draft(self, document, expected_revision, operation_id, *, draft_id=None, draft_revision=None):
+        if bool(draft_id) != bool(draft_revision):
+            raise ValueError('Provide draft_id and draft_revision together to revise an inactive draft')
+        return self._call('save_draft', document=document, expected_revision=expected_revision, operation_id=operation_id,
+            **(dict(draft_id=draft_id, draft_revision=draft_revision) if draft_id else {}))
 
     def draft(self, draft_id):
         return self._call('draft', draft_id=draft_id)
+
+    def drafts(self):
+        return self._call('catalog')
 
     def activate(self, draft_id, draft_revision, expected_revision, operation_id):
         return self._call('activate', draft_id=draft_id, draft_revision=draft_revision,

@@ -633,6 +633,12 @@ isolated; this suite does not replace acceptance against a live TACTIC/Maya setu
 `save_draft(document, expected_revision, operation_id)`, `draft(draft_id)`,
 `activate(draft_id, draft_revision, expected_revision, operation_id)`,
 `operation(operation_id)` and `save_hooks(rules, expected_revision, operation_id)`.
+`drafts()` lists this author's reviewable drafts (TS 0.112.214). `draft()` also
+returns host-reported trial evidence and freshness. To revise an inactive source,
+preview the new document, then pass optional keyword arguments `draft_id` and its
+original `draft_revision` to `save_draft`, using the new preview revision and a new
+operation UUID. Old reports remain historical and no longer qualify. Activated
+drafts cannot be revised this way; normal saved-script editing remains separate.
 The same domain object is available through the existing remote API. Obtain it
 inside the API worker/session; it captures the project's server stub. No Qt
 objects or arbitrary RPC names are accepted. These operations require TS
