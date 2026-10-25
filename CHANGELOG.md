@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.155 - 2026-10-25
+
+- Open table column display declarations from the header menu instead of form input definitions. Resolve inherited definitions and custom named views, show exact widget identifiers, and search saved configuration XML in both clients.
+
 ## 0.6.0.153 - 2026-10-25
 
 - Render VFX Planner and Shot Sheet as shared native compositions with independently scoped tables, configured filters, asset drag/link controls, retained script tabs and complete report printing. Resolve configured CustomLayout sidebar links.

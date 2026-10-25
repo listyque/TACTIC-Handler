@@ -121,6 +121,8 @@ survives navigation. Unknown writes require readback. Native Grid publishes a
 stable row-vector snapshot before model reset; its URL loader owns bindings
 separately from delegates.
 
+Column header display editing uses the shared Columns definition-source selector: current-view display declaration, then inherited `definition`, with an explicit missing-source state. Form input editing continues to target `edit_definition`. Source projection accepts the selected saved view name without constructing its widget; raw identifiers and XML search remain available for unsupported classes.
+
 Administration has ten sections: Groups, Users, Access rules, Search Types,
 Project schema, Workflow, Columns Editor, Raw database, Layout Editor and Sidebar.
 Naming, process dependencies, type deletion/creation and the window shell also

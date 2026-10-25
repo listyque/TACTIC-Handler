@@ -12,6 +12,35 @@ export const initial = () => ({
     text: {}
 });
 export const pending = (ui) => Object.keys(ui.text).length > 0;
+export function definitionSource(records, request, elements) {
+    const views =
+        request.view === 'edit_definition'
+            ? ['edit_definition']
+            : [request.view || 'table', 'definition'];
+    const candidates = records.filter(
+        (row) =>
+            row.searchType === request.searchType &&
+            views.indexOf(row.view) >= 0
+    );
+    candidates.sort(
+        (left, right) =>
+            views.indexOf(left.view) - views.indexOf(right.view) ||
+            Number(right.code === request.code) -
+                Number(left.code === request.code) ||
+            Number(!!left.login) - Number(!!right.login)
+    );
+    if (!request.column) return candidates[0] || null;
+    let reference = null;
+    for (const row of candidates) {
+        const column = elements(row).find(
+            (item) => item.name === request.column
+        );
+        if (!column) continue;
+        if (column.widget) return row;
+        if (!reference) reference = row;
+    }
+    return reference;
+}
 export function selected(ui, elements, name) {
     const column = elements.find((row) => row.name === name) || elements[0];
     return Object.assign({}, ui, {

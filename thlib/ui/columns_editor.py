@@ -210,6 +210,7 @@ class ColumnsEditorController(QObject):
                 "editable": record["editable"],
                 "displayOptions": dict(record["displayOptions"]),
                 "resolvedClass": record["resolvedClass"],
+                "widgetClass": record["widgetClass"] or record["widgetKey"],
             }
             for row, record in enumerate(self.model._records)
             if record["displayVisible"]
@@ -621,7 +622,8 @@ class ColumnsEditorController(QObject):
         return ElementTree.fromstring(source, parser=parser)
 
     @Slot(str, result="QVariantMap")
-    def catalog_wizard(self, xml):
+    @Slot(str, str, result="QVariantMap")
+    def catalog_wizard(self, xml, view_name=""):
         """Project a native TACTIC table view without replacing its XML."""
         try:
             source = str(xml or "").strip()
@@ -637,8 +639,10 @@ class ColumnsEditorController(QObject):
         def find_view(node, path=""):
             nonlocal view, view_path
             if (
-                node.tag in {"table", "definition", "edit", "edit_definition"}
-                or node.get("layout") == "TableLayoutWdg"
+                (node.tag == view_name or node.tag == "view" and node.get("name") == view_name)
+                if view_name else
+                (node.tag in {"table", "definition", "edit", "edit_definition"}
+                 or node.get("layout") in {"TableLayoutWdg", "tactic.ui.panel.TableLayoutWdg"})
             ):
                 view, view_path = node, path
                 return

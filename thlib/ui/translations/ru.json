@@ -5306,5 +5306,7 @@
   "No file selected": "Файл не выбран",
   "This configured publish form contains unsupported fields or actions": "Форма публикации содержит неподдерживаемые поля или действия",
   "Choose an existing file": "Выберите существующий файл",
-  "The configured publication result could not be verified": "Не удалось проверить результат публикации"
+  "The configured publication result could not be verified": "Не удалось проверить результат публикации",
+  "Inherited from definition": "Наследуется из definition",
+  "Column definition was not found in saved configurations.": "Определение колонки не найдено в сохранённых конфигурациях."
 }

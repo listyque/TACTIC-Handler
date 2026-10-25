@@ -515,6 +515,7 @@ Item {
                                 comments: resultRow.comments
                                 tasks: resultRow.tasks
                                 displayOptions: cellDelegate.modelData.displayOptions || ({})
+                                widgetClass: cellDelegate.modelData.widgetClass || cellDelegate.modelData.resolvedClass || ""
                                 effectsEnabled: !rows.moving
                                 scrolling: rows.moving
                                 selectedTaskPreviewActive: resultRow.selected && resultRow.inVerticalViewport && !resultRow.viewPooled && root.selectedTaskPreviewActive

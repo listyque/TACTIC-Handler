@@ -9,7 +9,10 @@ import {
     tabs,
     policy
 } from '../admin.document.mjs';
-import { sections as form } from '../../../controls/forms/sections.ui.mjs';
+import {
+    sections as form,
+    captionHeight
+} from '../../../controls/forms/sections.ui.mjs';
 import { pending } from './columns.state.mjs';
 import { translate } from '../../../core/strings.mjs';
 export { toolbar };
@@ -33,7 +36,8 @@ export function records(model, ui) {
                     row.code,
                     row.login,
                     row.category,
-                    row.widgetType
+                    row.widgetType,
+                    row.config
                 ]
                     .join(' ')
                     .toLowerCase()
@@ -392,6 +396,22 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                     title: 'Column',
                     description:
                         'Edit one native TACTIC element at a time. Custom options remain unchanged in XML.'
+                },
+                {
+                    kind: 'Label',
+                    id: 'definitionWidgetIdentifier',
+                    fullWidth: true,
+                    height: Math.max(
+                        38,
+                        captionHeight(
+                            element.widget || tr('Inherited from definition'),
+                            formWidth - 32
+                        )
+                    ),
+                    props: {
+                        text: element.widget || tr('Inherited from definition'),
+                        wrap: true
+                    }
                 },
                 {
                     kind: 'Label',

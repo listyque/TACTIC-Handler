@@ -450,7 +450,7 @@ Rectangle {
             else if (command === "ungroup")
                 root.controller.set_result_group_mode("none");
             else if (command === "edit_definition")
-                root.columnsEditorRequested(row, "edit_definition");
+                root.columnsEditorRequested(row, "definition");
             else if (command === "columns")
                 root.columnsEditorRequested(-1, "definition");
             else if (command === "left" || command === "right")

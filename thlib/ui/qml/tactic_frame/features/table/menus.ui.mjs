@@ -55,6 +55,12 @@ export function columnActions(model, language) {
             title: 'Edit Column Definition',
             icon: 'edit',
             command: 'edit_definition',
+            status:
+                column.widgetClass ||
+                column.resolvedClass ||
+                (column.display || {}).handler ||
+                '',
+            statusTranslate: false,
             enabled
         },
         {

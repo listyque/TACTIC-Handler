@@ -20,6 +20,7 @@ Item {
     property bool catalogReloading: false
     property bool catalogSaving: false
     property string message: ""
+    property string focusError: ""
     readonly property bool catalogDirty: catalogXmlText !== catalogXmlOriginal || State.pending(ui) || controller.catalogUncertain
     readonly property bool canReloadCatalog: !controller.busy
     readonly property var catalogRows: UI.records(frameModel, ui)
@@ -33,7 +34,7 @@ Item {
             busy: controller.busy,
             dirty: catalogDirty,
             uncertain: controller.catalogUncertain,
-            error: controller.error,
+            error: focusError || controller.error,
             message: message,
             xml: catalogXmlText,
             records: controller.definitionCatalog,
@@ -57,7 +58,7 @@ Item {
         return UI.row(list, record, frameModel, ui);
     }
     function reloadCatalogWizard() {
-        catalogWizardData = controller.catalog_wizard(catalogXmlText);
+        catalogWizardData = controller.catalog_wizard(catalogXmlText, selectedCatalog.view || "");
     }
     function updateCatalogWizardValue(path, field, value) {
         const changed = controller.update_catalog_wizard(catalogXmlText, path, field, String(value));
@@ -72,6 +73,7 @@ Item {
         if (!force && catalogDirty)
             return;
         selectedCatalogIdentity = record ? record.identity : "";
+        focusError = "";
         catalogXmlText = record ? record.config : "";
         catalogXmlOriginal = catalogXmlText;
         reloadCatalogWizard();
@@ -159,13 +161,20 @@ Item {
         if (!presentationVisible || !controller.focusPending || !controller.definitionCatalogLoaded || catalogDirty)
             return;
         const type = controller.requestedSearchType, view = controller.requestedDefinitionTarget === "edit_definition" ? "edit_definition" : controller.requestedView;
-        const rows = controller.definitionCatalog.filter(row => row.searchType === type), matches = rows.filter(row => row.view === view), fallback = rows.filter(row => row.view === controller.requestedView);
+        const source = State.definitionSource(controller.definitionCatalog, {
+            searchType: type,
+            view: view,
+            column: controller.requestedName,
+            code: controller.requestedDefinitionCode
+        }, row => controller.catalog_wizard(row.config, row.view).elements);
         ui = Object.assign({}, ui, {
             query: "",
             searchType: type,
             editing: true
         });
-        selectCatalog(matches.find(row => row.code === controller.requestedDefinitionCode) || matches.find(row => !row.login) || matches[0] || fallback.find(row => !row.login) || fallback[0], true);
+        selectCatalog(source, true);
+        if (!source && controller.requestedName)
+            focusError = "Column definition was not found in saved configurations.";
         ui = State.selected(ui, elements, controller.requestedName);
         controller.consume_definition_focus();
     }

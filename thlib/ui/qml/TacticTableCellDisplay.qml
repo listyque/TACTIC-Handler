@@ -29,6 +29,7 @@ Item {
     required property var displayOptions
     property var selectionOwner: controller
     property bool effectsEnabled: true
+    property string widgetClass: ""
     property bool scrolling: false
     property bool selectedTaskPreviewActive: false
     property var tableServices: typeof tableServicesController === "undefined" ? null : tableServicesController
@@ -93,6 +94,14 @@ Item {
             elide: Text.ElideRight
             leftPadding: 10
             rightPadding: 10
+            HoverHandler {
+                id: unsupportedHover
+            }
+            Controls.ToolTip {
+                theme: root.theme
+                visible: unsupportedHover.hovered && !!root.widgetClass
+                text: root.widgetClass
+            }
         }
     }
 

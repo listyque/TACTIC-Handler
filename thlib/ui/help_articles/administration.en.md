@@ -45,6 +45,9 @@ The Columns Editor uses the same two-panel layout and header Save/Discard action
 administration pages. Refresh sits in the header; the Wizard/XML switch stays with the
 selected definition.
 
+
+From a table header, **Edit Column Definition** opens the column's display declaration in the current saved view or its `definition`, and selects that column. It does not open form inputs (`edit_definition`). The menu shows the widget identifier; unavailable cells also expose it on hover. The Wizard shows the exact configured widget name, including unsupported classes. **Filter saved views** searches the XML as well as view names, so you can find a widget by its class. Custom named table views use the same Wizard. If no saved declaration exists, the editor reports that explicitly.
+
 The header arrow collapses Administration navigation from 250 px to a 56 px icon rail.
 Section buttons keep their names as tooltips. Each visited section retains its own draft until
 the window closes. Switching sections does not discard edits. Save/Discard applies to the visible

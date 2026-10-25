@@ -4370,7 +4370,10 @@ const russian = {
     '{count} journal operations are hidden by access rules.':
         'Операции журнала скрыты правилами доступа: {count}.',
     '{count} selected': 'Выбрано: {count}',
-    '{minutes} min read': 'Чтение: {minutes} мин'
+    '{minutes} min read': 'Чтение: {minutes} мин',
+    'Inherited from definition': 'Наследуется из definition',
+    'Column definition was not found in saved configurations.':
+        'Определение колонки не найдено в сохранённых конфигурациях.'
 };
 
 export function translate(text, language, values) {

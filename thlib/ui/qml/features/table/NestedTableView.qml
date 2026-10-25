@@ -100,6 +100,7 @@ Item {
                 comments: 0
                 tasks: 0
                 displayOptions: cellHost.frameNode.column.displayOptions || ({})
+                widgetClass: cellHost.frameNode.column.displayClass || cellHost.frameNode.column.resolvedClass || ""
             }
         }
     }

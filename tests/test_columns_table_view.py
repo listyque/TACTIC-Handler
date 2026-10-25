@@ -3128,7 +3128,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(columns.sort_calls[-1], (0, True))
             self.assertEqual(columns.group_calls[-1], 0)
             self.assertEqual(controller.group_modes[-1], "none")
-            self.assertEqual(columns.focus_requests[-1], (0, "edit_definition"))
+            self.assertEqual(columns.focus_requests[-1], (0, "definition"))
         finally:
             window.close()
             table.setParentItem(None)
@@ -3643,7 +3643,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(row.height(), 84)
             column_menu.triggered.emit("edit_definition")
             self.assertEqual(
-                columns.focus_requests[-1], (0, "edit_definition")
+                columns.focus_requests[-1], (0, "definition")
             )
             self.assertEqual(table_controller.columns_editor_requests, 3)
             column_menu.close()
@@ -3817,6 +3817,62 @@ Item {
         for offset in ('-1', '0', '2', 'wrong'):
             self.assertEqual(controller.update_catalog_wizard(restored, first['path'], 'move', offset), '')
         self.assertIn('custom="field"', restored)
+
+    def test_column_focus_finds_display_definition_and_custom_view(self):
+        application = _Application(_SType())
+        controller = ColumnsEditorController(application)
+        records = [
+            dict(code="TABLE", search_type="demo/asset", view="table",
+                 config='<config><table><element name="submit"/></table></config>'),
+            dict(code="DISPLAY", search_type="demo/asset", view="definition",
+                 config='<config><definition><element name="submit"><display class="SubmissionLinkTableElement"/></element></definition></config>'),
+            dict(code="INPUT", search_type="demo/asset", view="edit_definition",
+                 config='<config><edit_definition><element name="name"/></edit_definition></config>'),
+            dict(code="CUSTOM", search_type="demo/asset", view="asset_list",
+                 config='<config><asset_list><element name="submit"><display class="custom.SubmitWdg"/></element></asset_list></config>'),
+        ]
+        controller._set_definition_catalog('demo', application.stype.project, records, {})
+        controller.load_definition_catalog = lambda *_: None
+        controller._stype_code = 'demo/asset'
+        controller._view = 'table'
+        controller.model.replace([{'name': 'submit'}, {'name': 'missing'}])
+        controller.request_column_focus(0, 'definition')
+        engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
+        engine.rootContext().setContextProperty('columnsEditorController', controller)
+        theme = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / 'Theme.qml'))).createWithInitialProperties({'dark': True})
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / 'features/administration/columns/ColumnsEditorView.qml')))
+        editor = component.createWithInitialProperties(dict(theme=theme, projectCode='demo', width=1100, height=700))
+        self.assertIsNotNone(editor, [error.toString() for error in component.errors()])
+        window = QQuickWindow()
+        editor.setParentItem(window.contentItem())
+        window.resize(1100, 700)
+        window.show()
+        try:
+            QTest.qWait(60)
+            self.assertEqual(editor.property('selectedCatalog')['code'], 'DISPLAY')
+            self.assertEqual(editor.property('element')['name'], 'submit')
+            identifier = next(item for item in _visual_items(editor) if item.objectName() == 'definitionWidgetIdentifier')
+            self.assertEqual(identifier.property('text'), 'SubmissionLinkTableElement')
+            controller._view = 'asset_list'
+            controller.request_column_focus(0, 'definition')
+            QTest.qWait(20)
+            self.assertEqual(editor.property('selectedCatalog')['code'], 'CUSTOM')
+            self.assertEqual(editor.property('element')['widget'], 'custom.SubmitWdg')
+            controller.request_column_focus(1, 'definition')
+            QTest.qWait(20)
+            self.assertFalse(editor.property('selectedCatalogIdentity'))
+            self.assertIn('not found', editor.property('focusError'))
+            self.assertFalse(controller.focusPending)
+            self.assertEqual(warnings, [])
+        finally:
+            window.close()
+            editor.setParentItem(None)
+            editor.deleteLater()
+            window.deleteLater()
+            controller.shutdown()
+            engine.deleteLater()
 
     def test_administration_columns_editor_uses_project_catalog_only(self):
         application = _Application(_SType())
