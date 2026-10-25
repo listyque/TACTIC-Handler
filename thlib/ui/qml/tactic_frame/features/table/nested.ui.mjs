@@ -5,6 +5,12 @@ import { metrics, paint } from './host.ui.mjs';
 export const height = 320;
 export const rowHeight = 68;
 
+export function quickLayout(model, width) {
+    const columns = Math.max(1, Math.floor(Math.max(0, width - 16) / 180));
+    const rows = Math.ceil((model.simpleFilters || []).length / columns);
+    return { columns, height: rows * 66 };
+}
+
 export function identity(scope = {}, project = '') {
     return JSON.stringify([
         scope.projectCode || project,
@@ -26,7 +32,7 @@ export function rows(model) {
 }
 
 export function columns(model) {
-    let left = model.selection === false ? 0 : metrics.selection;
+    let left = model.selection === false ? 0 : metrics.selection + 36;
     return (model.columns || []).map((column, index) => {
         const titleWidth = String(column.title || column.name).length * 8 + 20;
         const minimum = column.cell?.kind === 'text' ? 160 : 48;
@@ -46,10 +52,14 @@ export function columns(model) {
 
 export function describe(model, width, extent, language) {
     const t = (value) => translate(value, language);
+    const toolOffset = model.embedded ? 36 : 0;
+    const quick = quickLayout(model, width),
+        quickColumns = quick.columns,
+        quickHeight = quick.height;
     const fields = columns(model);
     const contentWidth = Math.max(
         width - 16,
-        (model.selection === false ? 0 : metrics.selection) +
+        (model.selection === false ? 0 : metrics.selection + 36) +
             fields.reduce((sum, field) => sum + field.width, 0) +
             40
     );
@@ -57,7 +67,12 @@ export function describe(model, width, extent, language) {
         node(
             'Field',
             'nestedFilter',
-            rect(0, 0, Math.max(0, width - (model.gear ? 156 : 120)), 36),
+            rect(
+                0,
+                0,
+                Math.max(0, width - (model.gear ? 156 : 120) + toolOffset),
+                36
+            ),
             {
                 text: model.filter || '',
                 placeholder: t('Filter'),
@@ -66,7 +81,12 @@ export function describe(model, width, extent, language) {
         ),
         button(
             'nestedReload',
-            rect(Math.max(0, width - (model.gear ? 148 : 112)), 0, 32, 32),
+            rect(
+                Math.max(0, width - (model.gear ? 148 : 112) + toolOffset),
+                0,
+                32,
+                32
+            ),
             model.busy ? t('Loading data…') : t('Refresh'),
             model.busy ? 'loading' : 'refresh',
             { type: 'reload' },
@@ -75,7 +95,7 @@ export function describe(model, width, extent, language) {
         ),
         button(
             'nestedColumns',
-            rect(Math.max(0, width - 112), 0, 32, 32),
+            rect(Math.max(0, width - 112 + toolOffset), 0, 32, 32),
             t('Columns'),
             'view-column',
             { type: 'columns' },
@@ -84,7 +104,7 @@ export function describe(model, width, extent, language) {
         ),
         button(
             'nestedCreate',
-            rect(Math.max(0, width - 76), 0, 32, 32),
+            rect(Math.max(0, width - 76 + toolOffset), 0, 32, 32),
             t('Create'),
             'add',
             { type: 'create' },
@@ -179,7 +199,7 @@ export function describe(model, width, extent, language) {
                 0,
                 metrics.header + 3,
                 contentWidth,
-                Math.max(0, extent - metrics.header - 86)
+                Math.max(0, extent - metrics.header - 86 - quickHeight)
             ),
             {
                 source: 'rows',
@@ -204,17 +224,52 @@ export function describe(model, width, extent, language) {
         node(
             'Scroll',
             'nestedHorizontal',
-            rect(0, 42, width, Math.max(0, extent - 80)),
+            rect(
+                0,
+                42 + quickHeight,
+                width,
+                Math.max(0, extent - 80 - quickHeight)
+            ),
             {
                 contentWidth,
-                contentHeight: Math.max(0, extent - 96),
+                contentHeight: Math.max(0, extent - 96 - quickHeight),
                 scrollbarId: 'nestedHorizontalBar',
                 children
             }
         )
     );
+    (model.simpleFilters || []).forEach((filter, index) => {
+        const part = Math.max(0, (width - 24) / quickColumns),
+            x = (index % quickColumns) * part,
+            y = 42 + Math.floor(index / quickColumns) * 66;
+        nodes.push(
+            label(
+                'nestedQuickLabel_' + filter.name,
+                rect(x, y, Math.max(0, part - 8), 22),
+                filter.title,
+                { color: 'secondaryText' }
+            )
+        );
+        nodes.push(
+            node(
+                'Choice',
+                'nestedQuick_' + filter.name,
+                rect(x, y + 24, Math.max(0, part - 8), 36),
+                {
+                    value: model.simpleValues?.[filter.name] || '',
+                    options: [
+                        { value: '', label: t('All') },
+                        ...filter.options
+                    ],
+                    enabled: !model.busy,
+                    action: { type: 'simple-filter', field: filter.name }
+                }
+            )
+        );
+    });
     return {
         nodes: nodes.filter((item) => {
+            if (item.id === 'nestedClose' && model.embedded) return false;
             if (
                 [
                     'nestedFilter',
@@ -247,7 +302,7 @@ export function row(model, record, language, viewportWidth = 0) {
         nodes = [];
     const width = Math.max(
         viewportWidth,
-        (model.selection === false ? 0 : metrics.selection) +
+        (model.selection === false ? 0 : metrics.selection + 36) +
             fields.reduce((sum, field) => sum + field.width, 0) +
             40
     );
@@ -288,6 +343,29 @@ export function row(model, record, language, viewportWidth = 0) {
                     nodeId: record.nodeId,
                     nestedState: model.children?.[record.key],
                     selected
+                }
+            )
+        );
+    if (model.selection !== false)
+        nodes.push(
+            node(
+                'Action',
+                'nestedDrag',
+                rect(metrics.selection, (rowHeight - 28) / 2, 28, 28),
+                {
+                    label: translate('Select row', language),
+                    enabled: true,
+                    action: { type: 'select', key: record.key },
+                    dragValue: {
+                        searchType: model.searchType || model.scope?.searchType,
+                        searchKeys: selected ? model.selected : [record.key]
+                    },
+                    children: [
+                        node('Icon', 'nestedDragIcon', rect(4, 4, 20, 20), {
+                            icon: 'drag-handle',
+                            color: 'secondaryText'
+                        })
+                    ]
                 }
             )
         );

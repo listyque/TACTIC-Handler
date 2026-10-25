@@ -41,6 +41,7 @@ class NavigationEntry:
     layout_preset: str = ""
     script_shelf: str = ""
     filter_records: tuple = ()
+    layout_view: str = ''
 
 
 class NavigationModel(QAbstractListModel):
@@ -254,6 +255,15 @@ class NavigationModel(QAbstractListModel):
                     search_node.get_text(strip=True)
                     if search_node else ""
                 )
+                layout_view = ''
+                if display_node and display_node.find('widget_key') and display_node.find('widget_key').get_text(strip=True) == 'custom_layout':
+                    from xml.etree import ElementTree as ET
+                    layout_view = display_node.find('view').get_text(strip=True) if display_node.find('view') else ''
+                    layouts = [record for record in getattr(views, 'config_dict', []) if
+                        record.get('view') == layout_view and (record.get('category') or record.get('search_type')) == 'CustomLayoutWdg']
+                    layouts.sort(key=lambda row:float(row.get('priority') or 0),reverse=True)
+                    if layouts:
+                        search_type = ET.fromstring(layouts[0]['config']).findtext('.//display/search_type') or ''
                 type_info = project.get_stypes().get(search_type)
                 if type_info and type_info.get_info().get('__record_read__', {}).get('available') is False:
                     continue
@@ -331,7 +341,7 @@ class NavigationModel(QAbstractListModel):
                         else ""
                     )
                 table_view_node = display_node.find('view') if display_node else None
-                table_view = table_view_node.get_text(strip=True) if table_view_node else 'table'
+                table_view = table_view_node.get_text(strip=True) if table_view_node and not layout_view else 'table'
                 entries.append(NavigationEntry(
                     key=f"{search_type or name}@{name}",
                     title=title,
@@ -351,6 +361,7 @@ class NavigationModel(QAbstractListModel):
                     layout_preset=layout_preset,
                     script_shelf=script_shelf,
                     filter_records=filter_records,
+                    layout_view=layout_view,
                 ))
             return entries
 

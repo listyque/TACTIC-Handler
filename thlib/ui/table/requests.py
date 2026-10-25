@@ -106,10 +106,13 @@ def read_group_summary(search_key):
     return dict(title='Security Summary', identity=user.get_value('display_name') or user.get_value('login'), sections=sections)
 
 
-def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0, _behaviors=None):
+def read_custom_layout(
+    search_key='', view='', html='', include_mako=True, _depth=0, _behaviors=None
+):
     import ast
     import json
     import textwrap
+    import re
     import html as entities
     from html.parser import HTMLParser
     from xml.etree import ElementTree as ET
@@ -118,230 +121,728 @@ def read_custom_layout(search_key, view='', html='', include_mako=True, _depth=0
     from mako.exceptions import MakoException
     from pyasm.search import Search
     from pyasm.common import Environment
+
     if not Environment.get_security().is_admin():
         raise PermissionError('Administration requires administrator access')
     if _depth >= 8:
         raise ValueError('CustomLayout nesting exceeds eight levels')
+    if not search_key:
+        from pyasm.biz import Project
+
+        project = Project.get_by_code(Project.get_project_code())
+        if project is None:
+            raise ValueError('Project is no longer available')
+        search_key = project.get_search_key()
     obj = Search.get_by_search_key(search_key)
     if obj is None:
         raise ValueError('Object is no longer available')
     view = str(view).replace('/', '.')
     behaviors = dict(_behaviors or {})
+    references = {}
+    load_actions = []
     mako = ''
     if not html:
         search = Search('config/widget_config')
         search.add_filter('view', view)
-        configs = [row for row in search.get_sobjects()
-                   if row.get_value('category', no_exception=True) == 'CustomLayoutWdg'
-                   or (not row.get_value('category', no_exception=True)
-                       and row.get_value('search_type') == 'CustomLayoutWdg')]
-        configs.sort(key=lambda row: float(row.get_value('priority', no_exception=True) or 0), reverse=True)
+        configs = [
+            row
+            for row in search.get_sobjects()
+            if row.get_value('category', no_exception=True) == 'CustomLayoutWdg'
+            or (
+                not row.get_value('category', no_exception=True)
+                and row.get_value('search_type') == 'CustomLayoutWdg'
+            )
+        ]
+        configs.sort(
+            key=lambda row: float(row.get_value('priority', no_exception=True) or 0),
+            reverse=True,
+        )
         if not configs:
             raise ValueError('CustomLayout is not configured: ' + view)
         root = ET.fromstring(configs[0].get_value('config'))
-        definition = next((node for node in root if node.tag == view or node.get('name') == view), None)
+        definition = next(
+            (node for node in root if node.tag == view or node.get('name') == view),
+            None,
+        )
         if definition is None or definition.find('html') is None:
             raise ValueError('CustomLayout has no HTML definition: ' + view)
         mako = definition.findtext('mako') or ''
         body = definition.find('html')
-        html = (body.text or '') + ''.join(ET.tostring(child, encoding='unicode') for child in body)
+        references = {
+            child.get('name'): ET.tostring(child, encoding='unicode')
+            for child in definition.findall('element')
+        }
+        html = (body.text or '') + ''.join(
+            ET.tostring(child, encoding='unicode') for child in body
+        )
         for behavior in definition.findall('behavior'):
             source = behavior.text or ''
             if behavior.get('event'):
-                if behavior.get('event') != 'click_up':
-                    raise ValueError('CustomLayout behavior requires a portable click action')
+                if behavior.get('event') not in ('click_up', 'load'):
+                    raise ValueError(
+                        'CustomLayout behavior requires a portable click action'
+                    )
                 code = source
             else:
                 try:
                     data = json.loads(source)
                 except ValueError:
                     data = ast.literal_eval(source)
-                if data.get('type') != 'click_up':
-                    raise ValueError('CustomLayout behavior requires a portable click action')
+                if data.get('type') not in ('click_up', 'load'):
+                    raise ValueError(
+                        'CustomLayout behavior requires a portable click action'
+                    )
                 code = data['cbjs_action']
             selector = behavior.get('class') or behavior.get('relay_class')
             if not selector:
                 raise ValueError('CustomLayout click action needs a class selector')
-            behaviors[selector] = code
+            if (behavior.get('event') or data.get('type')) == 'load':
+                load_actions.append(dict(selector=selector, javascript=code))
+            else:
+                behaviors[selector] = code
+    html = entities.unescape(html)
     if include_mako not in (False, 'false') and (mako or '${' in html or '<%' in html):
         template_source = ('<%\n' + mako + '\n%>' if mako else '') + html
         # Table reads can retry: layout expressions must never perform a write or I/O.
-        allowed = (ast.Module, ast.Expression, ast.Assign, ast.Name, ast.Load, ast.Store,
-            ast.Constant, ast.Call, ast.Attribute, ast.keyword, ast.If, ast.IfExp,
-            ast.Compare, ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.Is,
-            ast.IsNot, ast.In, ast.NotIn, ast.BoolOp, ast.And, ast.Or, ast.UnaryOp,
-            ast.Not, ast.USub, ast.UAdd, ast.BinOp, ast.Add, ast.Sub, ast.Mult,
-            ast.Div, ast.FloorDiv, ast.Mod, ast.Subscript, ast.Slice, ast.List,
-            ast.Tuple, ast.Dict, ast.JoinedStr, ast.FormattedValue)
-        pure_builtins = {'str','int','float','bool','len'}
-        data_names = {'sobject','sobjects','kwargs','data','plugin'}
-        reserved = data_names | pure_builtins | {'context','self','local','parent','next','pageargs','loop','caller','capture','UNDEFINED','STOP_RENDERING'}
-        pure_methods = {'get','format','replace','find','strip','upper','lower','join'}
+        allowed = (
+            ast.Module,
+            ast.Expression,
+            ast.Assign,
+            ast.Name,
+            ast.Load,
+            ast.Store,
+            ast.Constant,
+            ast.Call,
+            ast.Attribute,
+            ast.keyword,
+            ast.If,
+            ast.IfExp,
+            ast.Compare,
+            ast.Eq,
+            ast.NotEq,
+            ast.Lt,
+            ast.LtE,
+            ast.Gt,
+            ast.GtE,
+            ast.Is,
+            ast.IsNot,
+            ast.In,
+            ast.NotIn,
+            ast.BoolOp,
+            ast.And,
+            ast.Or,
+            ast.UnaryOp,
+            ast.Not,
+            ast.USub,
+            ast.UAdd,
+            ast.BinOp,
+            ast.Add,
+            ast.Sub,
+            ast.Mult,
+            ast.Div,
+            ast.FloorDiv,
+            ast.Mod,
+            ast.Subscript,
+            ast.Slice,
+            ast.List,
+            ast.Tuple,
+            ast.Dict,
+            ast.JoinedStr,
+            ast.FormattedValue,
+        )
+        pure_builtins = {'str', 'int', 'float', 'bool', 'len'}
+        data_names = {'sobject', 'sobjects', 'kwargs', 'data', 'plugin', 'server'}
+        reserved = (
+            data_names
+            | pure_builtins
+            | {
+                'context',
+                'self',
+                'local',
+                'parent',
+                'next',
+                'pageargs',
+                'loop',
+                'caller',
+                'capture',
+                'UNDEFINED',
+                'STOP_RENDERING',
+            }
+        )
+        pure_methods = {
+            'get',
+            'format',
+            'replace',
+            'find',
+            'strip',
+            'upper',
+            'lower',
+            'join',
+        }
         trees = []
         try:
             for part in Lexer(template_source).parse().nodes:
                 kind = type(part).__name__
                 if kind in ('Text', 'Comment'):
                     continue
-                if kind not in ('Code', 'Expression') or (kind=='Code' and part.ismodule):
-                    raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
-                if kind=='Expression' and any(name.strip() not in ('n','h','str','trim','u','entity') for name in part.escapes.split(',') if name.strip()):
+                if kind not in ('Code', 'Expression') or (
+                    kind == 'Code' and part.ismodule
+                ):
+                    raise ValueError(
+                        'CustomLayout supports data-only Mako; use a configured action for code execution'
+                    )
+                if kind == 'Expression' and any(
+                    name.strip() not in ('n', 'h', 'str', 'trim', 'u', 'entity')
+                    for name in part.escapes.split(',')
+                    if name.strip()
+                ):
                     raise ValueError('CustomLayout Mako filter is not supported')
-                trees.append(ast.parse(textwrap.dedent(part.text).strip(),mode='eval' if kind=='Expression' else 'exec'))
+                trees.append(
+                    ast.parse(
+                        textwrap.dedent(part.text).strip(),
+                        mode='eval' if kind == 'Expression' else 'exec',
+                    )
+                )
         except (SyntaxError, MakoException):
-            raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution') from None
-        local_names = {target.id for tree in trees for item in ast.walk(tree) if isinstance(item,ast.Assign)
-                       for target in item.targets if isinstance(target,ast.Name)}
+            raise ValueError(
+                'CustomLayout supports data-only Mako; use a configured action for code execution'
+            ) from None
+        local_names = {
+            target.id
+            for tree in trees
+            for item in ast.walk(tree)
+            if isinstance(item, ast.Assign)
+            for target in item.targets
+            if isinstance(target, ast.Name)
+        }
         # CG binds `parent` to its JSON search key, before any output; never expose Mako's parent namespace.
         for tree in trees[:1]:
             if not isinstance(tree, ast.Module):
                 continue
             for statement in tree.body:
-                if (isinstance(statement, ast.Assign) and len(statement.targets) == 1
-                        and isinstance(statement.targets[0], ast.Name) and statement.targets[0].id == 'parent'
-                        and isinstance(statement.value, ast.Call)
-                        and isinstance(statement.value.func, ast.Attribute)
-                        and isinstance(statement.value.func.value, ast.Name) and statement.value.func.value.id == 'sobject'
-                        and statement.value.func.attr == 'get' and len(statement.value.args) == 1
-                        and isinstance(statement.value.args[0], ast.Constant) and statement.value.args[0].value == '__search_key__'
-                        and not statement.value.keywords):
+                if (
+                    isinstance(statement, ast.Assign)
+                    and len(statement.targets) == 1
+                    and isinstance(statement.targets[0], ast.Name)
+                    and statement.targets[0].id == 'parent'
+                    and isinstance(statement.value, ast.Call)
+                    and isinstance(statement.value.func, ast.Attribute)
+                    and isinstance(statement.value.func.value, ast.Name)
+                    and statement.value.func.value.id == 'sobject'
+                    and statement.value.func.attr == 'get'
+                    and len(statement.value.args) == 1
+                    and isinstance(statement.value.args[0], ast.Constant)
+                    and statement.value.args[0].value == '__search_key__'
+                    and not statement.value.keywords
+                ):
                     reserved.discard('parent')
                     break
-                if any(isinstance(item, ast.Name) and item.id == 'parent' for item in ast.walk(statement)):
+                if any(
+                    isinstance(item, ast.Name) and item.id == 'parent'
+                    for item in ast.walk(statement)
+                ):
                     break
         if local_names & reserved:
-            raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
+            raise ValueError(
+                'CustomLayout supports data-only Mako; use a configured action for code execution'
+            )
         for tree in trees:
             for item in ast.walk(tree):
-                valid = isinstance(item,allowed)
-                if isinstance(item,ast.Assign):
-                    valid = all(isinstance(target,ast.Name) for target in item.targets)
-                if isinstance(item,ast.Name):
-                    valid = valid and not item.id.startswith('_') and item.id in (local_names | data_names | pure_builtins)
-                if isinstance(item,ast.Attribute):
-                    valid = valid and item.attr in pure_methods
-                if isinstance(item,ast.Call):
-                    valid = valid and ((isinstance(item.func,ast.Name) and item.func.id in pure_builtins)
-                        or (isinstance(item.func,ast.Attribute) and item.func.attr in pure_methods))
+                valid = isinstance(item, allowed)
+                if isinstance(item, ast.Assign):
+                    valid = all(isinstance(target, ast.Name) for target in item.targets)
+                if isinstance(item, ast.Name):
+                    valid = (
+                        valid
+                        and not item.id.startswith('_')
+                        and item.id in (local_names | data_names | pure_builtins)
+                    )
+                read_call = isinstance(item, (ast.Attribute, ast.Call)) and isinstance(
+                    item.func if isinstance(item, ast.Call) else item, ast.Attribute
+                )
+                attribute = item.func if isinstance(item, ast.Call) else item
+                snapshot_read = (
+                    read_call
+                    and isinstance(attribute.value, ast.Name)
+                    and attribute.value.id == 'server'
+                    and attribute.attr in ('get_snapshot', 'get_path_from_snapshot')
+                )
+                if isinstance(item, ast.Attribute):
+                    valid = valid and (item.attr in pure_methods or snapshot_read)
+                if isinstance(item, ast.Call):
+                    valid = valid and (
+                        (
+                            isinstance(item.func, ast.Name)
+                            and item.func.id in pure_builtins
+                        )
+                        or (
+                            isinstance(item.func, ast.Attribute)
+                            and item.func.attr in pure_methods
+                        )
+                        or snapshot_read
+                    )
                 if not valid:
-                    raise ValueError('CustomLayout supports data-only Mako; use a configured action for code execution')
-        record = json.loads(json.dumps(obj.get_sobject_dict(),default=str))
+                    raise ValueError(
+                        'CustomLayout supports data-only Mako; use a configured action for code execution'
+                    )
+        record = json.loads(json.dumps(obj.get_sobject_dict(), default=str))
+
+        class SnapshotReads:
+            # Only this layout's object and the snapshots discovered for it are readable.
+            def __init__(self):
+                self.snapshots = {}
+
+            def get_snapshot(self, value, context='publish'):
+                from pyasm.biz import Snapshot
+
+                if value != record:
+                    raise ValueError('CustomLayout snapshot target must be its object')
+                snapshot = Snapshot.get_snapshot(
+                    obj.get_search_type(),
+                    obj.get_code() or obj.get_id(),
+                    context=context,
+                )
+                if not snapshot:
+                    return {}
+                self.snapshots[snapshot.get_code()] = snapshot
+                return snapshot.get_sobject_dict()
+
+            def get_path_from_snapshot(self, code, mode='web'):
+                if mode != 'web':
+                    raise ValueError('CustomLayout previews require web paths')
+                if not code:
+                    return ''
+                if code not in self.snapshots:
+                    raise ValueError(
+                        'CustomLayout snapshot is outside the current object'
+                    )
+                return self.snapshots[code].get_web_path_by_type() or ''
+
         html = Template(template_source).render(
-            sobject=record, sobjects=[record],
-            kwargs=dict(search_key=search_key, view=view), data={}, plugin={})
-    html = entities.unescape(html)
+            sobject=record,
+            sobjects=[record],
+            kwargs=dict(search_key=search_key, view=view),
+            data={},
+            plugin={},
+            server=SnapshotReads(),
+        )
+
+    def expression(match):
+        source = match.group(1).strip()
+        if not re.fullmatch(r'\{\$(PROJECT|TODAY)\}|@GET\(\.[A-Za-z_]\w*\)', source):
+            raise ValueError('CustomLayout supports read-only field expressions')
+        return entities.escape(
+            str(Search.eval(source, sobjects=obj, single=True) or ''), quote=True
+        )
+
+    html = re.sub(r'\[expr\](.*?)\[/expr\]', expression, html, flags=re.S)
+    html = html.replace(
+        '{@GET(state.search_key)}', entities.escape(search_key, quote=True)
+    )
+
     class Markup(HTMLParser):
         def __init__(self):
             super().__init__(convert_charrefs=True)
             self.root = dict(tag='root', attrs={}, children=[])
             self.stack = [self.root]
+
         def handle_starttag(self, tag, attrs):
-            if len(self.stack)>32:
+            if len(self.stack) > 32:
                 raise ValueError('CustomLayout markup exceeds 32 levels')
             item = dict(tag=tag, attrs=dict(attrs), children=[])
             self.stack[-1]['children'].append(item)
             if tag not in ('br', 'embed', 'img', 'hr', 'input'):
                 self.stack.append(item)
+
         def handle_startendtag(self, tag, attrs):
             self.handle_starttag(tag, attrs)
             self.handle_endtag(tag)
+
         def handle_endtag(self, tag):
-            for index in range(len(self.stack)-1, 0, -1):
+            for index in range(len(self.stack) - 1, 0, -1):
                 if self.stack[index]['tag'] == tag:
                     self.stack = self.stack[:index]
                     break
+
         def handle_data(self, data):
             self.stack[-1]['children'].append(data)
-    if len(html.encode('utf-8')) > 1024*1024:
+
+    if len(html.encode('utf-8')) > 1024 * 1024:
         raise ValueError('CustomLayout output exceeds one MiB')
     parser = Markup()
     parser.feed(html)
     nodes = []
+    count = 0
+    controls = []
+    form = ''
+
     def text(item):
-        return item if isinstance(item, str) else ''.join(text(child) for child in item['children'])
+        return (
+            item
+            if isinstance(item, str)
+            else ''.join(text(child) for child in item['children'])
+        )
+
     def markup(item):
         if isinstance(item, str):
             return entities.escape(item, quote=False)
         tag = item['tag']
-        attrs = ''.join(' %s="%s"' % (key, entities.escape(value or '', quote=True)) for key,value in item['attrs'].items())
+        attrs = ''.join(
+            ' %s="%s"' % (key, entities.escape(value or '', quote=True))
+            for key, value in item['attrs'].items()
+        )
         content = ''.join(markup(child) for child in item['children'])
-        return '<'+tag+attrs+'>'+content+'</'+tag+'>'
+        return '<' + tag + attrs + '>' + content + '</' + tag + '>'
+
     def visit(item):
-        if len(nodes)>=128:
-            raise ValueError('CustomLayout supports at most 128 controls')
+        nonlocal nodes, count, form
+        count += 1
+        if count > 512:
+            raise ValueError('CustomLayout supports at most 512 markup nodes')
         if isinstance(item, str):
             if item.strip():
                 nodes.append(dict(kind='text', text=item.strip()))
             return
         tag, attrs = item['tag'], item['attrs']
+        selector = next(
+            (name for name in attrs.get('class', '').split() if name in behaviors), ''
+        )
+        if selector and tag != 'element':
+            nodes.append(
+                dict(
+                    kind='action',
+                    text=attrs.get('value') or text(item).strip(),
+                    selector=selector,
+                    javascript=behaviors[selector],
+                )
+            )
+            return
         if tag == 'element':
-            display = next((child for child in item['children'] if isinstance(child, dict) and child['tag']=='display'), None)
+            display = next(
+                (
+                    child
+                    for child in item['children']
+                    if isinstance(child, dict) and child['tag'] == 'display'
+                ),
+                None,
+            )
+            if display is None and attrs.get('name') in references:
+                referenced = Markup()
+                referenced.feed(
+                    references[attrs['name']].replace(
+                        '{@GET(state.search_key)}',
+                        entities.escape(search_key, quote=True),
+                    )
+                )
+                visit(referenced.root['children'][0])
+                return
             if display is None:
                 raise ValueError('CustomLayout element has no display')
             handler = display['attrs'].get('class') or display['attrs'].get('widget')
-            options = {child['tag']: (''.join(markup(part) for part in child['children']) if child['tag']=='html' else text(child).strip()) for child in display['children'] if isinstance(child, dict)}
-            if handler in ('tactic.ui.panel.CustomLayoutWdg', 'tactic.ui.table.CustomLayoutElementWdg', 'custom_layout'):
-                if set(options) - {'view', 'html', 'include_mako', 'show_resize_scroll', 'icon_size', 'search_key'}:
+            options = {
+                child['tag']: (
+                    ''.join(markup(part) for part in child['children'])
+                    if child['tag'] == 'html'
+                    else text(child).strip()
+                )
+                for child in display['children']
+                if isinstance(child, dict)
+            }
+            if handler in (
+                'tactic.ui.panel.CustomLayoutWdg',
+                'tactic.ui.table.CustomLayoutElementWdg',
+                'custom_layout',
+            ):
+                if set(options) - {
+                    'view',
+                    'html',
+                    'include_mako',
+                    'show_resize_scroll',
+                    'icon_size',
+                    'search_key',
+                }:
                     raise ValueError('Unsupported CustomLayout options')
-                nodes.extend(read_custom_layout(options.get('search_key') or search_key, view=options.get('view') or '',
-                    html=options.get('html') or '', include_mako=options.get('include_mako', True),
-                    _depth=_depth+1, _behaviors=behaviors)['layoutNodes'])
-            elif handler in ('tactic.ui.panel.TableLayoutWdg', 'tactic.ui.panel.FastTableLayoutWdg', 'tactic.ui.panel.ViewPanelWdg'):
-                allowed = {'search_type','search_key','view','expression','show_search_limit','show_insert',
-                           'show_row_select','show_select','show_gear','show_search','show_shelf','init_load_num'}
+                nodes.extend(
+                    read_custom_layout(
+                        options.get('search_key') or search_key,
+                        view=options.get('view') or '',
+                        html=options.get('html') or '',
+                        include_mako=options.get('include_mako', True),
+                        _depth=_depth + 1,
+                        _behaviors=behaviors,
+                    )['layoutNodes']
+                )
+            elif handler in (
+                'tactic.ui.panel.TableLayoutWdg',
+                'tactic.ui.panel.FastTableLayoutWdg',
+                'tactic.ui.panel.ViewPanelWdg',
+            ):
+                allowed = {
+                    'search_type',
+                    'search_key',
+                    'view',
+                    'expression',
+                    'show_search_limit',
+                    'show_insert',
+                    'show_row_select',
+                    'show_select',
+                    'show_gear',
+                    'show_search',
+                    'show_shelf',
+                    'init_load_num',
+                    'width',
+                    'mode',
+                    'search_view',
+                    'simple_search_view',
+                }
                 if set(options) - allowed or not options.get('search_type'):
                     raise ValueError('Unsupported CustomLayout table options')
-                nodes.append(dict(kind='table', text=attrs.get('name') or 'Table View', table=dict(
-                    searchType=options['search_type'], parentKey=options.get('search_key') or search_key,
-                    view=options.get('view') or 'table', expression=options.get('expression') or '',
-                    selection=options.get('show_row_select',options.get('show_select')) not in (False,'false'),
-                    gear=options.get('show_gear') not in (False,'false'),
-                    insert=options.get('show_insert') not in (False,'false'))))
+                if options.get('width') not in (None, '', '100%') or options.get(
+                    'mode'
+                ) not in (None, '', 'simple'):
+                    raise ValueError(
+                        'CustomLayout table must fill its native container'
+                    )
+                flags = (
+                    'show_row_select',
+                    'show_select',
+                    'show_gear',
+                    'show_insert',
+                    'show_shelf',
+                    'show_search',
+                    'show_search_limit',
+                )
+                if any(
+                    options.get(flag, '') not in ('', True, False, 'true', 'false')
+                    for flag in flags
+                ):
+                    raise ValueError('Invalid CustomLayout table display flag')
+                initial = str(options.get('init_load_num') or '50')
+                if not initial.isdecimal() or not 1 <= int(initial) <= 100:
+                    raise ValueError(
+                        'CustomLayout initial page must contain one to one hundred rows'
+                    )
+                nodes.append(
+                    dict(
+                        kind='table',
+                        text=attrs.get('title') or attrs.get('name') or 'Table View',
+                        table=dict(
+                            searchType=options['search_type'],
+                            parentKey=options.get('search_key') or search_key,
+                            view=options.get('view') or 'table',
+                            expression=options.get('expression') or '',
+                            projectScope=handler == 'tactic.ui.panel.ViewPanelWdg'
+                            and not options.get('search_key'),
+                            searchView=options.get('search_view') or '',
+                            simpleSearchView=options.get('simple_search_view') or '',
+                            embedded=True,
+                            initialLimit=int(initial),
+                            shelf=options.get('show_shelf') not in (False, 'false'),
+                            search=options.get('show_search') not in (False, 'false'),
+                            searchLimit=options.get('show_search_limit')
+                            not in (False, 'false'),
+                            selection=options.get(
+                                'show_row_select', options.get('show_select')
+                            )
+                            not in (False, 'false'),
+                            gear=options.get('show_gear') not in (False, 'false'),
+                            insert=options.get('show_insert') not in (False, 'false'),
+                        ),
+                    )
+                )
             elif handler in ('pyasm.widget.ThumbWdg', 'ThumbWdg'):
                 from pyasm.widget import ThumbWdg
+
                 widget = ThumbWdg(name=attrs.get('name') or 'preview', **options)
-                widget.set_sobjects([obj]); widget.preprocess(); widget.set_current_index(0)
-                value = widget.get_cell_value() if hasattr(widget, 'get_cell_value') else dict(image=widget.get_data(obj) or '')
-                nodes.append(dict(kind='preview', text=str(obj.get_display_value()), value=value,
-                                  javascript=behaviors.get(attrs.get('name'), '')))
+                widget.set_sobjects([obj])
+                widget.preprocess()
+                widget.set_current_index(0)
+                value = (
+                    widget.get_cell_value()
+                    if hasattr(widget, 'get_cell_value')
+                    else dict(image=widget.get_data(obj) or '')
+                )
+                nodes.append(
+                    dict(
+                        kind='preview',
+                        text=str(obj.get_display_value()),
+                        value=value,
+                        javascript=behaviors.get(attrs.get('name'), ''),
+                    )
+                )
             else:
-                raise ValueError('CustomLayout embedded widget is not migrated: ' + str(handler))
+                raise ValueError(
+                    'CustomLayout embedded widget is not migrated: ' + str(handler)
+                )
         elif tag == 'a':
-            source = next((behaviors[name] for name in attrs.get('class','').split() if name in behaviors), '')
-            nodes.append(dict(kind='action' if source else 'link', text=text(item).strip(),
-                              href=attrs.get('href') or '', javascript=source))
-        elif tag in ('object','embed'):
+            source = next(
+                (
+                    behaviors[name]
+                    for name in attrs.get('class', '').split()
+                    if name in behaviors
+                ),
+                '',
+            )
+            nodes.append(
+                dict(
+                    kind='action' if source else 'link',
+                    text=text(item).strip(),
+                    href=attrs.get('href') or '',
+                    javascript=source,
+                )
+            )
+        elif tag in ('object', 'embed'):
             address = attrs.get('data') or attrs.get('src')
             if address:
-                nodes.append(dict(kind='link', text='Open external document', href=address, translate=True))
-        elif tag in ('root','html','div','span','p','strong','b','small','br','hr'):
+                nodes.append(
+                    dict(
+                        kind='link',
+                        text='Open external document',
+                        href=address,
+                        translate=True,
+                    )
+                )
+        elif tag == 'img':
+            nodes.append(
+                dict(
+                    kind='preview',
+                    text=str(obj.get_display_value()),
+                    value=dict(image=attrs.get('src') or ''),
+                    size=300,
+                )
+            )
+        elif tag == 'select':
+            control = dict(
+                selector=(attrs.get('class') or attrs.get('name') or '').split()[0],
+                name=attrs.get('name') or '',
+                kind='choice',
+                options=[],
+                value='',
+            )
+            if not control['selector']:
+                raise ValueError('CustomLayout select requires a name')
+            controls.append(control)
+            nodes.append(control)
+        elif tag == 'style':
+            return
+        elif tag in ('table', 'tr', 'td', 'th'):
+            previous, nodes = nodes, []
+            for child in item['children']:
+                visit(child)
+            children, nodes = nodes, previous
+            nodes.append(
+                dict(
+                    kind='row' if tag == 'tr' else 'group',
+                    children=children,
+                    weight=int(attrs.get('colspan') or 1),
+                    width=attrs.get('width') or '',
+                )
+            )
+        elif tag in (
+            'root',
+            'html',
+            'body',
+            'div',
+            'span',
+            'p',
+            'strong',
+            'b',
+            'small',
+            'br',
+            'hr',
+            'h4',
+            'form',
+        ):
+            if tag == 'form':
+                form = attrs.get('name') or ''
+            if attrs.get('class') and not text(item).strip():
+                control = dict(kind='text', text='', selector=attrs['class'].split()[0])
+                controls.append(control)
+                nodes.append(control)
             for child in item['children']:
                 visit(child)
         else:
             raise ValueError('CustomLayout markup is not migrated: ' + tag)
+
     visit(parser.root)
-    return dict(text='', layoutNodes=nodes, targetSearchKey=search_key, layoutView=view,
-                externalDocuments=any(node['kind']=='link' for node in nodes))
+    return dict(
+        text='',
+        layoutNodes=nodes,
+        targetSearchKey=search_key,
+        layoutView=view,
+        layoutControls=controls,
+        layoutLoad=load_actions,
+        layoutForm=form,
+        layoutUser=Environment.get_security().get_user_name(),
+        layoutRecord=dict(
+            __search_key__=search_key,
+            code=obj.get_code(),
+            name=obj.get_value('name', no_exception=True),
+            title=obj.get_value('title', no_exception=True),
+        ),
+        externalDocuments=any(node['kind'] == 'link' for node in nodes),
+    )
 
 
-def read_nested_scope(parent_key, search_type, view='table', expression='', offset=0,
-                      limit=50, filters=None, order_by=None, search_view=''):
+def read_nested_scope(
+    parent_key,
+    search_type,
+    view='table',
+    expression='',
+    offset=0,
+    limit=50,
+    filters=None,
+    order_by=None,
+    search_view='',
+    project_scope=False,
+    simple_view='',
+    simple_values=None,
+):
     """Self-contained original-server procedure; never return an unscoped table."""
     import re
     from pyasm.biz import Project, Snapshot
     from pyasm.common import Environment
     from pyasm.search import Search, SearchKey, SearchType
 
-    if not Environment.get_security().is_admin() and (not Environment.get_security().is_logged_in() or Environment.get_security().get_user_name() == 'admin' or not (Project.get_project_code() in ('admin', 'sthpw') or Environment.get_security().check_access('project', [{'code': '*'}, {'code': Project.get_project_code()}], 'allow', default='deny'))):
+    if not Environment.get_security().is_admin() and (
+        not Environment.get_security().is_logged_in()
+        or Environment.get_security().get_user_name() == 'admin'
+        or not (
+            Project.get_project_code() in ('admin', 'sthpw')
+            or Environment.get_security().check_access(
+                'project',
+                [{'code': '*'}, {'code': Project.get_project_code()}],
+                'allow',
+                default='deny',
+            )
+        )
+    ):
         raise PermissionError('Administration requires administrator access')
-    if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
+    if (
+        type(offset) is not int
+        or offset < 0
+        or type(limit) is not int
+        or not 1 <= limit <= 100
+    ):
         raise ValueError('Invalid nested table page')
     if not isinstance(view, str) or not re.fullmatch(r'[A-Za-z_][\w.@-]{0,127}', view):
         raise ValueError('Invalid view name')
-    if SearchKey.extract_project(parent_key) not in (None, '', Project.get_project_code(), 'sthpw', 'admin'):
+    if SearchKey.extract_project(parent_key) not in (
+        None,
+        '',
+        Project.get_project_code(),
+        'sthpw',
+        'admin',
+    ):
         raise ValueError('The configured table target belongs to another project')
     requested = SearchType.breakup_search_type(search_type)
-    if requested.get('project') not in (None, '', Project.get_project_code(), 'sthpw', 'admin'):
+    if requested.get('project') not in (
+        None,
+        '',
+        Project.get_project_code(),
+        'sthpw',
+        'admin',
+    ):
         raise ValueError('The nested table belongs to another project')
     base = SearchType.get(search_type).get_base_key()
     if base in ('sthpw/message', 'sthpw/message_log'):
@@ -354,24 +855,42 @@ def read_nested_scope(parent_key, search_type, view='table', expression='', offs
     if parent.get_base_search_type() in ('sthpw/message', 'sthpw/message_log'):
         raise ValueError('Open private messages from Messages')
     search = Search(search_type)
-    if base == 'sthpw/file' and view == 'snapshot_files' and not expression:
+    if type(project_scope) is not bool or (project_scope and expression):
+        raise ValueError('Invalid project table scope')
+    if project_scope:
+        if base.startswith(('sthpw/', 'config/')):
+            raise ValueError('Project panels require a project-owned Search Type')
+    elif base == 'sthpw/file' and view == 'snapshot_files' and not expression:
         # shortcut: directory packages remain file records; recursive disk browsing stays in File Workspace.
-        snapshots = [parent] if parent.get_base_search_type() == 'sthpw/snapshot' else Snapshot.get_by_sobject(parent, 'publish')
-        files = [file for snapshot in snapshots for file in snapshot.get_all_file_objects()]
+        snapshots = (
+            [parent]
+            if parent.get_base_search_type() == 'sthpw/snapshot'
+            else Snapshot.get_by_sobject(parent, 'publish')
+        )
+        files = [
+            file for snapshot in snapshots for file in snapshot.get_all_file_objects()
+        ]
         search.add_filters('id', [file.get_id() for file in files] or [-1])
-    elif parent.get_base_search_type() == 'sthpw/project' and base in (
-            'sthpw/task', 'sthpw/snapshot', 'sthpw/note', 'sthpw/work_hour') and not expression:
+    elif (
+        parent.get_base_search_type() == 'sthpw/project'
+        and base in ('sthpw/task', 'sthpw/snapshot', 'sthpw/note', 'sthpw/work_hour')
+        and not expression
+    ):
         search.add_filter('project_code', parent.get_code())
     elif base == parent.get_base_search_type() and not expression:
         search.add_id_filter(parent.get_id())
     elif expression:
         # Only reads enter a nested table. Mutating expressions belong to actions.
-        if not isinstance(expression, str) or not re.fullmatch(r'\s*@SOBJECT\([^@;{}]*\)\s*', expression, re.I):
+        if not isinstance(expression, str) or not re.fullmatch(
+            r'\s*@SOBJECT\([^@;{}]*\)\s*', expression, re.I
+        ):
             raise ValueError('A nested table requires an @SOBJECT expression')
         records = Search.eval(expression, sobjects=parent)
         if not isinstance(records, (list, tuple)):
             records = [records] if records else []
-        if len(records) > 10000 or any(item.get_base_search_type() != base for item in records):
+        if len(records) > 10000 or any(
+            item.get_base_search_type() != base for item in records
+        ):
             raise ValueError('The nested expression returned an invalid scope')
         search.add_filters('id', [item.get_id() for item in records] or [-1])
     else:
@@ -381,15 +900,108 @@ def read_nested_scope(parent_key, search_type, view='table', expression='', offs
         else:
             search.add_parent_filter(parent)
     columns = SearchType.get_column_info(base)
+    simple_filters = []
+    if simple_view:
+        from xml.etree import ElementTree as ET
+        from pyasm.search import WidgetDbConfig
+
+        if not isinstance(simple_view, str) or not re.fullmatch(
+            r'[A-Za-z_][\w.@-]{0,127}', simple_view
+        ):
+            raise ValueError('Invalid simple search view')
+        config = WidgetDbConfig.get_by_search_type(search_type, simple_view)
+        if config is not None:
+            root = ET.fromstring(config.get_value('config'))
+            for element in root.findall('./' + simple_view + '/element'):
+                display = element.find('display')
+                if display is None and element.get('name') == 'keywords':
+                    continue  # The existing keyword field remains the native text-search control.
+                if (
+                    display is None
+                    or display.get('class') != 'tactic.ui.filter.SelectFilterElementWdg'
+                ):
+                    raise ValueError('Simple search widget is not migrated')
+                column, expression = (
+                    (display.findtext('column') or '').strip(),
+                    (display.findtext('values_expr') or '').strip(),
+                )
+                if not re.fullmatch(
+                    r'(?:[A-Za-z_]\w*/[A-Za-z_]\w*\.)?[A-Za-z_]\w*', column
+                ):
+                    raise ValueError('Unsupported simple search relationship')
+                if not re.fullmatch(
+                    r'@GET\([A-Za-z_]\w*/[A-Za-z_]\w*\.[A-Za-z_]\w*\)', expression
+                ):
+                    raise ValueError(
+                        'Simple search choices require a read-only field expression'
+                    )
+                from pyasm.common import Container
+                from tactic_stream.server.api import check_record_access
+                from tactic_stream.server.search_configuration import (
+                    deny_expression_write,
+                )
+
+                previous_read = Container.get('Expression:check_record_access')
+                previous_write = Container.get('Expression:check_method_access')
+                Container.put('Expression:check_record_access', check_record_access)
+                Container.put('Expression:check_method_access', deny_expression_write)
+                try:
+                    values = Search.eval(expression)
+                finally:
+                    Container.put('Expression:check_record_access', previous_read)
+                    Container.put('Expression:check_method_access', previous_write)
+                values = values if isinstance(values, list) else [values]
+                values = list(
+                    dict.fromkeys(str(value) for value in values if value is not None)
+                )
+                if len(values) > 1000:
+                    raise ValueError('Simple search exceeds one thousand choices')
+                simple_filters.append(
+                    dict(
+                        name=element.get('name'),
+                        title=element.get('title') or element.get('name'),
+                        column=column,
+                        options=[dict(value=value, label=value) for value in values],
+                    )
+                )
+    if (simple_values is not None and not isinstance(simple_values, dict)) or set(
+        simple_values or {}
+    ) - {item['name'] for item in simple_filters}:
+        raise ValueError('Unknown simple search filter')
+    for item in simple_filters:
+        value = (simple_values or {}).get(item['name'], '')
+        if not isinstance(value, str) or len(value) > 512:
+            raise ValueError('Invalid simple search value')
+        if value:
+            if value not in [choice['value'] for choice in item['options']]:
+                raise ValueError('The filter value is no longer available')
+            related, separator, column = item['column'].rpartition('.')
+            if separator:
+                subset = Search(related)
+                subset.add_filter(column, value)
+                search.add_relationship_search_filter(subset)
+            else:
+                if column not in columns:
+                    raise ValueError('Simple search column is no longer available')
+                search.add_filter(column, value)
     if search_view:
-        if not isinstance(search_view, str) or not re.fullmatch(r'[A-Za-z_][\w.:@-]{0,255}', search_view):
+        if not isinstance(search_view, str) or not re.fullmatch(
+            r'[A-Za-z_][\w.:@-]{0,255}', search_view
+        ):
             raise ValueError('Invalid search view name')
         try:
-            from tactic_stream.server.search_configuration import apply_filters, unpack_filters, validate_filters
+            from tactic_stream.server.search_configuration import (
+                apply_filters,
+                unpack_filters,
+                validate_filters,
+            )
         except ImportError:
             from tactic.ui.app import SearchWdg
+
             saved = Search(search_type)
-            SearchWdg(search_type=search_type, view=search_view, display=True).alter_search(saved)
+            SearchWdg(
+                search_type=search_type, view=search_view, display=True
+            ).alter_search(saved)
             saved.add_column('id')
             search.add_search_filter('id', saved)
         else:
@@ -397,6 +1009,7 @@ def read_nested_scope(parent_key, search_type, view='table', expression='', offs
             from pyasm.common import Container
             from tactic_stream.server.api import check_record_access
             from tactic_stream.server.search_configuration import deny_expression_write
+
             config = WidgetDbConfig.get_by_search_type(search_type, search_view)
             if config is None:
                 raise ValueError('Search view is not available')
@@ -417,19 +1030,36 @@ def read_nested_scope(parent_key, search_type, view='table', expression='', offs
                 Container.put('Expression:check_record_access', previous_read)
                 Container.put('Expression:check_method_access', previous_write)
             if not order_by:
-                order = next((row.get('order', '') for row in packed if row.get('prefix') == 'group'), '')
+                order = next(
+                    (
+                        row.get('order', '')
+                        for row in packed
+                        if row.get('prefix') == 'group'
+                    ),
+                    '',
+                )
                 order_by = [part.strip() for part in order.split(',') if part.strip()]
     if not isinstance(filters or [], list) or len(filters or []) > 20:
         raise ValueError('Invalid nested table filters')
     for item in filters or []:
-        if not isinstance(item, (tuple, list)) or len(item) != 3 or item[0] not in columns or item[1] not in ('=', '!=', '<', '<=', '>', '>=', 'like'):
+        if (
+            not isinstance(item, (tuple, list))
+            or len(item) != 3
+            or item[0] not in columns
+            or item[1] not in ('=', '!=', '<', '<=', '>', '>=', 'like')
+        ):
             raise ValueError('Invalid nested table filter')
         search.add_filter(item[0], item[2], op=item[1])
     if not isinstance(order_by or [], list) or len(order_by or []) > 4:
         raise ValueError('Invalid nested table ordering')
     for item in order_by or []:
         parts = str(item).split()
-        if not parts or len(parts) > 2 or parts[0] not in columns or (len(parts) == 2 and parts[1].lower() not in ('asc', 'desc')):
+        if (
+            not parts
+            or len(parts) > 2
+            or parts[0] not in columns
+            or (len(parts) == 2 and parts[1].lower() not in ('asc', 'desc'))
+        ):
             raise ValueError('Invalid nested table ordering')
         search.add_order_by(parts[0], parts[1] if len(parts) == 2 else 'asc')
     search.add_order_by('id')
@@ -440,9 +1070,15 @@ def read_nested_scope(parent_key, search_type, view='table', expression='', offs
     if base == 'sthpw/login':
         for record in values:
             record.pop('password', None)
-    return dict(searchType=base, view=view, parentKey=parent_key, offset=offset,
-                hasNext=len(records) > limit,
-                records=values)
+    return dict(
+        searchType=base,
+        view=view,
+        parentKey=parent_key,
+        offset=offset,
+        hasNext=len(records) > limit,
+        simpleFilters=simple_filters,
+        records=values,
+    )
 
 
 def append_snapshot_files(search_key, action='prepare', expected_revision='',

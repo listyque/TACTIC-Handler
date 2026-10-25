@@ -35,6 +35,23 @@ export function describe(
         return Time.timeline(cell, width, height, language, editable);
     if (cell.timeDays)
         return Time.hours(cell, width, height, language, editable);
+    if (
+        cell.layoutNodes &&
+        (Layout.tables(cell.layoutNodes).length || cell.layoutLoad?.length)
+    )
+        return {
+            nodes: [
+                button(
+                    'tableLayoutDocument',
+                    rect(4, 0, Math.max(0, width - 24), 36),
+                    translate('Open details', language),
+                    'description',
+                    { type: 'service', name: 'layout-document' },
+                    true,
+                    { outlined: true }
+                )
+            ]
+        };
     if (cell.layoutNodes)
         return Layout.describe(cell, width, height, language, editable, server);
     if (cell.groups && cell.steps)

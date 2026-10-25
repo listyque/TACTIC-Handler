@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.153 - 2026-10-25
+
+- Render VFX Planner and Shot Sheet as shared native compositions with independently scoped tables, configured filters, asset drag/link controls, retained script tabs and complete report printing. Resolve configured CustomLayout sidebar links.
+- Run the ordinary snapshot-to-Review picker through the isolated JavaScript worker and transactional Stream submission command, preserving the exact version, actor, duplicate protection, cancellation and stale results. Require the corresponding Stream server; old production Submit/Bin, RV applets and Maya remain excluded.
+- Synchronize native table/query contracts, workflow Help and paired Planner/Review captures with Stream. Existing project XML still requires explicit reviewed repair.
+
 ## 0.6.0.152 - 2026-10-25
 
 - Render VFX TextInputWdg through the native text editor and transport WikiElementWdg as safe multiline text, including the original-server table query. Retain configured form values, required/read-only flags and ordinary EditCmd saving.

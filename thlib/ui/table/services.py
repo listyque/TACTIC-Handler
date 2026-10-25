@@ -99,6 +99,8 @@ class TableServicesController(QObject):
         application.window_model.windowVisibilityChanged.connect(self._document_visibility)
         self._nested_scopes = {}
         self._nested_revision = 0
+        from .custom_layout import CustomLayoutController
+        self._layout = CustomLayoutController(self)
         from .file_append import SnapshotAppendController
         self._append = SnapshotAppendController(application, self)
         self._append.changed.connect(self.stateChanged)
@@ -120,6 +122,11 @@ class TableServicesController(QObject):
     def _document_visibility(self, window_id, visible):
         if window_id == 'table_document' and not visible:
             self._document_generation += 1
+            self._layout.close()
+
+    @Property(QObject, constant=True)
+    def customLayout(self):
+        return self._layout
 
     @Property(QObject, constant=True)
     def dependencyViewer(self):
@@ -209,6 +216,13 @@ class TableServicesController(QObject):
 
     def _prune_nested(self):
         tabs = {id(tab) for section in self._application._sessions.values() for tab in section.tabs}
+        if self._document.get('layoutNodes') is not None and (
+                id(self._layout.tab) not in tabs or self._layout.tab is not self._application._current_tab()):
+            self._layout.close()
+            self._document_generation += 1
+            self._document = {}
+            self.documentChanged.emit()
+            self._application.window_model.close_window('table_document')
         for key, scope in tuple(self._nested_scopes.items()):
             if id(scope.tab) not in tabs:
                 scope.shutdown()
@@ -234,6 +248,8 @@ class TableServicesController(QObject):
         seen = set()
         while scope is not None:
             if id(scope) in seen or not scope.open or scope.tab is not self._application._current_tab():
+                return False
+            if getattr(scope, 'document_generation', self._document_generation) != self._document_generation:
                 return False
             seen.add(id(scope))
             owner = self._owner_scope(scope.owner_node_id)
@@ -706,6 +722,10 @@ class TableServicesController(QObject):
                     return
                 self._document = dict(result, title=command.get('title') or result.get('title') or 'Custom Layout',
                     translateTitle=not bool(command.get('title')), nodeId=session['node_id'])
+                if result.get('layoutNodes') is not None:
+                    self._layout.open(session['tab'], session['runner'].context, command.get('tabKey') or '')
+                else:
+                    self._layout.close()
                 self.documentChanged.emit()
                 self.stateChanged.emit()
                 app.open_window('table_document')
@@ -850,6 +870,7 @@ class TableServicesController(QObject):
 
     @Slot()
     def shutdown(self):
+        self._layout.close()
         self._connection_removal = None
         self.connectionRemovalClosed.emit()
         self._append.shutdown()

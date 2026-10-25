@@ -44,7 +44,9 @@ Frame.FrameView {
             }));
             return;
         }
-        if (action.name === "nested-table")
+        if (action.name === "layout-document")
+            services.customLayout.open_cell(nodeId, cell);
+        else if (action.name === "nested-table")
             services.toggle_nested(nodeId, Object.assign({}, cell, {
                 nestedTable: action.nestedTable || cell.nestedTable
             }));

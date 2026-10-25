@@ -16,13 +16,13 @@ Item {
         anchors.fill: parent
         anchors.margins: 12
         active: !!tableServicesController.document.layoutNodes
-        sourceComponent: ServiceCell {
+        sourceComponent: CustomLayoutView {
             theme: root.theme
             controller: appController
-            nodeId: tableServicesController.document.nodeId || ""
-            cell: tableServicesController.document
             services: tableServicesController
             administration: administrationController
+            columnsController: columnsEditorController
+            users: userListModel
         }
     }
     Loader {

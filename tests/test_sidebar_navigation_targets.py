@@ -103,6 +103,21 @@ class SidebarNavigationTargetTests(unittest.TestCase):
                 entry = next(row for row in sidebar_entries(project) if row.key == SEARCH_KEY)
                 self.assertEqual(entry.view_mode, expected)
 
+    def test_custom_layout_sidebar_keeps_its_view_and_opens_the_native_owner(self):
+        project=sidebar_project(with_search=False)
+        entry='<element name="planner" title="Planner"><display class="LinkWdg"><widget_key>custom_layout</widget_key><view>planner_layout</view></display></element>'
+        configs=project.get_config_views().config_dict
+        configs[0]['config']='<config><definition>'+entry+'</definition></config>'
+        configs[1]['config']='<config><project_view>'+entry+'</project_view></config>'
+        configs.append(dict(search_type='CustomLayoutWdg',view='planner_layout',config='<config><planner_layout><html><element name="table"><display class="tactic.ui.panel.ViewPanelWdg"><search_type>config/naming</search_type><view>table</view></display></element></html></planner_layout></config>'))
+        entries=sidebar_entries(project)
+        self.assertEqual(len(entries),1)
+        self.assertEqual((entries[0].search_type,entries[0].layout_view,entries[0].table_view),('config/naming','planner_layout','table'))
+        self.controller.navigation_model.replace(entries)
+        self.controller._table_services=SimpleNamespace(customLayout=Mock())
+        self.controller.select_navigation(entries[0].key,entries[0].title,entries[0].command)
+        self.controller._table_services.customLayout.open_view.assert_called_once_with('planner_layout','Planner',entries[0].key)
+
     def test_configured_empty_handler_sidebar_does_not_show_web_sidebar(self):
         project = sidebar_project()
         project.get_config_views().config_dict.append({

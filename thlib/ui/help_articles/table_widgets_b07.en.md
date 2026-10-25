@@ -34,7 +34,7 @@ its file upload. Existing project XML is not rewritten automatically; the new
 camera `edit` configuration must be applied explicitly to an existing project.
 
 This is a standard-widget checkpoint, not complete VFX-template acceptance.
-Planner/Shot Sheet composition and script actions remain separate work. The old
+Planner, Shot Sheet and Review use the native composition described below. The old
 Submit chain through `pyasm.prod.web.SubmissionWdg`, production detail panels,
 Maya and applet execution remain excluded; unavailable columns are not proof
 that those subsystems were restored.
@@ -666,3 +666,18 @@ Checkin Log shows the referenced object name and code in Code, as in legacy TACT
 ### Schedule Bidding
 
 In the VFX template, expand Tasks beside a schedule phase to see its bidding tasks and dates. Add and Edit use the configured bidding form, including cost, hours, start/due dates and color. Saving refreshes the phase total. Tasks stay scoped to their phase; a saved view can supply filters and default ordering. Stream adds missing nullable bidding fields during its normal startup upgrade. Monetary formats use the configured server locale; if it has no currency conventions, dollar formats use USD.
+
+## VFX Planner, Shot Sheet and Review
+
+Shot Planner and Sequence Planner open native configured documents in both clients. Each panel keeps its own filters, selection and paging. The original shot-planner script opens a retained tab whose shot panel contains only the chosen shot. Drag an asset by its row handle, or use Link SObjects to choose assets; both reach the existing guarded instance-link editor. Closing a document tab releases its tables. Changing project or source context invalidates outstanding actions.
+
+Shot Sheet opens from Shot Tracking with the shot preview, frame/timecode values, description, plates and tasks. Task notes retain their shot/process target. Plate range and author come from the latest publish snapshot and its registered files. Print reads all scoped rows, including subsequent pages, before opening the platform printer dialog. Reports are limited to 10,000 rows per table and an 8 MiB raster preview. Browser and desktop printer dialogs follow their platforms.
+
+A snapshot's Submit action opens the Review picker. Choose a review and submit the exact numbered snapshot version. The server supplies the author, rejects changed snapshot metadata and keeps one submission per review/snapshot pair. Cancel and loading the picker do not write. Failed actions remain visible; writes are never automatically replayed. This ordinary `vfx/submission` workflow is separate from the excluded production Submit/Bin interface.
+
+The prepared VFX copy repairs the single-shot view references, Shot Sheet button and plate declarations, removes an unused applet handle from Review loading, and routes its attach operation through the guarded command. It also repairs extra closing parentheses in the configured filter expressions. Existing project XML is **not rewritten automatically**: apply the reviewed configuration changes to an installed project before using these repaired declarations. Handler requires the corresponding Stream server commands. CustomLayout reading remains administrator-only; arbitrary server-side Mako, DOM execution, RV applets, Maya and deep production panels remain outside this native subset.
+
+| Native Frame, MD3 dark, identical fixture and 1000x600 content | Handler | Stream |
+| --- | --- | --- |
+| Planner | ![Handler](media/vfx-planner-native.png) | ![Stream](media/vfx-planner-stream.png) |
+| Review | ![Handler](media/vfx-review-native.png) | ![Stream](media/vfx-review-stream.png) |

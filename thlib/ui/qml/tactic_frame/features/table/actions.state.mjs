@@ -1,6 +1,16 @@
 // Legacy scripts return commands; each engine opens its existing feature owner.
 export function route(command) {
-    if (['refresh', 'message', 'log', 'url'].includes(command.type)) {
+    if (
+        [
+            'refresh',
+            'message',
+            'log',
+            'url',
+            'layout-state',
+            'close-layout',
+            'print-layout'
+        ].includes(command.type)
+    ) {
         return command;
     }
     if (command.type !== 'open') {

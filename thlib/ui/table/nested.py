@@ -23,7 +23,7 @@ class NestedTableController(QObject):
         self._reload_timer.setSingleShot(True)
         self._reload_timer.timeout.connect(self.reload)
         self._identity = 'nested:' + uuid.uuid4().hex + ':'
-        self._model = dict(columns=[], rows=[], selected=[], offset=0, filter='', filterField='code',
+        self._model = dict(searchType=descriptor.get('searchType') or '', embedded=descriptor.get('embedded', False), columns=[], rows=[], selected=[], offset=0, filter='', filterField='code',
                            insert=False, gear=False, selection=descriptor.get('selection', True), shelf=descriptor.get('shelf', True),
                            search=descriptor.get('search', True), searchLimit=descriptor.get('searchLimit', True), busy=False, error='')
         self.services.nestedChanged.connect(self.changed)
@@ -82,6 +82,8 @@ class NestedTableController(QObject):
         arguments = dict(parent_key=descriptor['parentKey'], search_type=descriptor['searchType'],
             view=descriptor.get('view') or 'table', expression=descriptor.get('expression') or '',
             search_view=descriptor.get('searchView') or '',
+            project_scope=descriptor.get('projectScope', False),
+            simple_view=descriptor.get('simpleSearchView') or '', simple_values=state.get('simpleValues') or {},
             offset=state['offset'], limit=int(descriptor.get('initialLimit') or 50), order_by=[state['order']] if state.get('order') else [], filters=[])
         if state['filter']:
             arguments['filters'] = [[state['filterField'], 'like', '%' + state['filter'] + '%']]
@@ -158,7 +160,7 @@ class NestedTableController(QObject):
                 (layout['rows'].get(key) or {}).get(column['name']) or {}, column.get('dataType')) for column in columns}
             rows.append(dict(key=key, nodeId=identity, record=record, cells=cells))
         self._nodes = nodes
-        self._model.update(columns=columns, rows=rows, hasNext=result['hasNext'], busy=False, loaded=True,
+        self._model.update(columns=columns, rows=rows, hasNext=result['hasNext'], simpleFilters=result.get('simpleFilters') or [], busy=False, loaded=True,
             insert=bool(self.descriptor.get('insert', True) and self.application.can_manage_tools),
             gear=bool(self.descriptor.get('gear', True) and self.application.can_manage_tools),
             filterField=next((name for name in ('name', 'title', 'file_name', 'code') if any(column['name'] == name for column in columns)), 'id'))
@@ -196,6 +198,8 @@ class NestedTableController(QObject):
                 self._model['offset'] = max(0, self._model['offset'] + int(action['value']) * int(self.descriptor.get('initialLimit') or 50))
             else:
                 self._model['offset'] = 0
+                if kind == 'simple-filter':
+                    self._model.setdefault('simpleValues', {})[action['field']] = action['value']
                 if kind == 'sort':
                     name = action['value']
                     self._model['order'] = name + (' desc' if self._model.get('order') == name + ' asc' else ' asc')
@@ -215,7 +219,7 @@ class NestedTableController(QObject):
             self.changed.emit()
             return
         owner = app._node_for_any(self.owner_node_id)
-        parent = owner.source if not key and owner and owner.source and owner.search_key.split('?')[0] != self.descriptor['searchType'] else None
+        parent = owner.source if not key and not self.descriptor.get('projectScope') and owner and owner.source and owner.search_key.split('?')[0] != self.descriptor['searchType'] else None
         from thlib.ui.sobject_editor import open_sobject_editor
         view = (self.descriptor.get('editView') or 'edit') if key else (self.descriptor.get('insertView') or 'insert')
         open_sobject_editor(app, dict(mode='edit' if key else 'insert', view=view,

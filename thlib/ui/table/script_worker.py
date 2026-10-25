@@ -48,7 +48,7 @@ def main():
             result = engine.evaluate((RUNTIME/name).read_text(encoding='utf-8'), name)
             if result.isError():
                 raise ValueError(result.toString())
-        result = engine.evaluate('runTableAction(function(bvr,evt,spt,TacticServerStub,alert,console,window,confirm){\n' + request['source'] + '\n},' + json.dumps(request['context'], ensure_ascii=False) + ''',
+        result = engine.evaluate('runTableAction(function(bvr,evt,spt,TacticServerStub,alert,console,window,confirm,document,Option){\n' + request['source'] + '\n},' + json.dumps(request['context'], ensure_ascii=False) + ''',
             function(method,args,kwargs,project) {
                 var reply=JSON.parse(__tableApi.call(method,JSON.stringify(args),JSON.stringify(kwargs),project));
                 if (!reply.ok) throw new Error(reply.error);

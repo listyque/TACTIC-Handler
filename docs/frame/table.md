@@ -149,3 +149,12 @@ Widget Database with the relevant example and limitations. Compare current sourc
 fingerprints and actual input/geometry; historical totals and static registration
 counts are not release evidence. Independent Windows packages, PostgreSQL and
 real-device input need their own qualification.
+
+
+## Configured VFX composition
+
+CustomLayout compiles declarative rows, fields, read-only snapshot previews and referenced ViewPanel/TableLayout elements to Frame nodes. Each embedded table uses the existing nested-table owner; project-wide panels explicitly request project scope, while an explicit search key retains object scope. Configured SelectFilterElement fields retain their relationship targets and read guards. Unsupported widgets/options and executable Mako fail explicitly.
+
+Configured JavaScript runs in the existing isolated table-action worker. Logical form values and root data are JSON state; no HTML or browser engine enters QML. Retained document tabs, picker changes and shared geometry are described in `features/table/layout.ui.mjs`. Review uses Stream's transactional ReviewSubmissionCmd with authoritative actor, captured version/context and duplicate protection. Printing uses CustomLayoutReportCmd for a complete scoped data snapshot; Qt prints a native QTextDocument and the browser invokes its own printer. These commands require the corresponding Stream server and do not restore old production Submission/Bin or applet execution.
+
+Regression entry points: Stream `test_vfx_composition` and `test_vfx_browser.VfxBrowser`, frontend `vfx_composition.mjs`, and Handler `tests.test_custom_layout` plus sidebar target, table-script and nested-table suites. Existing project configurations require explicit reviewed repair; installing a prepared template never rewrites another project.

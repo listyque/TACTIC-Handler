@@ -88,6 +88,75 @@ function runTableAction(execute, context, call, feedback) {
         return item;
     }
     var row = logicalRow(context.searchKey);
+    var layout = context.layoutState
+        ? JSON.parse(JSON.stringify(context.layoutState))
+        : null;
+    var logicalDocument = {};
+    function option(text, value) {
+        this.text = String(text);
+        this.value = String(value);
+    }
+    if (layout) {
+        layout.controls = layout.controls || [];
+        layout.root = layout.root || {};
+        function control(item) {
+            var value = Object.assign({}, item);
+            value.getParent = function (selector) {
+                if (selector !== '.spt_top')
+                    throw new Error('Unsupported layout selector: ' + selector);
+                return top;
+            };
+            value.getElement = function (selector) {
+                var found = controls.filter(function (entry) {
+                    return '.' + entry.selector === selector;
+                })[0];
+                if (!found)
+                    throw new Error(
+                        'Layout control is unavailable: ' + selector
+                    );
+                return found;
+            };
+            return value;
+        }
+        var top = control(layout.root),
+            controls = layout.controls.map(control);
+        top.getParent = function (selector) {
+            if (selector !== '.spt_top')
+                throw new Error('Unsupported layout selector: ' + selector);
+            return top;
+        };
+        Object.defineProperty(top, 'innerHTML', {
+            get: function () {
+                return '__native_layout__';
+            }
+        });
+        controls.forEach(function (item) {
+            if (item.kind === 'choice') {
+                item.options = item.options || [];
+                Object.defineProperty(item, 'value', {
+                    get: function () {
+                        return (
+                            item.selectedValue ||
+                            (item.options[0] || {}).value ||
+                            ''
+                        );
+                    },
+                    set: function (value) {
+                        item.selectedValue = String(value);
+                    }
+                });
+                if (layout.form) {
+                    logicalDocument[layout.form] =
+                        logicalDocument[layout.form] || {};
+                    logicalDocument[layout.form][item.name] = item;
+                }
+            }
+        });
+        row =
+            controls.filter(function (item) {
+                return item.selector === context.layoutTrigger;
+            })[0] || top;
+    }
     function busy(title, detail) {
         if (feedback) feedback(String(title || ''), String(detail || ''));
     }
@@ -156,6 +225,7 @@ function runTableAction(execute, context, call, feedback) {
         tab: {
             set_tab_top: function () {},
             set_main_body_tab: function () {},
+            set_main_body_top: function () {},
             reload_selected: function () {
                 emit({ type: 'refresh' });
             },
@@ -185,6 +255,29 @@ function runTableAction(execute, context, call, feedback) {
         },
         get_event_target: function () {
             return row;
+        },
+        Environment: {
+            get: function () {
+                return {
+                    get_user: function () {
+                        if (!context.layoutUser)
+                            throw new Error(
+                                'The current layout user is unavailable'
+                            );
+                        return context.layoutUser;
+                    }
+                };
+            }
+        },
+        popup: {
+            get_popup: function () {
+                if (!layout) throw new Error('No layout popup');
+                return top;
+            },
+            close: function (value) {
+                if (value !== top) throw new Error('Unknown layout popup');
+                emit({ type: 'close-layout' });
+            }
         }
     };
     var server = new TacticServerStub();
@@ -261,10 +354,34 @@ function runTableAction(execute, context, call, feedback) {
             },
             {
                 open: function (url) {
-                    emit({ type: 'url', url: String(url) });
+                    var command = { type: 'url', url: String(url) },
+                        report = false;
+                    emit(command);
+                    return {
+                        document: {
+                            writeln: function (value) {
+                                if (!layout || value !== '__native_layout__')
+                                    throw new Error(
+                                        'Only the native layout can be printed'
+                                    );
+                                commands.splice(commands.indexOf(command), 1);
+                                report = true;
+                            },
+                            close: function () {}
+                        },
+                        focus: function () {},
+                        close: function () {},
+                        print: function () {
+                            if (!report)
+                                throw new Error('No native report to print');
+                            emit({ type: 'print-layout' });
+                        }
+                    };
                 }
             },
-            confirmAction
+            confirmAction,
+            logicalDocument,
+            option
         );
         if (output && typeof output.then === 'function')
             throw new Error(
@@ -278,6 +395,23 @@ function runTableAction(execute, context, call, feedback) {
     }
     if (waiting !== null)
         return { confirmation: waiting, commands: [], calls: calls };
+    if (layout) {
+        var serial = function (item) {
+            var result = {};
+            Object.keys(item).forEach(function (key) {
+                if (typeof item[key] !== 'function') result[key] = item[key];
+            });
+            return result;
+        };
+        emit({
+            type: 'layout-state',
+            state: {
+                form: layout.form,
+                root: serial(top),
+                controls: controls.map(serial)
+            }
+        });
+    }
     return JSON.parse(
         JSON.stringify(
             {
