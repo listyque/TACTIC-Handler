@@ -68,7 +68,7 @@ class Server:
                 requests=[dict(request_id=key, prompt=row['document']['prompt'], status=row['status']) for key, row in self.requests.items()])
         elif action == 'submit':
             result = dict(request_id=values['request_id'], document=deepcopy(values['document']),
-                          model=values['document'].get('model', ''), effort=values['document'].get('effort', ''),
+                          model=values['document'].get('model', ''), effort=values['document'].get('effort', ''), provider=values['document'].get('provider','codex'),
                           status='running', events=['External agent started', 'reference_read: inProgress'], answer='', error='',
                           messages=[dict(id=values['request_id'], role='user', text=values['document']['prompt'],
                               attachments=[self.files[code] for code in values['document'].get('attachments', [])])])
@@ -91,6 +91,42 @@ class AgentRequestUI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ScriptToolsTests.setUpClass()
+
+    def test_provider_selection_filters_models_and_freezes_during_turn(self):
+        surface=ScriptToolsTests();surface.setUp();self.addCleanup(surface.doCleanups)
+        for name,value in qml_icon_bindings(QML.parents[2],surface.engine).items():
+            surface.engine.rootContext().setContextProperty(name,value)
+        app=Application();controller=AgentRequestController(app,env_inst.server_pool);self.addCleanup(controller.reset)
+        server=Server();original=server.execute_cmd
+        def execute(command,values):
+            result=original(command,values)
+            if values['action']=='state':
+                result['info']['hosts'][0]['capabilities'].update(default_provider='codex',providers=[dict(id='codex',name='Codex',kind='codex'),dict(id='local',name='Local fixture',kind='local')],models=[
+                    dict(id='fixture',label='Account model',provider='codex',is_default=True,efforts=['low','high']),
+                    dict(id='fixture',label='Local model',provider='local',is_default=True,efforts=[])])
+            return result
+        with patch.object(server,'execute_cmd',side_effect=execute),patch('thlib.tactic_classes.server_start',return_value=server):
+            controller.open()
+            until=time.monotonic()+10
+            while controller._in_flight and time.monotonic()<until:QTest.qWait(10)
+            self.assertFalse(controller._in_flight)
+            view=surface.create(QML/'features/scripts/AgentRequestView.qml',dict(theme=surface.theme,controller=controller,width=1000,height=650))
+            window=QQuickWindow();window.resize(1000,650);surface.windows.append(window);view.setParentItem(window.contentItem());window.show();frame(window)
+            choice=surface.item(view,'agentRequestProvider');choice.forceActiveFocus();QTest.keyClick(window,Qt.Key_Down);frame(window)
+            self.assertEqual(controller.model['provider'],'local')
+            self.assertEqual(surface.item(view,'agentRequestModel').property('currentText'),'Agent default')
+            surface.item(view,'agentRequestModel').forceActiveFocus();QTest.keyClick(window,Qt.Key_Down);frame(window)
+            self.assertEqual(controller.model['model'],'fixture')
+            surface.fill(window,surface.item(view,'agentRequestPrompt'),'Read the selected objects')
+            surface.click(window,surface.item(view,'agentRequestSend'))
+            until=time.monotonic()+10
+            while controller._in_flight and time.monotonic()<until:QTest.qWait(10)
+            frame(window)
+            self.assertEqual(server.last['document']['provider'],'local')
+            self.assertFalse(surface.item(view,'agentRequestProvider').isEnabled())
+            controller.handle(dict(type='provider',value='codex'))
+            self.assertEqual(controller.model['provider'],'local')
+            self.assertFalse(surface.warnings,surface.warnings)
 
     def test_context_real_input_submission_cancel_reopen_and_stale_reply(self):
         surface = ScriptToolsTests()

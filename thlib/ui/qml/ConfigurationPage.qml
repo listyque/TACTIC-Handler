@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "features/configuration" as Configuration
 
 Item {
     id: page
@@ -13,7 +14,8 @@ Item {
 
     Loader {
         anchors.fill: parent
-        sourceComponent: page.pageId === "server" ? serverForm
+        sourceComponent: page.pageId === "ai" ? agentProvidersForm
+            : page.pageId === "server" ? serverForm
             : page.pageId === "repository" ? repositoryForm
             : page.pageId === "project" ? projectForm
             : page.pageId === "checkin_preferences" ? checkinOptionsPageForm
@@ -25,6 +27,10 @@ Item {
             : null
     }
 
+    Component {
+        id: agentProvidersForm
+        Configuration.SettingsPage { theme: page.theme; pageId: "ai"; managed: page.managed }
+    }
     Component {
         id: checkinOptionsPageForm
         CheckinOptionsPage { theme: page.theme; managed: page.managed }

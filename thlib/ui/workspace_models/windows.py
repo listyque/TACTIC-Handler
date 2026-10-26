@@ -91,10 +91,11 @@ class FloatingWindowModel(QAbstractListModel):
         "naming_editor",
         "error",
         "agent_request",
+        "agent_providers",
     })
 
     _configuration_pages = frozenset({
-        "server", "repository", "project", "checkin_preferences",
+        "ai", "server", "repository", "project", "checkin_preferences",
         "global_preferences", "appearance", "tasks_preferences", "cache",
     })
 
@@ -119,6 +120,7 @@ class FloatingWindowModel(QAbstractListModel):
         "handler_server": "HandlerServerView.qml",
         "script_editor": "ScriptEditorView.qml",
         "agent_request": "features/scripts/AgentRequestView.qml",
+        "agent_providers": "features/configuration/AgentProvidersView.qml",
         "script_shelf_editor": "ScriptShelfEditorView.qml",
         "script_trigger_editor": "ScriptTriggerEditorView.qml",
         "help": "features/support/help/HelpView.qml",
@@ -170,6 +172,7 @@ class FloatingWindowModel(QAbstractListModel):
     def _defaults() -> list[FloatingWindow]:
         return [
             FloatingWindow("agent_request", "External agent", "agent_request", .14, .08, .72, .84, blocking=True),
+            FloatingWindow("agent_providers", "AI providers", "agent_providers", .16, .1, .68, .8, blocking=True),
             FloatingWindow("configuration", "Configuration", "configuration", .15, .10, .70, .76),
             FloatingWindow("server", "Server Settings", "server", .23, .16, .54, .62),
             FloatingWindow("project", "Project Settings", "project", .22, .15, .56, .64),

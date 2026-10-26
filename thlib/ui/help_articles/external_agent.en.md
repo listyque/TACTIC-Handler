@@ -81,3 +81,34 @@ Generated executable scripts remain inactive drafts. Review source/trials in
 **Script Editor → Agent drafts**, then activate explicitly. TH hooks/shelf scripts
 execute in TH. Browser/API check-ins do not run local TH hooks. The agent has no
 live control of the TH desktop, shell or application source tree.
+
+## AI connections
+
+Open **Configuration → AI providers → Manage AI connections**, or the settings
+button beside **AI connection** in the chat. Profiles belong to your TACTIC login.
+Keep the existing **Codex account**, or add **OpenAI**, **OpenAI-compatible API**,
+**Local model server**, **Anthropic**, or **Gemini**. Enter the API base URL and
+key when required. An optional host environment variable can supply the key
+instead. Localhost refers to the external host computer. Compatible endpoints
+use Chat Completions; OpenAI uses Responses; Anthropic and Gemini use their native APIs.
+
+Save, then choose **Check connection**. The connected external host retrieves
+models using that connection's credentials. Checks send no conversation, project
+or attachments. Choose a returned default model and save it, or select a model
+in the chat. Account Codex retains its own available models and reasoning levels.
+Other connections show only the model capabilities they advertise; tool/image
+support depends on the model. Built-in web search is available through Codex,
+OpenAI and Anthropic when allowed; other connections can use direct download tools.
+
+Choose **AI connection** and **Model** before sending. Connection/model changes
+are allowed between turns. Only the selected connection receives the submitted
+conversation, captured project/page/selection and attachments after **Send**.
+TACTIC tickets/passwords and other connections' keys are not sent to the model.
+Changing or disabling a connection before execution stops that turn; send again
+to authorize a changed destination. Corrections and cancellation remain available.
+
+Stored keys are write-only: a blank field keeps the existing key; use **Remove
+stored API key** to clear it. Windows encrypts keys for the server's OS account.
+Linux requires the administrator to configure a private vault key file first.
+The external host receives credentials encrypted for its temporary host key.
+Closing the editor preserves an unsaved draft; **Discard** restores saved values.

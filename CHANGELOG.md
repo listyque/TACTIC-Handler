@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.165 - 2026-10-26
+
+- Add the native AI providers editor in Configuration and the chat: Codex account, OpenAI, compatible/local APIs, Anthropic and Gemini; write-only credentials, revision checks, connection/model discovery and defaults through Stream.
+- Choose the connection and its actual offered models in the shared chat, preserving choices between turns. Submitted data is bound to the explicitly selected destination; changing or disabling that profile stops API execution until another Send.
+- Preserve unsaved connection drafts on close and clear them on sign-out. Companion Stream stores credentials encrypted and exports only packages bound to the registered external host.
+
 ## 0.6.0.164 - 2026-10-26
 
 - Align operation details with the assistant's transcript column at wide and narrow sizes, using the shared message geometry.

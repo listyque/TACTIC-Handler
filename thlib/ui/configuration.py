@@ -108,6 +108,7 @@ class ConfigurationController(QObject):
     serverTestChanged = Signal()
 
     _builtin_pages = {
+        "ai",
         "server",
         "repository",
         "project",

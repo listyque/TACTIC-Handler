@@ -1,5 +1,21 @@
 // Field captions and operations from the original Handler Configuration pages (EPL-1.0).
 export const definitions = {
+    ai: [
+        {
+            kind: 'Heading',
+            id: 'agentProviderSettingsHeading',
+            title: 'AI providers',
+            description:
+                'Configure account-owned connections for Codex, OpenAI, compatible and local APIs, Anthropic and Gemini.'
+        },
+        {
+            kind: 'Button',
+            id: 'openAgentProviders',
+            title: 'Manage AI connections',
+            icon: 'settings',
+            action: { type: 'providers' }
+        }
+    ],
     server: [
         {
             kind: 'Heading',

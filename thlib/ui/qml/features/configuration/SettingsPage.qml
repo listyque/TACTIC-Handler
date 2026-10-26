@@ -112,6 +112,8 @@ Item {
             windowModel.show_window("matching_templates");
         else if (action.type === "presets")
             windowModel.show_window("server_presets");
+        else if (action.type === "providers")
+            agentProvidersController.open();
         else if (action.type === "test")
             configurationController.test_server(values);
         else if (action.type === "signIn" && configurationController.apply_current())

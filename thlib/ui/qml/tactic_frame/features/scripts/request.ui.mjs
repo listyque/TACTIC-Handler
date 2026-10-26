@@ -23,6 +23,7 @@ export function initial(context = {}) {
         attachments: [],
         uploading: false,
         model: null,
+        provider: null,
         effort: null,
         contextExpanded: false
     };
@@ -50,14 +51,33 @@ export function canSend(model) {
         (!!model.prompt.trim() || !!model.attachments.length) &&
         model.prompt.length <= 12000 &&
         !!connected &&
+        (!model.selected || model.request?.request_id === model.selected) &&
+        (Array.isArray(connected?.capabilities.providers)
+            ? availableModels(model).length > 0
+            : provider(model) === 'codex' ||
+              availableModels(model).length > 0) &&
+        (provider(model) === 'codex' || !!selectedModel(model)) &&
         (!model.allowChanges || connected.capabilities.changes) &&
         (!model.selected || model.request.status !== 'cancelling') &&
         (!active(model) || connected.capabilities.steering === true)
     );
 }
+export function provider(model) {
+    return (
+        model.provider ??
+        (model.request?.request_id
+            ? model.request.provider || 'codex'
+            : host(model)?.capabilities.default_provider || 'codex')
+    );
+}
+export function availableModels(model) {
+    return (host(model)?.capabilities.models || []).filter(
+        (item) => (item.provider || 'codex') === provider(model)
+    );
+}
 export function selectedModel(model) {
     const id = model.model ?? model.request?.model ?? '';
-    return host(model)?.capabilities.models?.find((item) =>
+    return availableModels(model).find((item) =>
         id ? item.id === id : item.is_default
     );
 }
@@ -254,8 +274,10 @@ export function describe(model, width, height, language) {
         context = current.document?.context || model.context || {};
     const inset = metrics.inset,
         inner = Math.max(0, width - inset * 2),
-        narrow = width < 640,
         connected = host(model);
+    const providers = connected?.capabilities.providers || [],
+        narrow = width < (providers.length ? 820 : 640),
+        providerRow = narrow && providers.length ? 40 : 0;
     const composerWidth = Math.min(880, inner),
         composerX = (width - composerWidth) / 2;
     const contextHeight = model.contextExpanded ? 122 : 38;
@@ -263,7 +285,8 @@ export function describe(model, width, height, language) {
         188 +
         contextHeight +
         (model.attachments.length ? 42 : 0) +
-        (narrow ? 40 : 0);
+        (narrow ? 40 : 0) +
+        providerRow;
     const composerTop = Math.max(180, height - composerHeight - 12),
         modelWidth = narrow ? Math.max(80, (composerWidth - 32) / 2) : 200;
     const state = status(model, language),
@@ -397,7 +420,7 @@ export function describe(model, width, height, language) {
             'agentRequestChanges',
             rect(
                 composerX + 16,
-                height - 114 - (narrow ? 40 : 0),
+                height - 114 - (narrow ? 40 : 0) - providerRow,
                 Math.max(0, composerWidth - 32),
                 26
             ),
@@ -414,7 +437,7 @@ export function describe(model, width, height, language) {
             'agentRequestWeb',
             rect(
                 composerX + 16,
-                height - 84 - (narrow ? 40 : 0),
+                height - 84 - (narrow ? 40 : 0) - providerRow,
                 Math.max(0, composerWidth - 32),
                 26
             ),
@@ -445,6 +468,15 @@ export function describe(model, width, height, language) {
             'content-paste',
             { type: 'paste' },
             !model.uploading && !model.pending && !model.busy,
+            { iconOnly: true }
+        ),
+        button(
+            'agentRequestProviders',
+            rect(composerX + 88, height - 52, 32, 32),
+            tr('AI providers'),
+            'settings',
+            { type: 'providers' },
+            !model.busy,
             { iconOnly: true }
         )
     ];
@@ -477,7 +509,38 @@ export function describe(model, width, height, language) {
                 { iconOnly: true }
             )
         );
-    if (connected?.capabilities.models?.length)
+    if (providers.length)
+        nodes.push(
+            node(
+                'Choice',
+                'agentRequestProvider',
+                rect(
+                    narrow ? composerX + 12 : composerX + 128,
+                    height - (narrow ? 132 : 52),
+                    narrow
+                        ? composerWidth - 24
+                        : Math.min(
+                              210,
+                              composerWidth -
+                                  modelWidth -
+                                  332 -
+                                  (working && sendVisible ? 40 : 0)
+                          ),
+                    32
+                ),
+                {
+                    label: tr('AI connection'),
+                    value: provider(model),
+                    enabled: !model.busy && !working && !model.pending,
+                    options: providers.map((item) => ({
+                        value: item.id,
+                        label: item.name
+                    })),
+                    action: { type: 'provider' }
+                }
+            )
+        );
+    if (availableModels(model).length)
         nodes.push(
             node(
                 'Choice',
@@ -501,7 +564,7 @@ export function describe(model, width, height, language) {
                     enabled: !model.busy && !working && !model.pending,
                     options: [
                         { value: '', label: tr('Agent default') },
-                        ...connected.capabilities.models.map((item) => ({
+                        ...availableModels(model).map((item) => ({
                             value: item.id,
                             label: item.label
                         }))
@@ -560,7 +623,7 @@ export function describe(model, width, height, language) {
                 'agentRequestAttachments',
                 rect(
                     composerX + 12,
-                    height - 156 - (narrow ? 40 : 0),
+                    height - 156 - (narrow ? 40 : 0) - providerRow,
                     composerWidth - 24,
                     36
                 ),

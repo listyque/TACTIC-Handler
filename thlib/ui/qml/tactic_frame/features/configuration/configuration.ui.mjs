@@ -56,6 +56,13 @@ export function confirmation(model, width, height, language) {
 
 export const pages = [
     {
+        id: 'ai',
+        title: 'AI providers',
+        icon: 'chat',
+        description: 'Agent connections, credentials and available models',
+        help: 'external_agent'
+    },
+    {
         id: 'server',
         title: 'Server',
         icon: 'cloud',

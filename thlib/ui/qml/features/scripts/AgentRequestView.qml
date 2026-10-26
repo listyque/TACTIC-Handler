@@ -28,7 +28,9 @@ Item {
                 }
             })
         onEvent: function (action) {
-            if (action.type === "attach")
+            if (action.type === "providers")
+                agentProvidersController.open();
+            else if (action.type === "attach")
                 fileDialog.open();
             else
                 root.controller.handle(action.type, action.value === undefined ? "" : action.value);
