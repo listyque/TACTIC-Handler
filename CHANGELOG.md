@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.168 - 2026-10-26
+
+- Show agent activity and completion in the assistant transcript column, after messages and tool details, instead of the chat window corner. Preserve the same status/error semantics in both clients.
+
 ## 0.6.0.167 - 2026-10-26
 
 - Replace the agent conversation picker with a persistent sidebar: time/type/folder grouping, named drafts, pins, search and archive, with revision-checked per-user/project storage on Stream. Preserve unsent messages when switching chats.

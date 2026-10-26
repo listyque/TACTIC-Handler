@@ -98,6 +98,7 @@ Item {
 
     Flickable {
         id: transcript
+        objectName: "agentTranscript"
         anchors.fill: parent
         visible: root.frameNode.view === "transcript"
         clip: true
@@ -219,6 +220,32 @@ Item {
                 font.family: root.theme.fontFamily
                 font.pixelSize: 12
                 wrapMode: Text.Wrap
+            }
+            Item {
+                objectName: "agentRequestStatusRow"
+                x: root.toolGeometry.x
+                width: root.toolGeometry.width
+                height: visible ? Math.max(20, statusText.implicitHeight) : 0
+                visible: !!root.frameNode.status
+                Controls.MaterialIcon {
+                    objectName: "agentRequestStatusIcon"
+                    name: root.frameNode.status?.icon || "chat"
+                    size: 18
+                    color: root.theme[root.frameNode.status?.color || "secondaryText"]
+                }
+                Text {
+                    id: statusText
+                    objectName: "agentRequestStatus"
+                    x: 26
+                    width: parent.width - x
+                    text: root.frameNode.status?.text || ""
+                    color: root.theme[root.frameNode.status?.color || "secondaryText"]
+                    font.family: root.theme.fontFamily
+                    font.pixelSize: 12
+                    lineHeight: 20
+                    lineHeightMode: Text.FixedHeight
+                    wrapMode: Text.Wrap
+                }
             }
         }
     }

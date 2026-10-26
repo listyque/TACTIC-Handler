@@ -118,6 +118,8 @@ Linux requires the administrator to configure a private vault key file first.
 The external host receives credentials encrypted for its temporary host key.
 Closing the editor preserves an unsaved draft; **Discard** restores saved values.
 
+Activity, waiting and completion status appear inside the conversation, aligned with the agent's messages. They follow the transcript as new messages arrive.
+
 ## Conversation library
 
 Conversation history is a separate left panel, with **Search conversations** and

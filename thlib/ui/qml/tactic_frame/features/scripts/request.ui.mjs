@@ -1,4 +1,4 @@
-import { node, rect, label, button, muted } from '../../core/frame.mjs';
+import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import * as History from './history.ui.mjs';
 
@@ -362,30 +362,21 @@ function describeChat(model, width, height, language, sidebarVisible) {
             !model.busy && !model.uploading,
             { iconOnly: true }
         ),
-        node('Icon', 'agentRequestStatusIcon', rect(inset, 52, 18, 18), {
-            icon: state.icon,
-            color: state.color
-        }),
-        label(
-            'agentRequestStatus',
-            rect(
-                inset + 26,
-                50,
-                Math.max(0, inner - 26 - (current.undo_operation ? 142 : 0)),
-                24
-            ),
-            state.text,
-            Object.assign({}, muted, { color: state.color, role: 'alert' })
-        ),
         node(
             'View',
             'agentRequestOutput',
-            rect(0, 84, width, Math.max(70, composerTop - 96)),
+            rect(
+                0,
+                current.undo_operation ? 84 : 52,
+                width,
+                Math.max(70, composerTop - (current.undo_operation ? 96 : 64))
+            ),
             {
                 view: 'transcript',
                 messages: messages(model),
                 events: activity(model, language),
-                active: working
+                active: working,
+                status: state
             }
         ),
         node(
