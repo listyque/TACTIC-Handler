@@ -12,6 +12,7 @@ Item {
     property bool toolsExpanded: false
     signal action(var value)
     readonly property var chips: UI.contextItems(frameNode.context || {}, language)
+    readonly property var toolGeometry: UI.messageGeometry(width, "assistant", 20, [])
 
     Item {
         anchors.fill: parent
@@ -136,6 +137,7 @@ Item {
                     height: geometry.height
                     readonly property var geometry: UI.messageGeometry(width, modelData.role, body.implicitHeight, modelData.attachments || [])
                     Rectangle {
+                        objectName: message.modelData.role === "assistant" ? "agentAssistantMessage" : "agentUserMessage"
                         x: message.geometry.x
                         width: message.geometry.width
                         height: parent.height
@@ -197,8 +199,9 @@ Item {
                 }
             }
             Controls.Button {
-                x: (parent.width - Math.min(800, parent.width - 32)) / 2
-                width: Math.min(800, parent.width - 32)
+                objectName: "agentOperationDetails"
+                x: root.toolGeometry.x
+                width: root.toolGeometry.width
                 height: visible ? 28 : 0
                 visible: !!root.frameNode.events?.length
                 theme: root.theme
@@ -207,8 +210,9 @@ Item {
                 onClicked: root.toolsExpanded = !root.toolsExpanded
             }
             Text {
-                x: (parent.width - Math.min(800, parent.width - 32)) / 2
-                width: Math.min(800, parent.width - 32)
+                objectName: "agentOperationEvents"
+                x: root.toolGeometry.x
+                width: root.toolGeometry.width
                 visible: root.toolsExpanded || !!root.frameNode.active
                 text: (root.frameNode.events || []).join("\n")
                 color: root.theme.secondaryText

@@ -48,6 +48,14 @@ A green **Task completed** means the agent reported verified completion;
 **Waiting for your reply** and **Task blocked — see the answer** explicitly show
 that more information or capability is needed. Read the answer and actual results.
 
+The agent can create project records and children through the existing schema,
+using native defaults and code generation. For example: “Create Episode 03 with
+10 shots.” Answers use display names; technical codes remain separate details.
+Operation details follow the same transcript column as the assistant's answer.
+For “add selected assets to Episode 03”, the agent can find that episode and
+link the captured selection with one native command. Existing links are skipped;
+there is no operation ID to enter, no file-naming setup and no asset duplication.
+
 The agent can use native existing-project workflow/field tools and check attached
 files into an object's workflow process. For example: “For this asset, create
 reference → model → texture → rig and check these reference images into reference.”

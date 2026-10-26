@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.164 - 2026-10-26
+
+- Align operation details with the assistant's transcript column at wide and narrow sizes, using the shared message geometry.
+- Show readable object-definition/relationship/creation activity. The companion Stream agent can create native project records and linked children, and attach existing assets through native instance relationships without duplicate links; answers use display names rather than replacing them with codes.
+- Link the captured selection with only the target object's key. Handle retry identity internally and return confirmed display names; skip mandatory manual/catalogue reads for routine record/link tasks.
+
 ## 0.6.0.163 - 2026-10-26
 
 - Label the external agent's optional network permission as internet access. The companion Stream host can download public HTTPS references into conversation attachments, preserving source URLs, hashes and native check-in receipts.
