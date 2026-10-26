@@ -5,6 +5,8 @@ order: 20
 ---
 # External agent
 
+Connection, model and reasoning choices stay compact in the bottom message toolbar. They wrap only when the chat is too narrow, retaining bounded widths.
+
 Open a project/page, select objects, then choose **More options → External agent**.
 An administrator account and an external host connected for the same login/project
 are required. Context chips show the project, page, type and selection count;

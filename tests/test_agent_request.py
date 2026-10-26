@@ -182,6 +182,24 @@ class AgentRequestUI(unittest.TestCase):
             self.assertFalse(controller._in_flight)
             view=surface.create(QML/'features/scripts/AgentRequestView.qml',dict(theme=surface.theme,controller=controller,width=1000,height=650))
             window=QQuickWindow();window.resize(1000,650);surface.windows.append(window);view.setParentItem(window.contentItem());window.show();frame(window)
+            for width in (1000, 720, 520, 360):
+                view.setWidth(width);window.resize(width,650);frame(window)
+                controls = [surface.item(view, name) for name in (
+                    'agentRequestProvider','agentRequestModel','agentRequestEffort')]
+                for control, maximum in zip(controls, (210, 200, 136)):
+                    self.assertLessEqual(control.width(), maximum)
+                    self.assertGreater(control.width(), 0)
+                    self.assertGreaterEqual(control.mapToScene(QPointF()).x(), 0)
+                    self.assertLessEqual(control.mapToScene(QPointF()).x()+control.width(),width)
+                if width in (1000,720):
+                    toolbar_y=surface.item(view,'agentRequestAttach').mapToScene(QPointF()).y()
+                    for control in controls:
+                        self.assertEqual(control.mapToScene(QPointF()).y(),toolbar_y)
+                output=os.environ.get('TACTIC_AGENT_CAPTURE')
+                if output:
+                    Path(output).mkdir(parents=True,exist_ok=True)
+                    window.grabWindow().save(str(Path(output,f'native-choices-{width}.png')))
+            view.setWidth(1000);window.resize(1000,650);frame(window)
             choice=surface.item(view,'agentRequestProvider');choice.forceActiveFocus();QTest.keyClick(window,Qt.Key_Down);frame(window)
             self.assertEqual(controller.model['provider'],'local')
             self.assertEqual(surface.item(view,'agentRequestModel').property('currentText'),'Agent default')

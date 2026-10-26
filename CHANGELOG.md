@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.177 - 2026-10-26
+
+- Keep agent connection, model and reasoning choices in the compact composer toolbar at ordinary chat widths, including with history open. Bound chooser widths when the toolbar wraps in narrow windows.
+
 ## 0.6.0.176 - 2026-10-26
 
 - Handle mouse-wheel and trackpad scrolling in shared Frame scroll containers, including Configuration. Keep native scrollbars and let nested containers pass unused wheel movement to their parent.

@@ -341,7 +341,7 @@ function describeChat(model, width, height, language, sidebarVisible) {
         inner = Math.max(0, width - inset * 2),
         connected = host(model);
     const providers = connected?.capabilities.providers || [],
-        narrow = width < (providers.length ? 820 : 640),
+        narrow = width < (providers.length ? 680 : 640),
         providerRow = narrow && providers.length ? 40 : 0;
     const composerWidth = Math.min(880, inner),
         composerX = (width - composerWidth) / 2;
@@ -353,7 +353,9 @@ function describeChat(model, width, height, language, sidebarVisible) {
         (narrow ? 40 : 0) +
         providerRow;
     const composerTop = Math.max(180, height - composerHeight - 12),
-        modelWidth = narrow ? Math.max(80, (composerWidth - 32) / 2) : 200;
+        modelWidth = narrow
+            ? Math.min(200, Math.max(80, (composerWidth - 32) / 2))
+            : 200;
     const state = status(model, language),
         working = active(model),
         sendVisible =
@@ -554,7 +556,7 @@ function describeChat(model, width, height, language, sidebarVisible) {
                     narrow ? composerX + 12 : composerX + 128,
                     height - (narrow ? 132 : 52),
                     narrow
-                        ? composerWidth - 24
+                        ? Math.min(210, composerWidth - 24)
                         : Math.min(
                               210,
                               composerWidth -
@@ -623,7 +625,7 @@ function describeChat(model, width, height, language, sidebarVisible) {
                               188 -
                               (working && sendVisible ? 40 : 0),
                     height - (narrow ? 92 : 52),
-                    narrow ? modelWidth : 136,
+                    narrow ? Math.min(136, modelWidth) : 136,
                     32
                 ),
                 {
