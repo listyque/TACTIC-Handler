@@ -19,6 +19,13 @@ Item {
     property var describeRow: null
     property var describeCell: null
     property bool interactive: true
+    property bool rowInteraction: false
+    function containsFocus(owner) {
+        for (let item = root.Window.window ? root.Window.window.activeFocusItem : null; item; item = item.parent)
+            if (item === owner)
+                return true;
+        return false;
+    }
     signal event(var action, var source)
     property bool ready: false
     property var effectiveTheme: theme
@@ -244,7 +251,7 @@ Item {
             Loader {
                 id: loader
                 anchors.fill: parent
-                opacity: wrapper.node.opacity
+                opacity: wrapper.node.revealOnRowInteraction && Qt.styleHints.useHoverEffects && !root.rowInteraction ? 0 : wrapper.node.opacity
                 Behavior on opacity {
                     enabled: wrapper.duration('opacity') > 0
                     NumberAnimation {
@@ -314,6 +321,7 @@ Item {
                 Component {
                     id: boxBrick
                     Rectangle {
+                        id: boxSurface
                         // Virtual row wrappers are private and may repeat across lists.
                         objectName: wrapper.node.recordKey === undefined ? wrapper.node.id : ""
                         color: root.color(wrapper.node.background)
@@ -322,6 +330,10 @@ Item {
                         radius: wrapper.node.radiusRole ? root.effectiveTheme[wrapper.node.radiusRole] : wrapper.node.radius === undefined ? root.effectiveTheme.surfaceRadius : wrapper.node.radius
                         bottomRightRadius: wrapper.node.bottomRightRadius === undefined ? radius : wrapper.node.bottomRightRadius
                         clip: true
+                        HoverHandler {
+                            id: rowHover
+                            enabled: wrapper.node.recordKey !== undefined
+                        }
                         TapHandler {
                             acceptedButtons: Qt.RightButton
                             enabled: !!wrapper.node.contextAction && root.interactive
@@ -334,6 +346,7 @@ Item {
                             id: boxContent
                             anchors.fill: parent
                             theme: root.effectiveTheme
+                            rowInteraction: wrapper.node.recordKey !== undefined ? rowHover.hovered || root.containsFocus(boxSurface) : root.rowInteraction
                             scene: ({
                                     nodes: wrapper.node.children
                                 })
@@ -1129,6 +1142,11 @@ Item {
                         reuseItems: true
                         boundsBehavior: Flickable.StopAtBounds
                         delegate: FrameBranch {
+                            id: listRow
+                            rowInteraction: listRowHover.hovered || root.containsFocus(listRow)
+                            HoverHandler {
+                                id: listRowHover
+                            }
                             required property var model
                             required property int index
                             readonly property var record: {

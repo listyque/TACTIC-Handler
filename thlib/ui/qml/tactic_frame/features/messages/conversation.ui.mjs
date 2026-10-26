@@ -97,7 +97,7 @@ export function row(model, width, language) {
             radius: 10,
             accent: color,
             rail: unread > 0,
-            normalColor: 'surfaceContainerHigh',
+            normalColor: 'transparent',
             selectedColor: 'contentSelection',
             role: 'button',
             action: {

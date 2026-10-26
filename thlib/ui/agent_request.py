@@ -25,6 +25,11 @@ class AgentRequestController(QObject):
         self._worker = None
         self._in_flight = False
         self._queued_action = ''
+        self._library_operation = None
+        self._history_timer = QTimer(self)
+        self._history_timer.setSingleShot(True)
+        self._history_timer.setInterval(300)
+        self._history_timer.timeout.connect(self.refresh)
         self._timer = QTimer(self)
         self._timer.setInterval(2500)
         self._timer.setSingleShot(True)
@@ -41,7 +46,25 @@ class AgentRequestController(QObject):
     @staticmethod
     def initial(context=None):
         return dict(context=context or {}, prompt='', allowChanges=False, allowWeb=False, hosts=[], requests=[], selected='',
-                    request={}, busy=False, error='', pending=None, attachments=[], uploading=False, model=None, effort=None, provider=None, contextExpanded=False, previews={})
+                    request={}, busy=False, error='', pending=None, attachments=[], uploading=False, model=None, effort=None, provider=None, contextExpanded=False, previews={},
+                    history=dict(visible=None,mobile=False,width=280,query='',searchOpen=False,grouping='time',archived=False,collapsed={},edit=None),
+                    groups=[],groups_revision='',total=0,next_offset=None,drafts={})
+
+    @Slot('QVariantMap')
+    def set_history(self, value):
+        before = self._model['history']
+        self._model['history'] = deepcopy(value)
+        if any(before[key] != value[key] for key in ('query','archived')):
+            self._history_timer.start()
+        self.changed.emit()
+
+    def _draft(self):
+        return {key:deepcopy(self._model[key]) for key in ('prompt','attachments','model','provider','effort','allowChanges','allowWeb')}
+
+    def _restore_draft(self, code):
+        values = dict(prompt='',attachments=[],model=None,provider=None,effort=None,allowChanges=False,allowWeb=False)
+        values.update(deepcopy(self._model['drafts'].get(code, {})))
+        self._model.update(values)
 
     @Property('QVariantMap', notify=changed)
     def model(self):
@@ -75,7 +98,7 @@ class AgentRequestController(QObject):
         self._in_flight = False
         self._queued_action = ''
         self._timer.stop()
-        self._model = self.initial(context)
+        self._model = dict(self.initial(context), history=self._model['history'], drafts=self._model['drafts'])
         self._capture_session()
         self.open(context)
 
@@ -85,6 +108,7 @@ class AgentRequestController(QObject):
         self._in_flight = False
         self._queued_action = ''
         self._timer.stop()
+        self._history_timer.stop()
         self._server = None
         self._model = self.initial()
         self.application.window_model.close_window('agent_request')
@@ -95,7 +119,7 @@ class AgentRequestController(QObject):
         if not self.application.can_administer:
             return
         if not self._model['selected'] and not self._model['prompt'] and not self._model['attachments'] and not self._model['pending'] and not self._model['uploading']:
-            self._model = self.initial(context or self.capture())
+            self._model = dict(self.initial(context or self.capture()), history=self._model['history'], drafts=self._model['drafts'])
         if self._model['context'].get('project') and self._server is None:
             self._capture_session()
         self.application.window_model.show_window('agent_request')
@@ -133,25 +157,53 @@ class AgentRequestController(QObject):
     def handle(self, action, value=''):
         if self._model['busy']:
             return
+        if action in ('historyNew','historyEdit'):
+            if self._model['pending'] or self._model['uploading']:
+                return
+            if not self._model['selected'] and action == 'historyNew' and (self._model['prompt'].strip() or self._model['attachments']):
+                self._model['error']='Send or clear the current draft before opening another object'
+                self.changed.emit()
+                return
+            self._library_operation=dict(action='draft',edit=action=='historyEdit',values=dict(request_id=str(uuid4()),context=self._model['context'] if action=='historyEdit' else self.capture()))
+            self._request('library')
+            return
+        if action in ('historySave','historyArchive','historyGroupRemove'):
+            edit=self._model['history']['edit']
+            if not edit:
+                return
+            if edit['kind']=='group':
+                self._library_operation=dict(action='group_remove' if action=='historyGroupRemove' else 'group_save', values=dict(group=edit['id'],name=edit['name'],expected_revision=edit['revision']))
+            else:
+                values={key:edit[key] for key in ('title','group','pinned','archived')}
+                if action=='historyArchive':values['archived']=not values['archived']
+                self._library_operation=dict(action='organize',values=dict(request_id=edit['id'],expected_revision=edit['revision'],document=values))
+            self._request('library')
+            return
+        if action=='historyMore':
+            self._request('historyMore')
+            return
         if action in ('prompt', 'changes', 'web'):
-            if self._model['pending'] or (action in ('changes', 'web') and self._model['selected']):
+            if self._model['pending'] or (action in ('changes', 'web') and self._model['selected'] and self._model['request'].get('status')!='draft'):
                 return
             self._model[{'prompt': 'prompt', 'changes': 'allowChanges', 'web': 'allowWeb'}[action]] = str(value) if action == 'prompt' else bool(value)
             self.changed.emit()
         elif action == 'select':
-            if self._model['uploading']:
+            if self._model['uploading'] or self._model['pending']:
                 return
+            if not self._model['selected'] and (self._model['prompt'].strip() or self._model['attachments']):
+                self._model['error']='Send or clear the current draft before opening another object'
+                self.changed.emit()
+                return
+            self._model['drafts'][self._model['selected']]=self._draft()
             self._generation += 1
             self._in_flight = False
-            if not value:
-                self._model = self.initial(self.capture())
-                self._capture_session()
-                self.changed.emit()
-            else:
-                self._model.update(selected=str(value), request={}, pending=None, prompt='', attachments=[], model=None, effort=None, provider=None)
+            self._model.update(selected=str(value), request={}, pending=None)
+            self._restore_draft(str(value))
+            self._model['history']['edit']=None
             self.refresh()
         elif action == 'send':
-            allowed = self._model['request'].get('document', {}).get('allow_changes', self._model['allowChanges'])
+            started=bool(self._model['selected']) and self._model['request'].get('status')!='draft'
+            allowed = self._model['request'].get('document', {}).get('allow_changes', False) if started else self._model['allowChanges']
             hosts = [host for host in self._model['hosts'] if not allowed or host['capabilities']['changes']]
             hosts.sort(key=lambda host: host['host_id'] != self._model['request'].get('host_id'))
             if (self._model['prompt'].strip() or self._model['attachments']) and hosts and not self._model['uploading']:
@@ -160,11 +212,11 @@ class AgentRequestController(QObject):
                 effort = self._model['effort'] if self._model['effort'] is not None else self._model['request'].get('effort', '')
                 provider = self._model.get('provider')
                 if provider is None:
-                    provider = self._model['request'].get('provider','codex') if self._model['request'] else hosts[0]['capabilities'].get('default_provider','codex')
+                    provider = self._model['request'].get('provider','codex') if started else hosts[0]['capabilities'].get('default_provider','codex')
                 self._model['pending'] = self._model['pending'] or (dict(message_id=str(uuid4()), host_id=hosts[0]['host_id'], text=self._model['prompt'],
-                    attachments=files, model=model, effort=effort, provider=provider) if self._model['selected'] else
-                    dict(request_id=str(uuid4()), host_id=hosts[0]['host_id'], document=dict(prompt=self._model['prompt'],
-                        context=deepcopy(self._model['context']), allow_changes=self._model['allowChanges'], allow_web=self._model['allowWeb'], attachments=files, model=model, effort=effort, provider=provider)))
+                    attachments=files, model=model, effort=effort, provider=provider) if started else
+                    dict(request_id=self._model['selected'] or str(uuid4()), host_id=hosts[0]['host_id'], document=dict(prompt=self._model['prompt'],
+                        context=deepcopy(self._model['request'].get('document',{}).get('context',self._model['context'])), allow_changes=self._model['allowChanges'], allow_web=self._model['allowWeb'], attachments=files, model=model, effort=effort, provider=provider)))
                 self._request('send')
         elif action in ('model', 'effort', 'provider'):
             if self._model['pending'] or self._model['request'].get('status') in ('queued', 'running', 'cancelling'):
@@ -363,28 +415,41 @@ class AgentRequestController(QObject):
         if pool.is_stopped:
             pool.start()
         self._worker = pool.add_task(self._load, self._server, self._model['context']['project'],
-            action, self._model['selected'], deepcopy(self._model['pending']), self._generation, set(self._model['previews']))
+            action, self._model['selected'], deepcopy(self._model['pending']), self._generation, set(self._model['previews']),
+            dict(query=self._model['history']['query'],archived=self._model['history']['archived'],
+                **(dict(offset=self._model['next_offset']) if action=='historyMore' else {})),
+            deepcopy(self._library_operation),deepcopy(self._model['attachments']))
         self._worker.result.connect(self._done)
         self._worker.start()
 
     @staticmethod
-    def _load(server, project, action, selected, pending, generation, cached_previews=()):
+    def _load(server, project, action, selected, pending, generation, cached_previews=(), history_filter=None, library_operation=None, draft_attachments=()):
         try:
+            if action=='library' and library_operation['action']=='draft':
+                project=library_operation['values']['context']['project']
+            history_filter=dict(history_filter or dict(query='',archived=False))
             def call(action, **values):
                 result = server.execute_cmd(COMMAND, dict(action=action, project_code=project, **values))
-                if not isinstance(result, dict) or result.get('status') != 'OK':
+                if not isinstance(result, dict):
                     raise RuntimeError('Agent request failed')
+                if result.get('status') != 'OK':
+                    raise RuntimeError(result.get('description') or 'Agent request failed')
                 return json.loads(result['info']) if isinstance(result['info'], str) else result['info']
             if action == 'send':
-                selected = (call('message', request_id=selected, **pending) if selected else call('submit', **pending))['request_id']
+                selected = (call('submit', **pending) if 'document' in pending else call('message', request_id=selected, **pending))['request_id']
             elif action == 'cancel':
                 call('cancel', request_id=selected)
             elif action == 'undo':
                 call('undo', request_id=selected, **pending)
-            state = call('state')
+            elif action=='library':
+                saved=call(library_operation['action'],**library_operation['values'])
+                if library_operation['action']=='draft':
+                    selected=saved['request_id']
+                    history_filter=dict(query='',archived=False)
+            state = call('state',**history_filter)
             current = call('read', request_id=selected) if selected else {}
             previews = {}
-            for message in current.get('messages', []):
+            for message in [*current.get('messages', []),dict(attachments=draft_attachments)]:
                 for file in message.get('attachments', []):
                     code = file['attachment_id']
                     if not file['media_type'].startswith('image/') or code in cached_previews:
@@ -396,7 +461,8 @@ class AgentRequestController(QObject):
                         previews[code] = value['url']
                     except Exception:
                         previews[code] = ''
-            return dict(generation=generation, selected=selected, request=current, action=action, previews=previews, **state)
+            return dict(generation=generation, selected=selected, request=current, action=action, previews=previews,
+                history_filter=history_filter,library_operation=library_operation, **state)
         except Exception as error:
             return dict(generation=generation, error=str(error))
 
@@ -409,11 +475,37 @@ class AgentRequestController(QObject):
         self._worker = None
         self._in_flight = False
         self._model['busy'] = False
+        history_filter=result.get('history_filter',{})
+        if 'error' not in result and result.get('action')!='library' and any(
+                history_filter.get(key,self._model['history'][key])!=self._model['history'][key] for key in ('query','archived')):
+            self._queued_action=''
+            self.changed.emit()
+            self._request('refresh')
+            return
         if 'error' in result:
             self._model['error'] = result['error']
         if 'error' not in result:
-            was_active = self._model['request'].get('status') in ('queued', 'running', 'cancelling')
+            was_active = self._model['request'].get('status') in ('queued', 'running', 'cancelling') and self._model['request'].get('request_id')==result['request'].get('request_id')
+            if result.get('action') in ('poll','historyMore'):
+                records={row['request_id']:row for row in [*self._model['requests'],*result['requests']]}
+                result['requests']=list(records.values())
+                if result['action']=='poll' and self._model['requests']:
+                    result['next_offset']=self._model['next_offset']
+            if result.get('action')=='library':
+                operation=result['library_operation']
+                if operation['action']=='draft':
+                    self._model['drafts'][self._model['selected']]=self._draft()
+                    self._model['context']=result['request']['document']['context']
+                    if not operation.get('edit'):
+                        self._restore_draft(result['selected'])
+                    self._model['history'].update(query='',archived=False)
+                self._model['history']['edit']=None
             self._model.update({key: result[key] for key in ('selected', 'request', 'hosts', 'requests')})
+            self._model.update({key:result[key] for key in ('groups','groups_revision','total','next_offset') if key in result})
+            if result.get('action')=='library' and result['library_operation'].get('edit'):
+                row=self._model['request']['library_summary']
+                self._model['history'].update(visible=True,edit=dict(kind='chat',id=row['request_id'],title='' if row.get('default_title') else row['title'],
+                    group=row['group'],pinned=row['pinned'],archived=row['archived'],revision=row['library_revision'],status=row['status']))
             self._model['previews'].update(result.get('previews', {}))
             if was_active and result['request'].get('status') not in ('queued', 'running', 'cancelling'):
                 terminal = result['request']
@@ -424,6 +516,7 @@ class AgentRequestController(QObject):
             if result.get('action') in ('send', 'undo'):
                 self._model['pending'] = None
             if result.get('action') == 'send':
+                self._model['drafts'].pop(self._model['selected'],None)
                 self._model['prompt'] = ''
                 self._model['attachments'] = []
         self.changed.emit()

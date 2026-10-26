@@ -816,8 +816,8 @@ export function row(list, record, model, ui, language) {
                     checked,
                     enabled: allow.editable,
                     indicatorX: 10,
-                    normalColor: 'surfaceContainerHigh',
-                    selectedColor: 'surfaceContainerHigh',
+                    normalColor: 'transparent',
+                    selectedColor: 'transparent',
                     children: [
                         label(
                             'userGroupTitle_' + record.name,

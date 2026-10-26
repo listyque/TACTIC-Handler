@@ -582,7 +582,7 @@ export function row(listNode, record, model, ui) {
                           (record.login ? ' · ' + record.login : '')
                         : record.name,
                     selected,
-                    normalColor: 'surfaceContainerHigh',
+                    normalColor: 'transparent',
                     selectedColor: 'contentSelection',
                     rail: false,
                     enabled:

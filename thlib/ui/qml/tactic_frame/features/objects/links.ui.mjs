@@ -287,7 +287,7 @@ export function row(record, width) {
             node('Action', 'linkRow_' + record.key, rect(0, 0, width, 64), {
                 text: record.title,
                 selected: !!record.selected,
-                normalColor: 'row',
+                normalColor: 'transparent',
                 rail: true,
                 radius: 12,
                 action: { type: 'select', key: record.key },

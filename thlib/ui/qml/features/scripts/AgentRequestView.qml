@@ -3,6 +3,7 @@ import QtQuick.Dialogs
 import "../../controls" as Controls
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/scripts/request.ui.mjs" as UI
+import "../../tactic_frame/features/scripts/history.ui.mjs" as History
 
 Item {
     id: root
@@ -13,6 +14,12 @@ Item {
         anchors.fill: parent
         theme: root.theme
         scene: UI.describe(root.controller.model, width, height, root.uiLanguage)
+        models: ({
+                agentHistoryRows: History.rows(root.controller.model, root.uiLanguage)
+            })
+        describeRow: function (node, record) {
+            return History.row(root.controller.model, record, node.width - 16, root.uiLanguage);
+        }
         views: ({
                 context: {
                     component: chatPort,
@@ -28,6 +35,19 @@ Item {
                 }
             })
         onEvent: function (action) {
+            const changed = History.change(root.controller.model, action, width < 940);
+            if (changed) {
+                root.controller.set_history(changed);
+                return;
+            }
+            if ((action.type === "select" || action.type === "historyNew") && width < 940)
+                root.controller.set_history(Object.assign({}, root.controller.model.history, {
+                    mobile: false
+                }));
+            if (action.type === "historyEdit" && !action.value)
+                root.controller.set_history(Object.assign({}, root.controller.model.history, {
+                    mobile: width < 940
+                }));
             if (action.type === "providers")
                 agentProvidersController.open();
             else if (action.type === "attach")

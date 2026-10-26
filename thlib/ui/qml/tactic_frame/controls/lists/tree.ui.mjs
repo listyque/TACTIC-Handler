@@ -1,5 +1,76 @@
 import { node, rect, label, button, muted } from '../../core/frame.mjs';
 
+export function listAction(
+    id,
+    bounds,
+    text,
+    icon,
+    action,
+    enabled = true,
+    options = {}
+) {
+    const iconOnly = !!options.iconOnly;
+    const left = icon ? 34 : 12;
+    const children = icon
+        ? [
+              node(
+                  'Icon',
+                  id + 'Icon',
+                  rect(
+                      iconOnly ? (bounds.width - 16) / 2 : 10,
+                      (bounds.height - 16) / 2,
+                      16,
+                      16
+                  ),
+                  {
+                      icon,
+                      color: enabled ? 'secondaryText' : 'disabledText'
+                  }
+              )
+          ]
+        : [];
+    if (!iconOnly)
+        children.push(
+            label(
+                id + 'Label',
+                rect(
+                    left,
+                    0,
+                    Math.max(
+                        0,
+                        bounds.width - left - 12 - (options.endInset || 0)
+                    ),
+                    bounds.height
+                ),
+                text,
+                {
+                    fontRole: options.fontRole || 'body',
+                    weight: options.weight || 400,
+                    color:
+                        options.color ||
+                        (enabled ? 'primaryText' : 'disabledText')
+                }
+            )
+        );
+    return node(
+        'Action',
+        id,
+        bounds,
+        Object.assign(
+            {
+                text,
+                action,
+                enabled,
+                radius: 6,
+                normalColor: 'transparent',
+                selectedColor: 'contentSelection',
+                children
+            },
+            options
+        )
+    );
+}
+
 // Neutral navigation row. The feature owns expansion, routing and availability.
 export function navigationRow(width, record, state = {}) {
     const section = record.kind === 'section',

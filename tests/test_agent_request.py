@@ -68,7 +68,9 @@ class Server:
             result = self.files[code]
         elif action == 'state':
             result = dict(hosts=[dict(host_id='host', label='Codex', capabilities=dict(changes=True, trials=False, steering=True, web_search=True, models=[dict(id='fixture',label='Fixture model', is_default=True, efforts=['low', 'high'])]))],
-                requests=[dict(request_id=key, prompt=row['document']['prompt'], status=row['status']) for key, row in self.requests.items()])
+                requests=[dict(request_id=key, prompt=row['document']['prompt'], title=row['document']['prompt'] or 'Attachments',
+                    activity=1000,search_type='cg/shot',type_title='Shots',pinned=False,group='',archived=False,status=row['status']) for key, row in self.requests.items()],
+                groups=[],groups_revision='fixture',total=len(self.requests),next_offset=None)
         elif action == 'submit':
             result = dict(request_id=values['request_id'], document=deepcopy(values['document']),
                           model=values['document'].get('model', ''), effort=values['document'].get('effort', ''), provider=values['document'].get('provider','codex'),
@@ -88,6 +90,22 @@ class Server:
         else:
             result = self.requests[values['request_id']]
         return dict(status='OK', info=deepcopy(result))
+
+
+class AgentRequestTransport(unittest.TestCase):
+    def test_new_saved_draft_uses_the_newly_captured_project(self):
+        calls=[]
+        context=dict(project='other',client='TH',search_type='cg/shot')
+        row=dict(request_id='new-draft',document=dict(context=context),messages=[],status='draft')
+        class CapturedServer:
+            def execute_cmd(self, command, values):
+                calls.append(values)
+                return dict(status='OK',info=dict(hosts=[],requests=[],groups=[]) if values['action']=='state' else row)
+        result=AgentRequestController._load(CapturedServer(),'old','library','old-chat',None,1,
+            library_operation=dict(action='draft',values=dict(request_id='new-draft',context=context)))
+        self.assertNotIn('error',result)
+        self.assertEqual(result['selected'],'new-draft')
+        self.assertTrue(all(call['project_code']=='other' for call in calls))
 
 
 class AgentRequestUI(unittest.TestCase):
@@ -320,10 +338,10 @@ class AgentRequestUI(unittest.TestCase):
                 Path(output, 'native-model.json').write_text(json.dumps(capture, ensure_ascii=False), encoding='utf-8')
                 paired = Path(output, 'browser-model.json')
                 if paired.is_file():
-                    controller._model = json.loads(paired.read_text(encoding='utf-8'))
+                    controller._model = dict(controller.initial(),**json.loads(paired.read_text(encoding='utf-8')))
                     controller.changed.emit()
                     frame(window)
-                    self.assertEqual(surface.item(view, 'agentRequestHistory').property('currentIndex'), 1)
+                    self.assertIsNotNone(surface.item(view, 'agentHistoryList'))
                 window.grabWindow().save(str(Path(output, 'native.png')))
             generation = controller._generation
             controller.reset()

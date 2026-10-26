@@ -242,7 +242,7 @@ export function row(list, record, model, ui, language) {
             node('Action', id, rect(0, 0, width, 70), {
                 text: record.title || record.name,
                 selected: ui.selected === record.name,
-                normalColor: 'surfaceContainerHigh',
+                normalColor: 'transparent',
                 selectedColor: 'contentSelection',
                 dragValue:
                     policy(model).editable && !pending(ui) ? record.name : null,

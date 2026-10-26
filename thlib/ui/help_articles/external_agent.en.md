@@ -117,3 +117,35 @@ stored API key** to clear it. Windows encrypts keys for the server's OS account.
 Linux requires the administrator to configure a private vault key file first.
 The external host receives credentials encrypted for its temporary host key.
 Closing the editor preserves an unsaved draft; **Discard** restores saved values.
+
+## Conversation library
+
+Conversation history is a separate left panel, with **Search conversations** and
+grouping **By time**, **By Search Type**, or **By folder** under **Conversation
+view** (three dots in the panel header). The search icon opens the search field.
+Use **Show/Hide
+conversations** to collapse it. On narrow windows the history opens as a separate
+panel; selecting a conversation returns to the chat. The divider changes its
+width on desktop. Dates use the client's local day; pinned conversations remain
+easy to find. Search includes message text, titles and Search Type identifiers,
+with **Load more conversations** for long histories.
+
+**New conversation** creates an empty saved draft without running a model.
+Use the pencil beside the title or the conversation's three dots to set its
+name, choose a folder and pin/unpin it. An unnamed chat uses its first message
+as its title. Create folders in **Conversation view** and edit them from folder
+headings in **By folder**. Removing a folder moves its conversations to
+**Ungrouped**, preserving the messages. Pinned chats inside folders stay in
+their folder; other pinned chats have their own section.
+
+Names, folders, pins and archives belong to the signed-in user and current
+project and persist across clients/restarts. Existing conversations are retained.
+Conflicting saves require a refresh. Switching conversations keeps unsent text
+and attachments in this client session; send them to preserve them as messages.
+For an unnamed initial draft, send it or name it before switching away.
+
+**Archive conversation** hides a finished chat from the ordinary library.
+Enable **Archived conversations** in **Conversation view** to find it and **Restore conversation** before
+continuing. Running requests cannot be archived. The library does not delete
+messages, undo project changes, start an agent or grant new permissions.
+Only **Send** submits project context and attachments to the chosen connection.

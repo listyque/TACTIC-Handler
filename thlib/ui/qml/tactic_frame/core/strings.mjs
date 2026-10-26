@@ -1,5 +1,54 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Conversation view': 'Вид бесед',
+    'Back to conversations': 'Вернуться к беседам',
+    Conversations: 'Беседы',
+    'Show conversations': 'Показать беседы',
+    'Hide conversations': 'Скрыть беседы',
+    'Conversation settings': 'Настройки беседы',
+    'Conversation name': 'Название беседы',
+    'Conversation folder': 'Папка бесед',
+    'New conversation folder': 'Новая папка бесед',
+    'Edit conversation folder': 'Изменить папку бесед',
+    'Folder name': 'Название папки',
+    'Pin conversation': 'Закрепить беседу',
+    'Pinned conversations': 'Закреплённые',
+    'Group conversations': 'Группировка бесед',
+    'By time': 'По времени',
+    'By folder': 'По папкам',
+    Ungrouped: 'Без папки',
+    'Search conversations': 'Поиск бесед',
+    'No conversations found': 'Беседы не найдены',
+    'No conversations yet': 'Бесед пока нет',
+    Yesterday: 'Вчера',
+    'Previous 7 days': 'Предыдущие 7 дней',
+    'Previous 30 days': 'Предыдущие 30 дней',
+    'Older conversations': 'Ранее',
+    'Archived conversations': 'Архив бесед',
+    'Archive conversation': 'Архивировать беседу',
+    'Restore conversation': 'Восстановить беседу',
+    'Archived conversation — restore it to continue':
+        'Беседа в архиве — восстановите её для продолжения',
+    'Remove folder': 'Удалить папку',
+    'Remove this folder? Its conversations will move to Ungrouped.':
+        'Удалить папку? Её беседы перейдут в «Без папки».',
+    'Load more conversations': 'Загрузить ещё беседы',
+    'Conversations panel width': 'Ширина панели бесед',
+    'Conversation settings changed. Reload before saving.':
+        'Настройки беседы изменились. Обновите данные перед сохранением.',
+    'Conversation folders changed. Reload before saving.':
+        'Папки бесед изменились. Обновите данные перед сохранением.',
+    'Choose an existing conversation folder':
+        'Выберите существующую папку бесед',
+    'Wait for the current turn before archiving this conversation':
+        'Дождитесь завершения текущего запроса перед архивацией беседы',
+    'Restore this conversation before sending a message':
+        'Восстановите беседу перед отправкой сообщения',
+    'A conversation folder with this name already exists':
+        'Папка бесед с таким названием уже существует',
+    'Conversation folder is unavailable': 'Папка бесед недоступна',
+    'Use at most 100 conversation folders':
+        'Можно создать не более 100 папок бесед',
     'Send or clear the current draft before opening another object':
         'Отправьте или очистите текущий черновик, прежде чем открывать другой объект',
     Provider: 'Провайдер',

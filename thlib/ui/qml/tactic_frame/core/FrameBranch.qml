@@ -12,6 +12,7 @@ Loader {
     property var describeRow: null
     property var describeCell: null
     property bool interactive: true
+    property bool rowInteraction: false
     signal event(var action, var source)
     function loadedView(): var {
         return root.item;
@@ -36,7 +37,8 @@ Loader {
         models: Qt.binding(() => root.models),
         describeRow: Qt.binding(() => root.describeRow),
         describeCell: Qt.binding(() => root.describeCell),
-        interactive: Qt.binding(() => root.interactive)
+        interactive: Qt.binding(() => root.interactive),
+        rowInteraction: Qt.binding(() => root.rowInteraction)
     })
     Connections {
         target: root.item

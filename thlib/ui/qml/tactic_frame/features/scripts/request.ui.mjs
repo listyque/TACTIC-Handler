@@ -1,5 +1,6 @@
 import { node, rect, label, button, muted } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import * as History from './history.ui.mjs';
 
 export const metrics = {
     inset: 12,
@@ -25,17 +26,27 @@ export function initial(context = {}) {
         model: null,
         provider: null,
         effort: null,
-        contextExpanded: false
+        contextExpanded: false,
+        history: History.initial(),
+        groups: [],
+        groups_revision: '',
+        total: 0,
+        next_offset: null,
+        drafts: {}
     };
 }
 export function active(model) {
     return ['queued', 'running', 'cancelling'].includes(model.request?.status);
 }
+export function started(model) {
+    return !!model.selected && model.request?.status !== 'draft';
+}
 export function host(model) {
     const allowed = model.hosts.filter(
         (item) =>
-            !(model.request?.document?.allow_changes ?? model.allowChanges) ||
-            item.capabilities.changes
+            !(started(model)
+                ? model.request?.document?.allow_changes
+                : model.allowChanges) || item.capabilities.changes
     );
     return (
         allowed.find((item) => item.host_id === model.request?.host_id) ||
@@ -47,6 +58,7 @@ export function canSend(model) {
     return (
         !model.busy &&
         !model.uploading &&
+        !model.request?.library?.archived &&
         !!model.context?.project &&
         (!!model.prompt.trim() || !!model.attachments.length) &&
         model.prompt.length <= 12000 &&
@@ -65,7 +77,7 @@ export function canSend(model) {
 export function provider(model) {
     return (
         model.provider ??
-        (model.request?.request_id
+        (started(model)
             ? model.request.provider || 'codex'
             : host(model)?.capabilities.default_provider || 'codex')
     );
@@ -83,6 +95,7 @@ export function selectedModel(model) {
 }
 export function messages(model) {
     const current = model.request || {};
+    if (current.status === 'draft') return [];
     const rows = current.messages?.length
         ? current.messages
         : current.document
@@ -227,6 +240,12 @@ export function status(model, language) {
             color: 'error',
             icon: 'error'
         };
+    if (current.library?.archived)
+        return {
+            text: tr('Archived conversation — restore it to continue'),
+            color: 'secondaryText',
+            icon: 'archive'
+        };
     if (current.status === 'completed')
         return current.outcome === 'needs_input'
             ? {
@@ -268,7 +287,7 @@ export function status(model, language) {
         icon: active(model) ? 'sync' : 'chat'
     };
 }
-export function describe(model, width, height, language) {
+function describeChat(model, width, height, language, sidebarVisible) {
     const tr = (text) => translate(text, language),
         current = model.request || {},
         context = current.document?.context || model.context || {};
@@ -293,34 +312,44 @@ export function describe(model, width, height, language) {
         working = active(model),
         sendVisible =
             !working || !!model.prompt.trim() || !!model.attachments.length;
+    const conversation =
+        model.requests.find((row) => row.request_id === model.selected) ||
+        current.library_summary;
     const nodes = [
-        node(
-            'Choice',
-            'agentRequestHistory',
-            rect(inset, 10, Math.max(70, inner - 88), 32),
-            {
-                label: tr('Agent requests'),
-                value: model.selected,
-                enabled: !model.busy && !model.uploading,
-                options: [
-                    { value: '', label: tr('New conversation') },
-                    ...(model.requests || []).map((row) => ({
-                        value: row.request_id,
-                        label:
-                            row.prompt === 'Attachments'
-                                ? tr('Attachments')
-                                : row.prompt
-                    }))
-                ],
-                action: { type: 'select' }
-            }
+        button(
+            'agentRequestHistoryToggle',
+            rect(inset, 10, 32, 32),
+            tr(sidebarVisible ? 'Hide conversations' : 'Show conversations'),
+            'history',
+            { type: 'historyToggle', value: sidebarVisible },
+            true,
+            { iconOnly: true }
+        ),
+        label(
+            'agentRequestTitle',
+            rect(56, 10, Math.max(20, width - 200), 32),
+            conversation?.title
+                ? conversation.default_title
+                    ? tr(conversation.title)
+                    : conversation.title
+                : tr('New conversation'),
+            { weight: 600 }
+        ),
+        button(
+            'agentRequestRename',
+            rect(width - inset - 112, 10, 32, 32),
+            tr('Conversation settings'),
+            'edit',
+            { type: 'historyEdit', value: model.selected },
+            !model.busy && !model.pending && !model.uploading,
+            { iconOnly: true }
         ),
         button(
             'agentRequestNew',
             rect(width - inset - 72, 10, 32, 32),
             tr('New conversation'),
             'add',
-            { type: 'select', value: '' },
+            { type: 'historyNew' },
             !model.busy && !model.uploading,
             { iconOnly: true }
         ),
@@ -427,8 +456,10 @@ export function describe(model, width, height, language) {
             {
                 text: tr('Allow requested changes'),
                 wrapText: true,
-                checked: current.document?.allow_changes ?? model.allowChanges,
-                enabled: !model.busy && !model.selected && !model.pending,
+                checked: started(model)
+                    ? current.document?.allow_changes
+                    : model.allowChanges,
+                enabled: !model.busy && !started(model) && !model.pending,
                 action: { type: 'changes' }
             }
         ),
@@ -443,10 +474,12 @@ export function describe(model, width, height, language) {
             ),
             {
                 text: tr('Allow internet access'),
-                checked: current.document?.allow_web ?? model.allowWeb,
+                checked: started(model)
+                    ? current.document?.allow_web
+                    : model.allowWeb,
                 enabled:
                     !model.busy &&
-                    !model.selected &&
+                    !started(model) &&
                     !model.pending &&
                     !!connected?.capabilities.web_search,
                 action: { type: 'web' }
@@ -640,6 +673,40 @@ export function describe(model, width, height, language) {
                 { type: 'undo' },
                 !working && !model.busy && !model.uploading
             )
+        );
+    return { nodes };
+}
+export function describe(model, width, height, language) {
+    const space = History.layout(model, width);
+    const nodes = [];
+    if (!space.small || !space.visible)
+        nodes.push(
+            node(
+                'Box',
+                'agentChatMain',
+                rect(space.mainX, 0, space.mainWidth, height),
+                {
+                    children: describeChat(
+                        model,
+                        space.mainWidth,
+                        height,
+                        language,
+                        space.visible
+                    ).nodes
+                }
+            )
+        );
+    if (space.visible)
+        nodes.push(
+            node('Box', 'agentChatHistory', rect(0, 0, space.panel, height), {
+                children: History.describe(
+                    model,
+                    space.panel,
+                    height,
+                    language,
+                    space.small
+                ).nodes
+            })
         );
     return { nodes };
 }

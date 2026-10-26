@@ -678,7 +678,7 @@ export function row(listNode, record, model, language) {
                         !model.busy &&
                         (!model.uncertain ||
                             model.identity === record.identity),
-                    normalColor: 'surfaceContainerHigh',
+                    normalColor: 'transparent',
                     selectedColor: 'contentSelection',
                     children: [
                         label(

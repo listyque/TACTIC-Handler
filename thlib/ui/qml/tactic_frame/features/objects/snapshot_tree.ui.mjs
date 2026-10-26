@@ -50,7 +50,7 @@ export function describe(model, width, language) {
                 rect(8, 8, inner, 62),
                 {
                     text: group.label,
-                    normalColor: 'surfaceContainerHigh',
+                    normalColor: 'transparent',
                     radius: 12,
                     action: { type: 'expand', value: group.value },
                     children: [
@@ -115,7 +115,7 @@ export function describe(model, width, language) {
                         rect(8, top, inner, 72),
                         {
                             text: snapshot.title,
-                            normalColor: 'surfaceContainerHigh',
+                            normalColor: 'transparent',
                             radius: 12,
                             action: {
                                 type: 'snapshot',

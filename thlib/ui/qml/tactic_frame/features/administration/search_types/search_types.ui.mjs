@@ -1259,7 +1259,7 @@ export function row(listNode, record, model, ui, language) {
                                 (!model.dirty &&
                                     !model.uncertain &&
                                     !model.namingLocked)),
-                        normalColor: 'surfaceContainerHigh',
+                        normalColor: 'transparent',
                         selectedColor: 'contentSelection',
                         children: [
                             node(

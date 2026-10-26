@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.167 - 2026-10-26
+
+- Replace the agent conversation picker with a persistent sidebar: time/type/folder grouping, named drafts, pins, search and archive, with revision-checked per-user/project storage on Stream. Preserve unsent messages when switching chats.
+- Use plain list rows and quiet group captions in chat history, workflows and related administration/project/object lists. Keep secondary row actions available on hover, keyboard focus and touch.
+
 ## 0.6.0.166 - 2026-10-26
 
 - Open the external agent from the basic object context menu, with the clicked object or selected group captured in a new chat. Keep existing conversations and protect unsent drafts/attachments when switching objects. Companion Stream exposes the same action.

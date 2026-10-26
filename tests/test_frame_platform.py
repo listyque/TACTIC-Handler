@@ -5,7 +5,7 @@ from pathlib import Path
 from time import perf_counter
 import unittest
 
-from PySide6.QtCore import QCoreApplication, QEvent, QPointF, QUrl, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, QUrl, Qt
 from PySide6.QtGui import QInputMethodEvent
 from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
 from PySide6.QtTest import QTest
@@ -34,6 +34,7 @@ import QtQuick.Controls
 import "QML" as TH
 import "QML/tactic_frame" as Frame
 import "QML/tactic_frame/core/frame.mjs" as Contract
+import "QML/tactic_frame/controls/lists/tree.ui.mjs" as ListControls
 ApplicationWindow {
     id: window
     visible: true; width: 640; height: 360
@@ -48,6 +49,15 @@ ApplicationWindow {
         };
         populate(1);
     }
+    function showRowActions() {
+        view.describeRow = function(list, record) {
+            return {nodes:[
+                ListControls.listAction('rowPrimary', Contract.rect(0,0,300,36), 'Select', '', {type:'select'}),
+                ListControls.listAction('rowMenu', Contract.rect(300,0,36,36), 'Menu', '', {type:'menu'}, true, {revealOnRowInteraction:true})
+            ]};
+        };
+        populate(1);
+    }
     TH.Theme { id: palette; dark: true }
     function populate(count) {
         const next=[];
@@ -56,6 +66,8 @@ ApplicationWindow {
     }
     function reverse() { rows=rows.slice().reverse(); }
     function focus(name) { return view.focusControl(name); }
+    function blur() { outsideFocus.forceActiveFocus(); }
+    Item { id: outsideFocus }
     function edit(action) {
         rows=rows.map(row=>row.id===action.id ? {id:row.id,text:action.value} : row);
     }
@@ -202,6 +214,39 @@ ApplicationWindow {
         frame(self.window)
         self.assertTrue(self.evaluate("focus(" + json.dumps("edit_" + identity) + ")"))
         self.assertTrue(self.item("edit_" + identity).property("activeFocus"))
+        self.assertEqual(self.warnings, [])
+
+    def test_secondary_row_action_reveals_for_hover_focus_and_no_hover(self):
+        hints = self.app.styleHints()
+        previous = hints.useHoverEffects()
+        self.addCleanup(hints.setUseHoverEffects, previous)
+        hints.setUseHoverEffects(True)
+        self.evaluate('showRowActions()')
+        self.window.requestActivate()
+        QTest.mouseMove(self.window, QPoint(600, 300))
+        frame(self.window)
+        menu = self.item('rowMenu')
+        def opacity():
+            result, current = 1, menu
+            while current:
+                result *= current.opacity()
+                current = current.parentItem()
+            return result
+        self.assertEqual(opacity(), 0)
+        QTest.mouseMove(self.window, QPoint(100, 20))
+        frame(self.window)
+        self.assertEqual(opacity(), 1)
+        self.item('rowPrimary').forceActiveFocus()
+        QTest.mouseMove(self.window, QPoint(600, 300))
+        frame(self.window)
+        self.assertEqual(opacity(), 1)
+        self.evaluate('blur()')
+        QTest.qWait(200)
+        frame(self.window)
+        self.assertEqual(opacity(), 0)
+        hints.setUseHoverEffects(False)
+        frame(self.window)
+        self.assertEqual(opacity(), 1)
         self.assertEqual(self.warnings, [])
 
     def test_removing_the_edited_row_never_writes_to_its_successor(self):

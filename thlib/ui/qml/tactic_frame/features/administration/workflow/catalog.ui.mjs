@@ -1,5 +1,6 @@
 import { node, rect, label, muted, button } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
+import { listAction } from '../../../controls/lists/tree.ui.mjs';
 export function records(model, ui, language) {
     const tr = (text) => translate(text, language),
         groups = {},
@@ -84,9 +85,9 @@ export function row(list, record, model, ui, language) {
         if (record.group)
             return {
                 nodes: [
-                    button(
+                    listAction(
                         'workflowGroup_' + record.searchType,
-                        rect(0, 0, width - 42, 38),
+                        rect(0, 0, width, 34),
                         record.label,
                         ui.collapsed.indexOf(record.searchType) >= 0
                             ? 'chevron-right'
@@ -95,11 +96,17 @@ export function row(list, record, model, ui, language) {
                             type: 'collapse',
                             identity: record.searchType
                         },
-                        !model.busy
+                        !model.busy,
+                        {
+                            fontRole: 'secondary',
+                            color: 'secondaryText',
+                            weight: 500,
+                            endInset: 32
+                        }
                     ),
-                    button(
+                    listAction(
                         'workflowCreate_' + record.searchType,
-                        rect(width - 38, 0, 38, 38),
+                        rect(width - 34, 2, 30, 30),
                         tr('Create workflow'),
                         'add',
                         {
@@ -111,7 +118,8 @@ export function row(list, record, model, ui, language) {
                             !model.uncertain &&
                             (model.canWrite || model.metadata.canCreate),
                         {
-                            iconOnly: true
+                            iconOnly: true,
+                            revealOnRowInteraction: true
                         }
                     )
                 ]
@@ -125,7 +133,12 @@ export function row(list, record, model, ui, language) {
                     {
                         text: record.label || record.identity,
                         selected: model.identity === record.identity,
-                        normalColor: 'surfaceContainerHigh',
+                        normalColor: 'transparent',
+                        radius: 6,
+                        toolTip:
+                            (record.label || record.identity) +
+                            ' · ' +
+                            record.identity,
                         selectedColor: 'contentSelection',
                         enabled: !model.busy && !model.uncertain,
                         children: [
@@ -154,7 +167,7 @@ export function row(list, record, model, ui, language) {
                     {
                         text: record.label || record.identity,
                         selected: ui.typeToAdd === record.identity,
-                        normalColor: 'surfaceContainerHigh',
+                        normalColor: 'transparent',
                         selectedColor: 'contentSelection',
                         enabled: !model.busy,
                         children: [

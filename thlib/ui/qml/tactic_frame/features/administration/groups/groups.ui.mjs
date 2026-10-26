@@ -737,8 +737,8 @@ export function row(list, record, model, ui, language) {
                     },
                     surface: true,
                     rail: false,
-                    normalColor: 'surfaceContainerLow',
-                    selectedColor: 'surfaceContainerHigh',
+                    normalColor: 'transparent',
+                    selectedColor: 'transparent',
                     indicatorX: 10,
                     children
                 }

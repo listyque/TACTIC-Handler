@@ -691,7 +691,7 @@ export function row(kind, record, width, index, language) {
                 rect(0, 0, width, height),
                 {
                     text: title || subtitle || '',
-                    normalColor: 'surfaceContainerHigh',
+                    normalColor: 'transparent',
                     radius: 0,
                     action: {
                         type: kind,

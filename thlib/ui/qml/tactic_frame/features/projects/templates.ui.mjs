@@ -78,7 +78,7 @@ export function describe(model, width, height, language) {
                 text: row.code,
                 selected: model.selected === row.code,
                 enabled: !model.busy,
-                normalColor: 'surfaceContainerLow',
+                normalColor: 'transparent',
                 selectedColor: 'contentSelection',
                 action: { type: 'select', code: row.code },
                 children: [

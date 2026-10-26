@@ -229,7 +229,7 @@ export function mention(model, width) {
                     elementId: model.elementId,
                     selected: !!model.selected,
                     radius: 10,
-                    normalColor: 'row',
+                    normalColor: 'transparent',
                     selectedColor: 'contentSelection',
                     action: { type: 'mention', login: model.login },
                     children: [
@@ -285,7 +285,7 @@ export function gallery(model, width, language) {
                 {
                     text: title,
                     radius: 12,
-                    normalColor: 'row',
+                    normalColor: 'transparent',
                     action: { type: 'jump', value: model.messageId },
                     children: [
                         node('Icon', 'chatFileIcon', rect(12, 21, 18, 18), {

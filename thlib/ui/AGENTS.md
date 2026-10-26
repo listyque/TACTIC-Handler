@@ -6,6 +6,11 @@ architecture, interaction, visual, and verification requirements.
 
 ## Canonical component architecture
 
+- Catalogs, navigation and conversation history use plain compact rows and quiet
+  group captions. Do not give every row a filled rounded background or render
+  headings as pills. Emphasize selection, hover and keyboard focus; secondary
+  row actions appear on hover/focus and remain explicit on touch devices.
+
 - Treat `docs/ui_component_policy.md` as the canonical QML composition contract.
   Apply its layer boundaries, extraction gate, motion tokens, responsive rules,
   and review checklist to every new or changed QML surface.

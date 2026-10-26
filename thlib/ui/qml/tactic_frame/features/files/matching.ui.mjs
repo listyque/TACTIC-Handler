@@ -421,7 +421,7 @@ export function row(model, record, width, language) {
                         {
                             text: record.pattern,
                             selected: !!record.selected,
-                            normalColor: 'surfaceContainerHigh',
+                            normalColor: 'transparent',
                             selectedColor: 'secondaryContainer',
                             radius: 12,
                             action: { type: 'select', index },

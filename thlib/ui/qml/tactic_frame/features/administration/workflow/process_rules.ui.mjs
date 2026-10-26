@@ -94,7 +94,7 @@ export function row(list, record, model, language) {
                     text: heading,
                     enabled: !model.busy,
                     selected: !!rule && model.selected === record.index,
-                    normalColor: 'surfaceContainerHigh',
+                    normalColor: 'transparent',
                     selectedColor: 'contentSelection',
                     children: [
                         label(
