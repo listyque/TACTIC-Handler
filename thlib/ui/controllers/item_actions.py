@@ -225,6 +225,8 @@ class ItemActionsMixin:
             }
 
         separator = {"separator": True}
+        agent = ([separator, item("External agent", "comment", "agent_request")]
+                 if getattr(self, "can_administer", False) and node.node_type in {"sobject", "snapshot"} else [])
         tab = self._current_tab()
         selected_ids = list(tab.selected_node_ids) if tab else []
         if (
@@ -258,7 +260,7 @@ class ItemActionsMixin:
                     item("SObject Info", "info", "sobject_info"),
                     separator,
                 ]
-            return actions
+            return actions + agent
         if node.node_type == "file":
             dcc_actions = self._dcc_actions_for_node(node)
             return [
@@ -303,7 +305,7 @@ class ItemActionsMixin:
                 actions.extend([separator, item("Delete", "delete", "delete")])
                 if node.is_versionless:
                     actions.append(item("Delete Whole Tree", "delete_forever", "delete_tree"))
-            return actions
+            return actions + agent
         if node.node_type == "process":
             if getattr(node, "subtitle", "") == "progress":
                 return []
@@ -398,7 +400,7 @@ class ItemActionsMixin:
             actions.extend([separator, item(
                 "Delete", "delete", "delete", advanced=node.relationship == "instance",
             )])
-        return actions
+        return actions + agent
 
     @Slot(str, result="QVariantList")
     def item_quick_actions(self, node_id: str) -> list[dict]:

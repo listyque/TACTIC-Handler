@@ -10,6 +10,11 @@ An administrator account and an external host connected for the same login/proje
 are required. Context chips show the project, page, type and selection count;
 **Context details** reveals the saved page/view and exact selected keys.
 
+You can also choose **External agent** directly from the object's basic context
+menu. It starts a new conversation with the clicked object, or all selected
+objects when that object is part of the selection. Previous conversations remain
+in history. Send or clear an unsent message/attachments before changing objects.
+
 Describe your task in the chat. **Attach files**, drop files onto the window, or
 press **Ctrl+V** in the message to paste files/images. Image thumbnails and file
 names appear before sending; remove an unwanted attachment with its cross.

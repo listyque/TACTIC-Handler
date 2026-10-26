@@ -1,5 +1,7 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Send or clear the current draft before opening another object':
+        'Отправьте или очистите текущий черновик, прежде чем открывать другой объект',
     Provider: 'Провайдер',
     'AI providers': 'ИИ-провайдеры',
     'AI connection': 'ИИ-подключение',

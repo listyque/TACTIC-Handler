@@ -5405,5 +5405,6 @@
   "Connection has not been checked": "Подключение не проверено",
   "Waiting for the external host": "Ожидание внешнего хоста",
   "Manage AI connections": "Настроить ИИ-подключения",
-  "Configure account-owned connections for Codex, OpenAI, compatible and local APIs, Anthropic and Gemini.": "Настройте подключения своего аккаунта: Codex, OpenAI, совместимые и локальные API, Anthropic и Gemini."
+  "Configure account-owned connections for Codex, OpenAI, compatible and local APIs, Anthropic and Gemini.": "Настройте подключения своего аккаунта: Codex, OpenAI, совместимые и локальные API, Anthropic и Gemini.",
+  "Send or clear the current draft before opening another object": "Отправьте или очистите текущий черновик, прежде чем открывать другой объект"
 }

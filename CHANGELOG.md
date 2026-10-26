@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.166 - 2026-10-26
+
+- Open the external agent from the basic object context menu, with the clicked object or selected group captured in a new chat. Keep existing conversations and protect unsent drafts/attachments when switching objects. Companion Stream exposes the same action.
+
 ## 0.6.0.165 - 2026-10-26
 
 - Add the native AI providers editor in Configuration and the chat: Codex account, OpenAI, compatible/local APIs, Anthropic and Gemini; write-only credentials, revision checks, connection/model discovery and defaults through Stream.

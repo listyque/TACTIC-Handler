@@ -1081,6 +1081,10 @@ class ItemOperationsMixin:
             return
         node = self._node_for_any(node_id)
         source = node.source if node else None
+        if command == "agent_request":
+            if self.can_administer and node and node.node_type in {"sobject", "snapshot"}:
+                self.agentRequestRequested.emit(node_id)
+            return
         if command == "sobject_info":
             if not node or node.node_type != "sobject" or source is None:
                 self._notify("SObject Info is unavailable for this item")

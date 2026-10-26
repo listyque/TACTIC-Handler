@@ -116,6 +116,7 @@ class ApplicationController(
 
     selected_node_changed = Signal()
     taskContextRequested = Signal(str, str, str)
+    agentRequestRequested = Signal(str)
 
     results_view_changed = Signal()
     item_fields_updated = Signal(str, object)

@@ -21,12 +21,15 @@ from thlib.ui.controllers.types import ActionRegistry
 from thlib.ui.workspace_models.windows import FloatingWindowModel
 from thlib.ui.icon_font import qml_icon_bindings
 from thlib.environment import env_inst
+from thlib.ui.controllers.item_actions import ItemActionsMixin
+from thlib.ui.controllers.item_operations import ItemOperationsMixin
 
 
-class Application(QObject):
+class Application(QObject, ItemActionsMixin, ItemOperationsMixin):
     authentication_changed = Signal()
     signing_out = Signal()
     notification_changed = Signal(str)
+    agentRequestRequested = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -91,6 +94,39 @@ class AgentRequestUI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ScriptToolsTests.setUpClass()
+
+    def test_item_menu_captures_clicked_or_selected_objects_and_keeps_draft(self):
+        app=Application()
+        from tests.test_sobject_info_entrypoint import _sobject_node
+        nodes={key:_sobject_node() for key in ('one','two')}
+        for index,(key,node) in enumerate(nodes.items(),1):
+            node.node_id=key;node.search_key=f'cg/shot?project=one&code=SH00{index}'
+        app._node_for_any=nodes.get
+        app.tab.selected_node_ids=['two']
+        app.debug_log=None
+        controller=AgentRequestController(app,env_inst.server_pool);self.addCleanup(controller.reset)
+        notices=[];app.notification_changed.connect(notices.append)
+        with patch('thlib.tactic_classes.server_start',return_value=Server()),patch.object(controller,'refresh'):
+            menu=app.item_menu_actions('one')
+            action=next(row for row in menu if row.get('command')=='agent_request')
+            self.assertFalse(action['advanced'])
+            app.invoke_item_action('agent_request','one')
+            self.assertEqual(controller.model['context']['search_keys'],[nodes['one'].search_key])
+            app.tab.selected_node_ids=['one','two']
+            app.invoke_item_action('agent_request','one')
+            self.assertEqual(controller.model['context']['search_keys'],[node.search_key for node in nodes.values()])
+            controller.handle('prompt','Keep this draft')
+            app.tab.selected_node_ids=['two']
+            app.invoke_item_action('agent_request','two')
+            self.assertEqual(controller.model['prompt'],'Keep this draft')
+            self.assertEqual(len(controller.model['context']['search_keys']),2)
+            self.assertIn('Send or clear',notices[-1])
+            controller.handle('prompt','')
+            controller._model['attachments']=[dict(attachment_id='fixture',name='draft.txt')]
+            app.invoke_item_action('agent_request','two')
+            self.assertEqual(controller.model['attachments'][0]['name'],'draft.txt')
+            app.can_administer=False
+            self.assertFalse(any(row.get('command')=='agent_request' for row in app.item_menu_actions('one')))
 
     def test_provider_selection_filters_models_and_freezes_during_turn(self):
         surface=ScriptToolsTests();surface.setUp();self.addCleanup(surface.doCleanups)

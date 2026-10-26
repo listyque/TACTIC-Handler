@@ -33,6 +33,7 @@ class AgentRequestController(QObject):
         from PySide6.QtGui import QGuiApplication
         QGuiApplication.clipboard().dataChanged.connect(self.clipboardChanged)
         application._registry.register('open_agent_request', self.open)
+        application.agentRequestRequested.connect(self.open_for_item)
         application.authentication_changed.connect(self.reset)
         application.signing_out.connect(self.reset)
         application.window_model.windowVisibilityChanged.connect(self.visibility)
@@ -54,6 +55,30 @@ class AgentRequestController(QObject):
                     title=section.title if section else '', search_type=section.search_type if section else '',
                     view=tab.table_view if tab else '', search_keys=shelf.get('search_keys', []))
 
+    @Slot(str)
+    def open_for_item(self, node_id):
+        app = self.application
+        node = app._node_for_any(node_id)
+        if not app.can_administer or node is None or node.node_type not in ('sobject', 'snapshot') or not node.search_key:
+            return
+        if self._model['prompt'].strip() or self._model['attachments'] or self._model['pending'] or self._model['uploading']:
+            self.open()
+            app.notification_changed.emit('Send or clear the current draft before opening another object')
+            return
+        context = self.capture()
+        tab = app._current_tab()
+        ids = list(tab.selected_node_ids) if tab and node_id in tab.selected_node_ids else [node_id]
+        nodes = [app._node_for_any(identity) for identity in ids]
+        context.update(search_type=node.search_key.split('?')[0], search_keys=list(dict.fromkeys(
+            item.search_key for item in nodes if item and item.node_type in ('sobject', 'snapshot') and item.search_key)))
+        self._generation += 1
+        self._in_flight = False
+        self._queued_action = ''
+        self._timer.stop()
+        self._model = self.initial(context)
+        self._capture_session()
+        self.open(context)
+
     @Slot()
     def reset(self):
         self._generation += 1
@@ -66,11 +91,11 @@ class AgentRequestController(QObject):
         self.changed.emit()
 
     @Slot()
-    def open(self):
+    def open(self, context=None):
         if not self.application.can_administer:
             return
-        if not self._model['selected'] and not self._model['prompt']:
-            self._model = self.initial(self.capture())
+        if not self._model['selected'] and not self._model['prompt'] and not self._model['attachments'] and not self._model['pending'] and not self._model['uploading']:
+            self._model = self.initial(context or self.capture())
         if self._model['context'].get('project') and self._server is None:
             self._capture_session()
         self.application.window_model.show_window('agent_request')
