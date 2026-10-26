@@ -62,10 +62,11 @@ class Server:
                 self.files[code] = dict(attachment_id=code, name=values['name'], size=values['size'], media_type=values['media_type'])
             result = self.files[code]
         elif action == 'state':
-            result = dict(hosts=[dict(host_id='host', label='Codex', capabilities=dict(changes=True, trials=False, steering=True, models=[dict(id='fixture',label='Fixture model')]))],
+            result = dict(hosts=[dict(host_id='host', label='Codex', capabilities=dict(changes=True, trials=False, steering=True, models=[dict(id='fixture',label='Fixture model', is_default=True, efforts=['low', 'high'])]))],
                 requests=[dict(request_id=key, prompt=row['document']['prompt'], status=row['status']) for key, row in self.requests.items()])
         elif action == 'submit':
             result = dict(request_id=values['request_id'], document=deepcopy(values['document']),
+                          model=values['document'].get('model', ''), effort=values['document'].get('effort', ''),
                           status='running', events=['External agent started'], answer='', error='',
                           messages=[dict(id=values['request_id'], role='user', text=values['document']['prompt'],
                               attachments=[self.files[code] for code in values['document'].get('attachments', [])])])
@@ -73,6 +74,7 @@ class Server:
             self.last = result
         elif action == 'message':
             result = self.requests[values['request_id']]
+            result.update(model=values.get('model', ''), effort=values.get('effort', ''))
             result['messages'].append(dict(id=values['message_id'], role='user', text=values['text'], attachments=[]))
             result['status'] = 'running'
         elif action == 'cancel':
@@ -102,6 +104,7 @@ class AgentRequestUI(unittest.TestCase):
         notices = []
         app.notification_changed.connect(notices.append)
         controller = AgentRequestController(app, env_inst.server_pool)
+        self.addCleanup(controller.reset)
         server = Server()
         with patch('thlib.tactic_classes.server_start', return_value=server):
             controller.open()
@@ -124,6 +127,19 @@ class AgentRequestUI(unittest.TestCase):
                 frame(window)
 
             wait()
+            choice = surface.item(view, 'agentRequestModel')
+            choice.forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_Down)
+            frame(window)
+            self.assertEqual(controller.model['model'], 'fixture')
+            effort = surface.item(view, 'agentRequestEffort')
+            effort.forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_Down)
+            frame(window)
+            surface.item(view, 'agentRequestEffort').forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_Down)
+            frame(window)
+            self.assertEqual(controller.model['effort'], 'high')
             clipboard = QGuiApplication.clipboard()
             saved_clipboard = QMimeData()
             original = clipboard.mimeData()
@@ -164,6 +180,8 @@ class AgentRequestUI(unittest.TestCase):
             surface.click(window, surface.item(view, 'agentRequestSend'))
             wait()
             self.assertEqual(server.last['document']['context']['search_keys'], app.keys)
+            self.assertEqual(server.last['document']['effort'], 'high')
+            self.assertFalse(surface.item(view, 'agentRequestEffort').isEnabled())
             self.assertEqual(server.last['document']['context']['page'], 'cg/shot@shots')
             self.assertEqual(len(server.last['document']['attachments']), 2)
             surface.fill(window, surface.item(view, 'agentRequestPrompt'), 'Use the reference process')
@@ -175,10 +193,21 @@ class AgentRequestUI(unittest.TestCase):
             controller._request('poll')
             wait()
             self.assertIn('Task completed', notices)
+            surface.item(view, 'agentRequestModel').forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_Up)
+            frame(window)
+            self.assertEqual(controller.model['model'], '')
+            self.assertEqual(controller.model['effort'], '')
+            self.assertEqual(surface.item(view, 'agentRequestEffort').property('currentIndex'), 0)
+            surface.item(view, 'agentRequestEffort').forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_Down)
+            frame(window)
             surface.fill(window, surface.item(view, 'agentRequestPrompt'), 'Summarize the result')
             surface.click(window, surface.item(view, 'agentRequestSend'))
             wait()
             self.assertEqual(len(server.last['messages']), 4)
+            self.assertEqual(server.last['model'], '')
+            self.assertEqual(server.last['effort'], 'low')
             app.current_project_code = 'two'
             app.keys = ['cg/shot?project=two&code=OTHER']
             self.assertEqual(controller.model['request']['document']['context']['project'], 'one')
@@ -204,6 +233,7 @@ class AgentRequestUI(unittest.TestCase):
                     controller._model = json.loads(paired.read_text(encoding='utf-8'))
                     controller.changed.emit()
                     frame(window)
+                    self.assertEqual(surface.item(view, 'agentRequestHistory').property('currentIndex'), 1)
                 window.grabWindow().save(str(Path(output, 'native.png')))
             generation = controller._generation
             controller.reset()

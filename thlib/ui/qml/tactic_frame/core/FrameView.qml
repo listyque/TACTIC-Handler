@@ -933,6 +933,7 @@ Item {
                 Component {
                     id: choiceBrick
                     Controls.ComboBox {
+                        id: choice
                         objectName: wrapper.node.id
                         theme: root.effectiveTheme
                         // Replacing an unchanged model makes Qt reset an in-progress edit.
@@ -948,7 +949,12 @@ Item {
                         onAccepted: root.send(wrapper.node.commitAction, editText)
                         translateDisplayText: false
                         enabled: !!wrapper.node.enabled
-                        currentIndex: editable ? -1 : (wrapper.node.options || []).findIndex(item => item.value === wrapper.node.value)
+                        Binding {
+                            target: choice
+                            property: "currentIndex"
+                            delayed: true
+                            value: choice.editable ? -1 : (wrapper.node.options || []).findIndex(item => item.value === wrapper.node.value)
+                        }
                         displayText: currentIndex < 0 ? String(wrapper.node.value ?? "") : (wrapper.node.displayPrefix || "") + currentText
                         Accessible.name: wrapper.node.label || ""
                         font: root.controlFont(wrapper.node)

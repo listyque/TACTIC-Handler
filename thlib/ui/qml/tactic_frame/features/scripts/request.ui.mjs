@@ -21,7 +21,8 @@ export function initial(context = {}) {
         pending: null,
         attachments: [],
         uploading: false,
-        model: '',
+        model: null,
+        effort: null,
         contextExpanded: false
     };
 }
@@ -51,6 +52,12 @@ export function canSend(model) {
         (!model.allowChanges || connected.capabilities.changes) &&
         (!model.selected || model.request.status !== 'cancelling') &&
         (!active(model) || connected.capabilities.steering === true)
+    );
+}
+export function selectedModel(model) {
+    const id = model.model ?? model.request?.model ?? '';
+    return host(model)?.capabilities.models?.find((item) =>
+        id ? item.id === id : item.is_default
     );
 }
 export function messages(model) {
@@ -196,9 +203,12 @@ export function describe(model, width, height, language) {
         composerX = (width - composerWidth) / 2;
     const contextHeight = model.contextExpanded ? 122 : 38;
     const composerHeight =
-        158 + contextHeight + (model.attachments.length ? 42 : 0);
+        158 +
+        contextHeight +
+        (model.attachments.length ? 42 : 0) +
+        (narrow ? 40 : 0);
     const composerTop = Math.max(180, height - composerHeight - 12),
-        modelWidth = narrow ? 142 : 200;
+        modelWidth = narrow ? Math.max(80, (composerWidth - 32) / 2) : 200;
     const state = status(model, language),
         working = active(model),
         sendVisible = !working || !!model.prompt.trim();
@@ -326,7 +336,7 @@ export function describe(model, width, height, language) {
             'agentRequestChanges',
             rect(
                 composerX + 16,
-                height - 84,
+                height - 84 - (narrow ? 40 : 0),
                 Math.max(0, composerWidth - 32),
                 26
             ),
@@ -392,19 +402,22 @@ export function describe(model, width, height, language) {
                 'Choice',
                 'agentRequestModel',
                 rect(
-                    composerX +
-                        composerWidth -
-                        modelWidth -
-                        52 -
-                        (working && sendVisible ? 40 : 0),
-                    height - 52,
+                    narrow
+                        ? composerX + 12
+                        : composerX +
+                              composerWidth -
+                              modelWidth -
+                              52 -
+                              (narrow ? 0 : 144) -
+                              (working && sendVisible ? 40 : 0),
+                    height - (narrow ? 92 : 52),
                     modelWidth,
                     32
                 ),
                 {
                     label: tr('Model'),
-                    value: model.model || current.model || '',
-                    enabled: !model.busy && !working,
+                    value: model.model ?? current.model ?? '',
+                    enabled: !model.busy && !working && !model.pending,
                     options: [
                         { value: '', label: tr('Agent default') },
                         ...connected.capabilities.models.map((item) => ({
@@ -416,12 +429,60 @@ export function describe(model, width, height, language) {
                 }
             )
         );
+    const efforts = selectedModel(model)?.efforts || [];
+    if (efforts.length)
+        nodes.push(
+            node(
+                'Choice',
+                'agentRequestEffort',
+                rect(
+                    narrow
+                        ? composerX + 20 + modelWidth
+                        : composerX +
+                              composerWidth -
+                              188 -
+                              (working && sendVisible ? 40 : 0),
+                    height - (narrow ? 92 : 52),
+                    narrow ? modelWidth : 136,
+                    32
+                ),
+                {
+                    label: tr('Reasoning effort'),
+                    value: model.effort ?? current.effort ?? '',
+                    enabled: !model.busy && !working && !model.pending,
+                    options: [
+                        { value: '', label: tr('Agent default') },
+                        ...efforts.map((value) => ({
+                            value,
+                            label: tr(
+                                {
+                                    none: 'None',
+                                    minimal: 'Minimal',
+                                    low: 'Low',
+                                    medium: 'Medium',
+                                    high: 'High',
+                                    xhigh: 'Extra high',
+                                    max: 'Maximum',
+                                    ultra: 'Ultra'
+                                }[value] || value
+                            )
+                        }))
+                    ],
+                    action: { type: 'effort' }
+                }
+            )
+        );
     if (model.attachments.length)
         nodes.push(
             node(
                 'View',
                 'agentRequestAttachments',
-                rect(composerX + 12, height - 126, composerWidth - 24, 36),
+                rect(
+                    composerX + 12,
+                    height - 126 - (narrow ? 40 : 0),
+                    composerWidth - 24,
+                    36
+                ),
                 { view: 'attachments', files: model.attachments }
             )
         );

@@ -18,6 +18,10 @@ Up to 20 files per message, 64 MB each. Images sent to this model are limited to
 The Paste button may require browser clipboard permission; on an ordinary HTTP
 LAN address use Ctrl+V in the message. Browser clipboard formats depend on the browser; use drop or file selection for other formats. Normal text paste remains available.
 
+Choose **Reasoning effort** next to the model when the connected agent offers it.
+The choices belong to that model; **Agent default** keeps the provider setting.
+Change model/effort between turns. Switching models resets the effort choice.
+
 If the connected agent offers models, select one in **Model**. Its list comes
 from that connection/account. Change it between turns. Enable **Allow the
 requested configuration changes** before the first message to authorize the

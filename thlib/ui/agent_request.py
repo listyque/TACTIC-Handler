@@ -40,7 +40,7 @@ class AgentRequestController(QObject):
     @staticmethod
     def initial(context=None):
         return dict(context=context or {}, prompt='', allowChanges=False, hosts=[], requests=[], selected='',
-                    request={}, busy=False, error='', pending=None, attachments=[], uploading=False, model='', contextExpanded=False, previews={})
+                    request={}, busy=False, error='', pending=None, attachments=[], uploading=False, model=None, effort=None, contextExpanded=False, previews={})
 
     @Property('QVariantMap', notify=changed)
     def model(self):
@@ -123,7 +123,7 @@ class AgentRequestController(QObject):
                 self._capture_session()
                 self.changed.emit()
             else:
-                self._model.update(selected=str(value), request={}, pending=None, prompt='', attachments=[], model='')
+                self._model.update(selected=str(value), request={}, pending=None, prompt='', attachments=[], model=None, effort=None)
             self.refresh()
         elif action == 'send':
             allowed = self._model['request'].get('document', {}).get('allow_changes', self._model['allowChanges'])
@@ -131,13 +131,19 @@ class AgentRequestController(QObject):
             hosts.sort(key=lambda host: host['host_id'] != self._model['request'].get('host_id'))
             if self._model['prompt'].strip() and hosts and not self._model['uploading']:
                 files = [file['attachment_id'] for file in self._model['attachments']]
+                model = self._model['model'] if self._model['model'] is not None else self._model['request'].get('model', '')
+                effort = self._model['effort'] if self._model['effort'] is not None else self._model['request'].get('effort', '')
                 self._model['pending'] = self._model['pending'] or (dict(message_id=str(uuid4()), host_id=hosts[0]['host_id'], text=self._model['prompt'],
-                    attachments=files, model=self._model['model'] or self._model['request'].get('model', '')) if self._model['selected'] else
+                    attachments=files, model=model, effort=effort) if self._model['selected'] else
                     dict(request_id=str(uuid4()), host_id=hosts[0]['host_id'], document=dict(prompt=self._model['prompt'],
-                        context=deepcopy(self._model['context']), allow_changes=self._model['allowChanges'], attachments=files, model=self._model['model'])))
+                        context=deepcopy(self._model['context']), allow_changes=self._model['allowChanges'], attachments=files, model=model, effort=effort)))
                 self._request('send')
-        elif action == 'model':
-            self._model['model'] = str(value)
+        elif action in ('model', 'effort'):
+            if self._model['pending'] or self._model['request'].get('status') in ('queued', 'running', 'cancelling'):
+                return
+            self._model[action] = str(value)
+            if action == 'model':
+                self._model['effort'] = ''
             self.changed.emit()
         elif action == 'context':
             self._model['contextExpanded'] = not self._model['contextExpanded']

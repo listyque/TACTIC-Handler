@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.160 - 2026-10-26
+
+- Select model-supported reasoning effort in the shared external-agent chat and retain it between turns. Reset effort when switching models and preserve an explicit return to Agent default. Requires Stream 0.112.218.
+
 ## 0.6.0.159 - 2026-10-26
 
 - Replace the external-agent form with a native shared chat, compact context chips, Markdown answers, attachments from the clipboard/file picker/drop, account-supplied model selection, active-turn corrections, retained follow-ups and completion notifications.

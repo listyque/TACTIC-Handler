@@ -12,6 +12,11 @@ const russian = {
     'Remove attachment': 'Убрать вложение',
     Model: 'Модель',
     'Agent default': 'Выбор агента',
+    'Reasoning effort': 'Уровень размышления',
+    'Extra high': 'Очень высокий',
+    Minimal: 'Минимальный',
+    Maximum: 'Максимальный',
+    Ultra: 'Ультра',
     'What would you like to change?': 'Что хочешь изменить?',
     'Describe the task. Attach files or paste an image.':
         'Опиши задачу. Прикрепи файлы или вставь картинку.',
