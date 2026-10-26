@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.169 - 2026-10-26
+
+- Expose ordinary related-task reading and bulk status edits to the external agent through Stream's native table-task command, including real workflow choices, revision/permission checks and durable retry protection. Show task activity in the shared chat.
+- Let the agent derive final statuses from the actual status graph. Companion Stream repairs four CG template callbacks that selected a foreign project and removes one connection to a missing process while preserving existing processes.
+
 ## 0.6.0.168 - 2026-10-26
 
 - Show agent activity and completion in the assistant transcript column, after messages and tool details, instead of the chat window corner. Preserve the same status/error semantics in both clients.

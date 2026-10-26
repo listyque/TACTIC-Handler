@@ -5445,5 +5445,7 @@
   "Conversation folder is unavailable": "Папка бесед недоступна",
   "Use at most 100 conversation folders": "Можно создать не более 100 папок бесед",
   "Conversation view": "Вид бесед",
-  "Back to conversations": "Вернуться к беседам"
+  "Back to conversations": "Вернуться к беседам",
+  "Reading tasks": "Чтение задач",
+  "Updating task statuses": "Изменение статусов задач"
 }

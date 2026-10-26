@@ -1,5 +1,7 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Reading tasks': 'Чтение задач',
+    'Updating task statuses': 'Изменение статусов задач',
     'Conversation view': 'Вид бесед',
     'Back to conversations': 'Вернуться к беседам',
     Conversations: 'Беседы',
