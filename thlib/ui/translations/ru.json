@@ -5478,5 +5478,7 @@
   "How this item appears in project navigation. Selection follows your theme.": "Оформление пункта в навигации проекта. Выделение соответствует теме.",
   "Collect connection token": "Получить токен подключения",
   "Agent link — includes access and startup instructions": "Ссылка для агента — доступ и стартовые инструкции",
-  "Copy agent link": "Скопировать ссылку для агента"
+  "Copy agent link": "Скопировать ссылку для агента",
+  "Preparing task changes": "Подготовка изменений задач",
+  "Saving tasks": "Сохранение задач"
 }

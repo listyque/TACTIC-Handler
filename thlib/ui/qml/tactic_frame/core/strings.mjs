@@ -39,6 +39,8 @@ const russian = {
     'Some project histories are unavailable':
         'История некоторых проектов недоступна',
     'Reading tasks': 'Чтение задач',
+    'Preparing task changes': 'Подготовка изменений задач',
+    'Saving tasks': 'Сохранение задач',
     'Updating task statuses': 'Изменение статусов задач',
     'Conversation view': 'Вид бесед',
     'Back to conversations': 'Вернуться к беседам',

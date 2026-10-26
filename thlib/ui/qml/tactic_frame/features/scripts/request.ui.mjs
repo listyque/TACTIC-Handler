@@ -156,6 +156,8 @@ export function activity(model, language) {
         ts_edit_operation: 'Checking saved changes',
         ts_naming_read: 'Reading naming rules',
         ts_tasks_read: 'Reading tasks',
+        ts_tasks_prepare: 'Preparing task changes',
+        ts_tasks_save: 'Saving tasks',
         ts_task_status_set: 'Updating task statuses',
         ts_naming_preview: 'Checking file naming',
         agent_attachment_image: 'Viewing attached image',

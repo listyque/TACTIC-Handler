@@ -122,7 +122,7 @@ Closing the editor preserves an unsaved draft; **Discard** restores saved values
 
 Activity, waiting and completion status appear inside the conversation, aligned with the agent's messages. They follow the transcript as new messages arrive.
 
-The agent can read tasks of selected objects or their linked assets and change existing task statuses in one native batch. It uses the project's actual status workflows and ordinary table permissions, revisions and history; exact retries do not repeat a write. These status changes are outside the field-only Undo button.
+The agent can create native tasks for selected project objects and edit their descriptions, assignments, supervisors, planned dates/hours, progress and statuses through the ordinary task inspector. It prepares actual workflow choices and revisions before saving a checked batch. Existing tasks are retained, exact retries do not create duplicates, and conflicts roll back the packet. Scoped MCP connections must explicitly include the task preparation/save tools. These task operations are outside the field-only Undo button.
 
 ## Conversation library
 
