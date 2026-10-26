@@ -32,6 +32,10 @@ Item {
                 attachments: {
                     component: chatPort,
                     nodeProps: true
+                },
+                permissions: {
+                    component: chatPort,
+                    nodeProps: true
                 }
             })
         onEvent: function (action) {
@@ -62,7 +66,12 @@ Item {
             theme: root.theme
             language: root.uiLanguage
             previews: root.controller.model.previews || ({})
-            onAction: action => root.controller.handle(action.type, action.value === undefined ? "" : action.value)
+            onAction: function (action) {
+                if (action.type === "providers")
+                    agentProvidersController.open();
+                else
+                    root.controller.handle(action.type, action.value === undefined ? "" : action.value);
+            }
         }
     }
     FileDialog {

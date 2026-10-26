@@ -176,3 +176,21 @@ whole server. The external host can use `--all-projects` to discover accessible
 projects with the installed agent schema, including new projects, at its regular
 heartbeat. Explicit repeated `--project` options keep their restricted scope.
 Discovery reads configuration only; a model receives a task only after **Send**.
+
+Use **Agent permissions** (the sliders in the composer toolbar) for **Allow
+requested changes**, **Allow internet access** and **AI providers**. These settings
+use a compact menu; the checked marks show the current choices. Permissions stay
+fixed after the first Send, as before. The separate checkbox rows are removed.
+
+The agent can find and read your saved conversations across accessible projects
+when you ask it to continue earlier work. It searches history before asking you
+to paste a task that is already saved. History is read in bounded pages; earlier
+messages do not grant permissions or change the current project/selection.
+
+For an explicit source, keep the target chat open, find the old chat in the
+sidebar (All projects), open that row's three dots and choose **Use in current
+conversation**. The **Conversation context** caption shows the link. Up to five
+finished source chats can be linked to a saved draft or finished conversation.
+Send a follow-up such as “Continue” to let the selected connection read them.
+Linking alone does not start a model. Existing messages are preserved. Earlier
+attachments are listed by name; they are not copied to the new chat's uploads.

@@ -5450,5 +5450,9 @@
   "Updating task statuses": "Изменение статусов задач",
   "Conversation project": "Проект бесед",
   "All projects": "Все проекты",
-  "Some project histories are unavailable": "История некоторых проектов недоступна"
+  "Some project histories are unavailable": "История некоторых проектов недоступна",
+  "Agent permissions": "Разрешения агента",
+  "Allow internet access": "Разрешить доступ в интернет",
+  "Conversation context": "Контекст беседы",
+  "Use in current conversation": "Контекст для текущей беседы"
 }

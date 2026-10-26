@@ -138,6 +138,8 @@ export function messages(model) {
 export function activity(model, language) {
     const names = {
         agent_context: 'Reading conversation context',
+        agent_conversations: 'Search conversations',
+        agent_conversation_read: 'Reading conversation context',
         agent_capabilities: 'Checking available tools',
         reference_read: 'Reading TACTIC documentation',
         agent_selection: 'Reading selected objects',
@@ -293,6 +295,38 @@ export function status(model, language) {
         icon: active(model) ? 'sync' : 'chat'
     };
 }
+export function permissionActions(model) {
+    const current = model.request || {},
+        frozen = started(model),
+        enabled = !model.busy && !model.pending && !frozen;
+    return [
+        {
+            title: 'Allow requested changes',
+            command: 'changes',
+            icon: 'edit',
+            role: 'menuitemcheckbox',
+            checked: !!(frozen
+                ? current.document?.allow_changes
+                : model.allowChanges),
+            enabled
+        },
+        {
+            title: 'Allow internet access',
+            command: 'web',
+            icon: 'network-check',
+            role: 'menuitemcheckbox',
+            checked: !!(frozen ? current.document?.allow_web : model.allowWeb),
+            enabled: enabled && !!host(model)?.capabilities.web_search
+        },
+        { separator: true },
+        {
+            title: 'AI providers',
+            command: 'providers',
+            icon: 'settings',
+            enabled: !model.busy
+        }
+    ];
+}
 function describeChat(model, width, height, language, sidebarVisible) {
     const tr = (text) => translate(text, language),
         current = model.request || {},
@@ -307,7 +341,7 @@ function describeChat(model, width, height, language, sidebarVisible) {
         composerX = (width - composerWidth) / 2;
     const contextHeight = model.contextExpanded ? 122 : 38;
     const composerHeight =
-        188 +
+        128 +
         contextHeight +
         (model.attachments.length ? 42 : 0) +
         (narrow ? 40 : 0) +
@@ -324,6 +358,9 @@ function describeChat(model, width, height, language, sidebarVisible) {
                 row.request_id === model.selected &&
                 (!row.project || row.project === model.context.project)
         ) || current.library_summary;
+    const sources = current.related_conversations || [];
+    const transcriptTop =
+        52 + (current.undo_operation ? 32 : 0) + (sources.length ? 26 : 0);
     const nodes = [
         button(
             'agentRequestHistoryToggle',
@@ -376,9 +413,9 @@ function describeChat(model, width, height, language, sidebarVisible) {
             'agentRequestOutput',
             rect(
                 0,
-                current.undo_operation ? 84 : 52,
+                transcriptTop,
                 width,
-                Math.max(70, composerTop - (current.undo_operation ? 96 : 64))
+                Math.max(70, composerTop - transcriptTop - 12)
             ),
             {
                 view: 'transcript',
@@ -444,47 +481,6 @@ function describeChat(model, width, height, language, sidebarVisible) {
                 action: { type: 'prompt' }
             }
         ),
-        node(
-            'CheckBox',
-            'agentRequestChanges',
-            rect(
-                composerX + 16,
-                height - 114 - (narrow ? 40 : 0) - providerRow,
-                Math.max(0, composerWidth - 32),
-                26
-            ),
-            {
-                text: tr('Allow requested changes'),
-                wrapText: true,
-                checked: started(model)
-                    ? current.document?.allow_changes
-                    : model.allowChanges,
-                enabled: !model.busy && !started(model) && !model.pending,
-                action: { type: 'changes' }
-            }
-        ),
-        node(
-            'CheckBox',
-            'agentRequestWeb',
-            rect(
-                composerX + 16,
-                height - 84 - (narrow ? 40 : 0) - providerRow,
-                Math.max(0, composerWidth - 32),
-                26
-            ),
-            {
-                text: tr('Allow internet access'),
-                checked: started(model)
-                    ? current.document?.allow_web
-                    : model.allowWeb,
-                enabled:
-                    !model.busy &&
-                    !started(model) &&
-                    !model.pending &&
-                    !!connected?.capabilities.web_search,
-                action: { type: 'web' }
-            }
-        ),
         button(
             'agentRequestAttach',
             rect(composerX + 12, height - 52, 32, 32),
@@ -503,14 +499,15 @@ function describeChat(model, width, height, language, sidebarVisible) {
             !model.uploading && !model.pending && !model.busy,
             { iconOnly: true }
         ),
-        button(
-            'agentRequestProviders',
+        node(
+            'View',
+            'agentRequestPermissions',
             rect(composerX + 88, height - 52, 32, 32),
-            tr('AI providers'),
-            'settings',
-            { type: 'providers' },
-            !model.busy,
-            { iconOnly: true }
+            {
+                view: 'permissions',
+                actions: permissionActions(model),
+                enabled: !model.busy
+            }
         )
     ];
     if (sendVisible)
@@ -656,11 +653,31 @@ function describeChat(model, width, height, language, sidebarVisible) {
                 'agentRequestAttachments',
                 rect(
                     composerX + 12,
-                    height - 156 - (narrow ? 40 : 0) - providerRow,
+                    height - 96 - (narrow ? 40 : 0) - providerRow,
                     composerWidth - 24,
                     36
                 ),
                 { view: 'attachments', files: model.attachments }
+            )
+        );
+    if (sources.length)
+        nodes.push(
+            label(
+                'agentRequestSources',
+                rect(inset, current.undo_operation ? 82 : 50, inner, 24),
+                tr('Conversation context') +
+                    ': ' +
+                    sources.map((source) => source.title).join(' · '),
+                {
+                    fontRole: 'caption',
+                    color: 'secondaryText',
+                    toolTip: sources
+                        .map(
+                            (source) =>
+                                source.project_title + ' · ' + source.title
+                        )
+                        .join('\n')
+                }
             )
         );
     if (current.undo_operation)

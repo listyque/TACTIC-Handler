@@ -205,6 +205,9 @@ Item {
         Keys.onDownPressed: actionRow.menu.focusRelativeAction(1)
         Keys.onUpPressed: actionRow.menu.focusRelativeAction(-1)
         Accessible.name: actionRow.modelData.translate === false ? String(actionRow.modelData.title || "") : actionRow.menu.translate(actionRow.modelData.title || "", actionRow.modelData.titleArgs)
+        Accessible.role: actionRow.modelData.role === "menuitemcheckbox" ? Accessible.CheckBox : Accessible.Button
+        Accessible.checkable: actionRow.modelData.role === "menuitemcheckbox"
+        Accessible.checked: Accessible.checkable && !!actionRow.modelData.checked
         onActiveFocusChanged: {
             if (activeFocus)
                 actionRow.menu.revealAction(actionRow);

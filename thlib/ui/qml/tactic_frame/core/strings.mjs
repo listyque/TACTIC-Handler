@@ -1,5 +1,9 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Agent permissions': 'Разрешения агента',
+    'Conversation context': 'Контекст беседы',
+    'Use in current conversation': 'Контекст для текущей беседы',
+
     'Conversation project': 'Проект бесед',
     'All projects': 'Все проекты',
     'Some project histories are unavailable':

@@ -12,6 +12,7 @@ from unittest.mock import patch
 from PySide6.QtCore import QObject, Qt, Signal, QMimeData, QUrl, QPoint, QPointF, QCoreApplication
 from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QImage, QColor, QDragEnterEvent, QDropEvent
 from PySide6.QtQuick import QQuickWindow
+from PySide6.QtQml import QQmlEngine, QQmlExpression
 from PySide6.QtTest import QTest
 
 from tests.test_frame_script_tools import ScriptToolsTests, QML
@@ -234,6 +235,7 @@ class AgentRequestUI(unittest.TestCase):
                 frame(window)
 
             wait()
+            self.assertLessEqual(surface.item(view,'agentComposerSurface').height(),180)
             choice = surface.item(view, 'agentRequestModel')
             choice.forceActiveFocus()
             QTest.keyClick(window, Qt.Key_Down)
@@ -278,7 +280,29 @@ class AgentRequestUI(unittest.TestCase):
                 self.assertTrue(drop.isAccepted())
                 self.assertEqual(len(controller.model['attachments']), 2)
             surface.fill(window, surface.item(view, 'agentRequestPrompt'), 'Explain the selected shots')
-            surface.click(window, surface.item(view, 'agentRequestChanges'))
+            permissions=surface.item(view,'agentRequestPermissionsButton')
+            surface.click(window,permissions)
+            expression=QQmlExpression(QQmlEngine.contextForObject(permissions),permissions,'permissionsMenu')
+            menu=expression.evaluate()
+            menu=menu[0] if isinstance(menu,tuple) else menu
+            self.assertFalse(expression.hasError())
+            self.assertIsNotNone(menu)
+            deadline=time.monotonic()+3
+            target=None
+            while target is None and time.monotonic()<deadline:
+                items=[menu.property('contentItem')]
+                for item in items:
+                    items.extend(item.childItems())
+                    if item.property('objectName')=='actionMenuPrimaryTarget':
+                        data=surface.value(item.parentItem(),'modelData')
+                        if data.get('command')=='changes':target=item;break
+                if target is None:QTest.qWait(10)
+            self.assertIsNotNone(target,dict(opened=menu.property('opened'),actions=surface.value(menu,'displayedActions')))
+            point=target.mapToScene(QPointF(target.width()/2,target.height()/2)).toPoint()
+            QTest.mouseClick(target.window(),Qt.LeftButton,pos=point)
+            frame(window)
+            deadline=time.monotonic()+3
+            while not controller.model['allowChanges'] and time.monotonic()<deadline:QTest.qWait(10)
             self.assertTrue(controller.model['allowChanges'])
             self.assertEqual(controller.model['prompt'], 'Explain the selected shots')
             controller._request('poll')

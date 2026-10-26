@@ -1,6 +1,8 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls.Basic as Basic
 import "../../controls" as Controls
+import "../.." as Public
 import "../../tactic_frame/features/scripts/request.ui.mjs" as UI
 
 Item {
@@ -13,6 +15,35 @@ Item {
     signal action(var value)
     readonly property var chips: UI.contextItems(frameNode.context || {}, language)
     readonly property var toolGeometry: UI.messageGeometry(width, "assistant", 20, [])
+
+    Controls.Button {
+        id: permissionsButton
+        objectName: root.frameNode.view === "permissions" ? "agentRequestPermissionsButton" : ""
+        anchors.fill: parent
+        visible: root.frameNode.view === "permissions"
+        enabled: root.frameNode.enabled !== false
+        theme: root.theme
+        compact: true
+        icon.name: "tune"
+        Accessible.name: qsTr("Agent permissions")
+        onClicked: permissionsMenu.toggleBelow(permissionsButton)
+    }
+    Public.ActionMenu {
+        id: permissionsMenu
+        parent: root.Window.window ? root.Window.window.contentItem : root
+        objectName: root.frameNode.view === "permissions" ? "agentRequestPermissionsMenu" : ""
+        theme: root.theme
+        preferredWidth: 320
+        actions: root.frameNode.view === "permissions" ? root.frameNode.actions : []
+        onTriggered: function (command) {
+            const item = actions.find(item => item.command === command);
+            if (item)
+                root.action({
+                    type: command,
+                    value: !item.checked
+                });
+        }
+    }
 
     Item {
         anchors.fill: parent

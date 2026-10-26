@@ -614,6 +614,28 @@ export function describe(model, width, height, language, small) {
                             ))
                 )
             );
+        if (
+            edit.kind === 'chat' &&
+            model.selected &&
+            (edit.id !== model.selected ||
+                edit.project !== model.context.project)
+        )
+            nodes.push(
+                button(
+                    'agentHistoryUseContext',
+                    rect(12, height - 84, width - 24, 28),
+                    tr('Use in current conversation'),
+                    'link',
+                    { type: 'historyUseContext' },
+                    idle &&
+                        !['queued', 'running', 'cancelling', 'draft'].includes(
+                            edit.status
+                        ) &&
+                        !['queued', 'running', 'cancelling'].includes(
+                            model.request?.status
+                        )
+                )
+            );
         nodes.push(
             button(
                 'agentHistorySave',

@@ -200,6 +200,14 @@ class AgentRequestController(QObject):
         if action=='historyMore':
             self._request('historyMore')
             return
+        if action=='historyUseContext':
+            source=self._model['history']['edit']
+            if not source or not self._model['selected'] or self._model['request'].get('status') in ('queued','running','cancelling'):
+                return
+            self._library_operation=dict(action='link_source',values=dict(request_id=self._model['selected'],
+                source_project=source['project'],source_request=source['id']))
+            self._request('library')
+            return
         if action in ('prompt', 'changes', 'web'):
             if self._model['pending'] or (action in ('changes', 'web') and self._model['selected'] and self._model['request'].get('status')!='draft'):
                 return

@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.173 - 2026-10-26
+
+- Let the external agent find and read the current user's earlier chats across projects. Add an explicit source-chat link from the shared conversation library without changing the target project's selection or permissions.
+- Compact the chat composer by moving change/internet permissions and provider settings into the existing toolbar menu; retain visible checked states and frozen permissions after Send.
+
 ## 0.6.0.172 - 2026-10-26
 
 - Document the shared external host's opt-in all-project discovery so newly created projects can become available in both clients without a manually edited project list.
