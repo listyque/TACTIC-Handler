@@ -27,10 +27,12 @@ after reopening the chat. On desktop, Enter sends; Shift+Enter adds a line. On p
 Enter adds a line and the Send button sends. Activity describes actual tool
 starts/completions and commentary in the transcript column.
 
-Enable **Allow web search** before starting a new conversation to let Codex use
-native live web search. It remains disabled by default. Search is separate from
-permission to edit TACTIC and does not grant shell, local file or arbitrary binary
-download tools. Do not include confidential data in web search requests.
+Enable **Allow internet access** before starting a new conversation to let Codex use
+native live web search and download public HTTPS files into the chat. It remains disabled by default. Search is separate from
+permission to edit TACTIC. Downloads retain source URLs/hashes and use the normal
+private attachment/check-in tools. Anonymous public HTTPS, up to 64 MB per file;
+private addresses and redirects into local networks are refused. Shell and local
+file access remain disabled. Do not include confidential data in web search requests.
 
 If the connected agent offers models, select one in **Model**. Its list comes
 from that connection/account. Change it between turns. Enable **Allow the
@@ -50,6 +52,10 @@ The agent can use native existing-project workflow/field tools and check attache
 files into an object's workflow process. For example: “For this asset, create
 reference → model → texture → rig and check these reference images into reference.”
 Open created resources through ordinary navigation; refresh the cache when needed.
+The agent can read native file history and continue an existing version series
+under the current naming rule. It cannot overwrite an existing file to bypass a
+naming collision. Open the object's **Snapshot Browser** to view published files
+and earlier versions; identical source filenames normally form one version series.
 Download attached originals by clicking their filenames. In TH the downloaded
 file's folder opens; files are not automatically executed.
 

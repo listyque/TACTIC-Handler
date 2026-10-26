@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.163 - 2026-10-26
+
+- Label the external agent's optional network permission as internet access. The companion Stream host can download public HTTPS references into conversation attachments, preserving source URLs, hashes and native check-in receipts.
+- Show download/history progress and let the companion agent inspect native file history and continue an existing version series without changing naming or overwriting files.
+
 ## 0.6.0.162 - 2026-10-26
 
 - Keep Commit Queue visible in one host: opening its window hides the queue dock, and showing the dock closes the separate window. Closing either host preserves the prepared queue.
