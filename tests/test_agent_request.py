@@ -225,12 +225,12 @@ class AgentRequestUI(unittest.TestCase):
             window.show()
             window.requestActivate()
 
-            def wait():
+            def wait(error=''):
                 deadline = time.monotonic() + 10
                 while controller._in_flight and time.monotonic() < deadline:
                     QTest.qWait(10)
                 self.assertFalse(controller._in_flight)
-                self.assertFalse(controller.model['error'], controller.model)
+                self.assertEqual(controller.model['error'],error)
                 frame(window)
 
             wait()
@@ -306,11 +306,27 @@ class AgentRequestUI(unittest.TestCase):
             surface.click(window, surface.item(view, 'agentRequestSend'))
             wait()
             self.assertEqual(server.last['messages'][-1]['text'], 'Use the reference process')
+            sent=len(server.last['messages'])
+            original=server.execute_cmd
+            def disconnected(command,values):
+                if values['action']=='state':raise OSError('Unable to reach the server.')
+                return original(command,values)
+            with patch.object(server,'execute_cmd',side_effect=disconnected):
+                controller._request('poll');wait()
+                self.assertEqual(controller.model['refreshError'],'Unable to reach the server.')
+                self.assertEqual(surface.item(view,'agentRequestStatus').property('text'),'Unable to reach the server.')
             server.last.update(status='completed', outcome='completed', answer='**Done**')
             server.last['messages'].append(dict(id='answer', role='assistant', text='**Done**', attachments=[]))
             server.last['events'] = ['ts_records_create: completed']
-            controller._request('poll')
+            until=time.monotonic()+6
+            while controller.model['refreshError'] and time.monotonic()<until:QTest.qWait(20)
             wait()
+            self.assertFalse(controller.model['refreshError'])
+            self.assertEqual(len(server.last['messages']),sent+1)
+            controller._model['error']='Rejected operation'
+            controller._request('poll');wait('Rejected operation')
+            self.assertEqual(controller.model['error'],'Rejected operation')
+            controller.refresh();wait()
             self.assertIn('Task completed', notices)
             for width in (520, 1000):
                 view.setWidth(width)

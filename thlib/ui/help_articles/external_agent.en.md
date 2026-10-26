@@ -164,3 +164,9 @@ project or selection. Opening an old chat restores its original context.
 project when **All projects** is selected. A different project's new chat starts
 without the workspace's page or selected objects. Folders remain project-specific.
 A warning identifies project histories whose databases are unavailable.
+
+If the connection drops, keep the chat open: automatic reads resume and clear the
+connection error when the server responds. The refresh arrow rereads the same
+conversation without resending the task. A lost connection does not prove that
+work stopped; inspect its saved answer and actual changes before continuing.
+Rejected operation errors remain visible until a deliberate refresh or retry.

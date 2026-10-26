@@ -20,6 +20,7 @@ export function initial(context = {}) {
         request: {},
         busy: false,
         error: '',
+        refreshError: '',
         pending: null,
         attachments: [],
         uploading: false,
@@ -239,9 +240,9 @@ export function contextItems(context, language) {
 export function status(model, language) {
     const tr = (text) => translate(text, language),
         current = model.request || {};
-    if (model.error || current.error)
+    if (model.refreshError || model.error || current.error)
         return {
-            text: tr(model.error || current.error),
+            text: tr(model.refreshError || model.error || current.error),
             color: 'error',
             icon: 'error'
         };

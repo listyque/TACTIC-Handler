@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.171 - 2026-10-26
+
+- Clear chat refresh errors after the next successful automatic read, so a temporary connection loss does not hide the saved task result. Keep rejected operation errors separate and never resend writes during reconnection.
+
 ## 0.6.0.170 - 2026-10-26
 
 - Show the signed-in user's conversations across accessible projects by default and add a direct project filter to the shared sidebar. Show each chat's project and keep execution, attachments, folders and unsent drafts bound to their original project when switching.

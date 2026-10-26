@@ -54,7 +54,7 @@ class AgentRequestController(QObject):
     @staticmethod
     def initial(context=None):
         return dict(context=context or {}, prompt='', allowChanges=False, allowWeb=False, hosts=[], requests=[], selected='',
-                    request={}, busy=False, error='', pending=None, attachments=[], uploading=False, model=None, effort=None, provider=None, contextExpanded=False, previews={},
+                    request={}, busy=False, error='', refreshError='', pending=None, attachments=[], uploading=False, model=None, effort=None, provider=None, contextExpanded=False, previews={},
                     history=dict(visible=None,mobile=False,width=280,query='',project='',searchOpen=False,grouping='time',archived=False,collapsed={},edit=None),
                     groups=[],groups_revision='',group_revisions={},projects=[],unavailable_projects=[],total=0,next_offset=None,drafts={})
 
@@ -454,6 +454,7 @@ class AgentRequestController(QObject):
 
     @staticmethod
     def _load(server, project, action, selected, pending, generation, cached_previews=(), history_filter=None, library_operation=None, draft_attachments=()):
+        reading=False
         try:
             if action=='library' and library_operation['action']=='draft':
                 project=library_operation['values']['context']['project']
@@ -477,6 +478,7 @@ class AgentRequestController(QObject):
                 if library_operation['action']=='draft':
                     selected=saved['request_id']
                     history_filter=dict(query='',archived=False,project_filter=history_filter.get('project_filter',''))
+            reading=True
             state = call('state')
             state.update(call('library',**history_filter))
             current = call('read', request_id=selected) if selected else {}
@@ -496,7 +498,7 @@ class AgentRequestController(QObject):
             return dict(generation=generation, selected=selected, request=current, action=action, previews=previews,
                 history_filter=history_filter,library_operation=library_operation, **state)
         except Exception as error:
-            return dict(generation=generation, error=str(error))
+            return dict(generation=generation, error=str(error), refresh_error=reading)
 
     @Slot(object)
     def _done(self, result):
@@ -516,8 +518,9 @@ class AgentRequestController(QObject):
             self._request('refresh')
             return
         if 'error' in result:
-            self._model['error'] = result['error']
+            self._model['refreshError' if result.get('refresh_error') else 'error'] = result['error']
         if 'error' not in result:
+            self._model['refreshError']=''
             was_active = self._model['request'].get('status') in ('queued', 'running', 'cancelling') and self._model['request'].get('request_id')==result['request'].get('request_id')
             if result.get('action') in ('poll','historyMore'):
                 records={row.get('key',row.get('project','')+':'+row['request_id']):row for row in [*self._model['requests'],*result['requests']]}
