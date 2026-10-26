@@ -6,7 +6,7 @@ from time import perf_counter
 import unittest
 
 from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, QUrl, Qt
-from PySide6.QtGui import QInputMethodEvent
+from PySide6.QtGui import QInputMethodEvent, QWheelEvent
 from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
 from PySide6.QtTest import QTest
 from tests.qt_application import gui_test_application
@@ -65,6 +65,13 @@ ApplicationWindow {
         rows=next;
     }
     function reverse() { rows=rows.slice().reverse(); }
+    function showNestedScroll(childHeight) {
+        view.scene = {nodes:[Contract.node('Scroll','outerScroll',
+            Contract.rect(0,0,640,360), {contentHeight:1200,contentWidth:1000,children:[
+                Contract.node('Scroll','innerScroll',Contract.rect(0,0,600,160),
+                    {contentHeight:childHeight || 160,children:[]})
+            ]})]};
+    }
     function focus(name) { return view.focusControl(name); }
     function blur() { outsideFocus.forceActiveFocus(); }
     Item { id: outsideFocus }
@@ -149,6 +156,41 @@ ApplicationWindow {
         self.evaluate("populate(20)")
         frame(self.window)
         self.assertTrue(self.item("edit_0").isVisible())
+        self.assertEqual(self.warnings, [])
+
+    def test_nested_scroll_consumes_one_step_then_passes_its_boundary(self):
+        self.evaluate("showNestedScroll(400)")
+        frame(self.window)
+        outer, inner = self.item("outerScroll"), self.item("innerScroll")
+        point = inner.mapToScene(QPointF(20, 40))
+        for expected_inner, expected_outer in ((148, 0), (240, 0), (240, 148)):
+            event = QWheelEvent(
+                point, QPointF(self.window.mapToGlobal(point.toPoint())),
+                QPoint(), QPoint(0, -120), Qt.NoButton, Qt.NoModifier,
+                Qt.NoScrollPhase, False,
+            )
+            self.app.sendEvent(self.window, event)
+            frame(self.window)
+            self.assertEqual(inner.property("contentY"), expected_inner)
+            self.assertEqual(outer.property("contentY"), expected_outer)
+        self.assertEqual(self.warnings, [])
+
+    def test_nested_scroll_passes_wheel_to_parent_and_supports_horizontal(self):
+        self.evaluate("showNestedScroll()")
+        frame(self.window)
+        outer, inner = self.item("outerScroll"), self.item("innerScroll")
+        point = inner.mapToScene(QPointF(20, 40))
+        for modifiers, axis in ((Qt.NoModifier, "contentY"), (Qt.ShiftModifier, "contentX")):
+            event = QWheelEvent(
+                point, QPointF(self.window.mapToGlobal(point.toPoint())),
+                QPoint(), QPoint(0, -120), Qt.NoButton, modifiers,
+                Qt.NoScrollPhase, False,
+            )
+            self.app.sendEvent(self.window, event)
+            frame(self.window)
+            self.assertEqual(inner.property(axis), 0)
+            self.assertEqual(outer.property(axis), 148)
+            outer.setProperty(axis, 0)
         self.assertEqual(self.warnings, [])
 
     def test_reverse_keeps_editor_focus_selection_draft_and_identity(self):

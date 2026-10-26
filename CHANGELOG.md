@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.176 - 2026-10-26
+
+- Handle mouse-wheel and trackpad scrolling in shared Frame scroll containers, including Configuration. Keep native scrollbars and let nested containers pass unused wheel movement to their parent.
+
 ## 0.6.0.175 - 2026-10-26
 
 - Copy a single scoped agent link from MCP connections. The link carries its token in a fragment; project startup instructions arrive through authenticated discovery and MCP initialization. Normal MCP header-based clients remain supported.

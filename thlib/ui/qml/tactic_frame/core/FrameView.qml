@@ -1186,6 +1186,28 @@ Item {
                         property var resetKey: wrapper.node.resetKey
                         onResetKeyChanged: contentY = 0
                         boundsBehavior: Flickable.StopAtBounds
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.NoButton
+                            enabled: root.interactive && (scrollView.contentHeight > scrollView.height || scrollView.contentWidth > scrollView.width)
+                            onWheel: function (event) {
+                                const horizontal = (event.modifiers & Qt.ShiftModifier) !== 0 || (event.angleDelta.y === 0 && event.pixelDelta.y === 0);
+                                const pixel = horizontal ? event.pixelDelta.x || event.pixelDelta.y : event.pixelDelta.y;
+                                const angle = horizontal ? event.angleDelta.x || event.angleDelta.y : event.angleDelta.y;
+                                const delta = pixel !== 0 ? pixel * 1.65 : angle / 120 * 148;
+                                const current = horizontal ? scrollView.contentX : scrollView.contentY;
+                                const maximum = Math.max(0, horizontal ? scrollView.contentWidth - scrollView.width : scrollView.contentHeight - scrollView.height);
+                                const next = Math.max(0, Math.min(maximum, current - delta));
+                                event.accepted = next !== current;
+                                if (event.accepted) {
+                                    scrollView.cancelFlick();
+                                    if (horizontal)
+                                        scrollView.contentX = next;
+                                    else
+                                        scrollView.contentY = next;
+                                }
+                            }
+                        }
                         FrameBranch {
                             id: scrollContent
                             width: scrollView.contentWidth

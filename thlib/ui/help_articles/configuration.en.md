@@ -5,6 +5,8 @@ order: 5
 ---
 # Configuration
 
+Scroll long pages with the mouse wheel or trackpad over their content. The shared scrollbar remains visible whenever the page exceeds the available height.
+
 > Configuration edits one preference page at a time. Use the Help button beside the current page
 > title for an exact explanation of every option on that page.
 

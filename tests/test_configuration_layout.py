@@ -6,7 +6,8 @@ import unittest
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_FONTDIR", "C:/Windows/Fonts")
-from PySide6.QtCore import QObject, QPointF, QMetaObject, Qt, QUrl
+from PySide6.QtCore import QObject, QPoint, QPointF, QMetaObject, Qt, QUrl
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem
 from PySide6.QtTest import QTest
@@ -293,6 +294,26 @@ class ConfigurationLayoutTests(unittest.TestCase):
         tap.release(0, point, surface.window).commit()
         surface.settle()
         self.assertFalse(surface.case.config.page_values("cache")["cacheProcessTabs"])
+
+    def test_settings_scroll_with_mouse_wheel_and_trackpad(self):
+        for screen in ("cache", "server", "checkin"):
+            with self.subTest(screen=screen):
+                surface = self.surface(screen, 360)
+                view = surface.item("configurationSettings")
+                bar = surface.item("configurationSettingsScrollBar")
+                self.assertTrue(bar.isVisible())
+                self.assertTrue(bar.property("hasOverflow"))
+                point = view.mapToScene(QPointF(20, view.height() / 2))
+                for pixels, angle, expected in ((0, -120, 148), (-40, 0, 214), (0, 120, 66)):
+                    event = QWheelEvent(
+                        point, QPointF(surface.window.mapToGlobal(point.toPoint())),
+                        QPoint(0, pixels), QPoint(0, angle), Qt.NoButton,
+                        Qt.NoModifier, Qt.NoScrollPhase, False,
+                    )
+                    self.app.sendEvent(surface.window, event)
+                    surface.settle()
+                    self.assertAlmostEqual(view.property("contentY"), expected)
+                surface.close()
 
     def test_repository_page_reflows_and_keeps_primary_action_visible(self):
         surface = self.surface("repositories", 360)
