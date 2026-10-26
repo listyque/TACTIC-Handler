@@ -97,6 +97,20 @@ class TaskSearchSyncTests(unittest.TestCase):
         )
         self.application._selection_load_timer.stop()
 
+    def test_queue_dock_and_window_have_one_visible_presentation(self):
+        docks = self.application.dock_model
+        windows = self.application.window_model
+        docks.show_panel('commit_queue')
+        windows.show_window('commit_queue')
+        self.assertFalse(docks.is_panel_visible('commit_queue'))
+        self.assertTrue(windows.is_window_visible('commit_queue'))
+        docks.show_panel('commit_queue')
+        self.assertFalse(windows.is_window_visible('commit_queue'))
+        self.assertTrue(docks.is_panel_visible('commit_queue'))
+        windows.show_window('commit_queue')
+        windows.close_window('commit_queue')
+        self.assertFalse(docks.is_panel_visible('commit_queue'))
+
     def test_browser_dock_activates_selection_sync_without_old_window(self):
         self.tasks.open_workspace()
         self.assertTrue(self.tasks._advanced_visible)

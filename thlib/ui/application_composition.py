@@ -986,7 +986,9 @@ def _wire_presentation_lifecycle(
             collaboration.knowledge.set_visible(presented)
 
     def window_visibility_changed(window_id: str, visible: bool) -> None:
-        if window_id == "activity_feed":
+        if window_id == "commit_queue" and visible:
+            docks.close_panel("commit_queue")
+        elif window_id == "activity_feed":
             collaboration.activity_feed.set_visible(visible)
         elif window_id == "notifications":
             delivery.notifications.set_visible(visible)
@@ -1008,6 +1010,11 @@ def _wire_presentation_lifecycle(
         }:
             sync_checkin_presentation()
 
+    def dock_visibility_changed(panel_id: str, visible: bool) -> None:
+        if panel_id == "commit_queue" and visible:
+            windows.close_window("commit_queue")
+
+    docks.panelVisibilityChanged.connect(dock_visibility_changed)
     docks.panelPresentationChanged.connect(dock_presentation_changed)
     windows.windowVisibilityChanged.connect(window_visibility_changed)
     for panel_id in (
@@ -1020,6 +1027,7 @@ def _wire_presentation_lifecycle(
     for window_id in (
         "activity_feed", "notifications", "debug_log",
         "watch_folders", "watch_folder_editor",
+        "commit_queue",
     ):
         window_visibility_changed(
             window_id, windows.is_window_visible(window_id)

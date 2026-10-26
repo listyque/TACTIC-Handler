@@ -8,6 +8,11 @@ order: 38
 > Commit Queue is the final review and execution surface for prepared check-ins. The dock and the
 > standalone Commit Queue window show the same application-owned queue.
 
+The queue is shown in one place at a time: as dock content without a window
+caption, or in a separate window. Opening the window hides the dock; showing
+the dock closes the window. Closing the queue window keeps all prepared jobs
+and does not activate the dock. Reopen Commit Queue to continue reviewing them.
+
 ## What a queue item contains
 
 A row identifies the target sObject, process, context, files, previews, description, version plan and

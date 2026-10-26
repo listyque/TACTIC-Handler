@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.162 - 2026-10-26
+
+- Keep Commit Queue visible in one host: opening its window hides the queue dock, and showing the dock closes the separate window. Closing either host preserves the prepared queue.
+
 ## 0.6.0.161 - 2026-10-26
 
 - Send attachment-only agent messages, show sent image thumbnails after reopening, enable desktop Enter/Shift+Enter input, and describe current tool activity in the transcript column.
