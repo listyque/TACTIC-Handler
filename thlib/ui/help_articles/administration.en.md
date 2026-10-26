@@ -552,8 +552,10 @@ name, instructions, allowed tools and lifetime. Access remains limited to this
 project; existing connections can be revoked. Enable **Server configuration →
 Security → Enable external MCP connections** and restart first; it is off by default.
 The internal agent can also issue access from an authorized chat. Open this window
-and select **Collect connection token** to retrieve its token once. Copy the
-connection URL and Authorization header into your external MCP client. The page
+and select **Copy agent link** once on the pending connection. Give the complete
+link to the intended external agent: it includes scoped access in its fragment;
+startup instructions arrive through authenticated discovery and MCP initialization.
+Standard URL/Authorization configuration remains available for MCP applications. The page
 URL alone grants no access. Closing the window clears the displayed token.
 Revoking a connection stops new calls; it does not undo earlier changes. External
 clients log their work through native project tools; automatic third-party chat

@@ -4,7 +4,8 @@ import time
 import unittest
 from unittest.mock import patch
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, QPointF
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTest import QTest
 
@@ -68,6 +69,13 @@ class McpUI(unittest.TestCase):
             surface.click(window,surface.item(view,'mcpCreate')); wait(); frame(window)
             self.assertEqual(controller.model['title'],'Tracker')
             self.assertIn('/mcp/fixture',controller.model['issued'])
+            scene=surface.item(view,'mcpCopyAgentLink')
+            self.assertIsNotNone(scene)
+            scroll=surface.item(view,'mcpScroll')
+            scroll.setProperty('contentY',max(0,scene.mapToScene(QPointF(0,0)).y()-300))
+            frame(window)
+            surface.click(window,scene)
+            self.assertEqual(QGuiApplication.clipboard().text(),'http://127.0.0.1:8081/mcp/fixture#access_token=test-only-token')
             for width in (320,800):
                 window.resize(width,650); view.setWidth(width); frame(window)
                 self.assertLessEqual(surface.item(view,'mcpCreate').x()+surface.item(view,'mcpCreate').width(),width)

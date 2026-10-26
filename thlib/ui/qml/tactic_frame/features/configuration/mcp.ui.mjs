@@ -15,6 +15,16 @@ export function initial() {
         issued: ''
     };
 }
+export function agentLink(issued) {
+    const connection = JSON.parse(issued);
+    return (
+        connection.url +
+        '#access_token=' +
+        encodeURIComponent(
+            connection.headers.Authorization.replace(/^Bearer /, '')
+        )
+    );
+}
 export function edit(model, action) {
     if (action.type === 'field')
         return Object.assign({}, model, { [action.field]: action.value });
@@ -151,6 +161,29 @@ export function describe(model, width, height, language) {
     y += toolHeight + 12;
     if (model.issued) {
         caption(
+            'mcpAgentLinkTitle',
+            tr('Agent link — includes access and startup instructions'),
+            48
+        );
+        content.push(
+            node('Area', 'mcpAgentLink', rect(0, y, inner, 72), {
+                text: agentLink(model.issued),
+                readOnly: true
+            })
+        );
+        y += 80;
+        content.push(
+            button(
+                'mcpCopyAgentLink',
+                rect(0, y, Math.min(260, inner), 32),
+                tr('Copy agent link'),
+                'link',
+                { type: 'copy_link' },
+                !model.busy
+            )
+        );
+        y += 44;
+        caption(
             'mcpIssuedTitle',
             tr(
                 'Copy this connection now. The access token will not be shown again.'
@@ -183,9 +216,9 @@ export function describe(model, width, height, language) {
                 button(
                     'mcpCollect_' + index,
                     rect(0, y, Math.min(240, inner), 32),
-                    tr('Collect connection token'),
+                    tr('Copy agent link'),
                     'key',
-                    { type: 'reveal', id: item.id },
+                    { type: 'reveal_link', id: item.id },
                     !model.busy
                 )
             );

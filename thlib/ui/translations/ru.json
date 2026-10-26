@@ -5476,5 +5476,7 @@
   "Navigation color": "Цвет в навигации",
   "Optional #RRGGBB override; leave empty to use the Search Type color.": "Необязательный цвет #RRGGBB; оставьте пустым для цвета типа объектов.",
   "How this item appears in project navigation. Selection follows your theme.": "Оформление пункта в навигации проекта. Выделение соответствует теме.",
-  "Collect connection token": "Получить токен подключения"
+  "Collect connection token": "Получить токен подключения",
+  "Agent link — includes access and startup instructions": "Ссылка для агента — доступ и стартовые инструкции",
+  "Copy agent link": "Скопировать ссылку для агента"
 }

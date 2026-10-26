@@ -1,5 +1,8 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Agent link — includes access and startup instructions':
+        'Ссылка для агента — доступ и стартовые инструкции',
+    'Copy agent link': 'Скопировать ссылку для агента',
     'Collect connection token': 'Получить токен подключения',
     'MCP connections': 'MCP-подключения',
     'External access is limited to this project and the tools you select. Revoke it at any time.':

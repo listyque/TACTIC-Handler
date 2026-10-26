@@ -86,13 +86,20 @@ class AgentMcpController(QObject):
             self.request('state')
         elif kind in ('revoke', 'reveal'):
             self.request(kind, dict(id=action['id']))
-        elif kind == 'copy':
+        elif kind == 'reveal_link':
+            self.request('reveal', dict(id=action['id'], copy_link=True))
+        elif kind in ('copy', 'copy_link'):
             from PySide6.QtGui import QGuiApplication
-            QGuiApplication.clipboard().setText(self._model['issued'])
+            QGuiApplication.clipboard().setText(self.agent_link() if kind=='copy_link' else self._model['issued'])
         elif kind == 'create':
             self.request('create', dict(title=self._model['title'], instructions=self._model['instructions'],
                 minutes=int(self._model['minutes']), tools=list(self._model['selected']), context=deepcopy(self._context)))
         self.changed.emit()
+
+    def agent_link(self):
+        from urllib.parse import quote
+        connection=json.loads(self._model['issued'])
+        return connection['url']+'#access_token='+quote(connection['headers']['Authorization'].removeprefix('Bearer '),safe='')
 
     def request(self, action, values=None):
         if not self._server or self._model['busy']:
@@ -109,11 +116,13 @@ class AgentMcpController(QObject):
     @staticmethod
     def load(server, project, action, values, generation):
         try:
+            values = dict(values)
+            copy_link = values.pop('copy_link', False)
             result = server.execute_cmd(COMMAND, dict(action=action, project_code=project, **values))
             if result.get('status') != 'OK':
                 raise RuntimeError(result.get('description') or 'MCP connections could not be loaded')
             info = json.loads(result['info']) if isinstance(result['info'], str) else result['info']
-            return dict(generation=generation, action=action, info=info)
+            return dict(generation=generation, action=action, info=info, copy_link=copy_link)
         except Exception as error:
             return dict(generation=generation, error=str(error))
 
@@ -129,6 +138,9 @@ class AgentMcpController(QObject):
             if result['action'] in ('create', 'reveal'):
                 self._model['issued'] = json.dumps(dict(url=urljoin(self._origin, info['path']),
                     headers=dict(Authorization='Bearer ' + info['token'])), indent=2)
+                if result.get('copy_link'):
+                    from PySide6.QtGui import QGuiApplication
+                    QGuiApplication.clipboard().setText(self.agent_link())
                 self.request('state')
             else:
                 now = datetime.now().timestamp()

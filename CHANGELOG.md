@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.175 - 2026-10-26
+
+- Copy a single scoped agent link from MCP connections. The link carries its token in a fragment; project startup instructions arrive through authenticated discovery and MCP initialization. Normal MCP header-based clients remain supported.
+- The server can update connection tools/instructions with revision and retry guards, preserving the existing token. External clients can upload local files through bounded native attachment chunks before check-in.
+
 ## 0.6.0.174 - 2026-10-26
 
 - Open connected-server custom page URLs as native tables/layouts with captured project context and stale-response protection.
