@@ -3,7 +3,24 @@ import { translate } from '../../core/strings.mjs';
 import { metrics, paint } from './host.ui.mjs';
 
 export const height = 320;
-export const rowHeight = 68;
+export const rowHeight = 40;
+
+function rowExtent(model) {
+    return (model.columns || []).some(
+        (column) =>
+            ![
+                'text',
+                'number',
+                'boolean',
+                'date',
+                'time',
+                'check',
+                'link'
+            ].includes(column.cell?.kind || 'text')
+    )
+        ? 68
+        : rowHeight;
+}
 
 export function quickLayout(model, width) {
     const columns = Math.max(1, Math.floor(Math.max(0, width - 16) / 180));
@@ -22,6 +39,7 @@ export function identity(scope = {}, project = '') {
 }
 
 export function rows(model) {
+    const rowHeight = rowExtent(model);
     return (model.rows || []).map((record) =>
         Object.assign({}, record, {
             detailOpen: !!model.children?.[record.key]?.open,
@@ -51,6 +69,7 @@ export function columns(model) {
 }
 
 export function describe(model, width, extent, language) {
+    const rowHeight = rowExtent(model);
     const t = (value) => translate(value, language);
     const toolOffset = model.embedded ? 36 : 0;
     const quick = quickLayout(model, width),
@@ -298,6 +317,7 @@ export function describe(model, width, extent, language) {
 }
 
 export function row(model, record, language, viewportWidth = 0) {
+    const rowHeight = rowExtent(model);
     const fields = columns(model),
         nodes = [];
     const width = Math.max(

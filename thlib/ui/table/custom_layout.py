@@ -10,6 +10,7 @@ class CustomLayoutController(QObject):
         super().__init__(services)
         self.services = services
         self.scopes = {}
+        self.trees = {}
         self.runner = None
         self.tab = None
         self.context = {}
@@ -102,6 +103,11 @@ class CustomLayoutController(QObject):
             scope.shutdown()
             scope.deleteLater()
         self.scopes.clear()
+        trees = {id(tree):tree for page in self.pages.values() for tree in page.get('trees', {}).values()}
+        trees.update({id(tree):tree for tree in self.trees.values()})
+        for tree in trees.values():
+            tree.shutdown();tree.deleteLater()
+        self.trees = {}
         self.pages.clear()
         self.current = ''
         self.services._nested_changed()
@@ -122,6 +128,7 @@ class CustomLayoutController(QObject):
             scope.open = False
             scope.suspend()
         self.scopes = {}
+        self.trees = {}
         self.tab, self.context = tab, dict(context)
         document = self.document_data
         self.current = tab_key
@@ -146,13 +153,18 @@ class CustomLayoutController(QObject):
                     self.scopes[key] = scope
                     self.services._nested_scopes[('workspace:' if self.workspace else '') + tab_key + ':' + key] = scope
                     scope.reload()
+                elif item['kind'] == 'tree':
+                    from .dashboard_tree import DashboardTreeController
+                    tree = DashboardTreeController(self, item['tree'])
+                    self.trees[key] = tree
+                    tree.activate(dict(type='refresh'))
                 else:
                     tables(item.get('children') or [], key)
 
         tables(document.get('layoutNodes') or [])
         if tab_key:
             self.pages[tab_key] = dict(
-                document=document, scopes=self.scopes, context=self.context, tab=tab
+                document=document, scopes=self.scopes, trees=self.trees, context=self.context, tab=tab
             )
         self._tabs()
         self.changed.emit()
@@ -276,6 +288,7 @@ class CustomLayoutController(QObject):
         page = self.pages[key]
         self.tab = page.get('tab', self.tab)
         self.current, self.scopes, self.context = key, page['scopes'], page['context']
+        self.trees = page.get('trees', {})
         self.document_data = page['document']
         for scope in self.scopes.values():
             scope.document_generation = self.document_generation
@@ -301,6 +314,8 @@ class CustomLayoutController(QObject):
 
     def drop_page(self, key):
         page = self.pages.pop(key)
+        for tree in page.get('trees', {}).values():
+            tree.shutdown();tree.deleteLater()
         for name, scope in page['scopes'].items():
             self.services._nested_scopes.pop(('workspace:' if self.workspace else '') + key + ':' + name, None)
             scope.shutdown()
@@ -309,6 +324,10 @@ class CustomLayoutController(QObject):
     @Slot(str, int, result=QObject)
     def table(self, key, revision=0):
         return self.scopes.get(key)
+
+    @Slot(str, result=QObject)
+    def tree(self, key):
+        return self.trees.get(key)
 
     @Slot('QVariantMap')
     def set_state(self, state):
