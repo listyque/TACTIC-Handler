@@ -58,16 +58,18 @@ class Server:
         action = values['action']
         if 'AgentAttachmentCmd' in command:
             code = values['attachment_id']
+            if action == 'preview':
+                return dict(status='OK', info=dict(url='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC'))
             if action == 'start':
                 self.files[code] = dict(attachment_id=code, name=values['name'], size=values['size'], media_type=values['media_type'])
             result = self.files[code]
         elif action == 'state':
-            result = dict(hosts=[dict(host_id='host', label='Codex', capabilities=dict(changes=True, trials=False, steering=True, models=[dict(id='fixture',label='Fixture model', is_default=True, efforts=['low', 'high'])]))],
+            result = dict(hosts=[dict(host_id='host', label='Codex', capabilities=dict(changes=True, trials=False, steering=True, web_search=True, models=[dict(id='fixture',label='Fixture model', is_default=True, efforts=['low', 'high'])]))],
                 requests=[dict(request_id=key, prompt=row['document']['prompt'], status=row['status']) for key, row in self.requests.items()])
         elif action == 'submit':
             result = dict(request_id=values['request_id'], document=deepcopy(values['document']),
                           model=values['document'].get('model', ''), effort=values['document'].get('effort', ''),
-                          status='running', events=['External agent started'], answer='', error='',
+                          status='running', events=['External agent started', 'reference_read: inProgress'], answer='', error='',
                           messages=[dict(id=values['request_id'], role='user', text=values['document']['prompt'],
                               attachments=[self.files[code] for code in values['document'].get('attachments', [])])])
             self.requests[result['request_id']] = result
@@ -177,8 +179,11 @@ class AgentRequestUI(unittest.TestCase):
             controller._request('poll')
             wait()
             self.assertEqual(controller.model['prompt'], 'Explain the selected shots')
-            surface.click(window, surface.item(view, 'agentRequestSend'))
+            surface.fill(window, surface.item(view, 'agentRequestPrompt'), '')
+            QTest.keyClick(window, Qt.Key_Backspace)
+            QTest.keyClick(window, Qt.Key_Return)
             wait()
+            self.assertEqual(server.last['document']['prompt'], '')
             self.assertEqual(server.last['document']['context']['search_keys'], app.keys)
             self.assertEqual(server.last['document']['effort'], 'high')
             self.assertFalse(surface.item(view, 'agentRequestEffort').isEnabled())
@@ -215,8 +220,10 @@ class AgentRequestUI(unittest.TestCase):
             wait()
             self.assertEqual(controller.model['request']['status'], 'cancelled')
             controller.application.window_model.close_window('agent_request')
+            controller._model['previews'] = {}
             controller.open()
             wait()
+            self.assertTrue(controller.model['previews'])
             self.assertEqual(controller.model['request']['document']['context']['project'], 'one')
             for width in (520, 1000):
                 view.setWidth(width)

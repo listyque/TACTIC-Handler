@@ -22,6 +22,16 @@ Choose **Reasoning effort** next to the model when the connected agent offers it
 The choices belong to that model; **Agent default** keeps the provider setting.
 Change model/effort between turns. Switching models resets the effort choice.
 
+You can send attachments without text. Sent images have private thumbnails, including
+after reopening the chat. On desktop, Enter sends; Shift+Enter adds a line. On phones,
+Enter adds a line and the Send button sends. Activity describes actual tool
+starts/completions and commentary in the transcript column.
+
+Enable **Allow web search** before starting a new conversation to let Codex use
+native live web search. It remains disabled by default. Search is separate from
+permission to edit TACTIC and does not grant shell, local file or arbitrary binary
+download tools. Do not include confidential data in web search requests.
+
 If the connected agent offers models, select one in **Model**. Its list comes
 from that connection/account. Change it between turns. Enable **Allow the
 requested configuration changes** before the first message to authorize the

@@ -134,7 +134,7 @@ Item {
                     required property var modelData
                     width: messageColumn.width
                     height: geometry.height
-                    readonly property var geometry: UI.messageGeometry(width, modelData.role, body.implicitHeight, (modelData.attachments || []).length)
+                    readonly property var geometry: UI.messageGeometry(width, modelData.role, body.implicitHeight, modelData.attachments || [])
                     Rectangle {
                         x: message.geometry.x
                         width: message.geometry.width
@@ -166,17 +166,30 @@ Item {
                             width: body.width
                             Repeater {
                                 model: message.modelData.attachments || []
-                                Controls.Button {
+                                Item {
                                     required property var modelData
-                                    theme: root.theme
-                                    height: UI.metrics.attachmentHeight
+                                    height: UI.attachmentHeight(modelData)
                                     width: parent.width
-                                    text: modelData.name
-                                    icon.name: "attach-file"
-                                    onClicked: root.action({
-                                        type: "download",
-                                        value: modelData.attachment_id
-                                    })
+                                    Image {
+                                        width: Math.min(320, parent.width)
+                                        height: parent.height - UI.metrics.attachmentHeight
+                                        source: root.previews[parent.modelData.attachment_id] || ""
+                                        sourceSize: Qt.size(320, 180)
+                                        fillMode: Image.PreserveAspectFit
+                                        horizontalAlignment: Image.AlignLeft
+                                    }
+                                    Controls.Button {
+                                        y: parent.height - height
+                                        theme: root.theme
+                                        height: UI.metrics.attachmentHeight
+                                        width: parent.width
+                                        text: parent.modelData.name
+                                        icon.name: "attach-file"
+                                        onClicked: root.action({
+                                            type: "download",
+                                            value: parent.modelData.attachment_id
+                                        })
+                                    }
                                 }
                             }
                         }
@@ -184,8 +197,8 @@ Item {
                 }
             }
             Controls.Button {
-                x: 16
-                width: Math.min(300, parent.width - 32)
+                x: (parent.width - Math.min(800, parent.width - 32)) / 2
+                width: Math.min(800, parent.width - 32)
                 height: visible ? 28 : 0
                 visible: !!root.frameNode.events?.length
                 theme: root.theme
@@ -194,10 +207,9 @@ Item {
                 onClicked: root.toolsExpanded = !root.toolsExpanded
             }
             Text {
-                x: 16
-                width: parent.width - 40
-                visible: root.toolsExpanded
-                height: visible ? implicitHeight : 0
+                x: (parent.width - Math.min(800, parent.width - 32)) / 2
+                width: Math.min(800, parent.width - 32)
+                visible: root.toolsExpanded || !!root.frameNode.active
                 text: (root.frameNode.events || []).join("\n")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily

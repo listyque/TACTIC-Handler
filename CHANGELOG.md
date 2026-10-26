@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.161 - 2026-10-26
+
+- Send attachment-only agent messages, show sent image thumbnails after reopening, enable desktop Enter/Shift+Enter input, and describe current tool activity in the transcript column.
+- Offer optional native web search for new conversations independently of TACTIC write permission. Requires Stream 0.112.219, which also repairs attachment source extensions and native image/latest naming.
+
 ## 0.6.0.160 - 2026-10-26
 
 - Select model-supported reasoning effort in the shared external-agent chat and retain it between turns. Reset effort when switching models and preserve an explicit return to Agent default. Requires Stream 0.112.218.

@@ -824,6 +824,14 @@ Item {
                                         text = text.slice(0, wrapper.node.maxLength);
                                     Qt.callLater(root.send, wrapper.node.action, text);
                                 }
+                                Keys.priority: Keys.BeforeItem
+                                Keys.onPressed: event => {
+                                    if (wrapper.node.sendOnEnter && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && event.modifiers === Qt.NoModifier && !inputMethodComposing && !event.isAutoRepeat) {
+                                        root.send(wrapper.node.action, text);
+                                        root.send(wrapper.node.sendAction);
+                                        event.accepted = true;
+                                    }
+                                }
                             }
                         }
                         ScrollBar.vertical: Controls.ScrollBar {

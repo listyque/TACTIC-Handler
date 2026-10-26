@@ -39,7 +39,7 @@ class AgentRequestController(QObject):
 
     @staticmethod
     def initial(context=None):
-        return dict(context=context or {}, prompt='', allowChanges=False, hosts=[], requests=[], selected='',
+        return dict(context=context or {}, prompt='', allowChanges=False, allowWeb=False, hosts=[], requests=[], selected='',
                     request={}, busy=False, error='', pending=None, attachments=[], uploading=False, model=None, effort=None, contextExpanded=False, previews={})
 
     @Property('QVariantMap', notify=changed)
@@ -108,10 +108,10 @@ class AgentRequestController(QObject):
     def handle(self, action, value=''):
         if self._model['busy']:
             return
-        if action in ('prompt', 'changes'):
-            if self._model['pending'] or (action == 'changes' and self._model['selected']):
+        if action in ('prompt', 'changes', 'web'):
+            if self._model['pending'] or (action in ('changes', 'web') and self._model['selected']):
                 return
-            self._model['prompt' if action == 'prompt' else 'allowChanges'] = str(value) if action == 'prompt' else bool(value)
+            self._model[{'prompt': 'prompt', 'changes': 'allowChanges', 'web': 'allowWeb'}[action]] = str(value) if action == 'prompt' else bool(value)
             self.changed.emit()
         elif action == 'select':
             if self._model['uploading']:
@@ -129,14 +129,14 @@ class AgentRequestController(QObject):
             allowed = self._model['request'].get('document', {}).get('allow_changes', self._model['allowChanges'])
             hosts = [host for host in self._model['hosts'] if not allowed or host['capabilities']['changes']]
             hosts.sort(key=lambda host: host['host_id'] != self._model['request'].get('host_id'))
-            if self._model['prompt'].strip() and hosts and not self._model['uploading']:
+            if (self._model['prompt'].strip() or self._model['attachments']) and hosts and not self._model['uploading']:
                 files = [file['attachment_id'] for file in self._model['attachments']]
                 model = self._model['model'] if self._model['model'] is not None else self._model['request'].get('model', '')
                 effort = self._model['effort'] if self._model['effort'] is not None else self._model['request'].get('effort', '')
                 self._model['pending'] = self._model['pending'] or (dict(message_id=str(uuid4()), host_id=hosts[0]['host_id'], text=self._model['prompt'],
                     attachments=files, model=model, effort=effort) if self._model['selected'] else
                     dict(request_id=str(uuid4()), host_id=hosts[0]['host_id'], document=dict(prompt=self._model['prompt'],
-                        context=deepcopy(self._model['context']), allow_changes=self._model['allowChanges'], attachments=files, model=model, effort=effort)))
+                        context=deepcopy(self._model['context']), allow_changes=self._model['allowChanges'], allow_web=self._model['allowWeb'], attachments=files, model=model, effort=effort)))
                 self._request('send')
         elif action in ('model', 'effort'):
             if self._model['pending'] or self._model['request'].get('status') in ('queued', 'running', 'cancelling'):
@@ -333,12 +333,12 @@ class AgentRequestController(QObject):
         if pool.is_stopped:
             pool.start()
         self._worker = pool.add_task(self._load, self._server, self._model['context']['project'],
-            action, self._model['selected'], deepcopy(self._model['pending']), self._generation)
+            action, self._model['selected'], deepcopy(self._model['pending']), self._generation, set(self._model['previews']))
         self._worker.result.connect(self._done)
         self._worker.start()
 
     @staticmethod
-    def _load(server, project, action, selected, pending, generation):
+    def _load(server, project, action, selected, pending, generation, cached_previews=()):
         try:
             def call(action, **values):
                 result = server.execute_cmd(COMMAND, dict(action=action, project_code=project, **values))
@@ -353,7 +353,20 @@ class AgentRequestController(QObject):
                 call('undo', request_id=selected, **pending)
             state = call('state')
             current = call('read', request_id=selected) if selected else {}
-            return dict(generation=generation, selected=selected, request=current, action=action, **state)
+            previews = {}
+            for message in current.get('messages', []):
+                for file in message.get('attachments', []):
+                    code = file['attachment_id']
+                    if not file['media_type'].startswith('image/') or code in cached_previews:
+                        continue
+                    try:
+                        result = server.execute_cmd('tactic.ui.panel.agent_attachment_cmd.AgentAttachmentCmd',
+                            dict(action='preview', project_code=project, attachment_id=code))
+                        value = json.loads(result['info']) if isinstance(result['info'], str) else result['info']
+                        previews[code] = value['url']
+                    except Exception:
+                        previews[code] = ''
+            return dict(generation=generation, selected=selected, request=current, action=action, previews=previews, **state)
         except Exception as error:
             return dict(generation=generation, error=str(error))
 
@@ -371,6 +384,7 @@ class AgentRequestController(QObject):
         if 'error' not in result:
             was_active = self._model['request'].get('status') in ('queued', 'running', 'cancelling')
             self._model.update({key: result[key] for key in ('selected', 'request', 'hosts', 'requests')})
+            self._model['previews'].update(result.get('previews', {}))
             if was_active and result['request'].get('status') not in ('queued', 'running', 'cancelling'):
                 terminal = result['request']
                 source = ({'completed': 'Task completed', 'blocked': 'Task blocked — see the answer', 'needs_input': 'Waiting for your reply'}.get(

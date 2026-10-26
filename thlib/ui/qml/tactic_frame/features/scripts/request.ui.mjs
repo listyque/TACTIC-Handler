@@ -12,6 +12,7 @@ export function initial(context = {}) {
         context,
         prompt: '',
         allowChanges: false,
+        allowWeb: false,
         hosts: [],
         requests: [],
         selected: '',
@@ -46,7 +47,7 @@ export function canSend(model) {
         !model.busy &&
         !model.uploading &&
         !!model.context?.project &&
-        !!model.prompt.trim() &&
+        (!!model.prompt.trim() || !!model.attachments.length) &&
         model.prompt.length <= 12000 &&
         !!connected &&
         (!model.allowChanges || connected.capabilities.changes) &&
@@ -97,6 +98,45 @@ export function messages(model) {
             : []
     );
 }
+export function activity(model, language) {
+    const names = {
+        agent_context: 'Reading conversation context',
+        agent_capabilities: 'Checking available tools',
+        reference_read: 'Reading TACTIC documentation',
+        agent_selection: 'Reading selected objects',
+        ts_records: 'Reading project objects',
+        ts_workflow_read: 'Reading workflows',
+        ts_workflow_apply: 'Saving workflow',
+        ts_attachment_checkin: 'Checking in attached files',
+        ts_edit_operation: 'Checking saved changes',
+        ts_naming_read: 'Reading naming rules',
+        ts_naming_preview: 'Checking file naming',
+        agent_attachment_image: 'Viewing attached image',
+        webSearch: 'Searching the web'
+    };
+    const events = model.request?.events || [];
+    return events
+        .slice(events.lastIndexOf('External agent started') + 1)
+        .map((event) => {
+            const match = event.match(
+                /^([a-zA-Z_]+): (inProgress|completed|failed)$/
+            );
+            if (!match) return event;
+            const label = translate(names[match[1]] || match[1], language);
+            return (
+                label +
+                ' · ' +
+                translate(
+                    {
+                        inProgress: 'Working',
+                        completed: 'Done',
+                        failed: 'Failed'
+                    }[match[2]],
+                    language
+                )
+            );
+        });
+}
 export function safeMarkdown(text) {
     return String(text || '')
         .replace(/<[^>]*>/g, (value) =>
@@ -116,8 +156,18 @@ export function messageGeometry(width, role, bodyHeight, attachments) {
         height:
             padding * 2 +
             Math.max(20, bodyHeight) +
-            attachments * metrics.attachmentHeight
+            (Array.isArray(attachments)
+                ? attachments.reduce(
+                      (height, file) => height + attachmentHeight(file),
+                      0
+                  )
+                : attachments * metrics.attachmentHeight)
     };
+}
+export function attachmentHeight(file) {
+    return /^image\/(png|jpeg|webp|gif)$/.test(file.media_type || '')
+        ? 172
+        : metrics.attachmentHeight;
 }
 
 export function contextItems(context, language) {
@@ -203,7 +253,7 @@ export function describe(model, width, height, language) {
         composerX = (width - composerWidth) / 2;
     const contextHeight = model.contextExpanded ? 122 : 38;
     const composerHeight =
-        158 +
+        188 +
         contextHeight +
         (model.attachments.length ? 42 : 0) +
         (narrow ? 40 : 0);
@@ -211,7 +261,8 @@ export function describe(model, width, height, language) {
         modelWidth = narrow ? Math.max(80, (composerWidth - 32) / 2) : 200;
     const state = status(model, language),
         working = active(model),
-        sendVisible = !working || !!model.prompt.trim();
+        sendVisible =
+            !working || !!model.prompt.trim() || !!model.attachments.length;
     const nodes = [
         node(
             'Choice',
@@ -225,7 +276,10 @@ export function describe(model, width, height, language) {
                     { value: '', label: tr('New conversation') },
                     ...(model.requests || []).map((row) => ({
                         value: row.request_id,
-                        label: row.prompt
+                        label:
+                            row.prompt === 'Attachments'
+                                ? tr('Attachments')
+                                : row.prompt
                     }))
                 ],
                 action: { type: 'select' }
@@ -271,9 +325,7 @@ export function describe(model, width, height, language) {
             {
                 view: 'transcript',
                 messages: messages(model),
-                events: (current.events || [])
-                    .filter((text) => /^[a-z_]+:/.test(text))
-                    .slice(-4),
+                events: activity(model, language),
                 active: working
             }
         ),
@@ -328,6 +380,8 @@ export function describe(model, width, height, language) {
                 flat: true,
                 readOnly: !!model.pending,
                 enabled: !model.busy,
+                sendOnEnter: true,
+                sendAction: { type: 'send' },
                 action: { type: 'prompt' }
             }
         ),
@@ -336,7 +390,7 @@ export function describe(model, width, height, language) {
             'agentRequestChanges',
             rect(
                 composerX + 16,
-                height - 84 - (narrow ? 40 : 0),
+                height - 114 - (narrow ? 40 : 0),
                 Math.max(0, composerWidth - 32),
                 26
             ),
@@ -346,6 +400,26 @@ export function describe(model, width, height, language) {
                 checked: current.document?.allow_changes ?? model.allowChanges,
                 enabled: !model.busy && !model.selected && !model.pending,
                 action: { type: 'changes' }
+            }
+        ),
+        node(
+            'CheckBox',
+            'agentRequestWeb',
+            rect(
+                composerX + 16,
+                height - 84 - (narrow ? 40 : 0),
+                Math.max(0, composerWidth - 32),
+                26
+            ),
+            {
+                text: tr('Allow web search'),
+                checked: current.document?.allow_web ?? model.allowWeb,
+                enabled:
+                    !model.busy &&
+                    !model.selected &&
+                    !model.pending &&
+                    !!connected?.capabilities.web_search,
+                action: { type: 'web' }
             }
         ),
         button(
@@ -479,7 +553,7 @@ export function describe(model, width, height, language) {
                 'agentRequestAttachments',
                 rect(
                     composerX + 12,
-                    height - 126 - (narrow ? 40 : 0),
+                    height - 156 - (narrow ? 40 : 0),
                     composerWidth - 24,
                     36
                 ),
