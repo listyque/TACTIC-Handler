@@ -170,3 +170,9 @@ connection error when the server responds. The refresh arrow rereads the same
 conversation without resending the task. A lost connection does not prove that
 work stopped; inspect its saved answer and actual changes before continuing.
 Rejected operation errors remain visible until a deliberate refresh or retry.
+
+**External agent is offline** refers to the selected chat's project, not the
+whole server. The external host can use `--all-projects` to discover accessible
+projects with the installed agent schema, including new projects, at its regular
+heartbeat. Explicit repeated `--project` options keep their restricted scope.
+Discovery reads configuration only; a model receives a task only after **Send**.

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.172 - 2026-10-26
+
+- Document the shared external host's opt-in all-project discovery so newly created projects can become available in both clients without a manually edited project list.
+
 ## 0.6.0.171 - 2026-10-26
 
 - Clear chat refresh errors after the next successful automatic read, so a temporary connection loss does not hide the saved task result. Keep rejected operation errors separate and never resend writes during reconnection.
