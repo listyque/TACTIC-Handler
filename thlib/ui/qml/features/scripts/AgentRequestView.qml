@@ -54,6 +54,8 @@ Item {
                 }));
             if (action.type === "providers")
                 agentProvidersController.open();
+            else if (action.type === "mcp")
+                agentMcpController.open(root.controller.model.request?.document?.context || root.controller.model.context);
             else if (action.type === "attach")
                 fileDialog.open();
             else
@@ -69,6 +71,8 @@ Item {
             onAction: function (action) {
                 if (action.type === "providers")
                     agentProvidersController.open();
+                else if (action.type === "mcp")
+                    agentMcpController.open(root.controller.model.request?.document?.context || root.controller.model.context);
                 else
                     root.controller.handle(action.type, action.value === undefined ? "" : action.value);
             }

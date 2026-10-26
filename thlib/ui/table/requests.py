@@ -164,6 +164,9 @@ def read_custom_layout(
             (node for node in root if node.tag == view or node.get('name') == view),
             None,
         )
+        if definition is not None and definition.find('dashboard') is not None:
+            from tactic_stream.server.dashboards import dashboard_layout
+            return dashboard_layout(json.loads(definition.findtext('dashboard')), view, search_key)
         if definition is None or definition.find('html') is None:
             raise ValueError('CustomLayout has no HTML definition: ' + view)
         mako = definition.findtext('mako') or ''

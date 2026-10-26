@@ -44,6 +44,11 @@ class Services(QObject):
     def activate(self, value):
         self.events.append(dict(value))
 
+    @Slot(QObject, 'QVariantMap')
+    def format_document(self, document, style):
+        from thlib.ui.rich_text_document import format_readonly_document
+        format_readonly_document(document, style)
+
     @Slot('QVariantMap')
     def set_state(self, state):
         self.state['layoutState'] = dict(state)

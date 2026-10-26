@@ -2,10 +2,37 @@
 
 from __future__ import annotations
 
-from urllib.parse import parse_qsl, urlencode, urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, unquote
+import re
 
 
 SAVED_SEARCH_SCHEME = "tactic-search"
+
+
+def parse_custom_page_link(value: str, server: str) -> dict | None:
+    """Only the connected server may receive the captured native session."""
+    target = urlparse(value)
+    origin = urlparse(server if '://' in server else 'http://' + server)
+    if (target.scheme not in ('http', 'https') or target.username or target.password
+            or len(value) > 16384 or any(char in value for char in '\r\n\x00')):
+        return None
+    def identity(url):
+        return url.scheme, url.hostname, url.port or (443 if url.scheme == 'https' else 80)
+    try:
+        if identity(target) != identity(origin):
+            return None
+    except ValueError:
+        return None
+    match = re.fullmatch(r'/(?:projects|tactic)/([^/]+)(/.*)?', target.path)
+    if not match:
+        return None
+    path = target.fragment if target.fragment.startswith('/') else match[2] or ''
+    path, _, query = path.partition('?')
+    if path in ('', '/'):
+        return None
+    parameters = dict(parse_qsl(target.query, keep_blank_values=True))
+    parameters.update(parse_qsl(query, keep_blank_values=True))
+    return dict(project=unquote(match[1]), path=unquote(path), parameters=parameters)
 
 
 def build_saved_search_link(

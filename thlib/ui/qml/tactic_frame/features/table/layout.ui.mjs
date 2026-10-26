@@ -135,6 +135,15 @@ export function describe(
                             wrap: true
                         })
                     );
+            } else if (item.kind === 'markdown') {
+                extent = Math.max(240, Math.min(560, tableHeight));
+                children.push(
+                    node('View', id, rect(x, top, available, extent), {
+                        view: 'layoutMarkdown',
+                        text,
+                        key: id
+                    })
+                );
             } else if (item.kind === 'preview') {
                 extent = Math.min(available, item.size || 64);
                 children.push(
@@ -224,7 +233,11 @@ export function describe(
                 { wrap: true, color: 'error' }
             )
         );
-    const nodes = [];
+    const nodes = [
+        node('Box', 'layoutBackground', rect(0, 0, width, height), {
+            background: 'workspace'
+        })
+    ];
     if (tabOffset) {
         const tabs = [];
         let left = 0;

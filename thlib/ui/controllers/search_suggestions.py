@@ -347,10 +347,11 @@ class SearchSuggestionsMixin:
             tab_id=tab_id,
             tab_kind="preset-link",
             navigation_target=view,
+            table_view=spec.get('table_view') or 'table',
             limit=self._page_size,
             view_mode=(
-                existing.view_mode
-                if existing else self._default_view_mode
+                spec.get('view_mode') or (existing.view_mode
+                if existing else self._default_view_mode)
             ),
             records=[
                 dict(record)

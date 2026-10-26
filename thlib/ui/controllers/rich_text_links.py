@@ -39,4 +39,7 @@ class RichTextLinksMixin:
             self.search(value)
             return
         if value.startswith(("http://", "https://", "ftp://")):
+            from ..custom_urls import open_custom_url
+            if open_custom_url(self, value):
+                return
             QDesktopServices.openUrl(QUrl(value))

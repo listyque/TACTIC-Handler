@@ -18,6 +18,8 @@ from PySide6.QtCore import (
     QUrl,
 )
 from PySide6.QtGui import (
+    QColor,
+    QTextTable,
     QFont,
     QTextBlockFormat,
     QTextCharFormat,
@@ -38,6 +40,52 @@ from .rich_text import (
     sanitize_rich_html,
 )
 from .script_editor_features import PythonSyntaxHighlighter
+
+
+def format_readonly_document(text_document: QObject, style: dict | None = None) -> None:
+    document = text_document.textDocument()
+    style = style or {}
+    cursor = QTextCursor(document)
+    cursor.beginEditBlock()
+    block = document.begin()
+    while block.isValid():
+        block_format = block.blockFormat()
+        next_block = block.next()
+        in_code_block = block_format.hasProperty(
+            QTextFormat.Property.BlockCodeFence
+        )
+        next_in_code_block = (
+            next_block.isValid()
+            and next_block.blockFormat().hasProperty(
+                QTextFormat.Property.BlockCodeFence
+            )
+        )
+        block_format.setBottomMargin(
+            0 if in_code_block and next_in_code_block else style.get("paragraphGap", 8)
+        )
+        if style:
+            heading = block_format.headingLevel() > 0
+            block_format.setTopMargin(style["headingGap"] if heading else 0)
+            block_format.setLineHeight(style["headingLineHeight"] if heading else style["lineHeight"], QTextBlockFormat.FixedHeight.value)
+        cursor.setPosition(block.position())
+        cursor.setBlockFormat(block_format)
+        block = next_block
+    if style:
+        for child in document.rootFrame().childFrames():
+            if isinstance(child, QTextTable):
+                table_format = child.format()
+                table_format.setCellPadding(style["cellPadding"])
+                table_format.setCellSpacing(0)
+                table_format.setBorderCollapse(True)
+                table_format.setBorder(1)
+                table_format.setBorderBrush(QColor(style["borderColor"]))
+                table_format.setWidth(QTextLength(QTextLength.PercentageLength, 100))
+                table_format.setColumnWidthConstraints([
+                    QTextLength(QTextLength.PercentageLength, 100 / child.columns())
+                    for _ in range(child.columns())
+                ])
+                child.setFormat(table_format)
+    cursor.endEditBlock()
 
 
 _IMAGE_MINIMUM_SIZE = 24.0

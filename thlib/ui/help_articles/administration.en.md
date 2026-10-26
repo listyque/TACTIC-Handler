@@ -523,3 +523,38 @@ requires reloading before another write.
 Complete a numeric, coordinate or instance-table-name edit with **Enter** or **Tab**.
 Invalid buffered values remain available for correction. Advanced XML/JSON has its
 own **Apply** action; Save does not silently replace an unapplied source draft.
+
+## Custom page links
+
+Project `config/url` records open pages at `/projects/<project>/<path>`. Existing
+`/tactic/<project>/<path>` and `#/path` page links use the same definitions.
+Sign in normally; the link does not grant access. Project, URL, Search Type and
+object permissions still apply. Never include a login ticket in the address.
+
+A URL such as `/review/{code}` can supply `{code}` to a configured search_key.
+It opens the existing table/view filtered to that object. Exact paths take
+precedence; ambiguous patterns fail. Retired definitions are ignored.
+CustomLayoutWdg references open using the existing layout tools and their
+supported markup/administrator restrictions. This does not restore arbitrary
+Python widgets. Authenticated configured REST/Python handlers use normal API and
+PythonCmd permissions and Command rollback. Handler resolves links to its own
+server into native tables/layouts; foreign links open the system browser.
+
+## Dashboards and external MCP agents
+
+The agent can compose native dashboards from text, Markdown, counts, tables,
+links and responsive rows/columns, and group/reorder existing navigation entries,
+hide duplicates, or set icons and colors. Saved dashboards run in both clients.
+Ordinary legacy HTML/JavaScript pages still have separate compatibility limits.
+
+Open **External agent → Agent permissions → MCP connections**. Choose a connection
+name, instructions, allowed tools and lifetime. Access remains limited to this
+project; existing connections can be revoked. Enable **Server configuration →
+Security → Enable external MCP connections** and restart first; it is off by default.
+The internal agent can also issue access from an authorized chat. Open this window
+and select **Collect connection token** to retrieve its token once. Copy the
+connection URL and Authorization header into your external MCP client. The page
+URL alone grants no access. Closing the window clears the displayed token.
+Revoking a connection stops new calls; it does not undo earlier changes. External
+clients log their work through native project tools; automatic third-party chat
+history import is not provided by the connection itself.

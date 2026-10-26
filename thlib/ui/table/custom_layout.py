@@ -17,6 +17,11 @@ class CustomLayoutController(QObject):
         self.pages = {}
         self.current = ''
 
+    @Slot(QObject, 'QVariantMap')
+    def format_document(self, document, style):
+        from ..rich_text_document import format_readonly_document
+        format_readonly_document(document, style)
+
     def close(self):
         self.generation += 1
         if self.runner:
@@ -142,20 +147,7 @@ class CustomLayoutController(QObject):
                 or project != app._current_project_code
             ):
                 return
-            services._document = dict(
-                result, title=title, nodeId='', translateTitle=False
-            )
-            self.open(
-                tab,
-                dict(
-                    project=project,
-                    searchKey=result['targetSearchKey'],
-                    record=result['layoutRecord'],
-                ),
-                key,
-            )
-            services.documentChanged.emit()
-            app.open_window('table_document')
+            self.open_result(result, title, key)
 
         services._run(
             lambda: tc.execute_procedure_serverside(
@@ -163,6 +155,15 @@ class CustomLayoutController(QObject):
             ),
             loaded,
         )
+
+    def open_result(self, result, title, key):
+        services, app = self.services, self.services._application
+        services._document_generation += 1
+        services._document = dict(result, title=title, nodeId='', translateTitle=False)
+        self.open(app._current_tab(), dict(project=app._current_project_code,
+            searchKey=result['targetSearchKey'], record=result['layoutRecord']), key)
+        services.documentChanged.emit()
+        app.open_window('table_document')
 
     @Slot(str)
     def select_page(self, key):
@@ -216,7 +217,7 @@ class CustomLayoutController(QObject):
         if action.get('name') == 'script':
             self.run(action.get('javascript') or '', action.get('selector') or '')
         elif action.get('name') == 'layout-link':
-            self.services.open_link(action.get('href') or '')
+            self.services._application.open_rich_link(action.get('href') or '')
         else:
             document = self.services._document
             self.services._application.invoke_table_widget_action(

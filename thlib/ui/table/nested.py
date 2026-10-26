@@ -84,9 +84,9 @@ class NestedTableController(QObject):
             search_view=descriptor.get('searchView') or '',
             project_scope=descriptor.get('projectScope', False),
             simple_view=descriptor.get('simpleSearchView') or '', simple_values=state.get('simpleValues') or {},
-            offset=state['offset'], limit=int(descriptor.get('initialLimit') or 50), order_by=[state['order']] if state.get('order') else [], filters=[])
+            offset=state['offset'], limit=int(descriptor.get('initialLimit') or 50), order_by=[state['order']] if state.get('order') else [], filters=list(descriptor.get('filters') or []))
         if state['filter']:
-            arguments['filters'] = [[state['filterField'], 'like', '%' + state['filter'] + '%']]
+            arguments['filters'].append([state['filterField'], 'like', '%' + state['filter'] + '%'])
         def read():
             scope = tc.execute_procedure_serverside(read_nested_scope, arguments, project=project_code, server=server)
             if isinstance(scope, str):

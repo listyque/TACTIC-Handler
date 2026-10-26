@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot, QSaveFile, QIODevice
-from PySide6.QtGui import QDesktopServices, QTextCursor, QTextFormat, QTextBlockFormat, QTextTable, QTextLength, QColor
+from PySide6.QtGui import QDesktopServices
 
 
 _ARTICLE_NAME = re.compile(r"^(?P<topic>.+)\.(?P<language>[a-z]{2})\.md$")
@@ -135,49 +135,8 @@ class HelpController(QObject):
     @Slot(QObject)
     @Slot(QObject, "QVariantMap")
     def format_document(self, text_document: QObject, style: dict | None = None) -> None:
-        document = text_document.textDocument()
-        style = style or {}
-        cursor = QTextCursor(document)
-        cursor.beginEditBlock()
-        block = document.begin()
-        while block.isValid():
-            block_format = block.blockFormat()
-            next_block = block.next()
-            in_code_block = block_format.hasProperty(
-                QTextFormat.Property.BlockCodeFence
-            )
-            next_in_code_block = (
-                next_block.isValid()
-                and next_block.blockFormat().hasProperty(
-                    QTextFormat.Property.BlockCodeFence
-                )
-            )
-            block_format.setBottomMargin(
-                0 if in_code_block and next_in_code_block else style.get("paragraphGap", 8)
-            )
-            if style:
-                heading = block_format.headingLevel() > 0
-                block_format.setTopMargin(style["headingGap"] if heading else 0)
-                block_format.setLineHeight(style["headingLineHeight"] if heading else style["lineHeight"], QTextBlockFormat.FixedHeight.value)
-            cursor.setPosition(block.position())
-            cursor.setBlockFormat(block_format)
-            block = next_block
-        if style:
-            for child in document.rootFrame().childFrames():
-                if isinstance(child, QTextTable):
-                    table_format = child.format()
-                    table_format.setCellPadding(style["cellPadding"])
-                    table_format.setCellSpacing(0)
-                    table_format.setBorderCollapse(True)
-                    table_format.setBorder(1)
-                    table_format.setBorderBrush(QColor(style["borderColor"]))
-                    table_format.setWidth(QTextLength(QTextLength.PercentageLength, 100))
-                    table_format.setColumnWidthConstraints([
-                        QTextLength(QTextLength.PercentageLength, 100 / child.columns())
-                        for _ in range(child.columns())
-                    ])
-                    child.setFormat(table_format)
-        cursor.endEditBlock()
+        from .rich_text_document import format_readonly_document
+        format_readonly_document(text_document, style)
 
     def _load_articles(self, language: str) -> dict[str, dict]:
         paths: dict[str, Path] = {}

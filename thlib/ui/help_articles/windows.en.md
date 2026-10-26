@@ -10,6 +10,14 @@ order: 25
 
 ## Help and unfinished gestures
 
+**Check out** prepares a snapshot download and its destination. **Attach files**
+adds files to the prepared snapshot through native check-in commands.
+**Security Summary** shows the selected object's access information.
+
+**External agent** opens the project-aware chat. **AI providers** manages model
+connections. **MCP connections** creates and revokes restricted project access;
+collect chat-issued access tokens there once, outside the model conversation.
+
 Embedded dialogs use a compact title bar, a neutral themed caption and a visible outer frame.
 Standalone windows retain the operating system's native title bar and frame.
 

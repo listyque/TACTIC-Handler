@@ -750,7 +750,7 @@ function fields(model, ui, language) {
         heading(
             'sidebarAppearance',
             'Appearance',
-            'How this item appears in project navigation. Its color comes from the Search Type; selection follows your theme.'
+            'How this item appears in project navigation. Selection follows your theme.'
         ),
         field(
             'sidebarTitleField',
@@ -771,6 +771,12 @@ function fields(model, ui, language) {
                 tacticCompatibleOnly: true
             }
         },
+        field(
+            'sidebarColorField',
+            'color',
+            'Navigation color',
+            'Optional #RRGGBB override; leave empty to use the Search Type color.'
+        ),
         {
             id: 'sidebarEntryVisibleCheck',
             kind: 'CheckBox',

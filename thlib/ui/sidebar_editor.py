@@ -862,12 +862,16 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
         _view, selector, element = self._flat_refs[self._selected_row]
         field = str(field or "")
         text = str(value or "")
-        if field in {"name", "title", "icon"}:
+        if field in {"name", "title", "icon", "color"}:
             if field == "name":
                 previous = str(element.get("name") or "")
                 text = _slug(text)
             elif field == "icon":
                 text = icon_name_for_tactic(text)
+            elif field == "color" and text and not re.fullmatch(r'#[0-9A-Fa-f]{6}',text):
+                self._error = 'Use a six-digit hexadecimal navigation color'
+                self.stateChanged.emit()
+                return
             if text:
                 element.set(field, text)
             else:
@@ -1388,7 +1392,8 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                         str(element.get("icon") or ""),
                         _direct_text(element, "search_type"),
                     ),
-                    "accent": self._accent_for_search_type(
+                    "color": str(element.get('color') or ''),
+                    "accent": element.get('color') or self._accent_for_search_type(
                         _direct_text(element, "search_type")
                     ),
                     "included": True,

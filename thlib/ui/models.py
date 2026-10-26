@@ -237,10 +237,11 @@ class NavigationModel(QAbstractListModel):
                     entries.append(NavigationEntry(
                         f"section:{name}",
                         title,
-                        "keyboard_arrow_down",
+                        cls._icon_name(str(item.get('icon')), '') if item.get('icon') else "keyboard_arrow_down",
                         "",
                         "",
                         entry_type="section",
+                        accent=str(item.get('color') or ''),
                         depth=depth,
                     ))
                     if item.view:
@@ -263,7 +264,7 @@ class NavigationModel(QAbstractListModel):
                         record.get('view') == layout_view and (record.get('category') or record.get('search_type')) == 'CustomLayoutWdg']
                     layouts.sort(key=lambda row:float(row.get('priority') or 0),reverse=True)
                     if layouts:
-                        search_type = ET.fromstring(layouts[0]['config']).findtext('.//display/search_type') or ''
+                        search_type = ET.fromstring(layouts[0]['config']).findtext('.//display/search_type') or search_type
                 type_info = project.get_stypes().get(search_type)
                 if type_info and type_info.get_info().get('__record_read__', {}).get('available') is False:
                     continue
@@ -284,7 +285,7 @@ class NavigationModel(QAbstractListModel):
                         project.get_stypes().get(search_type)
                         if search_type else None
                     )
-                accent = (
+                accent = str(item.get('color') or '') or (
                     stype.get_stype_color(fmt="hex")
                     if stype and stype.get_stype_color(fmt="hex")
                     else ""

@@ -1,5 +1,32 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Collect connection token': 'Получить токен подключения',
+    'MCP connections': 'MCP-подключения',
+    'External access is limited to this project and the tools you select. Revoke it at any time.':
+        'Внешний доступ ограничен этим проектом и выбранными инструментами. Его можно отозвать в любой момент.',
+    'Enable external MCP connections in Server configuration and restart first.':
+        'Включите внешние MCP-подключения в настройках сервера и перезапустите его.',
+    'Instructions for this connection': 'Инструкции для этого подключения',
+    '5 minutes': '5 минут',
+    '1 hour': '1 час',
+    '8 hours': '8 часов',
+    'Allowed tools': 'Разрешённые инструменты',
+    'Select read tools': 'Выбрать инструменты чтения',
+    'Copy this connection now. The access token will not be shown again.':
+        'Скопируйте подключение сейчас. Токен доступа больше не будет показан.',
+    'Copy connection': 'Скопировать подключение',
+    'Existing connections': 'Созданные подключения',
+    Revoked: 'Доступ отозван',
+    Expired: 'Срок истёк',
+    'Revoke access': 'Отозвать доступ',
+    'Create connection': 'Создать подключение',
+    'MCP connections could not be loaded':
+        'Не удалось загрузить MCP-подключения',
+    'Navigation color': 'Цвет в навигации',
+    'Optional #RRGGBB override; leave empty to use the Search Type color.':
+        'Необязательный цвет #RRGGBB; оставьте пустым для цвета типа объектов.',
+    'How this item appears in project navigation. Selection follows your theme.':
+        'Оформление пункта в навигации проекта. Выделение соответствует теме.',
     'Agent permissions': 'Разрешения агента',
     'Conversation context': 'Контекст беседы',
     'Use in current conversation': 'Контекст для текущей беседы',

@@ -320,6 +320,12 @@ export function permissionActions(model) {
         },
         { separator: true },
         {
+            title: 'MCP connections',
+            command: 'mcp',
+            icon: 'link',
+            enabled: !model.busy
+        },
+        {
             title: 'AI providers',
             command: 'providers',
             icon: 'settings',

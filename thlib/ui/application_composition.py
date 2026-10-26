@@ -66,6 +66,7 @@ from thlib.ui.repository_sync_editor import RepositorySyncEditorController
 from thlib.ui.script_editor import ScriptEditorController
 from thlib.ui.agent_request import AgentRequestController
 from thlib.ui.agent_providers import AgentProvidersController
+from thlib.ui.agent_mcp import AgentMcpController
 from thlib.ui.script_shelf import ScriptShelfController
 from thlib.ui.script_triggers import ScriptTriggerController
 from thlib.ui.server_updates import ServerUpdateService
@@ -273,6 +274,7 @@ class DeliveryBundle:
     script_editor: ScriptEditorController
     agent_request: AgentRequestController
     agent_providers: AgentProvidersController
+    agent_mcp: AgentMcpController
     script_shelf: ScriptShelfController
     script_triggers: ScriptTriggerController
     update: UpdateController
@@ -295,6 +297,7 @@ class DeliveryBundle:
             "scriptEditorController": self.script_editor,
             "agentRequestController": self.agent_request,
             "agentProvidersController": self.agent_providers,
+            "agentMcpController": self.agent_mcp,
             "scriptEditorModel": self.script_editor.model,
             "scriptEditorTabModel": self.script_editor.tabs,
             "scriptTriggerController": self.script_triggers,
@@ -631,6 +634,7 @@ def _build_delivery(
     )
     agent_request = AgentRequestController(controller, server_pool)
     agent_providers = AgentProvidersController(controller, server_pool)
+    agent_mcp = AgentMcpController(controller, server_pool)
     collaboration.server_updates.batchReady.connect(
         script_editor.apply_server_batch
     )
@@ -716,6 +720,7 @@ def _build_delivery(
         script_editor=script_editor,
         agent_request=agent_request,
         agent_providers=agent_providers,
+        agent_mcp=agent_mcp,
         script_shelf=script_shelf,
         script_triggers=script_triggers,
         update=update,

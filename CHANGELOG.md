@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.174 - 2026-10-26
+
+- Open connected-server custom page URLs as native tables/layouts with captured project context and stale-response protection.
+- Render shared dashboard bricks, including Markdown and fixed-filter tables, and honor navigation icon/color overrides. The agent can preview/save existing sidebar organization through native commands.
+- Add the ordinary MCP connections window: selected project/tools, instructions, expiry, one-time token collection and revocation. The server listener remains off until explicitly enabled. Arbitrary legacy HTML/Python widgets remain outside this portable renderer.
+
 ## 0.6.0.173 - 2026-10-26
 
 - Let the external agent find and read the current user's earlier chats across projects. Add an explicit source-chat link from the shared conversation library without changing the target project's selection or permissions.
