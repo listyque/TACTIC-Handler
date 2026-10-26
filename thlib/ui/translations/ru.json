@@ -5447,5 +5447,8 @@
   "Conversation view": "Вид бесед",
   "Back to conversations": "Вернуться к беседам",
   "Reading tasks": "Чтение задач",
-  "Updating task statuses": "Изменение статусов задач"
+  "Updating task statuses": "Изменение статусов задач",
+  "Conversation project": "Проект бесед",
+  "All projects": "Все проекты",
+  "Some project histories are unavailable": "История некоторых проектов недоступна"
 }

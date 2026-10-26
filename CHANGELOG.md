@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.170 - 2026-10-26
+
+- Show the signed-in user's conversations across accessible projects by default and add a direct project filter to the shared sidebar. Show each chat's project and keep execution, attachments, folders and unsent drafts bound to their original project when switching.
+
 ## 0.6.0.169 - 2026-10-26
 
 - Expose ordinary related-task reading and bulk status edits to the external agent through Stream's native table-task command, including real workflow choices, revision/permission checks and durable retry protection. Show task activity in the shared chat.

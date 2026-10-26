@@ -142,8 +142,8 @@ headings in **By folder**. Removing a folder moves its conversations to
 **Ungrouped**, preserving the messages. Pinned chats inside folders stay in
 their folder; other pinned chats have their own section.
 
-Names, folders, pins and archives belong to the signed-in user and current
-project and persist across clients/restarts. Existing conversations are retained.
+Names, folders, pins and archives belong to the signed-in user and the
+conversation's project and persist across clients/restarts. Existing conversations are retained.
 Conflicting saves require a refresh. Switching conversations keeps unsent text
 and attachments in this client session; send them to preserve them as messages.
 For an unnamed initial draft, send it or name it before switching away.
@@ -153,3 +153,14 @@ Enable **Archived conversations** in **Conversation view** to find it and **Rest
 continuing. Running requests cannot be archived. The library does not delete
 messages, undo project changes, start an agent or grant new permissions.
 Only **Send** submits project context and attachments to the chosen connection.
+
+The sidebar starts with **All projects**, including your older chats after you
+switch to a new project. Each conversation shows its project. Use **Conversation
+project** to narrow the list; search also matches project names. Only your own
+chats in accessible projects are listed. Filtering never changes the open chat's
+project or selection. Opening an old chat restores its original context.
+
+**New conversation** uses the selected project filter, or the current workspace
+project when **All projects** is selected. A different project's new chat starts
+without the workspace's page or selected objects. Folders remain project-specific.
+A warning identifies project histories whose databases are unavailable.

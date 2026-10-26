@@ -53,9 +53,16 @@ class Application(QObject, ItemActionsMixin, ItemOperationsMixin):
 
 class Server:
     def __init__(self):
+        self.project = 'one'
         self.requests = {}
         self.last = None
         self.files = {}
+
+    def get_project(self):
+        return self.project
+
+    def set_project(self, project):
+        self.project = project
 
     def execute_cmd(self, command, values):
         action = values['action']
@@ -66,7 +73,7 @@ class Server:
             if action == 'start':
                 self.files[code] = dict(attachment_id=code, name=values['name'], size=values['size'], media_type=values['media_type'])
             result = self.files[code]
-        elif action == 'state':
+        elif action in ('state','library'):
             result = dict(hosts=[dict(host_id='host', label='Codex', capabilities=dict(changes=True, trials=False, steering=True, web_search=True, models=[dict(id='fixture',label='Fixture model', is_default=True, efforts=['low', 'high'])]))],
                 requests=[dict(request_id=key, prompt=row['document']['prompt'], title=row['document']['prompt'] or 'Attachments',
                     activity=1000,search_type='cg/shot',type_title='Shots',pinned=False,group='',archived=False,status=row['status']) for key, row in self.requests.items()],
@@ -89,6 +96,8 @@ class Server:
             result['status'] = 'cancelled'
         else:
             result = self.requests[values['request_id']]
+        if action=='library':
+            result.pop('hosts',None)
         return dict(status='OK', info=deepcopy(result))
 
 
@@ -98,14 +107,20 @@ class AgentRequestTransport(unittest.TestCase):
         context=dict(project='other',client='TH',search_type='cg/shot')
         row=dict(request_id='new-draft',document=dict(context=context),messages=[],status='draft')
         class CapturedServer:
+            project='old'
+            def get_project(self):return self.project
+            def set_project(self,project):self.project=project
             def execute_cmd(self, command, values):
+                if self.project!=values['project_code']:raise AssertionError('Captured ticket project was not switched')
                 calls.append(values)
-                return dict(status='OK',info=dict(hosts=[],requests=[],groups=[]) if values['action']=='state' else row)
-        result=AgentRequestController._load(CapturedServer(),'old','library','old-chat',None,1,
+                return dict(status='OK',info=dict(hosts=[],requests=[],groups=[]) if values['action'] in ('state','library') else row)
+        server=CapturedServer()
+        result=AgentRequestController._load(server,'old','library','old-chat',None,1,
             library_operation=dict(action='draft',values=dict(request_id='new-draft',context=context)))
         self.assertNotIn('error',result)
         self.assertEqual(result['selected'],'new-draft')
         self.assertTrue(all(call['project_code']=='other' for call in calls))
+        self.assertEqual(server.get_project(),'old')
 
 
 class AgentRequestUI(unittest.TestCase):

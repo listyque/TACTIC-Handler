@@ -1,5 +1,9 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Conversation project': 'Проект бесед',
+    'All projects': 'Все проекты',
+    'Some project histories are unavailable':
+        'История некоторых проектов недоступна',
     'Reading tasks': 'Чтение задач',
     'Updating task statuses': 'Изменение статусов задач',
     'Conversation view': 'Вид бесед',

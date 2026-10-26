@@ -30,6 +30,9 @@ export function initial(context = {}) {
         history: History.initial(),
         groups: [],
         groups_revision: '',
+        group_revisions: {},
+        projects: [],
+        unavailable_projects: [],
         total: 0,
         next_offset: null,
         drafts: {}
@@ -315,8 +318,11 @@ function describeChat(model, width, height, language, sidebarVisible) {
         sendVisible =
             !working || !!model.prompt.trim() || !!model.attachments.length;
     const conversation =
-        model.requests.find((row) => row.request_id === model.selected) ||
-        current.library_summary;
+        model.requests.find(
+            (row) =>
+                row.request_id === model.selected &&
+                (!row.project || row.project === model.context.project)
+        ) || current.library_summary;
     const nodes = [
         button(
             'agentRequestHistoryToggle',

@@ -9,6 +9,7 @@ export function initial() {
         mobile: false,
         width: 280,
         query: '',
+        project: '',
         searchOpen: false,
         grouping: 'time',
         archived: false,
@@ -36,6 +37,11 @@ export function layout(model, width) {
 }
 export function change(model, action, small = false) {
     const history = model.history;
+    if (action.type === 'historyProject')
+        return Object.assign({}, history, {
+            project: action.value,
+            edit: null
+        });
     if (action.type === 'historyOptions')
         return Object.assign({}, history, { edit: { kind: 'options' } });
     if (action.type === 'historySearch')
@@ -78,8 +84,13 @@ export function change(model, action, small = false) {
             edit: Object.assign({}, history.edit, { confirm: true })
         });
     if (action.type === 'historyGroupEdit') {
+        const project =
+            action.value?.project || history.project || model.context.project;
+        const identity =
+            typeof action.value === 'object' ? action.value.id : action.value;
         const group = (model.groups || []).find(
-            (item) => item.id === action.value
+            (item) =>
+                item.id === identity && (item.project || project) === project
         );
         return Object.assign({}, history, {
             visible: true,
@@ -88,16 +99,14 @@ export function change(model, action, small = false) {
                 kind: 'group',
                 id: group?.id || '',
                 name: group?.name || '',
-                revision: model.groups_revision
+                project,
+                revision:
+                    model.group_revisions?.[project] || model.groups_revision
             }
         });
     }
     if (action.type === 'historyEdit' && action.value) {
-        const row =
-            model.requests.find((item) => item.request_id === action.value) ||
-            (model.request?.request_id === action.value
-                ? model.request.library_summary
-                : null);
+        const row = selection(model, action.value);
         if (!row) return null;
         return Object.assign({}, history, {
             visible: true,
@@ -105,6 +114,7 @@ export function change(model, action, small = false) {
             edit: {
                 kind: 'chat',
                 id: row.request_id,
+                project: row.project || model.context.project,
                 title: row.default_title ? '' : row.title,
                 group: row.group || '',
                 pinned: !!row.pinned,
@@ -127,6 +137,44 @@ export function change(model, action, small = false) {
             })
         });
     return null;
+}
+export function key(row, project = '') {
+    return row.key || (row.project || project) + ':' + row.request_id;
+}
+export function selection(model, value) {
+    const identity = typeof value === 'object' ? value.request_id : value;
+    const project = typeof value === 'object' ? value.project : null;
+    const candidates = model.requests
+        .concat(
+            model.request?.library_summary
+                ? [model.request.library_summary]
+                : []
+        )
+        .filter(
+            (row) =>
+                row.request_id === identity &&
+                (!project || row.project === project)
+        );
+    return (
+        candidates.find(
+            (row) =>
+                (row.project || model.context.project) ===
+                (project || model.context.project)
+        ) || candidates[0]
+    );
+}
+export function projectContext(context, project) {
+    return context.project === project
+        ? context
+        : {
+              client: context.client,
+              project,
+              page: '',
+              title: '',
+              search_type: '',
+              view: '',
+              search_keys: []
+          };
 }
 export function draft(model) {
     return {
@@ -154,20 +202,23 @@ export function restored(value) {
     );
 }
 export function merge(previous, current) {
-    const records = new Map(previous.map((row) => [row.request_id, row]));
-    for (const row of current) records.set(row.request_id, row);
+    const records = new Map(previous.map((row) => [key(row), row]));
+    for (const row of current) records.set(key(row), row);
     return Array.from(records.values());
 }
 export function rows(model, language, now = Date.now()) {
     const tr = (text) => translate(text, language),
         history = model.history;
     const folders = new Map(
-        (model.groups || []).map((group) => [group.id, group.name])
+        (model.groups || []).map((group) => [
+            (group.project || model.context.project) + ':' + group.id,
+            group
+        ])
     );
     const groups = new Map();
-    function add(key, title, row, folder = '') {
+    function add(key, title, row, folder = '', project = '') {
         if (!groups.has(key))
-            groups.set(key, { key, title, folder, records: [] });
+            groups.set(key, { key, title, folder, project, records: [] });
         if (row) groups.get(key).records.push(row);
     }
     const midnight = new Date(now);
@@ -186,7 +237,23 @@ export function rows(model, language, now = Date.now()) {
         add('pinned', tr('Pinned conversations'), row);
     if (history.grouping === 'group')
         for (const group of model.groups || [])
-            add('folder:' + group.id, group.name, null, group.id);
+            if (
+                !history.project ||
+                !group.project ||
+                group.project === history.project
+            )
+                add(
+                    'folder:' +
+                        (group.project || model.context.project) +
+                        ':' +
+                        group.id,
+                    !history.project && group.project_title
+                        ? group.project_title + ' · ' + group.name
+                        : group.name,
+                    null,
+                    group.id,
+                    group.project || model.context.project
+                );
     for (const row of sorted.filter((row) => !topPinned(row))) {
         if (history.grouping === 'type') {
             add(
@@ -196,10 +263,16 @@ export function rows(model, language, now = Date.now()) {
             );
         } else if (history.grouping === 'group') {
             add(
-                'folder:' + (row.group || ''),
-                folders.get(row.group) || tr('Ungrouped'),
+                'folder:' +
+                    (row.project || model.context.project) +
+                    ':' +
+                    (row.group || ''),
+                folders.get(
+                    (row.project || model.context.project) + ':' + row.group
+                )?.name || tr('Ungrouped'),
                 row,
-                row.group || ''
+                row.group || '',
+                row.project || model.context.project
             );
         } else {
             const date = new Date((row.activity || 0) * 1000);
@@ -232,7 +305,7 @@ export function rows(model, language, now = Date.now()) {
             for (const record of group.records)
                 result.push(
                     Object.assign({}, record, {
-                        key: record.request_id,
+                        key: key(record, model.context.project),
                         kind: 'chat'
                     })
                 );
@@ -281,7 +354,10 @@ export function row(model, record, width, language) {
                     rect(width - 36, 2, 28, 28),
                     tr('Edit conversation folder'),
                     'more-horiz',
-                    { type: 'historyGroupEdit', value: record.folder },
+                    {
+                        type: 'historyGroupEdit',
+                        value: { id: record.folder, project: record.project }
+                    },
                     idle,
                     {
                         iconOnly: true,
@@ -293,27 +369,47 @@ export function row(model, record, width, language) {
     }
     const working = ['queued', 'running', 'cancelling'].includes(record.status);
     const title = record.default_title ? tr(record.title) : record.title;
+    const allProjects = !model.history.project;
+    const value = {
+        request_id: record.request_id,
+        project: record.project || model.context.project
+    };
+    const item = listAction(
+        'agentHistoryOpen_' + key(record, model.context.project),
+        rect(8, 0, width - 16, allProjects ? 40 : 32),
+        title,
+        working ? 'sync' : '',
+        { type: 'select', value },
+        idle,
+        {
+            selected:
+                model.selected === record.request_id &&
+                value.project === model.context.project,
+            toolTip: title,
+            endInset: 28
+        }
+    );
+    if (allProjects) {
+        const text = item.children.find((child) => child.kind === 'Label');
+        text.height = 20;
+        item.children.push(
+            label(
+                'agentHistoryProject_' + key(record, model.context.project),
+                rect(12, 20, width - 68, 18),
+                record.project_title || record.project || model.context.project,
+                { fontRole: 'caption', color: 'secondaryText' }
+            )
+        );
+    }
     return {
         nodes: [
+            item,
             listAction(
-                'agentHistoryOpen_' + record.request_id,
-                rect(8, 0, width - 16, 32),
-                title,
-                working ? 'sync' : '',
-                { type: 'select', value: record.request_id },
-                idle,
-                {
-                    selected: model.selected === record.request_id,
-                    toolTip: title,
-                    endInset: 28
-                }
-            ),
-            listAction(
-                'agentHistoryEdit_' + record.request_id,
-                rect(width - 36, 2, 28, 28),
+                'agentHistoryEdit_' + key(record, model.context.project),
+                rect(width - 36, allProjects ? 6 : 2, 28, 28),
                 tr('Conversation settings'),
                 'more-horiz',
-                { type: 'historyEdit', value: record.request_id },
+                { type: 'historyEdit', value },
                 idle,
                 {
                     iconOnly: true,
@@ -442,11 +538,17 @@ export function describe(model, width, height, language, small) {
                           options: [
                               { value: '', label: tr('Ungrouped') }
                           ].concat(
-                              (model.groups || []).map((group) => ({
-                                  value: group.id,
-                                  label: group.name,
-                                  dataLabel: true
-                              }))
+                              (model.groups || [])
+                                  .filter(
+                                      (group) =>
+                                          !group.project ||
+                                          group.project === edit.project
+                                  )
+                                  .map((group) => ({
+                                      value: group.id,
+                                      label: group.name,
+                                      dataLabel: true
+                                  }))
                           )
                       },
                       {
@@ -534,7 +636,8 @@ export function describe(model, width, height, language, small) {
         return { nodes };
     }
     const searching = model.history.searchOpen || !!model.history.query;
-    const listTop = searching ? 132 : 88;
+    const warning = (model.unavailable_projects || []).length ? 36 : 0;
+    const listTop = (searching ? 176 : 132) + warning;
     const footer = model.next_offset == null ? 0 : 40;
     nodes.push(
         listAction(
@@ -563,6 +666,20 @@ export function describe(model, width, height, language, small) {
             { type: 'historyNew' },
             idle
         ),
+        node('Choice', 'agentHistoryProject', rect(12, 88, width - 24, 32), {
+            label: tr('Conversation project'),
+            value: model.history.project || '',
+            enabled: idle,
+            options: [{ value: '', label: tr('All projects') }].concat(
+                (model.projects || []).map((project) => ({
+                    value: project.code,
+                    label: project.title,
+                    dataLabel: true,
+                    enabled: project.available !== false
+                }))
+            ),
+            action: { type: 'historyProject' }
+        }),
         node(
             'List',
             'agentHistoryList',
@@ -574,7 +691,7 @@ export function describe(model, width, height, language, small) {
             ),
             {
                 source: 'agentHistoryRows',
-                rowHeight: 36,
+                rowHeight: model.history.project ? 36 : 44,
                 keyField: 'key',
                 fields: [
                     'key',
@@ -584,7 +701,9 @@ export function describe(model, width, height, language, small) {
                     'folder',
                     'request_id',
                     'status',
-                    'pinned'
+                    'pinned',
+                    'project',
+                    'project_title'
                 ],
                 role: 'list',
                 label: tr('Conversations')
@@ -593,13 +712,25 @@ export function describe(model, width, height, language, small) {
     );
     if (searching)
         nodes.push(
-            node('Field', 'agentHistorySearch', rect(12, 88, width - 24, 32), {
+            node('Field', 'agentHistorySearch', rect(12, 132, width - 24, 32), {
                 label: tr('Search conversations'),
                 placeholder: tr('Search conversations'),
                 text: model.history.query,
                 maxLength: 200,
                 action: { type: 'historyQuery' }
             })
+        );
+    if (warning)
+        nodes.push(
+            label(
+                'agentHistoryUnavailable',
+                rect(12, listTop - warning, width - 24, 32),
+                tr('Some project histories are unavailable'),
+                Object.assign({}, muted, {
+                    wrap: true,
+                    toolTip: model.unavailable_projects.join(', ')
+                })
+            )
         );
     if (footer)
         nodes.push(
