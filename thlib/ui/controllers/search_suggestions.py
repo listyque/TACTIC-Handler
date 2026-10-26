@@ -348,6 +348,8 @@ class SearchSuggestionsMixin:
             tab_kind="preset-link",
             navigation_target=view,
             table_view=spec.get('table_view') or 'table',
+            layout_view=spec.get('layout_view') or '',
+            layout_target=spec.get('layout_target') or '',
             limit=self._page_size,
             view_mode=(
                 spec.get('view_mode') or (existing.view_mode

@@ -267,8 +267,6 @@ class CommandsMixin:
                 entry.accent,
             )
             self.activate_section(key)
-            if entry.layout_view:
-                self._table_services.customLayout.open_view(entry.layout_view, title, key)
             return
         elif command.startswith("show_"):
             self._notify(f"Opened section: {title}")

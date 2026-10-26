@@ -52,6 +52,8 @@ class SearchTabSession:
     card_path: list[str] = field(default_factory=list)
     view_mode: str = "continious"
     table_view: str = "table"
+    layout_view: str = ""
+    layout_target: str = ""
     sort_mode: str = "name_asc"
     group_mode: str = "none"
     task_group_process: str = ""

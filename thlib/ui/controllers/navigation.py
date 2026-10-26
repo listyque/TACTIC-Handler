@@ -200,6 +200,8 @@ class NavigationMixin:
                         "tile_content_y_valid": tab.tile_content_y_valid,
                         "view_mode": tab.view_mode,
                         "table_view": tab.table_view,
+                        "layout_view": tab.layout_view,
+                        "layout_target": tab.layout_target,
                         "sort_mode": tab.sort_mode,
                         "group_mode": tab.group_mode,
                         "task_group_process": tab.task_group_process,
@@ -342,6 +344,8 @@ class NavigationMixin:
                     } else self._default_view_mode
                 ),
                 table_view=str(record.get("table_view") or "table"),
+                layout_view=str(record.get("layout_view") or ""),
+                layout_target=str(record.get("layout_target") or ""),
                 sort_mode=(
                     str(record.get("sort_mode") or "name_asc")
                     if is_result_sort_mode(
@@ -418,6 +422,7 @@ class NavigationMixin:
             records=filter_records,
             ensure_name_row=True,
             table_view=entry.table_view if entry else 'table',
+            layout_view=entry.layout_view if entry else '',
         )
         section = SectionSession(
             entry_key=key,
@@ -1233,6 +1238,20 @@ class NavigationMixin:
         apply_switch()
 
     def _show_or_load_tab(self, tab: SearchTabSession) -> None:
+        services = getattr(self, '_table_services', None)
+        page = getattr(services, 'workspaceLayout', None)
+        if page is not None:
+            entry = self.navigation_model.entry(self._current_section_key)
+            if entry and entry.layout_view and tab.tab_kind == 'base':
+                tab.layout_view = entry.layout_view
+        if getattr(tab, 'layout_view', '') and page is not None:
+            self._set_loading(False)
+            page.open_view(tab.layout_view, tab.title, tab.tab_id, search_key=tab.layout_target)
+            tab.loaded = True
+            self.results_view_changed.emit()
+            return
+        if page is not None:
+            page.leave_workspace()
         self._card_path = list(tab.card_path)
         self._pending_card_focus_id = ""
         self.workspace_model.set_process_ignore(tab.process_ignore)

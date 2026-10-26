@@ -119,6 +119,29 @@ export function describe(
                         left += part + gap;
                     }
                 } else extent = draw(item.children, x, top, available, id);
+            } else if (item.kind === 'metric') {
+                extent = 104;
+                children.push(
+                    node('Box', id, rect(x, top, available, extent), {
+                        background: 'panel',
+                        border: 'outlineVariant',
+                        radiusRole: 'surfaceRadius',
+                        children: [
+                            label(
+                                id + '_label',
+                                rect(16, 12, Math.max(0, available - 32), 36),
+                                text,
+                                { color: 'secondaryText', wrap: true }
+                            ),
+                            label(
+                                id + '_value',
+                                rect(16, 52, Math.max(0, available - 32), 40),
+                                String(item.value ?? 0),
+                                { fontRole: 'hero', weight: 600 }
+                            )
+                        ]
+                    })
+                );
             } else if (item.kind === 'text') {
                 extent = text
                     ? Math.max(
@@ -136,7 +159,9 @@ export function describe(
                         })
                     );
             } else if (item.kind === 'markdown') {
-                extent = Math.max(240, Math.min(560, tableHeight));
+                extent = Number.isFinite(item.height)
+                    ? item.height
+                    : Math.max(240, Math.min(560, tableHeight));
                 children.push(
                     node('View', id, rect(x, top, available, extent), {
                         view: 'layoutMarkdown',
@@ -161,11 +186,13 @@ export function describe(
                     })
                 );
             } else if (item.kind === 'table') {
-                const tableExtent = Math.max(
-                    tableHeight,
-                    quickLayout(cell.layoutTables?.[id] || {}, available)
-                        .height + 260
-                );
+                const tableExtent = Number.isFinite(item.height)
+                    ? item.height
+                    : Math.max(
+                          tableHeight,
+                          quickLayout(cell.layoutTables?.[id] || {}, available)
+                              .height + 260
+                      );
                 extent = tableExtent + 32;
                 children.push(
                     label(id + '_title', rect(x, top, available, 28), text)

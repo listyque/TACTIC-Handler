@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.179 - 2026-10-26
+
+- Open configured dashboard/navigation layouts as native workspace pages instead of document windows. Reuse the shared responsive layout, metric cards and embedded table controls; retain per-tab filters and ordinary object layout windows.
+
 ## 0.6.0.178 - 2026-10-26
 
 - Expose native task preparation and batch creation/editing to the external agent through the shared server tools. Use actual inspector fields/status workflows, revision checks, retry protection and native transactional rollback; show task operation progress in chat.

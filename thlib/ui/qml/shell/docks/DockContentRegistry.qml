@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Window
 import QtQml.Models
 import "../../controls" as Controls
+import "../../features/table" as Table
 
 Item {
     id: root
@@ -32,10 +33,27 @@ Item {
 
     Component {
         id: resultsContent
-        SearchWorkspaceView {
-            theme: root.theme
-            pageTitle: root.pageTitle
-            onRequestDockMenu: sourceItem => root.requestDockMenu(sourceItem)
+        Loader {
+            sourceComponent: tableServicesController.workspaceLayout.active ? workspacePage : searchPage
+            Component {
+                id: searchPage
+                SearchWorkspaceView {
+                    theme: root.theme
+                    pageTitle: root.pageTitle
+                    onRequestDockMenu: sourceItem => root.requestDockMenu(sourceItem)
+                }
+            }
+            Component {
+                id: workspacePage
+                Table.WorkspacePage {
+                    theme: root.theme
+                    services: tableServicesController
+                    controller: appController
+                    columnsController: columnsEditorController
+                    users: userListModel
+                    administration: administrationController
+                }
+            }
         }
     }
 

@@ -87,7 +87,7 @@ class AgentRequestController(QObject):
         shelf = app.script_shelf_context()
         return dict(client='TH', project=app.current_project_code or '', page=section.entry_key if section else '',
                     title=section.title if section else '', search_type=section.search_type if section else '',
-                    view=tab.table_view if tab else '', search_keys=shelf.get('search_keys', []))
+                    view=(getattr(tab,'layout_view','') or tab.table_view) if tab else '', search_keys=shelf.get('search_keys', []))
 
     @Slot(str)
     def open_for_item(self, node_id):

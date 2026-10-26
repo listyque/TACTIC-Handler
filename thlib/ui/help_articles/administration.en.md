@@ -547,6 +547,11 @@ links and responsive rows/columns, and group/reorder existing navigation entries
 hide duplicates, or set icons and colors. Saved dashboards run in both clients.
 Ordinary legacy HTML/JavaScript pages still have separate compatibility limits.
 
+Open a dashboard from project navigation or its configured URL: it occupies the
+workspace as a page, without the general search/results shell or a popup. Each
+table widget keeps its own filters and actions. Refresh updates the page and
+counts. Object-specific custom layouts still open as document windows.
+
 Open **External agent → Agent permissions → MCP connections**. Choose a connection
 name, instructions, allowed tools and lifetime. Access remains limited to this
 project; existing connections can be revoked. Enable **Server configuration →

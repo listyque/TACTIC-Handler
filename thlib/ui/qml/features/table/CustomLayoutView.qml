@@ -11,8 +11,8 @@ Frame.FrameView {
     required property var columnsController
     required property var users
     required property var administration
-    readonly property var document: services.document
-    readonly property var owner: services.customLayout
+    property var owner: services.customLayout
+    readonly property var document: owner.document
     scene: Layout.describe(Object.assign({}, document, {
         layoutTables: owner.tableModels || {}
     }), width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language, true, controller.server_url || "")

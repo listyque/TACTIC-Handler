@@ -193,6 +193,8 @@ def create_search_tab(
     navigation_target: str = "",
     quick_filter_personalized: bool | None = None,
     table_view: str = "table",
+    layout_view: str = "",
+    layout_target: str = "",
 ) -> SearchTabSession:
     """Create one runtime tab from any search source."""
     filter_records = normalize_records(records)
@@ -212,6 +214,8 @@ def create_search_tab(
         limit=limit,
         view_mode=view_mode,
         table_view=table_view,
+        layout_view=layout_view,
+        layout_target=layout_target,
         quick_filter_personalized=(
             tab_kind not in STANDARD_QUICK_FILTER_TAB_KINDS
             if quick_filter_personalized is None

@@ -101,6 +101,7 @@ class TableServicesController(QObject):
         self._nested_revision = 0
         from .custom_layout import CustomLayoutController
         self._layout = CustomLayoutController(self)
+        self._workspace_layout = CustomLayoutController(self, workspace=True)
         from .file_append import SnapshotAppendController
         self._append = SnapshotAppendController(application, self)
         self._append.changed.connect(self.stateChanged)
@@ -127,6 +128,10 @@ class TableServicesController(QObject):
     @Property(QObject, constant=True)
     def customLayout(self):
         return self._layout
+
+    @Property(QObject, constant=True)
+    def workspaceLayout(self):
+        return self._workspace_layout
 
     @Property(QObject, constant=True)
     def dependencyViewer(self):
@@ -216,6 +221,11 @@ class TableServicesController(QObject):
 
     def _prune_nested(self):
         tabs = {id(tab) for section in self._application._sessions.values() for tab in section.tabs}
+        for key, page in tuple(self._workspace_layout.pages.items()):
+            if id(page['tab']) not in tabs:
+                self._workspace_layout.drop_page(key)
+        if not self._workspace_layout.pages and id(self._workspace_layout.tab) not in tabs:
+            self._workspace_layout.close()
         if self._document.get('layoutNodes') is not None and (
                 id(self._layout.tab) not in tabs or self._layout.tab is not self._application._current_tab()):
             self._layout.close()
@@ -249,7 +259,9 @@ class TableServicesController(QObject):
         while scope is not None:
             if id(scope) in seen or not scope.open or scope.tab is not self._application._current_tab():
                 return False
-            if getattr(scope, 'document_generation', self._document_generation) != self._document_generation:
+            layout_owner = getattr(scope, 'layout_owner', None)
+            generation = layout_owner.document_generation if layout_owner else self._document_generation
+            if getattr(scope, 'document_generation', generation) != generation:
                 return False
             seen.add(id(scope))
             owner = self._owner_scope(scope.owner_node_id)
@@ -871,6 +883,7 @@ class TableServicesController(QObject):
     @Slot()
     def shutdown(self):
         self._layout.close()
+        self._workspace_layout.close()
         self._connection_removal = None
         self.connectionRemovalClosed.emit()
         self._append.shutdown()

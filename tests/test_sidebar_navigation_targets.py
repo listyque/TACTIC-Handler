@@ -114,9 +114,14 @@ class SidebarNavigationTargetTests(unittest.TestCase):
         self.assertEqual(len(entries),1)
         self.assertEqual((entries[0].search_type,entries[0].layout_view,entries[0].table_view),('config/naming','planner_layout','table'))
         self.controller.navigation_model.replace(entries)
-        self.controller._table_services=SimpleNamespace(customLayout=Mock())
+        self.controller._table_services=SimpleNamespace(customLayout=Mock(),workspaceLayout=Mock())
         self.controller.select_navigation(entries[0].key,entries[0].title,entries[0].command)
-        self.controller._table_services.customLayout.open_view.assert_called_once_with('planner_layout','Planner',entries[0].key)
+        tab=self.controller._current_tab()
+        self.assertEqual(tab.layout_view,'planner_layout')
+        from thlib.ui.controllers.navigation import NavigationMixin
+        NavigationMixin._show_or_load_tab(self.controller,tab)
+        self.controller._table_services.workspaceLayout.open_view.assert_called_once_with('planner_layout','Planner',tab.tab_id,search_key='')
+        self.controller._table_services.customLayout.open_view.assert_not_called()
 
     def test_configured_empty_handler_sidebar_does_not_show_web_sidebar(self):
         project = sidebar_project()
