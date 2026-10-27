@@ -14,6 +14,7 @@ class CustomLayoutController(QObject):
         self.tab = None
         self.context = {}
         self.generation = 0
+        self._detail_generation = 0
         self.pages = {}
         self.current = ''
         self.workspace = workspace
@@ -23,6 +24,7 @@ class CustomLayoutController(QObject):
         self._view = self._title = self._target = ''
         if workspace:
             services._application.results_view_changed.connect(self.changed)
+            services._application.selected_node_changed.connect(self.select_detail)
         else:
             services.documentChanged.connect(self.changed)
 
@@ -92,6 +94,7 @@ class CustomLayoutController(QObject):
 
     def close(self):
         self.generation += 1
+        self._detail_generation += 1
         if self.runner:
             self.runner.cancel()
             self.runner = None
@@ -111,8 +114,6 @@ class CustomLayoutController(QObject):
             self.leave_workspace()
 
     def open(self, tab, context, tab_key=''):
-        from .nested import NestedTableController
-
         if not tab_key or (not self.workspace and self.tab is not None and self.tab is not tab):
             self.close()
         elif tab_key in self.pages:
@@ -131,7 +132,28 @@ class CustomLayoutController(QObject):
             controls=document.get('layoutControls') or [],
         )
 
-        def tables(items, prefix='customLayout'):
+        self._open_tables(document.get('layoutNodes') or [])
+        if tab_key:
+            self.pages[tab_key] = dict(
+                document=document, scopes=self.scopes, context=self.context, tab=tab
+            )
+        self._tabs()
+        self.changed.emit()
+        source = '\n'.join(
+            item['javascript'] for item in document.get('layoutLoad') or []
+        )
+        generation = self.generation
+        if source:
+            QTimer.singleShot(
+                0, lambda: self.run(source) if generation == self.generation else None
+            )
+
+    def _open_tables(self, items, prefix='customLayout'):
+        from .nested import NestedTableController
+        document, services = self.document_data, self.services
+        tab_key = self.current
+
+        def tables(items, prefix):
             for index, item in enumerate(items):
                 key = prefix + '_' + str(index)
                 if item['kind'] == 'table':
@@ -149,21 +171,53 @@ class CustomLayoutController(QObject):
                 else:
                     tables(item.get('children') or [], key)
 
-        tables(document.get('layoutNodes') or [])
-        if tab_key:
-            self.pages[tab_key] = dict(
-                document=document, scopes=self.scopes, context=self.context, tab=tab
-            )
-        self._tabs()
-        self.changed.emit()
-        source = '\n'.join(
-            item['javascript'] for item in document.get('layoutLoad') or []
-        )
-        generation = self.generation
-        if source:
-            QTimer.singleShot(
-                0, lambda: self.run(source) if generation == self.generation else None
-            )
+        tables(items, prefix)
+
+    def select_detail(self):
+        from thlib import tactic_classes as tc
+        app, document = self.services._application, self.document_data
+        def has_details(nodes):
+            return any(item['kind'] == 'details' or has_details(item.get('children') or []) for item in nodes)
+        if not self.active or not document.get('layoutItems') or not has_details(document.get('layoutNodes') or []):
+            return
+        node = app.workspace_model.node_for(app.selected_node_id)
+        if node is not None and node.node_type in ('process','relation'):
+            return
+        key = node.search_key if node is not None else ''
+        if key and document.get('layoutDetail',{}).get('targetSearchKey') == key:
+            return
+        self._detail_generation += 1
+        request, generation = self._detail_generation, self.document_generation
+        for name in tuple(self.scopes):
+            if not name.startswith('customLayoutDetails_'):
+                continue
+            scope = self.scopes.pop(name)
+            self.services._nested_scopes.pop('workspace:' + self.current + ':' + name,None)
+            scope.shutdown()
+            scope.deleteLater()
+        document['layoutDetail'] = dict(busy=bool(key),targetSearchKey=key)
+        self.notify_document()
+        if not key:
+            return
+        try:
+            server = tc.server_start(project=self.context['project'])
+        except PermissionError as error:
+            document['layoutDetail'] = dict(error=str(error))
+            self.notify_document()
+            return
+        def current():
+            return request == self._detail_generation and generation == self.document_generation and self.active
+        def loaded(result):
+            if current():
+                document['layoutDetail'] = result['info']
+                self._open_tables(result['info']['layoutNodes'], 'customLayoutDetails')
+                self.notify_document()
+        def settled():
+            if current() and document.get('layoutDetail',{}).get('busy'):
+                document['layoutDetail'] = dict(error=self.services.error)
+                self.notify_document()
+        self.services._run(lambda:server.execute_cmd('tactic.ui.table.CustomLayoutReadCmd',dict(
+            view=document['layoutView'],search_key=document['targetSearchKey'],detail_key=key)),loaded,settled=settled)
 
     def _tabs(self):
         self.document_data['layoutTabs'] = [] if self.workspace else [

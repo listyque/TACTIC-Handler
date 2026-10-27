@@ -1,5 +1,7 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Select an item': 'Выберите элемент слева',
+    'Loading...': 'Загрузка…',
     'Search in this branch': 'Поиск в этой ветке',
     'Found: {count}': 'Найдено: {count}',
     'No results found': 'Ничего не найдено',

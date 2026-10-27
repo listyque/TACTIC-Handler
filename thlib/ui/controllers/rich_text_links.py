@@ -24,6 +24,10 @@ class RichTextLinksMixin:
         value = str(value or "").strip()
         if not value:
             return
+        if value.startswith('/') and not value.startswith('//') and not any(char.isspace() or ord(char) < 32 or char == '\\' for char in value):
+            from thlib.environment import env_server
+            from ..server_address import normalize_tactic_server_url
+            value = normalize_tactic_server_url(env_server.get_server()).rstrip('/') + value
         knowledge = getattr(self, "_rich_text_knowledge", None)
         if value.startswith("skey://"):
             if knowledge is not None and knowledge.is_knowledge_key(value):

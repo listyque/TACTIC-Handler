@@ -1,14 +1,38 @@
 {
   "WorkspaceResultItem": {
-    "sobject": {"qobjects": 155, "quickItems": 70},
-    "snapshot": {"qobjects": 138, "quickItems": 63},
-    "file": {"qobjects": 88, "quickItems": 38},
-    "relation": {"qobjects": 87, "quickItems": 35}
+    "sobject": {
+      "qobjects": 159,
+      "quickItems": 71
+    },
+    "snapshot": {
+      "qobjects": 142,
+      "quickItems": 64
+    },
+    "file": {
+      "qobjects": 92,
+      "quickItems": 39
+    },
+    "relation": {
+      "qobjects": 91,
+      "quickItems": 36
+    }
   },
   "WorkspaceCard": {
-    "sobject": {"qobjects": 142, "quickItems": 73},
-    "snapshot": {"qobjects": 119, "quickItems": 58},
-    "file": {"qobjects": 116, "quickItems": 57},
-    "relation": {"qobjects": 106, "quickItems": 51}
+    "sobject": {
+      "qobjects": 146,
+      "quickItems": 74
+    },
+    "snapshot": {
+      "qobjects": 123,
+      "quickItems": 59
+    },
+    "file": {
+      "qobjects": 120,
+      "quickItems": 58
+    },
+    "relation": {
+      "qobjects": 110,
+      "quickItems": 52
+    }
   }
 }

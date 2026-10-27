@@ -179,6 +179,7 @@ Item {
             id: wrapper
             required property var definition
             readonly property var node: definition
+            z: node.layer || 0
             readonly property var frameRecordKey: node.recordKey
             readonly property var control: loader.item
             function duration(property): int {

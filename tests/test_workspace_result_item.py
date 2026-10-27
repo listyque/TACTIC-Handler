@@ -1181,6 +1181,59 @@ class WorkspaceResultItemTests(unittest.TestCase):
         self.assertNotIn("Qt5Compat.GraphicalEffects", surface)
         self.assertNotIn("DropShadow", surface)
 
+    def test_configured_card_uses_record_type_bindings_and_native_actions(self):
+        qml_dir = ROOT / 'thlib/ui/qml'
+        engine = QQmlEngine()
+        controller = _WorkspaceAppController()
+        engine.rootContext().setContextProperty('appController', controller)
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
+        theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / 'Theme.qml')))
+        theme = theme_component.createWithInitialProperties({'dark': True})
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / 'WorkspaceResultItem.qml')))
+        layout = dict(flow='grid', collection='tree', columns=12, elements=[
+            dict(name='project', kind='title', search_type='demo/project', parent='', variant='all',
+                 options={'bind':'record.name'}, row=1, column=1, span=12, rows=1, height=32),
+            dict(name='task', kind='title', search_type='demo/task', parent='', variant='all',
+                 options={'bind':'record.name'}, row=1, column=1, span=12, rows=1, height=32),
+            dict(name='notes', kind='button', parent='', variant='all', options={'text':'Notes','action':'notes'},
+                 row=2, column=1, span=4, rows=1, height=32)])
+        item = component.createWithInitialProperties(self.item_properties(theme, nodeType='sobject',
+            searchKey='demo/project?code=P1', configuredLayout=layout, configuredRecord={'name':'Project Alpha'},
+            controller=controller, depth=0, previewRequested=True, width=640))
+        self.assertIsNotNone(item, str(component.errors()))
+        window = QQuickWindow()
+        window.resize(640, 240)
+        item.setParentItem(window.contentItem())
+        window.show()
+        try:
+            self.app.processEvents()
+            self.assertEqual(_visual_child(item, 'itemComposition_projectText').property('text'), 'Project Alpha')
+            self.assertIsNone(_visual_child(item, 'itemComposition_taskText'))
+            self.assertLess(item.height(), 110)
+            button = _visual_child(item, 'itemComposition_notesButton')
+            self.assertIsNotNone(button)
+            from PySide6.QtTest import QTest
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                            button.mapToScene(QPointF(button.width()/2, button.height()/2)).toPoint())
+            self.assertEqual(controller.item_actions, [('notes', 'relation:asset')])
+            item.setProperty('searchKey', 'demo/task?code=T1')
+            item.setProperty('configuredRecord', {'name':'Task Alpha'})
+            item.setProperty('depth', 2)
+            self.app.processEvents()
+            self.assertEqual(_visual_child(item, 'itemComposition_taskText').property('text'), 'Task Alpha')
+            self.assertIsNone(_visual_child(item, 'itemComposition_projectText'))
+            item.setProperty('layoutEditing', True)
+            item.setProperty('presentationReadOnly', True)
+            self.app.processEvents()
+            button = _visual_child(item, 'itemComposition_notesButton')
+            self.assertFalse(button.isEnabled())
+            self.assertEqual(warnings, [])
+        finally:
+            window.close()
+            item.deleteLater()
+            theme.deleteLater()
+
     def test_idle_workspace_delegates_stay_inside_render_object_budget(self):
         qml_dir = ROOT / "thlib" / "ui" / "qml"
         engine = QQmlEngine()

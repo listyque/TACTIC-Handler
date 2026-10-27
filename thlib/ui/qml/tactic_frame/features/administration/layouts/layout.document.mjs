@@ -115,6 +115,7 @@ export function describe(tree, view) {
                 options,
                 parent: get(item, 'parent'),
                 variant: get(item, 'variant') || 'all',
+                search_type: get(item, 'search_type'),
                 role: get(item, 'role'),
                 tag: get(item, 'tag') || 'div',
                 flow: get(item, 'flow') || 'grid',

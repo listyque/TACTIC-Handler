@@ -87,6 +87,7 @@ class SearchRuntimeMixin:
         sort_mode: str = "name_asc",
         bypass_cache: bool = False,
         details_search_key: str = "",
+        item_view: str = "",
     ):
         import thlib.tactic_classes as tc
         from thlib import server_cache
@@ -176,6 +177,12 @@ class SearchRuntimeMixin:
             search_type, project_code
         )
         objects = list(sobjects.values())
+        if item_view and item_view != 'table':
+            source = stype.project.get_config_views().get_view(search_type, item_view, processed=False) if stype else ''
+            if 'sobject-layout' in str(source) or item_view in ('continuous_example', 'cards_example', 'table_example'):
+                metadata = tc.server_start(project=project_code).execute_cmd('tactic.ui.table.NestedTableReadCmd',
+                    dict(search_type=search_type, view=item_view, definition_only=True))['info']
+                info['itemLayout'] = metadata['definition']['table'].get('item_layout') or {}
         SearchRuntimeMixin._resolve_category_labels(
             objects, stype, project_code, bypass_cache
         )
@@ -473,6 +480,7 @@ class SearchRuntimeMixin:
             sort_mode=tab.sort_mode,
             bypass_cache=bypass_cache,
             details_search_key=getattr(self, "_selected_detail_key", "") if is_current else "",
+            item_view=tab.table_view if tab.view_mode != 'table' else '',
         )
         if worker is None:
             tab.loading = False
@@ -624,6 +632,7 @@ class SearchRuntimeMixin:
         )
         result_model = self._ensure_tab_workspace_model(tab)
         result_model.set_process_ignore(tab.process_ignore)
+        result_model.set_item_layout(info.get('itemLayout') or {})
         self._configure_result_organization(tab, model=result_model)
         visible_sobjects = self._visible_sobjects(
             tab,

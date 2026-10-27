@@ -1,6 +1,8 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Window
 import "tactic_frame/features/search/card.ui.mjs" as Card
+import "tactic_frame/features/administration/layouts/layout.preview.mjs" as Composition
 import QtQuick.Controls
 import "controls" as Controls
 
@@ -28,8 +30,28 @@ Item {
     property string resultActionMenuNodeId: ""
     property bool processCountMenuVisible: false
     property string processCountMenuNodeId: ""
+    property var configuredLayout: null
+    property var expansionOwner: controller
+    property bool layoutEditing: false
+    property string selectedLayoutElement: ""
+    signal layoutElementSelected(string name)
+    readonly property var itemLayout: configuredLayout || resultModel.itemLayout || null
+    readonly property real screenWidth: root.Window.window ? root.Window.window.width : root.width
+    readonly property real configuredTileHeight: {
+        if (!itemLayout?.elements?.length || itemLayout.flow === "contents")
+            return 0;
+        const samples = resultModel.itemLayoutSamples || [];
+        let height = Composition.maximumHeight(itemLayout, samples, itemLayout.card_width - 24, typeof localizationController === "undefined" ? "en" : localizationController.current_language, root.screenWidth) + 38;
+        for (const sample of samples)
+            if (!Composition.supports(itemLayout, sample, root.screenWidth))
+                height = Math.max(height, Card.tileHeight({
+                    kind: sample.kind,
+                    compact: controller.card_compact_level
+                }) + 14);
+        return height;
+    }
 
-    readonly property string effectiveViewMode: current ? controller.results_view_mode : viewMode
+    readonly property string effectiveViewMode: layoutEditing ? (itemLayout?.collection === "grid" ? "tiles" : "continious") : current ? controller.results_view_mode : viewMode
     readonly property real effectiveSplitterRatio: current ? controller.results_splitter_ratio : splitterRatio
     readonly property real listContentY: tableViewport.visible ? tableViewport.contentY : initialResultPresentation.retainedContentY
     readonly property real tileContentY: initialTilePresentation.retainedContentY
@@ -124,6 +146,8 @@ Item {
         }
 
         function requestMoreFromScroll() {
+            if (root.layoutEditing)
+                return;
             if (!root.current || !atYEnd || controller.card_can_go_back || !controller.has_more || controller.loading_mode !== "infinite")
                 return;
             if (!resultsScrollBar.takePaginationPermit(false))
@@ -153,6 +177,8 @@ Item {
         onContentYChanged: requestMoreFromScroll()
 
         Keys.onPressed: function (event) {
+            if (root.layoutEditing)
+                return;
             if (event.key === Qt.Key_A && (event.modifiers & Qt.ControlModifier)) {
                 controller.select_all_result_siblings();
                 event.accepted = true;
@@ -190,18 +216,25 @@ Item {
                 return root.resultModel.descendant_end_row(nodeId);
             }
             toggleNode: function (nodeId, recursive) {
-                controller.toggle_result_node_recursive(nodeId, recursive);
+                root.expansionOwner.toggle_result_node_recursive(nodeId, recursive);
             }
         }
 
         delegate: WorkspaceResultItem {
+            required property var values
             theme: root.theme
+            configuredRecord: values
+            configuredLayout: root.configuredLayout || root.resultModel.itemLayout || null
+            layoutEditing: root.layoutEditing
+            presentationReadOnly: root.layoutEditing
+            selectedLayoutElement: root.selectedLayoutElement
+            onLayoutElementSelected: name => root.layoutElementSelected(name)
             controller: root.controller
             presentationActive: root.presentationActive && results.visible
             compactMode: root.compactRows
             hideVersionSnapshots: root.splitView
             externalMenuVisible: root.current && (root.itemActionMenuVisible && root.itemActionMenuNodeId === nodeId) || root.current && (root.processCountMenuVisible && root.processCountMenuNodeId === nodeId)
-            selected: root.current && controller.selected_result_node_ids.indexOf(nodeId) >= 0
+            selected: !root.layoutEditing && root.current && controller.selected_result_node_ids.indexOf(nodeId) >= 0
             onActionMenuRequested: function (selectedNodeId, menuActions, anchorItem, localX, localY, below) {
                 root.actionMenuRequested(selectedNodeId, menuActions, anchorItem, localX, localY, below);
             }
@@ -279,8 +312,8 @@ Item {
         visible: tileViewport.visible
         clip: true
         model: root.resultModel
-        cellWidth: 230
-        cellHeight: controller.card_compact_level ? 178 : 258
+        cellWidth: root.configuredTileHeight ? root.itemLayout.card_width + 18 : 230
+        cellHeight: root.configuredTileHeight || (controller.card_compact_level ? 178 : 258)
         cacheBuffer: 280
         reuseItems: true
         boundsBehavior: Flickable.StopAtBounds
@@ -293,6 +326,8 @@ Item {
         }
 
         function requestMoreFromScroll() {
+            if (root.layoutEditing)
+                return;
             if (!root.current || !atYEnd || controller.card_can_go_back || !controller.has_more || controller.loading_mode !== "infinite")
                 return;
             if (!resultTilesScrollBar.takePaginationPermit(false))
@@ -353,21 +388,30 @@ Item {
                 const localPoint = item.mapFromItem(resultTiles, viewPoint.x, viewPoint.y);
                 mouse.accepted = (localPoint.x < 0 || localPoint.y < 0 || localPoint.x > item.width || localPoint.y > item.height);
             }
+            enabled: !root.layoutEditing
             onClicked: controller.clear_result_selection()
         }
 
         delegate: WorkspaceCard {
+            required property var model
+            configuredLayout: root.itemLayout
+            configuredRecord: model.values
+            compositionDepth: model.depth
+            compositionPreviewUrl: model.previewUrl
+            layoutEditing: root.layoutEditing
+            selectedLayoutElement: root.selectedLayoutElement
+            onLayoutElementSelected: name => root.layoutElementSelected(name)
             controller: root.controller
             presentationActive: root.presentationActive && resultTiles.visible
             width: resultTiles.cellWidth - 18
-            height: Card.tileHeight({
+            height: configured ? configuredHeight : Card.tileHeight({
                 kind: nodeType === "sobject" ? "object" : nodeType,
                 compact: controller.card_compact_level
             })
             z: 1
             theme: root.theme
             externalMenuVisible: root.current && (root.itemActionMenuVisible && root.itemActionMenuNodeId === nodeId) || root.current && (root.processCountMenuVisible && root.processCountMenuNodeId === nodeId)
-            selected: root.current && controller.selected_result_node_ids.indexOf(nodeId) >= 0
+            selected: !root.layoutEditing && root.current && controller.selected_result_node_ids.indexOf(nodeId) >= 0
             onActionMenuRequested: function (selectedNodeId, menuActions, anchorItem, localX, localY, below) {
                 root.actionMenuRequested(selectedNodeId, menuActions, anchorItem, localX, localY, below);
             }

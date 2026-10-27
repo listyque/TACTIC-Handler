@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.184 - 2026-10-27
+
+- Compose dashboards with the existing item tree on the left and selected-record content on the right. Keep expansion and pagination when selection changes; discard stale detail responses. Administrator agents can save this arrangement through the normal dashboard tools.
+- Preview item layouts on actual expandable result records. Compose project-specific grid cards from shared widgets and reusable views, target their actual Search Types, and retain ordinary tree actions and branches.
+- Render configured grid cards in the native result list using shared Frame geometry; keep draft previews read-only and reject stale preview replies.
+
 ## 0.6.0.183 - 2026-10-27
 
 - Add a compact branch-search button to expanded relationship/process rows in the existing item tree. Filter only that branch, retain the original children and restore them when cleared.

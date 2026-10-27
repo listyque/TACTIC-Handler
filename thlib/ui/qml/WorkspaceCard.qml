@@ -1,9 +1,12 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
 import "controls" as Controls
 import "tactic_frame/features/search/card.ui.mjs" as Card
+import "tactic_frame/features/administration/layouts/layout.preview.mjs" as Composition
+import "features/search" as Search
 
 Item {
     id: root
@@ -42,6 +45,38 @@ Item {
     property bool transientAnimationsSuppressed: true
     property bool viewPooled: false
     property bool presentationActive: true
+    property var configuredLayout: null
+    property var configuredRecord: ({})
+    property int compositionDepth: 0
+    property string compositionPreviewUrl: ""
+    property bool layoutEditing: false
+    property string selectedLayoutElement: ""
+    signal layoutElementSelected(string name)
+    readonly property var compositionRecord: ({
+            kind: isSobject ? "object" : isSnapshot ? "snapshot" : isProcess || isRelation ? "branch" : nodeType,
+            depth: compositionDepth,
+            title,
+            subtitle,
+            record: Object.assign({}, configuredRecord, {
+                __search_key__: searchKey
+            }),
+            preview: {
+                image: cardPreviewUrl || compositionPreviewUrl,
+                local: true
+            },
+            task_count: tasks,
+            note_count: comments,
+            branch: {
+                kind: nodeType,
+                count: childCount
+            },
+            snapshot_display: {
+                version,
+                author
+            }
+        })
+    readonly property bool configured: !!configuredLayout && configuredLayout.flow !== "contents" && Composition.supports(configuredLayout, compositionRecord, root.Window.window ? root.Window.window.width : width)
+    readonly property real configuredHeight: configuredBody.height + 24
     readonly property bool expanded: false
     signal actionMenuRequested(string nodeId, var actions, var anchorItem, real localX, real localY, bool below)
     signal processCountMenuRequested(string nodeId, string panel, var anchorItem)
@@ -85,7 +120,7 @@ Item {
         return parts;
     }
     function requestCardPreviewIfNeeded() {
-        if (root.presentationActive && !root.viewPooled && root.hasLargePreview && !root.cardPreviewRequested && !root.cardPreviewUrl)
+        if (!root.layoutEditing && root.presentationActive && !root.viewPooled && root.hasLargePreview && !root.cardPreviewRequested && !root.cardPreviewUrl)
             appController.request_item_card_preview(root.nodeId);
     }
 
@@ -248,7 +283,7 @@ Item {
     Controls.ItemPreview {
         id: cardPreviewBackground
         anchors.fill: cardBackground
-        visible: root.isSobject
+        visible: root.isSobject && !root.configured
         theme: root.theme
         active: !root.viewPooled
         effectsEnabled: root.hoverAllowed
@@ -270,7 +305,7 @@ Item {
     }
     Rectangle {
         anchors.fill: cardBackground
-        visible: root.isSobject
+        visible: root.isSobject && !root.configured
         radius: cardBackground.radius
         gradient: Gradient {
             orientation: Gradient.Vertical
@@ -294,6 +329,7 @@ Item {
     }
     Item {
         id: cardContent
+        visible: !root.configured
         z: 3
         x: root.cardLayout.content.x
         y: root.cardLayout.content.y
@@ -657,7 +693,32 @@ Item {
     }
 
     Loader {
+        id: configuredBody
+        x: 12
+        y: 12
+        width: Math.max(1, root.width - 24)
+        height: item ? item.implicitHeight : 0
+        active: root.configured
+        z: 5
+        sourceComponent: Search.ConfiguredItem {
+            width: configuredBody.width
+            height: implicitHeight
+            theme: root.theme
+            layout: root.configuredLayout
+            record: root.compositionRecord
+            controller: root.controller
+            nodeId: root.nodeId
+            editing: root.layoutEditing
+            readOnly: root.layoutEditing
+            selectedElement: root.selectedLayoutElement
+            onElementSelected: name => root.layoutElementSelected(name)
+            onMenuRequested: (relations, anchor) => root.actionMenuRequested(root.nodeId, relations ? root.controller.relation_menu_actions(root.nodeId) : root.controller.item_menu_actions(root.nodeId), anchor || configuredBody, 0, 0, true)
+        }
+    }
+
+    Loader {
         id: cardControlsLoader
+        visible: !root.configured
         z: 4
         anchors.right: parent.right
         anchors.rightMargin: 8
@@ -717,7 +778,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 7
         active: (root.isSobject || root.isProcess) && (root.tasks > 0 || root.comments > 0 || root.countControlsRequested)
-        visible: active
+        visible: active && !root.configured
         opacity: root.tasks > 0 || root.comments > 0 || root.hovered ? 1 : 0
         Behavior on opacity {
             enabled: !root.transientAnimationsSuppressed && !root.theme.suppressTransientMotion
@@ -762,7 +823,7 @@ Item {
         anchors.margins: 8
         height: 28
         z: 4
-        visible: root.isRelation && root.hasChildren
+        visible: !root.configured && root.isRelation && root.hasChildren
         enabled: !root.nodeLoading
         theme: root.theme
         text: qsTr("Open")
@@ -772,6 +833,7 @@ Item {
 
     MouseArea {
         id: cardMouse
+        enabled: !root.layoutEditing
         z: 2
         anchors.fill: parent
         hoverEnabled: true

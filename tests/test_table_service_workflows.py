@@ -16,6 +16,7 @@ class Application(QObject):
     signing_out=Signal()
     project_changed=Signal()
     results_view_changed=Signal()
+    selected_node_changed=Signal()
     item_fields_updated=Signal(str, object)
     def __init__(self):
         super().__init__()

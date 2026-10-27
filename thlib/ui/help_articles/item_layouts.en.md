@@ -165,3 +165,35 @@ the system browser; it needs its own normal login. The design preview remains
 native and selecting its elements edits the configuration rather than executing
 object actions. Check and preview the exact XML before Save. Changes made after
 the check require another check. An unknown save result requires server readback.
+
+
+## Live tree preview and project cards
+
+The Design canvas uses actual records and the working result renderer. Expand
+records and relationship/process branches to inspect their real children.
+Changing element properties updates the draft preview without saving. Selecting a
+widget edits its properties; mutation buttons do not execute in the editor. An
+invalid draft keeps the last valid picture and shows its error. Check and preview
+still validates the exact draft before Save.
+
+For a custom card choose Grid, add groups, images, titles, text, links and native
+action buttons, and set their row, column, span and height. Use Search Type in
+More element settings to target a particular record type. A Reusable view widget
+loads its named item view for that Search Type. This lets a project and its task
+records use different cards inside the existing tree. Unmatched branches keep
+their ordinary presentation. Existing relationships control which children load.
+
+The internal agent can read, preview and save these item views using
+`ts_item_layout_read`, `ts_item_layout_preview`, `ts_item_layout_save` and
+`ts_item_layout_operation`, with the administrator's normal configuration rights,
+revision checks and durable save receipts. A dashboard's Items widget selects the
+saved parent view. Custom cards are declarative widgets and normal actions;
+executable scripts keep their separate Script Editor workflow.
+
+### An item navigator and its content
+
+A dashboard can place the existing item tree on the left and a details pane on
+the right. Selecting a project or task shows its configured fields, rich text and
+related tables on the same page, preserving expanded branches. Ask the agent to
+compose an `items` and `details` row; each actual Search Type can have its own
+details fields. This uses the normal dashboard tools and saved project settings.

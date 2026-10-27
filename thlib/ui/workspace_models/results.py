@@ -23,6 +23,25 @@ class WorkspaceItemModel(
     QAbstractListModel,
 ):
     selectableCountChanged = Signal()
+    itemLayoutChanged = Signal()
+    itemLayoutSamplesChanged = Signal()
+
+    @Property('QVariantMap', notify=itemLayoutChanged)
+    def itemLayout(self):
+        return self._item_layout
+
+    def set_item_layout(self, layout):
+        if layout != self._item_layout:
+            self._item_layout = dict(layout or {})
+            self.itemLayoutChanged.emit()
+
+    @Property('QVariantList', notify=itemLayoutSamplesChanged)
+    def itemLayoutSamples(self):
+        return [dict(kind='object' if node.node_type == 'sobject' else 'snapshot' if node.node_type == 'snapshot'
+                     else 'branch' if node.node_type in ('process', 'relation') else node.node_type,
+                     depth=node.depth, subtitle=node.subtitle, record={'__search_key__': node.search_key},
+                     branch={'kind': node.node_type}, snapshot_display={'exists': node.file_exists, 'size': node.file_size})
+                for node in self._items]
 
     @Property(int, notify=selectableCountChanged)
     def selectableCount(self):
@@ -122,9 +141,14 @@ class WorkspaceItemModel(
 
     def __init__(self) -> None:
         super().__init__()
+        self._item_layout = {}
         self.modelReset.connect(self.selectableCountChanged)
         self.rowsInserted.connect(self.selectableCountChanged)
         self.rowsRemoved.connect(self.selectableCountChanged)
+        self.modelReset.connect(self.itemLayoutSamplesChanged)
+        self.rowsInserted.connect(self.itemLayoutSamplesChanged)
+        self.rowsRemoved.connect(self.itemLayoutSamplesChanged)
+        self.dataChanged.connect(self.itemLayoutSamplesChanged)
         self._roots: list[WorkspaceNode] = []
         self._root_groups: list[WorkspaceNode] = []
         self._items: list[WorkspaceNode] = []

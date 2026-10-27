@@ -2,6 +2,8 @@ import QtQuick
 import "../../../tactic_frame" as Frame
 import "../../../tactic_frame/features/administration/layouts/layout.ui.mjs" as UI
 import "../../../tactic_frame/features/administration/layouts/layout.state.mjs" as State
+import "../../.." as Shell
+import "../../../controls" as Controls
 
 Item {
     id: root
@@ -119,6 +121,39 @@ Item {
         scene: UI.describe(root.frameModel, root.ui, width, height, root.language)
         models: root.rows
         describeRow: root.rowScene
+        views: ({
+                itemResults: {
+                    component: liveResults
+                }
+            })
         onEvent: action => root.dispatch(action)
+    }
+    Component {
+        id: liveResults
+        Loader {
+            active: !!root.controller.application && !!root.frameModel.liveInterface?.table?.item_layout
+            sourceComponent: Shell.SearchResultSurface {
+                theme: root.theme
+                controller: root.controller.application
+                expansionOwner: root.controller
+                resultModel: root.controller.previewModel
+                current: true
+                viewMode: "continious"
+                splitterRatio: 0.5
+                presentationActive: visible
+                configuredLayout: root.frameModel.liveInterface?.table?.item_layout || null
+                layoutEditing: true
+                selectedLayoutElement: root.ui.selected
+                onLayoutElementSelected: name => root.dispatch({
+                        type: "select",
+                        name
+                    })
+            }
+            Controls.SelectableText {
+                visible: !parent.active
+                theme: root.theme
+                text: root.frameModel.previewError || root.frameModel.sampleError || qsTr("Loading interface...")
+            }
+        }
     }
 }

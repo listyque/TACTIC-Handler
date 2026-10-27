@@ -663,6 +663,8 @@ class LoadingMixin:
                 title=str(sobject.get_title() or info.get("code") or ""),
                 subtitle=str(info.get("description") or ""),
                 status=str(info.get("status") or ""),
+                values={str(key): value for key, value in info.items()
+                        if not str(key).startswith('__') and isinstance(value, (str, int, float, bool, type(None)))},
                 accent=accent or node.accent,
                 depth=node.depth + 1,
                 parent_id=node.node_id,

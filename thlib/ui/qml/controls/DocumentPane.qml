@@ -15,6 +15,7 @@ ScrollView {
     property string error: ""
     property real scrollOffset: 0
     property bool presented: true
+    property real contentInset: 14
     property bool restoring: false
     property int restoreEpoch: 0
     signal linkActivated(string link)
@@ -23,7 +24,7 @@ ScrollView {
     padding: 0
     clip: true
     contentWidth: width
-    contentHeight: documentColumn.height + 28
+    contentHeight: documentColumn.height + contentInset * 2
 
     function prepare() {
         restoreEpoch++;
@@ -66,9 +67,9 @@ ScrollView {
     }
     Column {
         id: documentColumn
-        x: 14
-        y: 14
-        width: Math.max(0, root.width - 40)
+        x: root.contentInset
+        y: root.contentInset
+        width: Math.max(0, root.width - root.contentInset * 2 - 12)
         spacing: 14
         Controls.SelectableText {
             width: documentColumn.width

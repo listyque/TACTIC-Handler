@@ -12,7 +12,6 @@ import {
 import { sections as form } from '../../../controls/forms/sections.ui.mjs';
 import { translate } from '../../../core/strings.mjs';
 import * as Document from './layout.document.mjs';
-import * as Preview from './layout.preview.mjs';
 import { pending } from './layout.state.mjs';
 export const labels = {
     group: 'Group',
@@ -549,6 +548,10 @@ function propertyFields(model, ui, language) {
             item.variant,
             choices(Document.variants, language)
         ),
+        choice('search_type', 'Search Type', item.search_type || '', [
+            { value: '', label: tr('All') },
+            ...model.searchTypes
+        ]),
         text('option:bind', 'Custom data binding', item.options.bind || '')
     );
     // The same value has two captions, so controls keep distinct stable identities.
@@ -1052,67 +1055,15 @@ export function describe(model, ui, width, height, language) {
                 nodes
             };
         }
-        const children = [
-            label(
-                'layoutResolvedNotice',
-                rect(0, 0, width - 16, 44),
-                tr('Read-only preview. Changes have not been saved.'),
-                Object.assign(
-                    {
-                        wrap: true
-                    },
-                    muted
+        return {
+            nodes: nodes.concat(
+                node(
+                    'View',
+                    'layoutResolvedResults',
+                    rect(0, y, width, Math.max(1, height - y)),
+                    { view: 'itemResults' }
                 )
             )
-        ];
-        let top = 52;
-        const samples =
-            model.sampleItems && model.sampleItems.length
-                ? model.sampleItems
-                : [Preview.sample(model, ui, language)];
-        samples.forEach((sample, index) => {
-            const body = Preview.describe(
-                resolved,
-                sample,
-                width - 32,
-                '',
-                language,
-                width,
-                model.assetBase,
-                'layoutResolved_' + index
-            );
-            children.push(
-                node(
-                    'Box',
-                    'layoutResolvedItem_' + index,
-                    rect(0, top, width - 16, body.height + 16),
-                    {
-                        background: 'surfaceContainerLow',
-                        border: 'outlineVariant',
-                        children: [
-                            node(
-                                'Box',
-                                'layoutResolvedContent_' + index,
-                                rect(8, 8, width - 32, body.height),
-                                {
-                                    children: body.nodes
-                                }
-                            )
-                        ]
-                    }
-                )
-            );
-            top += body.height + 28;
-        });
-        nodes.push(
-            node('Scroll', 'layoutResolvedScroll', rect(0, y, width, h), {
-                contentHeight: top,
-                scrollbarId: 'layoutResolvedScrollBar',
-                children
-            })
-        );
-        return {
-            nodes
         };
     }
     if (model.layoutError) {
@@ -1331,203 +1282,29 @@ export function describe(model, ui, width, height, language) {
     }
     if (wide || ui.panel === 'preview') {
         const x = wide ? left + 10 : 0,
-            w = wide ? Math.max(1, width - left - properties - 20) : width,
-            children = [
-                label(
-                    'layoutPreviewHeading',
-                    rect(12, 8, w - 24, 28),
-                    tr('Item preview'),
-                    {
-                        weight: 600
-                    }
-                ),
-                node(
-                    'Choice',
-                    'layoutSampleVariant',
-                    rect(12, 44, w - 24, 38),
-                    {
-                        label: tr('Preview item type'),
-                        value: ui.sampleVariant,
-                        options: choices(
-                            Document.variants.filter(
-                                (value) => value !== 'all'
-                            ),
-                            language
-                        ),
-                        action: {
-                            type: 'sampleVariant'
-                        }
-                    }
-                )
-            ];
-        const previewWidth = Math.max(
-                1,
-                Math.min(
-                    w - 40,
-                    layout.collection === 'grid'
-                        ? numberWidth(layout.card_width)
-                        : w - 40
-                )
-            ),
-            body = Preview.describe(
-                layout,
-                Preview.sample(model, ui, language),
-                previewWidth,
-                ui.selected,
-                language,
-                width,
-                model.assetBase
-            ),
-            previewNodes = [
-                node(
-                    'Box',
-                    'layoutPreviewItem',
-                    rect(0, 0, previewWidth, body.height + 16),
-                    {
-                        background: 'surfaceContainerHigh',
-                        children: body.nodes
-                    }
-                )
-            ];
-        let top = body.height + 28;
-        if (!layout.elements.length) {
-            previewNodes.push(
-                label(
-                    'layoutAddHelp',
-                    rect(0, top, w - 40, 90),
-                    tr('Add an image, text or button to begin.'),
-                    Object.assign(
-                        {
-                            wrap: true
-                        },
-                        muted
-                    )
-                )
-            );
-            top += 98;
-        }
-        if (selected) {
-            const parent = layout.elements.find(
-                    (row) => row.name === selected.parent
-                ),
-                grid = (parent ? parent.flow : layout.flow) === 'grid',
-                columns = parent ? parent.columns : layout.columns;
-            if (grid) {
-                const count = Math.min(
-                        12,
-                        Math.max(
-                            4,
-                            ...layout.elements
-                                .filter((row) => row.parent === selected.parent)
-                                .map((row) => row.row + row.rows)
-                        )
-                    ),
-                    cell = (w - 40) / Math.max(1, columns);
-                previewNodes.push(
-                    label(
-                        'layoutGridHeading',
-                        rect(0, top, w - 40, 28),
-                        tr('Place on the grid'),
-                        {
-                            weight: 600
-                        }
-                    )
-                );
-                top += 36;
-                for (let row = 1; row <= count; row++)
-                    for (let column = 1; column <= columns; column++)
-                        previewNodes.push(
-                            button(
-                                'layoutGrid_' + row + '_' + column,
-                                rect(
-                                    (column - 1) * cell,
-                                    top + (row - 1) * 32,
-                                    Math.max(1, cell - 3),
-                                    29
-                                ),
-                                String((row - 1) * columns + column),
-                                '',
-                                {
-                                    type: 'move',
-                                    row,
-                                    column
-                                },
-                                edit && !pending(ui),
-                                {
-                                    highlighted:
-                                        selected.row === row &&
-                                        selected.column === column,
-                                    dropAction: {
-                                        type: 'drop',
-                                        row,
-                                        column
-                                    }
-                                }
-                            )
-                        );
-                top += count * 32 + 8;
-                const moves = [
-                        ['up', -1, 0, 'chevron-up'],
-                        ['down', 1, 0, 'chevron-down'],
-                        ['left', 0, -1, 'chevron-left'],
-                        ['right', 0, 1, 'chevron-right']
-                    ],
-                    size = (w - 58) / 4;
-                moves.forEach((move, index) =>
-                    previewNodes.push(
-                        button(
-                            'layoutMove_' + move[0],
-                            rect(index * (size + 6), top, size, 36),
-                            tr(
-                                {
-                                    up: 'Move up',
-                                    down: 'Move down',
-                                    left: 'Move left',
-                                    right: 'Move right'
-                                }[move[0]]
-                            ),
-                            move[3],
-                            {
-                                type: 'move',
-                                row: selected.row + move[1],
-                                column: selected.column + move[2]
-                            },
-                            edit && !pending(ui),
-                            {
-                                iconOnly: true
-                            }
-                        )
-                    )
-                );
-                top += 44;
-            }
-        }
-        children.push(
-            node(
-                'Scroll',
-                'layoutPreviewScroll',
-                rect(12, 90, w - 24, bodyHeight - 102),
-                {
-                    contentHeight: top,
-                    scrollbarId: 'layoutPreviewScrollBar',
-                    children: previewNodes
-                }
-            )
-        );
+            w = wide ? Math.max(1, width - left - properties - 20) : width;
         nodes.push(
             node('Box', 'layoutPreviewPanel', rect(x, y, w, bodyHeight), {
                 background: 'surfaceContainerLow',
                 border: 'outlineVariant',
-                children
+                children: [
+                    label(
+                        'layoutPreviewHeading',
+                        rect(12, 8, w - 24, 28),
+                        tr('Item preview'),
+                        { weight: 600 }
+                    ),
+                    node(
+                        'View',
+                        'layoutPreviewResults',
+                        rect(12, 44, w - 24, bodyHeight - 56),
+                        { view: 'itemResults' }
+                    )
+                ]
             })
         );
     }
     return {
         nodes
     };
-}
-function numberWidth(value) {
-    return Number.isFinite(Number(value))
-        ? Math.max(1, Math.min(1200, Number(value)))
-        : 280;
 }

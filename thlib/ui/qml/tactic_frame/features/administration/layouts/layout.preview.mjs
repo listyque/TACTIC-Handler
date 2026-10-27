@@ -15,6 +15,19 @@ function variant(sample) {
               : 'main'
           : sample.kind;
 }
+export function actionAvailable(action, sample) {
+    if (['tasks', 'notes'].includes(action))
+        return sample.kind === 'object' || sample.branch?.kind === 'process';
+    if (['create', 'link'].includes(action))
+        return (
+            sample.branch?.kind === 'relation' &&
+            (action !== 'link' || sample.branch.relationship === 'instance')
+        );
+    if (action === 'relations') return sample.kind === 'object';
+    if (['inspect', 'preview'].includes(action))
+        return sample.kind !== 'branch';
+    return ['operate', 'upload', 'quickaction'].includes(action);
+}
 function visible(item, sample, layout, width) {
     const branch = sample.branch || {},
         snapshot = sample.snapshot_display || {},
@@ -39,6 +52,14 @@ function visible(item, sample, layout, width) {
         };
     return (
         !item.hidden &&
+        (!item.search_type ||
+            (sample.kind !== 'branch' &&
+                item.search_type ===
+                    String(
+                        (sample.record || {}).__search_key__ ||
+                            sample.search_type ||
+                            ''
+                    ).split('?')[0])) &&
         (item.variant === 'all' || item.variant === variant(sample)) &&
         (item.when || []).every((key) => conditions[key]) &&
         (item.kind !== 'knowledge' || (sample.knowledge || []).length > 0) &&
@@ -75,8 +96,52 @@ function tracks(value, count, width) {
               Math.max(1, weight)
     );
 }
+export function supports(layout, sample, width) {
+    return (
+        !!layout &&
+        (layout.elements || []).some(
+            (item) => !item.parent && visible(item, sample, layout, width)
+        )
+    );
+}
+export function maximumHeight(layout, samples, width, language, screenWidth) {
+    const seen = new Set();
+    let height = 0;
+    for (const sample of samples || []) {
+        const shape = JSON.stringify([
+            sample.kind,
+            sample.depth > 0,
+            (sample.record || {}).__search_key__?.split('?')[0],
+            !!sample.subtitle,
+            !!(sample.knowledge || []).length,
+            sample.branch?.kind,
+            sample.snapshot_display?.exists,
+            sample.snapshot_display?.size !== undefined
+        ]);
+        if (seen.has(shape)) continue;
+        seen.add(shape);
+        height = Math.max(
+            height,
+            describe(
+                layout,
+                sample,
+                width,
+                '',
+                language,
+                screenWidth,
+                '',
+                '',
+                0,
+                false
+            ).height
+        );
+    }
+    return height;
+}
 function safeImage(value, base, local) {
     const text = String(value || '');
+    if (local && /^file:/i.test(text) && !/[\u0000-\u001f\u007f\\]/.test(text))
+        return text.replace(/ /g, '%20');
     if (
         !text ||
         /[\u0000-\u0020\u007f\\]/.test(text) ||
@@ -91,42 +156,6 @@ function safeImage(value, base, local) {
         ? text
         : '';
 }
-export function sample(model, ui, language) {
-    const tr = (text) => translate(text, language),
-        item = (model.sampleItems || [])[0] || {
-            record: {
-                name: tr('Example object'),
-                description: tr('Example description')
-            },
-            title: tr('Example object'),
-            subtitle: tr('Example description'),
-            task_count: 3,
-            note_count: 2
-        },
-        kind =
-            ['process', 'relation', 'versions'].indexOf(ui.sampleVariant) >= 0
-                ? 'branch'
-                : ['snapshot', 'file'].indexOf(ui.sampleVariant) >= 0
-                  ? ui.sampleVariant
-                  : 'object';
-    return Object.assign({}, item, {
-        kind,
-        depth: ui.sampleVariant === 'children' ? 1 : 0,
-        branch:
-            kind === 'branch'
-                ? {
-                      kind: ui.sampleVariant,
-                      title: tr(
-                          ui.sampleVariant === 'process'
-                              ? 'Process'
-                              : 'Related and child objects'
-                      ),
-                      count: 3,
-                      relationship: 'instance'
-                  }
-                : undefined
-    });
-}
 export function describe(
     layout,
     sample,
@@ -136,7 +165,8 @@ export function describe(
     screenWidth,
     assetBase,
     prefix,
-    depth
+    depth,
+    editing = true
 ) {
     const tr = (text) => translate(text, language),
         nodes = [],
@@ -256,7 +286,10 @@ export function describe(
                         4,
                         4,
                         Math.max(0, box.width - 8),
-                        Math.max(0, box.height - 8)
+                        Math.max(
+                            0,
+                            Math.min(box.height, item.height || box.height) - 8
+                        )
                     ),
                     {
                         source: safeImage(
@@ -274,7 +307,7 @@ export function describe(
                     }
                 )
             );
-        } else if (item.kind === 'button' || item.kind === 'link') {
+        } else if (item.kind === 'button') {
             const badge = options.badge
                     ? Number(binding(options.badge, sample))
                     : 0,
@@ -295,6 +328,7 @@ export function describe(
                               }[options.action] || 'Button'
                           )
                         : options.href || tr('Link'));
+            const iconOnly = !!options.icon && !options.text && !options.bind;
             children.push(
                 node(
                     'Button',
@@ -302,15 +336,39 @@ export function describe(
                     rect(
                         4,
                         4,
-                        Math.max(0, box.width - 8),
+                        Math.max(
+                            0,
+                            Math.min(
+                                box.width - 8,
+                                iconOnly ? box.height - 8 : box.width
+                            )
+                        ),
                         Math.max(0, Math.min(38, box.height - 8))
                     ),
                     {
+                        iconOnly,
+                        badgeCount: Number.isFinite(badge)
+                            ? Math.max(0, badge)
+                            : 0,
                         text:
                             caption +
                             (Number.isFinite(badge) && badge > 0
                                 ? ' · ' + badge
                                 : ''),
+                        enabled:
+                            !editing &&
+                            (!!(options.href_bind
+                                ? binding(options.href_bind, sample)
+                                : options.href) ||
+                                actionAvailable(options.action, sample)),
+                        action: {
+                            type: 'itemAction',
+                            action: options.action || 'link',
+                            urlOnly: !options.action,
+                            href: options.href_bind
+                                ? binding(options.href_bind, sample)
+                                : options.href
+                        },
                         icon:
                             options.icon ||
                             {
@@ -338,7 +396,9 @@ export function describe(
                     {
                         text: tr('Item actions'),
                         icon: 'more-vert',
-                        iconOnly: true
+                        iconOnly: true,
+                        enabled: !editing,
+                        action: { type: 'itemAction', action: 'operate' }
                     }
                 )
             );
@@ -346,7 +406,7 @@ export function describe(
             const icons =
                     item.kind === 'relations'
                         ? ['link', 'add']
-                        : ['preview', 'download', 'upload'],
+                        : ['save', 'folder-open'],
                 size = Math.min(32, box.width / icons.length);
             icons.forEach((icon, index) =>
                 children.push(
@@ -361,14 +421,27 @@ export function describe(
                                     : 'Snapshot actions'
                             ),
                             icon,
-                            iconOnly: true
+                            iconOnly: true,
+                            enabled: !editing,
+                            action: {
+                                type: 'itemAction',
+                                action:
+                                    item.kind === 'relations'
+                                        ? index
+                                            ? 'create'
+                                            : 'link'
+                                        : 'quickaction',
+                                command: index ? 'open' : 'save'
+                            }
                         }
                     )
                 )
             );
         } else {
             let content = text;
-            if (item.kind === 'title') content = text || title;
+            if (item.kind === 'link')
+                content = text || item.title || options.href || '';
+            else if (item.kind === 'title') content = text || title;
             else if (item.kind === 'description') content = text || subtitle;
             else if (item.kind === 'metadata')
                 content = [
@@ -426,6 +499,10 @@ export function describe(
                 content = (sample.knowledge || [])
                     .map((row) => row.title || row.name || row.code || '')
                     .join(' · ');
+            const maxLines = Math.max(
+                1,
+                Math.floor((box.height - 8) / (item.kind === 'title' ? 20 : 17))
+            );
             children.push(
                 label(
                     id + 'Text',
@@ -437,7 +514,8 @@ export function describe(
                     ),
                     content,
                     {
-                        wrap: true,
+                        wrap: maxLines > 1,
+                        maxLines,
                         color,
                         weight,
                         fontRole: item.kind === 'title' ? 'section' : 'body',
@@ -451,10 +529,35 @@ export function describe(
                 )
             );
         }
+        if (!editing && item.kind === 'link')
+            return node('Action', id, box, {
+                layoutElement: item.name,
+                layer: item.layer || 0,
+                text: text || item.title,
+                normalColor: 'transparent',
+                children,
+                action: {
+                    type: 'itemAction',
+                    action: 'link',
+                    urlOnly: true,
+                    href: options.href_bind
+                        ? binding(options.href_bind, sample)
+                        : options.href
+                }
+            });
+        if (!editing)
+            return node('Box', id, box, {
+                layoutElement: item.name,
+                layer: item.layer || 0,
+                children
+            });
         if (item.kind === 'group' || (item.kind === 'view' && inner))
             return node('Box', id, box, {
-                background:
-                    selected === item.name ? 'contentSelection' : 'transparent',
+                layoutElement: item.name,
+                layer: item.layer || 0,
+                background: 'transparent',
+                border: selected === item.name ? 'contentAccent' : undefined,
+                radius: 2,
                 children: [
                     node(
                         'Action',
@@ -473,6 +576,9 @@ export function describe(
                 ].concat(children)
             });
         return node('Action', id, box, {
+            layoutElement: item.name,
+            layer: item.layer || 0,
+            radius: 2,
             text: item.title || item.name,
             selected: selected === item.name,
             normalColor: 'transparent',
@@ -524,7 +630,8 @@ export function describe(
                                     screenWidth,
                                     assetBase,
                                     namePrefix + '_' + item.name,
-                                    nesting + 1
+                                    nesting + 1,
+                                    editing
                                 )
                               : null;
                 if (item.role === 'preview')
@@ -603,17 +710,14 @@ export function describe(
                                 screenWidth,
                                 assetBase,
                                 namePrefix + '_' + item.name,
-                                nesting + 1
+                                nesting + 1,
+                                editing
                             )
                           : null,
-                h = child
-                    ? child.height + 8
-                    : item.kind === 'image'
-                      ? number(item.height, 40, 1, 1200)
-                      : 40;
+                h = child ? child.height + 8 : number(item.height, 40, 1, 1200);
             for (let index = start; index < start + span; index++)
                 rows[index] = Math.max(
-                    rows[index] || 40,
+                    rows[index] || 0,
                     (h - gap * (span - 1)) / span
                 );
             placements.push({
@@ -681,7 +785,8 @@ export function describe(
                                 screenWidth,
                                 assetBase,
                                 namePrefix + '_' + item.name,
-                                level + 1
+                                level + 1,
+                                editing
                             )
                           : null;
             body.height = Math.max(

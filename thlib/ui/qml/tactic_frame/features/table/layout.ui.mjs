@@ -7,6 +7,11 @@ import {
     viewTabWidth
 } from '../../controls/tabs/workspace.ui.mjs';
 
+export function hasDetails(items = []) {
+    return items.some(
+        (item) => item.kind === 'details' || hasDetails(item.children || [])
+    );
+}
 export function tables(items = [], prefix = 'customLayout') {
     const result = [];
     for (const [index, item] of items.entries()) {
@@ -60,7 +65,9 @@ export function describe(
         y,
         available,
         prefix = 'customLayout',
-        startIndex = 0
+        startIndex = 0,
+        output = children,
+        bottom = Infinity
     ) {
         let top = y;
         for (const [index, source] of (items || []).entries()) {
@@ -114,14 +121,33 @@ export function describe(
                               Math.max(1, flex);
                         extent = Math.max(
                             extent,
-                            draw([child], left, top, part, id, column)
+                            draw(
+                                [child],
+                                left,
+                                top,
+                                part,
+                                id,
+                                column,
+                                output,
+                                bottom
+                            )
                         );
                         left += part + gap;
                     }
-                } else extent = draw(item.children, x, top, available, id);
+                } else
+                    extent = draw(
+                        item.children,
+                        x,
+                        top,
+                        available,
+                        id,
+                        0,
+                        output,
+                        bottom
+                    );
             } else if (item.kind === 'metric') {
                 extent = 104;
-                children.push(
+                output.push(
                     node('Box', id, rect(x, top, available, extent), {
                         background: 'panel',
                         border: 'outlineVariant',
@@ -153,7 +179,7 @@ export function describe(
                       )
                     : 0;
                 if (extent)
-                    children.push(
+                    output.push(
                         label(id, rect(x, top, available, extent), text, {
                             wrap: true
                         })
@@ -161,17 +187,53 @@ export function describe(
             } else if (item.kind === 'markdown') {
                 extent = Number.isFinite(item.height)
                     ? item.height
-                    : Math.max(240, Math.min(560, tableHeight));
-                children.push(
+                    : prefix.startsWith('customLayoutDetails')
+                      ? Math.max(
+                            48,
+                            Math.min(
+                                560,
+                                String(text)
+                                    .split('\n')
+                                    .reduce(
+                                        (sum, line) =>
+                                            sum +
+                                            Math.max(
+                                                1,
+                                                Math.ceil(
+                                                    line.length /
+                                                        Math.max(
+                                                            1,
+                                                            Math.floor(
+                                                                available / 8
+                                                            )
+                                                        )
+                                                )
+                                            ),
+                                        0
+                                    ) *
+                                    22 +
+                                    24
+                            )
+                        )
+                      : Math.max(240, Math.min(560, tableHeight));
+                if (
+                    prefix.startsWith('customLayoutDetails') &&
+                    !Number.isFinite(item.height)
+                )
+                    extent = Math.min(extent, Math.max(48, bottom - top));
+                output.push(
                     node('View', id, rect(x, top, available, extent), {
                         view: 'layoutMarkdown',
                         text,
-                        key: id
+                        key: id,
+                        contentInset: prefix.startsWith('customLayoutDetails')
+                            ? 0
+                            : 14
                     })
                 );
             } else if (item.kind === 'preview') {
                 extent = Math.min(available, item.size || 64);
-                children.push(
+                output.push(
                     node('Preview', id, rect(x, top, extent, extent), {
                         source: link(item.value?.image, server) || '',
                         initials: String(text).slice(0, 2),
@@ -185,15 +247,119 @@ export function describe(
                         enabled: !item.javascript || editable
                     })
                 );
+            } else if (item.kind === 'details') {
+                extent = (item.height || tableHeight) + 32;
+                const detail = cell.layoutDetail || {},
+                    detailNodes = [];
+                const detailPadding = 24;
+                const title =
+                    detail.title ||
+                    text ||
+                    translate('Object details', language);
+                const titleHeight = Math.min(
+                    48,
+                    Math.max(
+                        24,
+                        Math.ceil(
+                            title.length /
+                                Math.max(
+                                    1,
+                                    Math.floor(
+                                        (available - detailPadding * 2) / 9
+                                    )
+                                )
+                        ) * 24
+                    )
+                );
+                const contentTop = 20 + titleHeight + 16;
+                detailNodes.push(
+                    label(
+                        id + '_title',
+                        rect(
+                            detailPadding,
+                            20,
+                            Math.max(0, available - detailPadding * 2),
+                            titleHeight
+                        ),
+                        title,
+                        {
+                            fontRole: 'heading',
+                            weight: 600,
+                            wrap: true,
+                            maxLines: 2
+                        }
+                    )
+                );
+                const bodyHeight = draw(
+                    detail.layoutNodes,
+                    detailPadding,
+                    contentTop,
+                    Math.max(0, available - detailPadding * 2),
+                    'customLayoutDetails',
+                    0,
+                    detailNodes,
+                    extent - 24
+                );
+                const message =
+                    detail.error ||
+                    (detail.busy
+                        ? translate('Loading...', language)
+                        : !detail.targetSearchKey
+                          ? translate('Select an item', language)
+                          : '');
+                if (message)
+                    detailNodes.push(
+                        label(
+                            id + '_message',
+                            rect(
+                                detailPadding,
+                                contentTop,
+                                Math.max(0, available - detailPadding * 2),
+                                56
+                            ),
+                            message,
+                            {
+                                wrap: true,
+                                color: detail.error ? 'error' : 'secondaryText'
+                            }
+                        )
+                    );
+                output.push(
+                    node(
+                        'Box',
+                        id + '_surface',
+                        rect(x, top, available, extent),
+                        {
+                            background: 'panel',
+                            border: 'outlineVariant',
+                            radius: 4,
+                            children: [
+                                node(
+                                    'Scroll',
+                                    id,
+                                    rect(0, 0, available, extent),
+                                    {
+                                        contentHeight: Math.max(
+                                            extent,
+                                            contentTop + 20 + bodyHeight
+                                        ),
+                                        scrollbarId: id + 'Bar',
+                                        children: detailNodes
+                                    }
+                                )
+                            ]
+                        }
+                    )
+                );
             } else if (item.kind === 'items') {
                 const itemsExtent = Number.isFinite(item.height)
                     ? item.height
                     : tableHeight;
                 extent = itemsExtent + 32;
-                children.push(
+                output.push(
                     label(id + '_title', rect(x, top, available, 28), text)
                 );
-                children.push(
+                output.push(
                     node(
                         'View',
                         id,
@@ -214,10 +380,10 @@ export function describe(
                               .height + 260
                       );
                 extent = tableExtent + 32;
-                children.push(
+                output.push(
                     label(id + '_title', rect(x, top, available, 28), text)
                 );
-                children.push(
+                output.push(
                     node(
                         'View',
                         id,
@@ -227,7 +393,7 @@ export function describe(
                 );
             } else if (item.kind === 'choice') {
                 extent = 40;
-                children.push(
+                output.push(
                     node('Choice', id, rect(x, top, available, extent), {
                         value:
                             item.selectedValue ||
@@ -247,7 +413,7 @@ export function describe(
                 );
             } else {
                 extent = 40;
-                children.push(
+                output.push(
                     button(
                         id,
                         rect(x, top, available, extent),

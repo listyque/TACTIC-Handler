@@ -237,6 +237,34 @@ class CustomLayouts(unittest.TestCase):
         frames.frame(window)
         self.assertEqual(services.events[-1]['keys'], ['vfx/asset?code=A'])
 
+    def test_details_ignore_stale_selection_without_reopening_tree(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from tests.test_table_service_workflows import Application
+        from thlib.ui.table.services import TableServicesController
+        application=Application()
+        application.tab.layout_view='dashboard.work'
+        application.selected_node_id='A'
+        application.workspace_model=Mock()
+        application.workspace_model.node_for.side_effect=lambda key:SimpleNamespace(node_type='sobject',search_key='demo/asset?project=demo&code='+key)
+        services=TableServicesController(application)
+        self.addCleanup(services.shutdown)
+        owner=services.workspaceLayout
+        owner.tab=application.tab
+        owner.current='work'
+        owner.context=dict(project='demo')
+        owner.document_data=dict(layoutView='dashboard.work',targetSearchKey='sthpw/project?code=demo',layoutItems=dict(searchType='demo/asset'),layoutNodes=[dict(kind='details')])
+        callbacks=[]
+        with patch.object(services,'_run',side_effect=lambda operation,loaded,**kw:callbacks.append(loaded)),patch('thlib.tactic_classes.server_start'),patch.object(owner,'show_items') as tree_reload:
+            application.selected_node_changed.emit()
+            application.selected_node_id='B'
+            application.selected_node_changed.emit()
+            callbacks[0](dict(info=dict(title='stale',layoutNodes=[])))
+            self.assertTrue(owner.document_data['layoutDetail']['busy'])
+            callbacks[1](dict(info=dict(title='Current item',targetSearchKey='demo/asset?project=demo&code=B',layoutNodes=[])))
+            self.assertEqual(owner.document_data['layoutDetail']['title'],'Current item')
+            tree_reload.assert_not_called()
+
     def test_retained_layout_tabs_keep_selection_and_dispose_closed_scopes(self):
         from unittest.mock import patch
         from tests.test_table_service_workflows import Application

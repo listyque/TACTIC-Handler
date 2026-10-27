@@ -8,7 +8,6 @@ export function initial() {
         context: '',
         catalogWidth: 220,
         propertiesWidth: 330,
-        sampleVariant: 'main',
         newName: 'custom_view',
         template: 'continuous',
         text: {},
@@ -167,9 +166,6 @@ export function transition(ui, model, event) {
                 240,
                 Math.min(520, Number(event.value))
             );
-            break;
-        case 'sampleVariant':
-            next.sampleVariant = event.value;
             break;
         case 'newName':
         case 'template':

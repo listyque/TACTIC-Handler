@@ -1,10 +1,12 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Window
 import "tactic_frame/features/search/card.ui.mjs" as Card
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
 import "features/search" as Search
+import "tactic_frame/features/administration/layouts/layout.preview.mjs" as Composition
 
 Item {
     id: root
@@ -67,12 +69,45 @@ Item {
     property bool presentationActive: true
     property bool itemDragActive: false
     property var dragMimeData: ({})
+    property var configuredLayout: null
+    property var configuredRecord: ({})
+    property bool layoutEditing: false
+    property bool presentationReadOnly: false
+    property string selectedLayoutElement: ""
+    readonly property var compositionRecord: ({
+            kind: root.objectCard ? "object" : root.snapshotCard ? "snapshot" : root.branchRow ? "branch" : root.nodeType,
+            depth: root.depth,
+            title: root.title,
+            subtitle: root.subtitle,
+            record: Object.assign({}, root.configuredRecord, {
+                __search_key__: root.searchKey
+            }),
+            preview: {
+                image: String(root.dragImageSource),
+                local: true
+            },
+            note_count: root.comments,
+            task_count: root.tasks,
+            branch: {
+                kind: root.nodeType,
+                count: root.childCount,
+                relationship: root.relationship
+            },
+            snapshot_display: {
+                version: root.version,
+                author: root.author,
+                exists: root.fileExists,
+                size: root.fileSize
+            }
+        })
+    readonly property bool configured: !!configuredLayout && configuredLayout.flow !== "contents" && Composition.supports(configuredLayout, compositionRecord, root.Window.window ? root.Window.window.width : root.width)
+    signal layoutElementSelected(string name)
 
     signal selectedRequested(string nodeId, string searchKey, string nodeType, int modifiers, bool preserveSelection)
     signal actionMenuRequested(string nodeId, var actions, var anchorItem, real localX, real localY, bool below)
 
     function requestPreviewIfNeeded() {
-        if (root.presentationActive && !root.viewPooled && root.largeItem && !root.previewRequested && !root.previewUrl)
+        if (!root.presentationReadOnly && root.presentationActive && !root.viewPooled && root.largeItem && !root.previewRequested && !root.previewUrl)
             appController.request_item_preview(root.nodeId);
     }
 
@@ -110,7 +145,7 @@ Item {
     readonly property bool objectCard: root.nodeType === "sobject"
     readonly property bool snapshotCard: root.nodeType === "snapshot"
     readonly property bool branchRow: root.nodeType === "process" || root.nodeType === "relation"
-    readonly property bool canFilterChildren: branchRow && expanded && hasChildren && !nodeLoading && !!controller && typeof controller.child_filter_text === "function"
+    readonly property bool canFilterChildren: !presentationReadOnly && branchRow && expanded && hasChildren && !nodeLoading && !!controller && typeof controller.child_filter_text === "function"
     readonly property bool indentedSurface: root.objectCard || root.snapshotCard || root.branchRow
     readonly property real surfaceLeft: root.indentedSurface ? cardLayout.surfaceLeft : 0
     readonly property bool compactBranchItem: nodeType === "process" || nodeType === "relation" || root.isGroup
@@ -159,7 +194,7 @@ Item {
     // Card insets reserve room for elevation inside the delegate. Keep the
     // delegate clipped so malformed server text cannot paint over its neighbor.
     clip: true
-    height: versionRowHidden ? 0 : cardLayout.height
+    height: versionRowHidden ? 0 : configured ? configuredBody.height + 16 : cardLayout.height
     Drag.active: root.itemDragActive
     Drag.dragType: Drag.Automatic
     Drag.supportedActions: Qt.CopyAction
@@ -208,7 +243,7 @@ Item {
         id: itemDragHandler
         target: null
         acceptedButtons: Qt.LeftButton
-        enabled: root.nodeType === "sobject" || root.nodeType === "snapshot" || root.nodeType === "file"
+        enabled: !root.presentationReadOnly && (root.nodeType === "sobject" || root.nodeType === "snapshot" || root.nodeType === "file")
         onActiveChanged: {
             root.itemDragActive = active;
             if (active)
@@ -225,6 +260,33 @@ Item {
             view.toggleResultNodePreservingScroll(root.nodeId, recursive, !root.expanded);
         else
             appController.toggle_result_node_recursive(root.nodeId, recursive);
+    }
+
+    Loader {
+        id: configuredBody
+        x: root.indent + 44
+        y: 8
+        width: Math.max(1, root.width - x - 14)
+        height: item ? item.implicitHeight : 0
+        z: 5
+        visible: root.configured
+        active: root.configured
+        sourceComponent: Search.ConfiguredItem {
+            width: configuredBody.width
+            height: implicitHeight
+            theme: root.theme
+            layout: root.configuredLayout || {
+                elements: []
+            }
+            controller: root.controller
+            nodeId: root.nodeId
+            editing: root.layoutEditing
+            readOnly: root.presentationReadOnly
+            selectedElement: root.selectedLayoutElement
+            record: root.compositionRecord
+            onElementSelected: name => root.layoutElementSelected(name)
+            onMenuRequested: (relations, anchor) => root.actionMenuRequested(root.nodeId, relations ? root.controller.relation_menu_actions(root.nodeId) : root.controller.item_menu_actions(root.nodeId), anchor || configuredBody, 0, 0, true)
+        }
     }
 
     Controls.HierarchyReveal {
@@ -316,7 +378,7 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        visible: root.nodeType !== "file" && !root.canFilterChildren
+        visible: !root.configured && root.nodeType !== "file" && !root.canFilterChildren
         opacity: root.nodeLoading ? 0.42 : 1
         Behavior on opacity {
             enabled: !root.theme.suppressTransientMotion
@@ -381,6 +443,8 @@ Item {
     }
     Item {
         id: content
+        visible: !root.configured
+        enabled: !root.presentationReadOnly
         x: root.cardLayout.content.x
         y: root.cardLayout.content.y
         width: root.cardLayout.content.width
@@ -948,7 +1012,8 @@ Item {
         // nodeType/compactMode changes on a pooled delegate.
         y: Math.round((root.height - height) / 2)
         z: 8
-        active: !root.nodeLoading && (root.hasPersistentItemControls || root.showHoverTools) && (root.itemControls || []).length > 0
+        active: !root.configured && !root.nodeLoading && (root.hasPersistentItemControls || root.showHoverTools) && (root.itemControls || []).length > 0
+        enabled: !root.presentationReadOnly
         sourceComponent: hoverControlsComponent
     }
     Component {
@@ -1002,7 +1067,8 @@ Item {
         width: item ? item.implicitWidth : 0
         height: item ? item.implicitHeight : 0
         y: Math.round((root.height - height) / 2)
-        active: root.nodeType === "sobject" || root.nodeType === "process"
+        active: !root.configured && (root.nodeType === "sobject" || root.nodeType === "process")
+        enabled: !root.presentationReadOnly
         visible: active
         z: 8
         sourceComponent: Row {
@@ -1067,6 +1133,7 @@ Item {
     }
     MouseArea {
         id: itemMouse
+        enabled: !root.presentationReadOnly
         anchors.fill: parent
         z: 2
         hoverEnabled: true

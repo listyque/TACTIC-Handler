@@ -49,6 +49,28 @@ class LayoutEditorTests(unittest.TestCase):
         worker.result.emit(dict(configuration=self.configuration(),sampleItems=[]))
         QCoreApplication.processEvents()
         self.assertTrue(self.host.canWrite)
+    def test_live_preview_keeps_edits_and_rejects_stale_reply_without_saving(self):
+        self.loaded()
+        self.host._draft_timer.stop()
+        self.host._resolve_draft()
+        old = self.pool.workers[-1]
+        self.assertFalse(self.host.busy)
+        self.host.set_xml(XML.replace('custom="kept"', 'custom="changed"'))
+        old.result.emit({'interface': {'table': {'item_layout': {'elements': []}}}})
+        QCoreApplication.processEvents()
+        self.assertIsNone(self.host.model['preview'])
+        self.host._draft_timer.stop()
+        self.host._resolve_draft()
+        resolved = {'table': {'item_layout': {'elements': [{'name':'title'}]}}}
+        self.pool.workers[-1].result.emit({'interface': resolved})
+        QCoreApplication.processEvents()
+        self.assertEqual(self.host.model['liveInterface'], resolved)
+        self.assertEqual(self.host.model['checked'], '')
+        self.host.set_xml(XML.replace('custom="kept"', 'custom="newer"'))
+        self.assertEqual(self.host.model['liveInterface'], resolved)
+        self.assertIsNone(self.host.model['preview'])
+        self.assertTrue(self.host.dirty)
+        self.write.assert_not_called()
     def test_cold_project_discovers_types_only_in_the_worker_with_captured_server(self):
         self.project.stypes=None
         self.host.reset('demo')
