@@ -15,12 +15,30 @@ export function initial() {
         newTitle: '',
         recordQuery: '',
         pageFilter: 0,
+        past: [],
+        future: [],
+        historyDocument: '',
         error: ''
     };
+}
+export function shortcut(key, control, shift, alt) {
+    if (!control || alt) return null;
+    key = key.toLowerCase();
+    if (key === 'z') return { type: shift ? 'redo' : 'undo' };
+    if (key === 'y' && !shift) return { type: 'redo' };
+    if (key === 'd' && !shift) return { type: 'duplicate' };
+    return null;
 }
 export function transition(ui, model, event) {
     const next = Object.assign({}, ui),
         commands = [];
+    const current = Document.fingerprint(model.document);
+    if (ui.historyDocument && ui.historyDocument !== current) {
+        next.past = [];
+        next.future = [];
+        next.historyDocument = '';
+        next.selected = '';
+    }
     if (
         event.type === 'confirm' &&
         ['page', 'remove'].includes(ui.confirmation) &&
@@ -28,6 +46,17 @@ export function transition(ui, model, event) {
     )
         return { ui: next, commands };
     function replace(document) {
+        if (Document.fingerprint(document) === current) return;
+        next.past = next.past
+            .concat([
+                {
+                    document: Document.copy(model.document),
+                    selected: ui.selected
+                }
+            ])
+            .slice(-20);
+        next.future = [];
+        next.historyDocument = Document.fingerprint(document);
         commands.push({ type: 'document', document });
         next.error = '';
     }
@@ -65,7 +94,21 @@ export function transition(ui, model, event) {
         return { ui: next, commands };
     }
     const document = documentEvent(next, model, event);
-    if (document) return document;
+    if (document) {
+        if (
+            document.commands.some((command) =>
+                ['discard', 'reload'].includes(command.type)
+            )
+        )
+            Object.assign(document.ui, {
+                selected: '',
+                text: {},
+                past: [],
+                future: [],
+                historyDocument: ''
+            });
+        return document;
+    }
     if (model.busy || ui.confirmation) return { ui: next, commands };
     if (
         (!model.canWrite || model.uncertain) &&
@@ -92,7 +135,7 @@ export function transition(ui, model, event) {
                 throw Error(
                     'Apply or discard the pending text before continuing'
                 );
-            const result = Reports.edit(model, ui, event);
+            const result = Reports.edit(model, next, event);
             Object.assign(next, result.ui);
             if (result.document) replace(result.document);
             return { ui: next, commands };
@@ -110,12 +153,70 @@ export function transition(ui, model, event) {
             throw Error('Apply or discard the pending text before continuing');
         if (
             Object.keys(ui.text).length &&
-            ['select', 'geometry', 'add', 'remove', 'change'].includes(
-                event.type
-            )
+            [
+                'select',
+                'geometry',
+                'add',
+                'remove',
+                'change',
+                'undo',
+                'redo',
+                'duplicate',
+                'reorder',
+                'reparent'
+            ].includes(event.type)
         )
             throw Error('Apply or discard the pending text before continuing');
         switch (event.type) {
+            case 'undo':
+            case 'redo': {
+                if (ui.preview) break;
+                const from = event.type === 'undo' ? 'past' : 'future';
+                const to = event.type === 'undo' ? 'future' : 'past';
+                if (!next[from].length) break;
+                const snapshot = next[from][next[from].length - 1];
+                next[from] = next[from].slice(0, -1);
+                next[to] = next[to]
+                    .concat([
+                        {
+                            document: Document.copy(model.document),
+                            selected: ui.selected
+                        }
+                    ])
+                    .slice(-20);
+                next.selected = snapshot.selected;
+                next.recordQuery = '';
+                next.pageFilter = 0;
+                next.historyDocument = Document.fingerprint(snapshot.document);
+                next.error = '';
+                commands.push({
+                    type: 'document',
+                    document: Document.copy(snapshot.document)
+                });
+                break;
+            }
+            case 'duplicate':
+            case 'reorder':
+            case 'reparent': {
+                if (ui.preview || !ui.selected) break;
+                const value =
+                    event.type === 'duplicate'
+                        ? Document.duplicate(model.document, ui.selected)
+                        : event.type === 'reorder'
+                          ? Document.reorder(
+                                model.document,
+                                ui.selected,
+                                event.delta
+                            )
+                          : Document.reparent(
+                                model.document,
+                                ui.selected,
+                                event.value
+                            );
+                replace(value.document);
+                next.selected = value.key;
+                break;
+            }
             case 'preview':
                 if (Object.keys(ui.text).length)
                     throw Error(

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.195 - 2026-10-28
+
+- Add local page-draft Undo/Redo, subtree duplication, explicit parent selection, sibling reorder and ancestor breadcrumbs in the shared native/web page editor. Keep text editing shortcuts native and all page changes behind the existing validated save.
+
 ## 0.6.0.194 - 2026-10-28
 
 - Keep shared page-filter button captions fully visible in Russian in both native and web dashboards.

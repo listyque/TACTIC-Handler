@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import "../../../tactic_frame" as Frame
 import "../../../tactic_frame/features/administration/layouts/page.ui.mjs" as UI
 import "../../../tactic_frame/features/administration/layouts/page.state.mjs" as State
@@ -12,6 +13,16 @@ Item {
     property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     property bool saveActionsInHeader: false
     property var ui: State.initial()
+    Keys.onPressed: event => {
+        const focused = root.Window.window?.activeFocusItem;
+        if (event.isAutoRepeat || (focused && focused.cursorPosition !== undefined))
+            return;
+        const action = State.shortcut(String.fromCharCode(event.key), !!(event.modifiers & (Qt.ControlModifier | Qt.MetaModifier)), !!(event.modifiers & Qt.ShiftModifier), !!(event.modifiers & Qt.AltModifier));
+        if (action) {
+            root.dispatch(action);
+            event.accepted = true;
+        }
+    }
     readonly property var dataScope: Reports.scope(controller.document, ui)
     readonly property string dataKey: JSON.stringify([controller.metadata.sourceEpoch, dataScope])
     onDataKeyChanged: Qt.callLater(requestSource)

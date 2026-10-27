@@ -132,6 +132,65 @@ class PageCanvasTests(unittest.TestCase):
 
         AdministrationQmlTests.setUpClass()
 
+    def test_structure_history_and_shortcuts_are_local(self):
+        from tests.test_administration_qml import AdministrationQmlTests
+        from tests.profile_ui_responsiveness import frame
+        fixture = AdministrationQmlTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        editor = fixture.admin.dashboardEditor
+        fixture.seed(editor, 'review', DOCUMENT, dict(revision='R1', compiled=COMPILED,
+            checkedDocument=copy.deepcopy(DOCUMENT), searchTypes=[]))
+        fixture.admin.select_section('dashboards')
+        frame(fixture.window)
+        fixture.window.resize(1700,950)
+        frame(fixture.window)
+        fixture.click('pageBlock_0.0')
+        QTest.keyClick(fixture.window, Qt.Key_D, Qt.ControlModifier)
+        frame(fixture.window)
+        self.assertEqual(len(editor.document['blocks'][0]['children']), 2)
+        fixture.item('pageAction_undo').forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(fixture.window, Qt.Key_Z, Qt.ControlModifier)
+        frame(fixture.window)
+        self.assertEqual(editor.document, DOCUMENT)
+        fixture.item('pageAction_redo').forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(fixture.window, Qt.Key_Z, Qt.ControlModifier | Qt.ShiftModifier)
+        frame(fixture.window)
+        self.assertEqual(len(editor.document['blocks'][0]['children']), 2)
+        fixture.item('pageParent').forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(fixture.window, Qt.Key_Up)
+        frame(fixture.window)
+        self.assertEqual(len(editor.document['blocks']), 2)
+        fixture.item('pageParent').forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(fixture.window, Qt.Key_Down)
+        frame(fixture.window)
+        self.assertEqual(len(editor.document['blocks']), 1)
+        fixture.click('pageAction_reorder-1')
+        for _ in range(4):
+            fixture.click('pageAction_undo')
+        self.assertEqual(editor.document, DOCUMENT)
+        fixture.click('pageAncestor_0')
+        self.assertIsNotNone(fixture.item('pageProperty_gap'))
+        fixture.click('pageAncestor_page')
+        with self.assertRaises(StopIteration):
+            fixture.item('pageParent')
+        fixture.click('pageBlock_0.0')
+        fixture.click('pageAction_duplicate')
+        field = fixture.item('pageProperty_title')
+        field.forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(fixture.window, Qt.Key_X)
+        QTest.keyClick(fixture.window, Qt.Key_Z, Qt.ControlModifier)
+        frame(fixture.window)
+        self.assertEqual(len(editor.document['blocks'][0]['children']), 2,
+                         'Text Undo must not undo the duplicated widget')
+        fixture.click('adminDiscardDocument')
+        fixture.click('adminConfirmSave')
+        self.assertEqual(editor.document, DOCUMENT)
+        self.assertFalse(fixture.item('pageAction_undo').isEnabled())
+        self.assertFalse(editor.busy)
+        self.assertIsNone(editor._pending_save)
+        self.assertEqual(fixture.fixture.warnings, [], '\n'.join(fixture.fixture.warnings))
+
     def test_page_canvas_resizes_without_saving_and_keeps_working_document(self):
         from tests.test_administration_qml import AdministrationQmlTests
         from tests.profile_ui_responsiveness import frame

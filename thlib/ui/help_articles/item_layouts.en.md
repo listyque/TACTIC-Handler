@@ -317,3 +317,29 @@ checks and save recovery still apply. Limits: eight page filters, three grouping
 fields, eight measures, 100 displayed groups per report. Charts currently use
 horizontal bars; arbitrary joins, formulas, editable forms and printable report
 pagination are separate features.
+
+## Page structure and local Undo/Redo
+
+In Administration → Page layouts, select a widget on the canvas or in Page
+blocks. The breadcrumb above the canvas shows its ancestors; click one to select
+the container or the page. Add widget inserts inside a selected row, column or
+Details, or beside an ordinary widget. The existing item tree is unchanged.
+
+The compact editing toolbar provides Undo, Redo, Duplicate widget and Move up/down.
+Duplicate copies a complete subtree with its data bindings, filters and spacing;
+it selects the new copy. The editor refuses copies that exceed structural limits
+or duplicate the page's single item workspace or Details pane. In Properties,
+Parent container moves the selection to the end of the chosen container. It
+cannot move a widget inside itself or its descendants. Reorder works among siblings.
+
+Undo/Redo retains the last 20 committed draft edits and restores the corresponding
+selection. A new edit after Undo clears Redo. Pending text must first be committed
+or discarded. Ctrl+Z, Ctrl+Shift+Z/Ctrl+Y and Ctrl+D work inside the page editor;
+text fields retain their native text editing shortcuts. All operations also have
+explicit buttons. Preview is read-only; busy, uncertain and read-only editors
+cannot mutate the draft through these actions.
+
+This history is local to the current draft, not the transaction rollback of a
+saved project. Reloading, discarding or switching pages clears it. Replacing the draft with a server-normalized version also clears its old history. Editing and
+undoing may request an ordinary checked preview, but never save the page.
+Publish only with the normal validated Save to server and revision check.

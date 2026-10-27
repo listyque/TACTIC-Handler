@@ -7,6 +7,16 @@ import { sectionSelector } from '../admin.document.mjs';
 import { spacingField } from './canvas.mjs';
 import * as Data from './page.data.mjs';
 import * as Reports from './page.reports.mjs';
+import { listAction } from '../../../controls/lists/tree.ui.mjs';
+
+function blockTitle(item, key, language) {
+    if (item.title && item.title !== item.kind) return item.title;
+    return (
+        translate(item.kind[0].toUpperCase() + item.kind.slice(1), language) +
+        ' ' +
+        (Number(key.split('.').pop()) + 1)
+    );
+}
 
 export function model(raw, ui) {
     return Object.assign({}, raw, {
@@ -37,10 +47,7 @@ export function row(list, record, model, ui, language) {
     const key = record.key === 'page' ? '' : record.key;
     const title =
         record.label === record.kind
-            ? translate(
-                  record.kind[0].toUpperCase() + record.kind.slice(1),
-                  language
-              )
+            ? blockTitle({ kind: record.kind }, record.key, language)
             : record.label;
     return {
         nodes: [
@@ -74,6 +81,9 @@ export function row(list, record, model, ui, language) {
 
 export function describe(model, ui, width, height, language) {
     if (width <= 0 || height <= 0) return { nodes: [] };
+    // Native document and selection notifications can arrive in either order.
+    if (ui.selected && !model.layers.some((row) => row.key === ui.selected))
+        ui = Object.assign({}, ui, { selected: '' });
     if (height < 400)
         return {
             nodes: [
@@ -205,18 +215,70 @@ export function describe(model, ui, width, height, language) {
                 }))
             ),
             enabled: canEdit && !ui.preview,
+            toolTip: model.layers.some((row) => row.kind === 'items')
+                ? tr('Items preview shows up to three records.')
+                : '',
             action: { type: 'add' }
         })
     );
-    if (width >= 700 && model.layers.some((row) => row.kind === 'items'))
-        nodes.push(
-            label(
-                'pageSampleHint',
-                rect(232, y, Math.max(0, width - 244 - modeWidth), 38),
-                tr('Items preview shows up to three records.'),
-                Object.assign({}, muted, { fontRole: 'caption', wrap: true })
+    if (!ui.preview) {
+        const current = Document.fingerprint(model.document);
+        const historyCurrent = ui.historyDocument === current;
+        const ready = canEdit && !model.pendingText && !ui.confirmation;
+        const p = Document.path(ui.selected),
+            rows = p.length ? Document.siblings(model.document, p) : [];
+        const actions = [
+            [
+                'Undo',
+                'undo',
+                { type: 'undo' },
+                ready && historyCurrent && ui.past?.length
+            ],
+            [
+                'Redo',
+                'redo',
+                { type: 'redo' },
+                ready && historyCurrent && ui.future?.length
+            ],
+            [
+                'Duplicate widget',
+                'content-copy',
+                { type: 'duplicate' },
+                ready && !!ui.selected
+            ],
+            [
+                'Move up',
+                'arrow-upward',
+                { type: 'reorder', delta: -1 },
+                ready && p.length && p[p.length - 1] > 0
+            ],
+            [
+                'Move down',
+                'arrow-downward',
+                { type: 'reorder', delta: 1 },
+                ready && p.length && p[p.length - 1] < rows.length - 1
+            ]
+        ];
+        const separate = width < 700;
+        actions.forEach(([title, icon, action, enabled], index) =>
+            nodes.push(
+                button(
+                    'pageAction_' + action.type + (action.delta || ''),
+                    rect(
+                        (separate ? 0 : 232) + index * 40,
+                        y + (separate ? 44 : 0),
+                        32,
+                        32
+                    ),
+                    tr(title),
+                    icon,
+                    action,
+                    !!enabled,
+                    { iconOnly: true }
+                )
             )
         );
+    }
     y += 50;
     nodes.push(
         button(
@@ -229,20 +291,78 @@ export function describe(model, ui, width, height, language) {
             { iconOnly: narrow }
         )
     );
+    if (!ui.preview && width < 700) y += 44;
     if (width >= 500) {
-        nodes.push(
-            label(
-                'pageSelectionHint',
-                rect(0, y, width, 24),
-                tr(
-                    ui.preview
-                        ? 'Read-only draft preview. Nothing is saved.'
-                        : 'Click to select. Alt-click for underlying layers.'
-                ),
-                Object.assign({}, muted, { fontRole: 'caption' })
-            )
-        );
-        y += 32;
+        if (ui.preview)
+            nodes.push(
+                label(
+                    'pageSelectionHint',
+                    rect(0, y, width, 24),
+                    tr(
+                        ui.preview
+                            ? 'Read-only draft preview. Nothing is saved.'
+                            : 'Click to select. Alt-click for underlying layers.'
+                    ),
+                    Object.assign({}, muted, { fontRole: 'caption' })
+                )
+            );
+        else {
+            const p = Document.path(ui.selected),
+                crumbs = [
+                    { key: '', title: model.document.title || tr('Page') }
+                ];
+            p.forEach((_, index) => {
+                const key = p.slice(0, index + 1).join('.'),
+                    item = Document.block(model.document, key);
+                crumbs.push({
+                    key,
+                    title: blockTitle(item, key, language)
+                });
+            });
+            let x = 0;
+            const children = [];
+            crumbs.forEach((crumb, index) => {
+                if (index) {
+                    children.push(
+                        label(
+                            'pageAncestorSeparator_' + index,
+                            rect(x, 0, 20, 30),
+                            '›',
+                            muted
+                        )
+                    );
+                    x += 20;
+                }
+                const w = Math.max(
+                    60,
+                    Math.min(180, crumb.title.length * 8 + 24)
+                );
+                children.push(
+                    listAction(
+                        'pageAncestor_' + (crumb.key || 'page'),
+                        rect(x, 0, w, 30),
+                        crumb.title,
+                        '',
+                        { type: 'select', key: crumb.key },
+                        !model.busy && !model.pendingText,
+                        {
+                            toolTip: crumb.title,
+                            selected: crumb.key === ui.selected
+                        }
+                    )
+                );
+                x += w;
+            });
+            nodes.push(
+                node('Scroll', 'pageAncestors', rect(0, y, width, 46), {
+                    contentWidth: x,
+                    contentHeight: 30,
+                    scrollbarId: 'pageAncestorsBar',
+                    children
+                })
+            );
+        }
+        y += ui.preview ? 32 : 50;
     }
     if (narrow && !ui.preview) {
         nodes.push(
@@ -316,6 +436,45 @@ export function describe(model, ui, width, height, language) {
                 ...Reports.fields(model, ui, right - 24, language, canEdit)
             );
         if (item) {
+            const parent = Document.path(ui.selected).slice(0, -1).join('.');
+            fields.push({
+                kind: 'Choice',
+                id: 'pageParent',
+                title: 'Parent container',
+                props: {
+                    value: parent,
+                    enabled: canEdit && !model.pendingText,
+                    action: { type: 'reparent' }
+                },
+                options: [
+                    { value: '', label: model.document.title || tr('Page') }
+                ].concat(
+                    model.layers
+                        .filter(
+                            (row) =>
+                                ['row', 'column', 'details'].includes(
+                                    row.kind
+                                ) &&
+                                row.key !== ui.selected &&
+                                !row.key.startsWith(ui.selected + '.')
+                        )
+                        .map((row) => ({
+                            value: row.key,
+                            label: Document.path(row.key)
+                                .map((_, index) => {
+                                    const key = Document.path(row.key)
+                                        .slice(0, index + 1)
+                                        .join('.');
+                                    const item = Document.block(
+                                        model.document,
+                                        key
+                                    );
+                                    return blockTitle(item, key, language);
+                                })
+                                .join(' / ')
+                        }))
+                )
+            });
             fields.push(
                 ...Data.fields(model, ui, right - 24, language, canEdit)
             );

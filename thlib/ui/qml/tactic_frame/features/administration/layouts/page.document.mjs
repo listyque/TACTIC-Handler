@@ -18,6 +18,22 @@ export const copy = (value) =>
             item === undefined ? null : item
         )
     );
+export function fingerprint(value) {
+    // QVariantMap sorts keys and exposes None as undefined on the native host.
+    return JSON.stringify(copy(value), (_key, item) => {
+        if (item === undefined) return null;
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+            const result = {};
+            Object.keys(item)
+                .sort()
+                .forEach((key) => {
+                    result[key] = item[key];
+                });
+            return result;
+        }
+        return item;
+    });
+}
 export function path(value) {
     if (value === '') return [];
     if (!/^\d+(\.\d+)*$/.test(value)) throw Error('Select a page block');
@@ -148,6 +164,87 @@ export function remove(document, key) {
     siblings(result, p).splice(p[p.length - 1], 1);
     return result;
 }
+function checkStructure(document) {
+    const rows = layers(document);
+    if (rows.length > 128 || document.blocks.length > 32)
+        throw Error('Dashboard exceeds 128 bricks');
+    if (rows.some((row) => path(row.key).length > 7))
+        throw Error('Dashboard nesting exceeds six levels');
+    if (
+        rows.some(
+            (row) => (block(document, row.key).children || []).length > 32
+        )
+    )
+        throw Error('A container supports up to 32 widgets');
+    if (rows.filter((row) => row.kind === 'items').length > 1)
+        throw Error('A dashboard supports one items workspace');
+    if (rows.filter((row) => row.kind === 'details').length > 1)
+        throw Error('A dashboard supports one details pane');
+}
+export function duplicate(document, key) {
+    const result = copy(document),
+        p = path(key);
+    const item = block(result, key);
+    if (!item) throw Error('Select a page block');
+    siblings(result, p).splice(p[p.length - 1] + 1, 0, copy(item));
+    checkStructure(result);
+    return {
+        document: result,
+        key: p
+            .slice(0, -1)
+            .concat(p[p.length - 1] + 1)
+            .join('.')
+    };
+}
+export function reorder(document, key, delta) {
+    if (!Number.isInteger(delta)) throw Error('Select a page block');
+    const result = copy(document),
+        p = path(key),
+        item = block(result, key);
+    if (!item) throw Error('Select a page block');
+    const rows = siblings(result, p),
+        index = p[p.length - 1];
+    const target = Math.max(0, Math.min(rows.length - 1, index + delta));
+    rows.splice(index, 1);
+    rows.splice(target, 0, item);
+    return { document: result, key: p.slice(0, -1).concat(target).join('.') };
+}
+function location(rows, target, prefix = []) {
+    if (rows === target) return prefix;
+    for (let i = 0; i < rows.length; i++) {
+        const found = location(
+            rows[i].children || [],
+            target,
+            prefix.concat(i)
+        );
+        if (found) return found;
+    }
+    return null;
+}
+export function reparent(document, key, parent) {
+    if (parent === key || parent.startsWith(key + '.'))
+        throw Error('A widget cannot contain itself');
+    const result = copy(document),
+        p = path(key),
+        item = block(result, key);
+    if (!item) throw Error('Select a page block');
+    const container = parent ? block(result, parent) : null;
+    if (container && !['row', 'column', 'details'].includes(container.kind))
+        throw Error('Choose a row, column or details container');
+    if (p.slice(0, -1).join('.') === parent) return { document: result, key };
+    const target = container
+        ? container.children || (container.children = [])
+        : result.blocks;
+    siblings(result, p).splice(p[p.length - 1], 1);
+    target.push(item);
+    checkStructure(result);
+    return {
+        document: result,
+        key: location(result.blocks, target)
+            .concat(target.length - 1)
+            .join('.')
+    };
+}
 export function geometry(document, change, boxes) {
     const result = copy(document),
         p = path(change.key),
@@ -181,18 +278,10 @@ export function geometry(document, change, boxes) {
         return { document: result, key: change.key };
     }
     if (change.keyboard) {
-        const rows = siblings(result, p),
-            index = p[p.length - 1];
         const delta =
             change.after.y - change.before.y ||
             change.after.x - change.before.x;
-        const target = Math.max(0, Math.min(rows.length - 1, index + delta));
-        rows.splice(index, 1);
-        rows.splice(target, 0, item);
-        return {
-            document: result,
-            key: p.slice(0, -1).concat(target).join('.')
-        };
+        return reorder(document, change.key, delta);
     }
     const x = change.after.x + change.after.width / 2,
         y = change.after.y + change.after.height / 2;
@@ -250,16 +339,8 @@ export function geometry(document, change, boxes) {
     if (old === target && index < insertion) insertion--;
     old.splice(index, 1);
     target.splice(insertion, 0, item);
-    function location(rows, prefix) {
-        if (rows === target) return prefix;
-        for (let i = 0; i < rows.length; i++) {
-            const found = location(rows[i].children || [], prefix.concat(i));
-            if (found) return found;
-        }
-        return null;
-    }
     return {
         document: result,
-        key: location(result.blocks, []).concat(insertion).join('.')
+        key: location(result.blocks, target).concat(insertion).join('.')
     };
 }

@@ -5652,5 +5652,11 @@
   "Grouping and aggregates belong to report widgets": "Группировки и показатели доступны в виджетах отчётов",
   "Filters require a scalar field": "Для фильтра нужно простое поле",
   "Enter a text value for this field": "Введите текстовое значение для этого поля",
-  "Text pattern filters require a text field": "Для текстового шаблона выберите текстовое поле"
+  "Text pattern filters require a text field": "Для текстового шаблона выберите текстовое поле",
+  "Duplicate widget": "Дублировать виджет",
+  "Parent container": "Родительский контейнер",
+  "A widget cannot contain itself": "Виджет не может содержать сам себя",
+  "Choose a row, column or details container": "Выберите строку, колонку или контейнер деталей",
+  "A container supports up to 32 widgets": "Контейнер поддерживает до 32 виджетов",
+  "A dashboard supports one items workspace": "Дашборд поддерживает одно дерево итемов"
 }
