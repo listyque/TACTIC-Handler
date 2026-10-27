@@ -261,6 +261,10 @@ class CustomLayoutController(QObject):
             searchKey=result['targetSearchKey'], record=result['layoutRecord']), key)
         if self.workspace:
             self.pages[key]['target'] = self._target
+            if result.get('layoutItems'):
+                self.show_items(force=True)
+            else:
+                self.tab.loaded = True
         self.notify_document()
         if not self.workspace:
             app.open_window('table_document')
@@ -284,6 +288,44 @@ class CustomLayoutController(QObject):
         self.services._nested_changed()
         self.notify_document()
         self.changed.emit()
+
+        self.show_items()
+
+    def show_items(self, *, force=False):
+        """Use the current native search tab; never create another result tree."""
+        app = self.services._application
+        scope = self.document_data.get('layoutItems')
+        if not self.workspace or not scope or self.tab is not app._current_tab():
+            return
+        from ..search_contract import records_from_filters
+        section = app._current_section()
+        section.search_type = scope['searchType']
+        section.base_filters = ()
+        self.tab.table_view = scope['view']
+        self.tab.view_mode = 'continious'
+        reload = force or self.tab.extra_filters != scope['filters']
+        if reload:
+            self.tab.sort_mode = 'column:' + scope['orderBy'] + ':asc'
+            self.tab.extra_filters = list(scope['filters'])
+            self.tab.filter_records = records_from_filters(scope['filters'])
+            self.tab.limit = scope['initialLimit']
+            self.tab.offset = self.tab.next_offset = 0
+            self.tab.failure_count = 0
+            self.tab.loaded = False
+        if reload:
+            app.refresh_current()
+        else:
+            app._show_or_load_tab(self.tab, content_only=True)
+
+    @Slot()
+    def reload_item_results(self):
+        self.show_items(force=True)
+
+    @Slot()
+    def load_item_page(self):
+        app = self.services._application
+        if self.tab is app._current_tab() and app.has_more and not self.tab.loading:
+            app._load_tab(self.tab, append=True)
 
     @Property('QVariantMap', notify=changed)
     def tableModels(self):

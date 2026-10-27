@@ -542,6 +542,8 @@ server into native tables/layouts; foreign links open the system browser.
 
 ## Dashboards and external MCP agents
 
+A dashboard can also include the existing expandable item view, with its previews, relationship/process branches, counters and object actions. Ask the agent to add an item workspace for a root Search Type; no custom tree or scripts are needed. One item workspace is supported per dashboard.
+
 The agent can compose native dashboards from text, Markdown, counts, tables,
 links and responsive rows/columns, and group/reorder existing navigation entries,
 hide duplicates, or set icons and colors. Saved dashboards run in both clients.

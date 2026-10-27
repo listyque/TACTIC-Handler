@@ -685,10 +685,11 @@ Item {
                     }
                 }
                 Item {
-                    x: snapshotBody.scene.nodes[1].x
-                    y: snapshotBody.scene.nodes[1].y
-                    width: snapshotBody.scene.nodes[1].width
-                    height: snapshotBody.scene.nodes[1].height
+                    // The old loader briefly remains alive while compact density replaces its scene.
+                    x: snapshotBody.scene.nodes[1]?.x ?? 0
+                    y: snapshotBody.scene.nodes[1]?.y ?? 0
+                    width: snapshotBody.scene.nodes[1]?.width ?? 0
+                    height: snapshotBody.scene.nodes[1]?.height ?? 0
 
                     Loader {
                         id: snapshotTechnicalInfo
@@ -769,10 +770,10 @@ Item {
                     }
                 }
                 Item {
-                    x: snapshotBody.scene.nodes[2].x
-                    y: snapshotBody.scene.nodes[2].y
-                    width: snapshotBody.scene.nodes[2].width
-                    height: snapshotBody.scene.nodes[2].height
+                    x: snapshotBody.scene.nodes[2]?.x ?? 0
+                    y: snapshotBody.scene.nodes[2]?.y ?? 0
+                    width: snapshotBody.scene.nodes[2]?.width ?? 0
+                    height: snapshotBody.scene.nodes[2]?.height ?? 0
 
                     Label {
                         id: snapshotAuthor

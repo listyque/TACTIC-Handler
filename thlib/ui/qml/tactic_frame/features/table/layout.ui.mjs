@@ -185,6 +185,26 @@ export function describe(
                         enabled: !item.javascript || editable
                     })
                 );
+            } else if (item.kind === 'items') {
+                const itemsExtent = Number.isFinite(item.height)
+                    ? item.height
+                    : tableHeight;
+                extent = itemsExtent + 32;
+                children.push(
+                    label(id + '_title', rect(x, top, available, 28), text)
+                );
+                children.push(
+                    node(
+                        'View',
+                        id,
+                        rect(x, top + 32, available, itemsExtent),
+                        {
+                            view: 'layoutItems',
+                            key: id,
+                            items: item.items
+                        }
+                    )
+                );
             } else if (item.kind === 'table') {
                 const tableExtent = Number.isFinite(item.height)
                     ? item.height

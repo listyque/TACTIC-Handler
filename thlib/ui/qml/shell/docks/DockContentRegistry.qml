@@ -52,6 +52,8 @@ Item {
                     columnsController: columnsEditorController
                     users: userListModel
                     administration: administrationController
+                    itemSurfaces: workspaceResultSurfacesModel
+                    itemVersions: versionsModel
                 }
             }
         }

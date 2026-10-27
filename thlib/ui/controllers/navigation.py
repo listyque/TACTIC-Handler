@@ -1237,20 +1237,19 @@ class NavigationMixin:
 
         apply_switch()
 
-    def _show_or_load_tab(self, tab: SearchTabSession) -> None:
+    def _show_or_load_tab(self, tab: SearchTabSession, *, content_only=False) -> None:
         services = getattr(self, '_table_services', None)
         page = getattr(services, 'workspaceLayout', None)
         if page is not None:
             entry = self.navigation_model.entry(self._current_section_key)
             if entry and entry.layout_view and tab.tab_kind == 'base':
                 tab.layout_view = entry.layout_view
-        if getattr(tab, 'layout_view', '') and page is not None:
+        if getattr(tab, 'layout_view', '') and page is not None and not content_only:
             self._set_loading(False)
             page.open_view(tab.layout_view, tab.title, tab.tab_id, search_key=tab.layout_target)
-            tab.loaded = True
             self.results_view_changed.emit()
             return
-        if page is not None:
+        if page is not None and not content_only:
             page.leave_workspace()
         self._card_path = list(tab.card_path)
         self._pending_card_focus_id = ""

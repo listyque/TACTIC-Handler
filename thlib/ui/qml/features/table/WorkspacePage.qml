@@ -10,6 +10,8 @@ Item {
     required property var columnsController
     required property var users
     required property var administration
+    property var itemSurfaces: null
+    property var itemVersions: null
     readonly property var owner: services.workspaceLayout
     readonly property var document: owner.document
     readonly property var scene: Page.describe({
@@ -37,6 +39,8 @@ Item {
             columnsController: root.columnsController
             users: root.users
             administration: root.administration
+            itemSurfaces: root.itemSurfaces
+            itemVersions: root.itemVersions
         }
     }
 }

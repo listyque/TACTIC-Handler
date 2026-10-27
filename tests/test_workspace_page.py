@@ -105,6 +105,27 @@ class WorkspacePageTests(unittest.TestCase):
         self.assertEqual(calls,[(('dashboard.review',app.tab.title,app.tab.tab_id),dict(search_key=''))])
         app.open_window.assert_not_called()
 
+    def test_items_use_the_existing_search_tab_and_loader(self):
+        app,services=self.owner()
+        app.tab.extra_filters=[];app.tab.loaded=True;app.tab.loading=False
+        section=SimpleNamespace(search_type='sthpw/project',base_filters=())
+        app._current_section=lambda:section
+        app._show_or_load_tab=Mock()
+        app.refresh_current=Mock()
+        scope=dict(searchType='demo/asset',view='table',filters=[['code','=','A']],orderBy='code',initialLimit=25)
+        model=dict(self.model(),layoutItems=scope,layoutNodes=[dict(kind='items',text='Assets',items=scope)])
+        services.workspaceLayout.open_result(model,'Review',app.tab.tab_id)
+        app.refresh_current.assert_called_once_with()
+        self.assertEqual(section.search_type,'demo/asset')
+        self.assertEqual(app.tab.view_mode,'continious')
+        self.assertEqual(app.tab.extra_filters,[['code','=','A']])
+        self.assertFalse(app.tab.loaded)
+        app.tab.loaded=True
+        services.workspaceLayout.select_page(app.tab.tab_id)
+        self.assertTrue(app.tab.loaded)
+        app._show_or_load_tab.assert_called_once_with(app.tab,content_only=True)
+        app.open_window.assert_not_called()
+
     def test_late_page_reply_cannot_replace_the_new_page_or_open_a_window(self):
         app,services=self.owner()
         replies=[]

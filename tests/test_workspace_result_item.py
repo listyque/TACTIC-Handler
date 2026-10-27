@@ -1162,6 +1162,13 @@ class WorkspaceResultItemTests(unittest.TestCase):
             date_label.property("text"), "2026 August 23 10:52:28"
         )
 
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
+        for compact in (True, False):
+            item.setProperty("compactMode", compact)
+            self.app.processEvents()
+        self.assertEqual(warnings, [])
+
         window.close()
         item.deleteLater()
         theme.deleteLater()

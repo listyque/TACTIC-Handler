@@ -11,12 +11,18 @@ Frame.FrameView {
     required property var columnsController
     required property var users
     required property var administration
+    property var itemSurfaces: null
+    property var itemVersions: null
     property var owner: services.customLayout
     readonly property var document: owner.document
     scene: Layout.describe(Object.assign({}, document, {
         layoutTables: owner.tableModels || {}
     }), width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language, true, controller.server_url || "")
     views: ({
+            layoutItems: {
+                component: itemsComponent,
+                nodeProps: true
+            },
             layoutMarkdown: {
                 component: markdownComponent,
                 nodeProps: true
@@ -35,6 +41,25 @@ Frame.FrameView {
             owner.set_state(Layout.change(document.layoutState, action.selector, action.value));
         else
             owner.activate(action);
+    }
+    Component {
+        id: itemsComponent
+        Item {
+            property var frameNode: ({})
+            Loader {
+                anchors.fill: parent
+                active: !!root.itemSurfaces && !!root.itemVersions
+                sourceComponent: DashboardItems {
+                    theme: root.theme
+                    owner: root.owner
+                    controller: root.controller
+                    columnsController: root.columnsController
+                    users: root.users
+                    surfacesModel: root.itemSurfaces
+                    versionsModel: root.itemVersions
+                }
+            }
+        }
     }
     Component {
         id: markdownComponent
