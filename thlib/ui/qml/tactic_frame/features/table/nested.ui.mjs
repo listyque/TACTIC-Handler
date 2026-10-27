@@ -159,7 +159,7 @@ export function describe(model, width, extent, language) {
             'Box',
             'nestedHeaderSurface',
             rect(0, 0, contentWidth, metrics.header),
-            { background: paint.header }
+            { background: paint.header, radius: 0 }
         )
     ];
     for (const field of fields) {
@@ -309,7 +309,8 @@ export function row(model, record, language, viewportWidth = 0) {
     const selected = (model.selected || []).includes(record.key);
     nodes.push(
         node('Box', 'nestedRowSurface', rect(0, 0, width, rowHeight - 1), {
-            background: selected ? paint.selected : paint.row
+            background: selected ? paint.selected : paint.row,
+            radius: 0
         })
     );
     if (model.selection !== false)

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.181 - 2026-10-27
+
+- Use square corners only for embedded table headers and data-row backgrounds. Restore the prior theme geometry, control sizes and existing item views after reverting the rejected dashboard tree redesign.
+
 ## 0.6.0.179 - 2026-10-26
 
 - Open configured dashboard/navigation layouts as native workspace pages instead of document windows. Reuse the shared responsive layout, metric cards and embedded table controls; retain per-tab filters and ordinary object layout windows.

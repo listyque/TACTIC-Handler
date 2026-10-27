@@ -26,6 +26,10 @@ this tool is not part of ordinary product builds.
 
 ## Single owners
 
+Embedded table headers and data-row backgrounds use square corners. Keep the
+existing theme radii and sizing on controls, dialogs and item cards; a local
+table styling correction must not change those shared defaults.
+
 ### Controls, infrastructure and forms
 
 Classify by responsibility, not location, filename, size or nested element count.

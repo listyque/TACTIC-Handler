@@ -41,6 +41,8 @@ class NestedTableTests(unittest.TestCase):
         window, view = self.create('features/table/NestedTableView.qml', dict(controller=app,
             columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
             width=600, height=320)
+        self.assertEqual(self.item(view,'nestedHeaderSurface').property('radius'),0)
+        self.assertEqual(self.item(view,'nestedRowSurface').property('radius'),0)
         self.click(window, self.item(view, 'nestedSelect'))
         self.assertEqual(scope.state['selected'], ['A'])
         self.assertEqual(app.selections, [])
