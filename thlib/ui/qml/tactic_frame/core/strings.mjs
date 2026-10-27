@@ -1,5 +1,12 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Format XML': 'Форматировать XML',
+    'Clean preview': 'Чистое превью',
+    'Back to editing': 'К редактированию',
+    'Read-only draft preview. Nothing is saved.':
+        'Просмотр черновика. Изменения не сохраняются.',
+    'Click to select. Alt-click for underlying layers.':
+        'Клик — выбор. Alt + клик — слой под выбранным.',
     'Items preview shows up to three records.':
         'В предпросмотре итемов — до трёх записей.',
 

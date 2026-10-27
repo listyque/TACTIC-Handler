@@ -106,5 +106,5 @@ export function apply(model, change) {
     let tree = model.tree;
     for (const field of Object.keys(values))
         tree = Layout.edit(tree, model.view, item.name, field, values[field]);
-    return Layout.serialize(tree);
+    return Layout.serialize(tree, true);
 }

@@ -25,7 +25,7 @@ export function pending(ui) {
 export function blankXml(model) {
     const blank = (model.templates || []).find((row) => row.name === 'blank');
     return model.ready && !model.xml && blank && blank.tree
-        ? Layout.serialize(Layout.template(blank.tree, model.view))
+        ? Layout.serialize(Layout.template(blank.tree, model.view), true)
         : '';
 }
 export function synchronize(ui, model) {
@@ -74,7 +74,7 @@ function change(next, model, event, commands) {
             next.selected = (description.elements[0] || {}).name || '';
         commands.push({
             type: 'xml',
-            value: Layout.serialize(tree)
+            value: Layout.serialize(tree, true)
         });
         next.error = '';
         return true;
@@ -366,7 +366,7 @@ export function transition(ui, model, event) {
                     next.selected = name;
                     commands.push({
                         type: 'xml',
-                        value: Layout.serialize(tree)
+                        value: Layout.serialize(tree, true)
                     });
                     next.error = '';
                 } catch (error) {
@@ -379,6 +379,13 @@ export function transition(ui, model, event) {
                 commands.push({
                     type: 'xml',
                     value: event.value
+                });
+            break;
+        case 'formatXml':
+            if (edit && !model.layoutError && !pending(ui))
+                commands.push({
+                    type: 'xml',
+                    value: Layout.serialize(model.tree, true)
                 });
             break;
         case 'context':
@@ -435,7 +442,7 @@ export function transition(ui, model, event) {
                     commands.push({
                         type: 'newView',
                         view: name,
-                        xml: Layout.serialize(Layout.template(tree, name))
+                        xml: Layout.serialize(Layout.template(tree, name), true)
                     });
                     next.error = '';
                 } catch (error) {

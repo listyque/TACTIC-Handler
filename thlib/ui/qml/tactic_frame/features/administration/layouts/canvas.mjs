@@ -2,6 +2,22 @@ import { node, rect } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 
 export const handles = ['e', 's', 'se'];
+export function pick(boxes, x, y, selected = '', cycle = false) {
+    const hits = (boxes || [])
+        .filter((box) => {
+            const hit = box.hit || box;
+            return (
+                x >= hit.x &&
+                x < hit.x + hit.width &&
+                y >= hit.y &&
+                y < hit.y + hit.height
+            );
+        })
+        .reverse();
+    if (!hits.length) return null;
+    const current = cycle ? hits.findIndex((box) => box.key === selected) : -1;
+    return hits[(current + 1) % hits.length];
+}
 function intersect(a, b) {
     if (!a) return b;
     const x = Math.max(a.x, b.x),
@@ -15,7 +31,9 @@ function intersect(a, b) {
 }
 export function boxes(nodes, field, x = 0, y = 0, depth = 0, clip = null) {
     let result = [];
-    for (const item of nodes || []) {
+    for (const item of Array.from(nodes || []).sort(
+        (a, b) => (a.layer || 0) - (b.layer || 0)
+    )) {
         const left = x + item.x,
             top = y + item.y;
         const bounds = rect(left, top, item.width, item.height),
@@ -158,14 +176,20 @@ export function spacingField(
 export function itemScene(scene, layout, prefix = 'itemComposition') {
     if (layout.flow === 'contents' || layout.collection === 'table')
         return scene;
-    return decorate(scene, 'layoutElement', 'canvasOverlay', (box) => {
+    const result = decorate(scene, 'layoutElement', 'canvasOverlay', (box) => {
         const item = layout.elements.find((row) => row.name === box.key);
-        const parent =
-            item && layout.elements.find((row) => row.name === item.parent);
-        return (
-            !!item &&
-            box.id === prefix + '_' + item.name &&
-            (parent ? parent.flow : layout.flow) === 'grid'
-        );
+        return !!item && box.id === prefix + '_' + item.name;
+    });
+    return Object.assign({}, result, {
+        canvasBoxes: (result.canvasBoxes || []).map((box) => {
+            const item = layout.elements.find((row) => row.name === box.key),
+                parent = layout.elements.find(
+                    (row) => row.name === item.parent
+                );
+            return Object.assign({}, box, {
+                label: item.title || item.name,
+                canTransform: (parent ? parent.flow : layout.flow) === 'grid'
+            });
+        })
     });
 }

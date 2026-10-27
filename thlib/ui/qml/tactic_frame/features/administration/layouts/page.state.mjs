@@ -4,6 +4,7 @@ export function initial() {
     return {
         selected: '',
         panel: 'canvas',
+        preview: false,
         text: {},
         confirmation: '',
         pendingPage: '',
@@ -64,7 +65,7 @@ export function transition(ui, model, event) {
     if (model.busy || ui.confirmation) return { ui: next, commands };
     if (
         (!model.canWrite || model.uncertain) &&
-        !['select', 'panel'].includes(event.type)
+        !['select', 'panel', 'preview'].includes(event.type)
     )
         return { ui: next, commands };
     try {
@@ -76,6 +77,13 @@ export function transition(ui, model, event) {
         )
             throw Error('Apply or discard the pending text before continuing');
         switch (event.type) {
+            case 'preview':
+                if (Object.keys(ui.text).length)
+                    throw Error(
+                        'Apply or discard the pending text before continuing'
+                    );
+                next.preview = !ui.preview;
+                break;
             case 'panel':
                 if (['layers', 'canvas', 'properties'].includes(event.value))
                     next.panel = event.value;

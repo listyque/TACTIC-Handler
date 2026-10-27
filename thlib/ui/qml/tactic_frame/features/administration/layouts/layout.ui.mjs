@@ -229,6 +229,18 @@ export function toolbar(model, ui, width, language, embedded = false) {
     );
     if (embedded)
         result.nodes = result.nodes.filter((row) => row.id !== 'layoutHelp');
+    if (ui.page === 'xml')
+        result.nodes.push(
+            button(
+                'layoutFormatXml',
+                rect(embedded ? 134 : 178, 0, 38, 38),
+                tr('Format XML'),
+                'code',
+                { type: 'formatXml' },
+                edit && !model.layoutError && !pending(ui),
+                { iconOnly: true }
+            )
+        );
     return result;
 }
 export function models(model, language = 'en') {
@@ -722,6 +734,17 @@ export function describe(model, ui, width, height, language) {
         )
     );
     y += 46;
+    if (ui.page === 'design' && width >= 500) {
+        nodes.push(
+            label(
+                'layoutSelectionHint',
+                rect(0, y, width, 24),
+                tr('Click to select. Alt-click for underlying layers.'),
+                Object.assign({}, muted, { fontRole: 'caption' })
+            )
+        );
+        y += 32;
+    }
     if (model.sampleError) {
         nodes.push(
             node('Area', 'layoutSampleError', rect(0, y, width, 58), {

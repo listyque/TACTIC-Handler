@@ -231,3 +231,20 @@ the right. Selecting a project or task shows its configured fields, rich text an
 related tables on the same page, preserving expanded branches. Ask the agent to
 compose an `items` and `details` row; each actual Search Type can have its own
 details fields. This uses the normal dashboard tools and saved project settings.
+
+## Canvas selection and clean preview
+
+Click a visible element to select it. Alt-click cycles through overlapping layers,
+including their container; Layers remains available for virtual/contents groups.
+Children in row/column flow can be selected, but grid drag/resize handles are shown
+only where grid positioning applies. This does not replace the native item tree.
+
+In Item layouts, **Resolved preview** removes editor outlines and handles. In
+Page layouts, **Clean preview** hides the layer/property panels and canvas guides;
+**Back to editing** restores your selection. Both show the current draft without
+publishing it. Preview does not activate business mutations.
+
+Visual card edits generate indented XML. **Format XML** on the Source XML tab also
+formats an imported compact definition as a draft change. Opening a view does not
+rewrite saved XML. Text, CDATA/scripts, mixed content, comments and xml:space
+sections are preserved; use ordinary Check/Save to publish any formatting change.

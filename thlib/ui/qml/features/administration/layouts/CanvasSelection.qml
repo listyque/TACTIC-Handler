@@ -13,10 +13,14 @@ FocusScope {
     readonly property var chosen: ghost || boxes.find(b => b.key === selected) || null
     signal selectedKey(string key)
     signal committed(var change)
-    function begin(area, mouse, box, handle) {
+    function begin(area, mouse, box, handle, hit = false) {
         const point = area.mapToItem(root, mouse.x, mouse.y);
+        if (hit && (mouse.modifiers & Qt.AltModifier))
+            box = Canvas.pick(boxes, point.x, point.y, selected, true) || box;
         forceActiveFocus();
         selectedKey(box.key);
+        if (box.canTransform === false)
+            return;
         gesture = {
             box: Object.assign({}, box),
             handle,
@@ -53,7 +57,7 @@ FocusScope {
             event.accepted = true;
             return;
         }
-        if (!chosen)
+        if (!chosen || chosen.canTransform === false)
             return;
         const delta = {};
         delta[Qt.Key_Left] = [-1, 0];
@@ -88,9 +92,9 @@ FocusScope {
             z: index
             acceptedButtons: Qt.LeftButton
             hoverEnabled: true
-            cursorShape: Qt.SizeAllCursor
+            cursorShape: modelData.canTransform === false ? Qt.PointingHandCursor : Qt.SizeAllCursor
             preventStealing: pressed
-            onPressed: mouse => root.begin(hit, mouse, modelData, "move")
+            onPressed: mouse => root.begin(hit, mouse, modelData, "move", true)
             onPositionChanged: mouse => {
                 if (pressed)
                     root.update(hit, mouse);
@@ -122,6 +126,7 @@ FocusScope {
         border.width: 1
         MouseArea {
             id: moveEdge
+            visible: root.chosen?.canTransform !== false
             x: 0
             y: -4
             width: parent.width
@@ -150,7 +155,7 @@ FocusScope {
             font.pixelSize: 11
         }
         Repeater {
-            model: Canvas.handles
+            model: root.chosen?.canTransform === false ? [] : Canvas.handles
             delegate: MouseArea {
                 id: handle
                 required property string modelData

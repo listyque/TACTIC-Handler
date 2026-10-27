@@ -156,6 +156,15 @@ class PageCanvasTests(unittest.TestCase):
         target = fixture.item("canvasTarget_0.0")
         fixture.fixture.click(fixture.window, target)
         frame(fixture.window)
+        fixture.click("pagePreviewMode")
+        with self.assertRaises(StopIteration):
+            fixture.item("canvasTarget_0.0")
+        with self.assertRaises(StopIteration):
+            fixture.item("pageLayersPanel")
+        self.assertFalse(editor.dirty)
+        fixture.click("pagePreviewMode")
+        target = fixture.item("canvasTarget_0.0")
+        fixture.fixture.click(fixture.window, target)
         handle = fixture.item("canvasHandle_se")
         start = handle.mapToScene(
             QPointF(handle.width() / 2, handle.height() / 2)
@@ -210,6 +219,33 @@ class ItemCanvasTests(unittest.TestCase):
     close = FrameTableTests.close
     click = FrameTableTests.click
     item = FrameTableTests.item
+
+    def test_flow_children_select_and_alt_click_reaches_the_container(self):
+        from tests.profile_ui_responsiveness import frame
+
+        common = dict(row=1, column=1, span=12, rows=1, height=60, options={}, variant="all")
+        layout = dict(flow="grid", collection="tree", columns=12, elements=[
+            dict(common, name="group", kind="group", title="Header", parent="", flow="row", columns=12),
+            dict(common, name="title", kind="title", title="Title", parent="group")])
+        window, view = self.create("features/search/ConfiguredItem.qml", dict(
+            layout=layout, record=dict(kind="object", title="Asset", record={}),
+            controller={}, nodeId="A", editing=True, selectedElement="title"), 600, 160)
+        selected = QSignalSpy(view.elementSelected)
+        changed = QSignalSpy(view.geometryEdited)
+        target = self.item(view, "canvasTarget_title")
+        position = target.mapToScene(QPointF(target.width()/2, target.height()/2)).toPoint()
+        QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, position)
+        self.assertEqual(selected.at(selected.count()-1)[0], "title")
+        with self.assertRaises(StopIteration):
+            self.item(view, "canvasHandle_se")
+        QTest.mouseClick(window, Qt.LeftButton, Qt.AltModifier, position)
+        self.assertEqual(selected.at(selected.count()-1)[0], "group")
+        self.assertEqual(changed.count(), 0)
+        view.setProperty("editing", False)
+        view.setProperty("selectedElement", "")
+        frame(window)
+        with self.assertRaises(StopIteration):
+            self.item(view, "canvasTarget_title")
 
     def test_existing_item_renderer_exposes_resize_and_escape(self):
         from tests.profile_ui_responsiveness import frame

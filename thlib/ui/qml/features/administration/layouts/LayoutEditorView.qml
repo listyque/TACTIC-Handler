@@ -133,17 +133,18 @@ Item {
         Loader {
             active: !!root.controller.application && !!root.frameModel.liveInterface?.table?.item_layout
             sourceComponent: Shell.SearchResultSurface {
+                enabled: root.ui.page !== "resolved"
                 theme: root.theme
                 controller: root.controller.application
                 expansionOwner: root.controller
                 resultModel: root.controller.previewModel
-                current: true
-                viewMode: "continious"
+                current: root.ui.page !== "resolved"
+                viewMode: root.frameModel.liveInterface?.table?.item_layout?.collection === "grid" ? "tiles" : "continious"
                 splitterRatio: 0.5
                 presentationActive: visible
                 configuredLayout: root.frameModel.liveInterface?.table?.item_layout || null
-                layoutEditing: true
-                selectedLayoutElement: root.ui.selected
+                layoutEditing: root.ui.page !== "resolved"
+                selectedLayoutElement: root.ui.page === "resolved" ? "" : root.ui.selected
                 onLayoutGeometryEdited: value => root.dispatch({
                         type: "geometry",
                         value

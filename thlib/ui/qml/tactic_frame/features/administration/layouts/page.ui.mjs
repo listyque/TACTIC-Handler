@@ -173,10 +173,11 @@ export function describe(model, ui, width, height, language) {
         return { nodes };
     }
     const narrow = width < 1000,
+        modeWidth = narrow ? 38 : language === 'ru' ? 200 : 176,
         left = narrow ? width : 220,
         right = narrow ? width : 310,
-        canvasX = narrow ? 0 : left + 12,
-        canvasWidth = narrow ? width : width - left - right - 24;
+        canvasX = narrow || ui.preview ? 0 : left + 12,
+        canvasWidth = narrow || ui.preview ? width : width - left - right - 24;
     nodes.push(
         node('Choice', 'pageAddWidget', rect(0, y, Math.min(width, 220), 38), {
             label: tr('Add widget'),
@@ -199,7 +200,7 @@ export function describe(model, ui, width, height, language) {
                     )
                 }))
             ),
-            enabled: canEdit,
+            enabled: canEdit && !ui.preview,
             action: { type: 'add' }
         })
     );
@@ -207,13 +208,39 @@ export function describe(model, ui, width, height, language) {
         nodes.push(
             label(
                 'pageSampleHint',
-                rect(232, y, width - 232, 38),
+                rect(232, y, Math.max(0, width - 244 - modeWidth), 38),
                 tr('Items preview shows up to three records.'),
                 Object.assign({}, muted, { fontRole: 'caption', wrap: true })
             )
         );
     y += 50;
-    if (narrow) {
+    nodes.push(
+        button(
+            'pagePreviewMode',
+            rect(width - modeWidth, y - 50, modeWidth, 38),
+            tr(ui.preview ? 'Back to editing' : 'Clean preview'),
+            ui.preview ? 'edit' : 'visibility',
+            { type: 'preview' },
+            !model.busy && !ui.creating && !model.pendingText,
+            { iconOnly: narrow }
+        )
+    );
+    if (width >= 500) {
+        nodes.push(
+            label(
+                'pageSelectionHint',
+                rect(0, y, width, 24),
+                tr(
+                    ui.preview
+                        ? 'Read-only draft preview. Nothing is saved.'
+                        : 'Click to select. Alt-click for underlying layers.'
+                ),
+                Object.assign({}, muted, { fontRole: 'caption' })
+            )
+        );
+        y += 32;
+    }
+    if (narrow && !ui.preview) {
         nodes.push(
             sectionSelector(
                 'pageEditorPanels',
@@ -232,7 +259,7 @@ export function describe(model, ui, width, height, language) {
     }
     const h = Math.max(100, height - y);
     {
-        if (!narrow || ui.panel === 'layers')
+        if (!ui.preview && (!narrow || ui.panel === 'layers'))
             nodes.push(
                 node('Box', 'pageLayersPanel', rect(0, y, left, h), {
                     background: 'surfaceContainerLow',
@@ -340,7 +367,7 @@ export function describe(model, ui, width, height, language) {
             });
         }
         const body = sections(fields, right - 24, language, canEdit);
-        if (!narrow || ui.panel === 'properties')
+        if (!ui.preview && (!narrow || ui.panel === 'properties'))
             nodes.push(
                 node(
                     'Box',
@@ -365,7 +392,7 @@ export function describe(model, ui, width, height, language) {
                 )
             );
     }
-    if (!narrow || ui.panel === 'canvas')
+    if (ui.preview || !narrow || ui.panel === 'canvas')
         nodes.push(
             node('Box', 'pageCanvasPanel', rect(canvasX, y, canvasWidth, h), {
                 background: 'workspace',

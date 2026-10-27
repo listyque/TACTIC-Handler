@@ -18,6 +18,7 @@ Frame.FrameView {
     property var itemVersions: null
     property var owner: services.customLayout
     property bool editing: false
+    property bool guides: true
     property string selectedBlock: ""
     property var previewItems: null
     signal blockSelected(string key)
@@ -26,7 +27,7 @@ Frame.FrameView {
     readonly property var baseScene: Layout.describe(Object.assign({}, document, {
         layoutTables: owner.tableModels || {}
     }), width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language, true, controller.server_url || "")
-    scene: editing ? Canvas.decorate(baseScene, "editorPath") : baseScene
+    scene: editing && guides ? Canvas.decorate(baseScene, "editorPath") : baseScene
     views: ({
             layoutItems: {
                 component: itemsComponent,
@@ -123,6 +124,7 @@ Frame.FrameView {
                 anchors.fill: parent
                 active: !!root.owner.table(host.frameNode.key || "", root.services.nestedRevision)
                 sourceComponent: NestedTableView {
+                    enabled: !root.editing
                     scope: root.owner.table(host.frameNode.key || "", root.services.nestedRevision)
                     theme: root.theme
                     controller: root.controller

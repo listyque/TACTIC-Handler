@@ -161,7 +161,55 @@ export function describe(tree, view) {
         elements
     };
 }
-export function serialize(node) {
+export function serialize(node, pretty = false) {
+    if (pretty) {
+        const whitespace = (item) =>
+            item.type === 3 && !String(item.text || '').trim();
+        function format(item, depth) {
+            if (item.type === 9)
+                return (item.children || [])
+                    .filter((child) => !whitespace(child))
+                    .map((child) => format(child, 0))
+                    .join('\n');
+            if (item.type !== 1) return serialize(item);
+            const children = item.children || [];
+            if (
+                (item.attributes || []).some(
+                    ([name, value]) =>
+                        name === 'xml:space' && value === 'preserve'
+                ) ||
+                children.some(
+                    (child) =>
+                        child.type === 4 ||
+                        (child.type === 3 && !whitespace(child))
+                )
+            )
+                return serialize(item);
+            const nested = children.filter((child) => !whitespace(child));
+            if (!nested.length) return serialize(item);
+            const opening =
+                serialize(Object.assign({}, item, { children: [] })).slice(
+                    0,
+                    -2
+                ) + '>';
+            return (
+                opening +
+                '\n' +
+                nested
+                    .map(
+                        (child) =>
+                            '  '.repeat(depth + 1) + format(child, depth + 1)
+                    )
+                    .join('\n') +
+                '\n' +
+                '  '.repeat(depth) +
+                '</' +
+                item.name +
+                '>'
+            );
+        }
+        return format(node, 0);
+    }
     const escape = (value, attr) =>
         String(value)
             .replace(/&/g, '&amp;')
@@ -171,7 +219,8 @@ export function serialize(node) {
             .replace(/\r/g, attr ? '&#13;' : '\r')
             .replace(/\n/g, attr ? '&#10;' : '\n')
             .replace(/\t/g, attr ? '&#9;' : '\t');
-    if (node.type === 9) return (node.children || []).map(serialize).join('');
+    if (node.type === 9)
+        return (node.children || []).map((child) => serialize(child)).join('');
     if (node.type === 3) return escape(node.text || '', false);
     if (node.type === 4) return '<![CDATA[' + (node.text || '') + ']]>';
     if (node.type === 8) return '<!--' + (node.text || '') + '-->';
@@ -181,7 +230,7 @@ export function serialize(node) {
     const attributes = (node.attributes || [])
             .map((pair) => ' ' + pair[0] + '="' + escape(pair[1], true) + '"')
             .join(''),
-        body = (node.children || []).map(serialize).join('');
+        body = (node.children || []).map((child) => serialize(child)).join('');
     return (
         '<' +
         node.name +
