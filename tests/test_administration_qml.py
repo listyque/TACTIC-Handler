@@ -242,6 +242,32 @@ class AdministrationQmlTests(unittest.TestCase):
         self.assertLess(self.item('adminGraphCanvas').width(), width)
         self.assertEqual(self.fixture.warnings, [])
 
+    def test_collapsed_navigation_icons_fit_and_sections_remain_reachable(self):
+        self.window.resize(1400, 620)
+        self.click('adminToggleNavigation')
+        navigation = self.item('administrationNavigation')
+        toggle = self.item('adminToggleNavigation')
+        for section in ('types', 'workflow', 'rules'):
+            self.click('adminSection_' + section)
+            action = self.item('adminSection_' + section)
+            icon = self.item('adminSectionIcon_' + section)
+            point = icon.mapToItem(action, QPointF())
+            self.assertGreaterEqual(action.width(), 40)
+            self.assertGreaterEqual(point.x(), 8)
+            self.assertLessEqual(point.x() + icon.width(), action.width() - 8)
+            self.assertAlmostEqual(point.x() + icon.width() / 2, action.width() / 2)
+            self.assertAlmostEqual(icon.mapToScene(QPointF(icon.width()/2, 0)).x(),
+                                   toggle.mapToScene(QPointF(toggle.width()/2, 0)).x())
+            self.assertLessEqual(action.mapToItem(navigation, QPointF(action.width(), 0)).x(),
+                                 navigation.width() - 16)
+            self.assertEqual(self.admin.section, section)
+        self.click('adminToggleNavigation')
+        navigation.setProperty('contentY', navigation.property('contentHeight') - navigation.height())
+        frame(self.window)
+        self.click('adminSection_rules')
+        self.assertTrue(self.item('adminSectionTitle_rules').isVisible())
+        self.assertEqual(self.fixture.warnings, [])
+
     def test_sidebar_entry_selects_groups_even_after_another_admin_section(self):
         self.click('adminSection_types')
         self.fixture.sidebar.open_group_manager()

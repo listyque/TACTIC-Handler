@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.189 - 2026-10-27
+
+- Fix clipped icons and selection in collapsed Administration navigation. Reserve the scrollbar gutter, keep usable section targets and align the expand control with the icons; preserve expanded navigation.
+
 ## 0.6.0.188 - 2026-10-27
 
 - Add a separate Page layouts editor for saved navigation dashboards, using the existing native dashboard, table and item renderers with isolated preview scopes. Resolve draft details against a private sample record and keep business controls inactive on the canvas. Keep Item layouts as a separate document level. Add canvas selection, responsive-flow drag/reorder, pixel resize handles, grid card movement and spacing properties; preserve automatic item flow and global UI styling. Validate geometry and retain revision/operation protection when saving.

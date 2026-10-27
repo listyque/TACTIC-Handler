@@ -90,7 +90,7 @@ const rect = (x, y, width, height) => ({
 });
 export function geometry(width, height, collapsed) {
     const mobile = width < 1000,
-        nav = mobile ? 0 : collapsed ? 56 : 250,
+        nav = mobile ? 0 : collapsed ? 72 : 250,
         body = width - nav,
         pad = mobile ? 12 : 20;
     const header = mobile ? 166 : Header.desktopHeight,
@@ -168,7 +168,12 @@ export function describe(model, ui, width, height, language) {
         branding.push(
             button(
                 'adminToggleNavigation',
-                rect(g.nav - 46, 12, 34, 34),
+                rect(
+                    ui.collapsed ? (g.nav - 16 - 34) / 2 : g.nav - 46,
+                    12,
+                    34,
+                    34
+                ),
                 ui.collapsed ? 'Expand navigation' : 'Collapse navigation',
                 ui.collapsed ? 'chevron-right' : 'chevron-left',
                 {
@@ -355,7 +360,7 @@ export function row(list, record, model, ui, language) {
         node(
             'Icon',
             'adminSectionIcon_' + record.id,
-            rect(12, (h - 22) / 2, 22, 22),
+            rect(compact ? (w - 22) / 2 : 12, (h - 22) / 2, 22, 22),
             {
                 icon: record.icon,
                 color: record.id === model.section ? 'action' : 'secondaryText'
