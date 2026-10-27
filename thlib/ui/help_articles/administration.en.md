@@ -28,8 +28,10 @@ order: 38
 The window follows Configuration's header and navigation layout: project and sections stay in the
 left panel, while the current section title, Save to server, Discard, and Help stay above its editor.
 Create and Reload also live in this header when the section supports them; there is no separate
-one-button action row above the editor. Actions are vertically centered while the section
-description keeps the full header width.
+one-button action row above the editor. Actions share the top row; the section description sits below them.
+Configuration and Administration use one full-width window header. Minimize,
+maximize/restore and the single Close button stay in that header; dragging its
+free area moves the window. Embedded Layout Editor uses the header Help button.
 Save and Discard act only on the open editor; a save that required confirmation still asks for it.
 Choose the project in the left panel. The list includes system, template, and archived projects
 regardless of Project Chooser filters. Users and groups belong to the whole server; Search Types,

@@ -5,6 +5,10 @@ order: 5
 ---
 # Configuration
 
+The page title and actions share one header. Window controls remain native.
+Restoring the window preserves the current page and its draft; closing still
+checks for unsaved changes.
+
 Scroll long pages with the mouse wheel or trackpad over their content. The shared scrollbar remains visible whenever the page exceeds the available height.
 
 > Configuration edits one preference page at a time. Use the Help button beside the current page

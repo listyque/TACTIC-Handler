@@ -37,6 +37,11 @@ are both supported by the native renderers. Column moves keep the selected name
 while recalculating its XML path; document controllers retain the XML and write
 revision owners.
 
+Configuration and Administration share the full-width window header from
+`controls/layout/page_header.ui.mjs`. Native window hosts retain their title-bar
+ownership; the web host attaches its existing WindowControls to this Frame header.
+Do not add a second title strip above either settings window.
+
 `shell` currently owns window geometry, main-toolbar positions and dock-header
 composition, shared docking zones and previews. The neutral navigation row is
 under `controls/lists`; document metrics are under `core/foundation`. Hosts retain

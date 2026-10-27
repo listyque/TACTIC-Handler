@@ -125,8 +125,12 @@ class AdministrationQmlTests(unittest.TestCase):
         self.assertEqual(self.fixture.warnings, [])
 
     def test_configuration_style_shell_keeps_aligned_headers_and_navigation(self):
+        self.window.resize(1400,940);frame(self.window)
         self.click('adminSection_types')
         header=self.item('administrationHeader');content=self.item('administrationContent')
+        self.assertEqual(header.x(),0)
+        self.assertEqual(header.height(),77)
+        self.assertGreater(header.width(),content.width()+200)
         self.assertGreaterEqual(content.mapToScene(QPointF()).y(),header.mapToScene(QPointF(0,header.height())).y()+12)
         self.assertGreater(header.width(),300)
         self.assertTrue(self.item('administrationProjectSelector').isEnabled())

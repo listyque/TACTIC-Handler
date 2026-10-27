@@ -1,5 +1,6 @@
 import { node } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import * as Header from '../../controls/layout/page_header.ui.mjs';
 export const sections = [
     {
         id: 'types',
@@ -97,11 +98,8 @@ export function geometry(
                 : 250,
         body = width - nav,
         pad = mobile ? 12 : 20;
-    const header = mobile ? 166 : 76,
-        toolbar = Math.max(
-            0,
-            Math.min(body - (mobile ? 24 : 120), width < 1080 ? 420 : 620)
-        );
+    const header = mobile ? 166 : Header.desktopHeight,
+        toolbar = Math.max(0, Math.min(body - (mobile ? 24 : 434), 620));
     return {
         mobile,
         nav,
@@ -128,6 +126,7 @@ export function describe(model, ui, width, height, language) {
             ui.workflowNavigationWidth
         ),
         nodes = [],
+        branding = [],
         current =
             sections.find((row) => row.id === model.section) || sections[0];
     const label = (id, r, text, props) =>
@@ -156,10 +155,11 @@ export function describe(model, ui, width, height, language) {
         })
     );
     if (!g.mobile) {
-        const nav = [
+        const nav = [];
+        branding.push(
             label(
                 'administrationTitle',
-                rect(20, 15, g.nav - 60, 28),
+                rect(20, 18, g.nav - 60, 24),
                 'Administration',
                 {
                     fontRole: 'heading',
@@ -168,19 +168,19 @@ export function describe(model, ui, width, height, language) {
             ),
             label(
                 'administrationBrand',
-                rect(20, 43, g.nav - 28, 20),
+                rect(20, 48, g.nav - 28, 16),
                 'TACTIC · ADMIN',
                 {
                     fontRole: 'caption',
                     color: 'secondaryText'
                 }
             )
-        ];
-        if (ui.collapsed) nav.length = 0;
-        nav.push(
+        );
+        if (ui.collapsed) branding.length = 0;
+        branding.push(
             button(
                 'adminToggleNavigation',
-                rect(g.nav - 46, 19, 38, 38),
+                rect(g.nav - 46, 12, 34, 34),
                 ui.collapsed ? 'Expand navigation' : 'Collapse navigation',
                 ui.collapsed ? 'chevron-right' : 'chevron-left',
                 {
@@ -303,8 +303,10 @@ export function describe(model, ui, width, height, language) {
             'administrationSectionTitle',
             rect(
                 20,
-                10,
-                g.mobile ? g.body - 120 : Math.max(0, g.body - g.toolbar - 148),
+                11,
+                g.mobile
+                    ? g.body - (width > 700 ? 200 : 120)
+                    : Math.max(0, g.body - g.toolbar - 218),
                 28
             ),
             current.title,
@@ -315,12 +317,7 @@ export function describe(model, ui, width, height, language) {
         ),
         label(
             'administrationSectionDescription',
-            rect(
-                20,
-                40,
-                g.mobile ? g.body - 40 : Math.max(0, g.body - g.toolbar - 148),
-                22
-            ),
+            rect(20, 46, g.mobile ? g.body - 40 : Math.max(0, g.body - 40), 22),
             ui.error && model.locked ? ui.error : current.description,
             {
                 fontRole: 'secondary',
@@ -333,8 +330,8 @@ export function describe(model, ui, width, height, language) {
             'View',
             'administrationToolbar',
             rect(
-                g.mobile ? 12 : g.body - g.toolbar - 104,
-                g.mobile ? 116 : 19,
+                g.mobile ? 12 : g.body - g.toolbar - 174,
+                g.mobile ? 116 : 10,
                 g.toolbar,
                 38
             ),
@@ -346,7 +343,7 @@ export function describe(model, ui, width, height, language) {
     head.push(
         button(
             'administrationHelpButton',
-            rect(g.body - 92, g.mobile ? 10 : 19, 38, 38),
+            rect(g.body - 88, g.mobile ? 10 : 12, 34, 34),
             'Help',
             'help',
             {
@@ -357,7 +354,7 @@ export function describe(model, ui, width, height, language) {
     head.push(
         button(
             'administrationCloseButton',
-            rect(g.body - 48, g.mobile ? 10 : 19, 38, 38),
+            rect(g.body - 48, g.mobile ? 10 : 12, 34, 34),
             'Close administration',
             'close',
             {
@@ -403,12 +400,17 @@ export function describe(model, ui, width, height, language) {
             )
         );
     }
-    nodes.push(
-        node('Box', 'administrationHeader', rect(g.nav, 0, g.body, g.header), {
-            background: 'surfaceContainerLow',
-            children: head
-        })
+    for (const item of head) item.x += g.nav;
+    head.unshift(...branding);
+    head.push(
+        node(
+            'Box',
+            'administrationHeaderDivider',
+            rect(0, g.header - 1, width, 1),
+            { background: 'outlineVariant' }
+        )
     );
+    nodes.push(Header.describe('administrationHeader', width, g.header, head));
     nodes.push(
         node('View', 'administrationContent', g.content, {
             view: 'content'

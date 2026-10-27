@@ -25,7 +25,7 @@ Item {
         return UI.row(list, record, frameModel, ui, language);
     }
     function toolbarScene(width) {
-        return UI.toolbar(frameModel, ui, width, language);
+        return UI.toolbar(frameModel, ui, width, language, saveActionsInHeader);
     }
     function synchronize() {
         const blank = State.blankXml(frameModel);

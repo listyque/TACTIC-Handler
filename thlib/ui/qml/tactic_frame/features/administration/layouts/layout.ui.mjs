@@ -171,7 +171,7 @@ export function model(raw, ui) {
         message: raw.message || ''
     });
 }
-export function toolbar(model, ui, width, language) {
+export function toolbar(model, ui, width, language, embedded = false) {
     const tr = (text) => translate(text, language),
         result = documentToolbar(model, ui, width, language),
         edit = policy(model).editable && !ui.confirmation;
@@ -207,7 +207,7 @@ export function toolbar(model, ui, width, language) {
         ),
         button(
             'layoutOpenView',
-            rect(134, 0, 38, 38),
+            rect(embedded ? 90 : 134, 0, 38, 38),
             tr(model.externalView ? 'Open view in browser' : 'Open view'),
             'open-in-new',
             {
@@ -225,6 +225,8 @@ export function toolbar(model, ui, width, language) {
             }
         )
     );
+    if (embedded)
+        result.nodes = result.nodes.filter((row) => row.id !== 'layoutHelp');
     return result;
 }
 export function models(model) {

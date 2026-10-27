@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.185 - 2026-10-27
+
+- Unify Configuration and Administration window headers: one full-width header, aligned section actions and window controls, and one contextual Help action in the embedded Layout Editor. Preserve draft/close guards and workspace restoration.
+
 ## 0.6.0.184 - 2026-10-27
 
 - Compose dashboards with the existing item tree on the left and selected-record content on the right. Keep expansion and pagination when selection changes; discard stale detail responses. Administrator agents can save this arrangement through the normal dashboard tools.

@@ -1,6 +1,7 @@
 import { node, rect, label, button, muted } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { describe as confirm } from '../../controls/feedback/confirmation.ui.mjs';
+import * as Header from '../../controls/layout/page_header.ui.mjs';
 
 export function confirmation(model, width, height, language) {
     const text = (key) => translate(key, language);
@@ -131,14 +132,11 @@ export function describe(model, width, height, language) {
     const phone = width < 560,
         compact = width < 960;
     const sidebar = phone ? 0 : 216,
-        header = phone ? 116 : 77;
+        header = phone ? 116 : Header.desktopHeight;
     const contentWidth = Math.max(0, width - sidebar);
     const nodes = [
         node('Box', 'configurationSurface', rect(0, 0, width, height), {
             background: 'workspace'
-        }),
-        node('Box', 'configurationHeader', rect(0, 0, width, header), {
-            background: 'surfaceContainerLow'
         })
     ];
     if (!phone) {
@@ -297,16 +295,14 @@ export function describe(model, width, height, language) {
         (item) =>
             item.id !== 'configurationSurface' &&
             item.id !== 'configurationSidebar' &&
-            item.id !== 'configurationHeader' &&
             item.y < header
     );
-    const headerBox = nodes.find((item) => item.id === 'configurationHeader');
-    headerBox.titlebar = true;
-    headerBox.radius = 0;
-    headerBox.chromeRight = 94;
-    headerBox.chromeTop = 12;
-    headerBox.chromeHeight = 34;
-    headerBox.children = headerNodes;
+    const headerBox = Header.describe(
+        'configurationHeader',
+        width,
+        header,
+        headerNodes
+    );
     const contentNodes = nodes.filter(
         (item) => item !== headerBox && !headerNodes.includes(item)
     );
