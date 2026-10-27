@@ -9,9 +9,11 @@ def dashboard_editor_request(
     expected_revision: str = "",
     operation_id: str = "",
     detail_key: str = "",
+    search_type: str = "",
+    query: str | None = None,
+    record_key: str = "",
 ) -> str:
     import json
-    from pyasm.biz import Project
     from pyasm.command import Command
     from tactic.ui.panel.dashboard_cmd import DashboardCmd
 
@@ -19,6 +21,9 @@ def dashboard_editor_request(
         return Command.execute_cmd(
             DashboardCmd(action=kind, project_code=project_code, **values)
         )
+
+    if action == "source":
+        return json.dumps(call("sources", search_type=search_type, query=query, record_key=record_key), ensure_ascii=False)
 
     if action == "preview":
         return json.dumps(
@@ -54,12 +59,7 @@ def dashboard_editor_request(
         canWrite=True,
         metadata=dict(
             revision=state["revision"],
-            searchTypes=[
-                dict(
-                    value=row.get_code(), label=row.get_value("title") or row.get_code()
-                )
-                for row in Project.get().get_search_types()
-            ],
+            searchTypes=state["sourceTypes"],
         ),
     )
     if identity:

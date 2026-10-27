@@ -31,9 +31,12 @@ def layout_editor_request(action: str, project_code: str, search_type: str, view
                 if len(filters)>32:
                     raise ValueError('Too many preview filters')
                 for column, relation, value in filters:
-                    if column not in columns or relation not in ('=','!=','<','<=','>','>=','like'):
+                    if column not in columns or relation not in ('=','!=','<','<=','>','>=','like','is empty','is not empty'):
                         raise ValueError('Invalid preview filter')
-                    search.add_filter(column,value,op=relation)
+                    if relation in ('is empty','is not empty'):
+                        search.add_filter(column,'NULL',op='is' if relation=='is empty' else 'is not',quoted=False)
+                    else:
+                        search.add_filter(column,value,op=relation)
             search.add_limit(3)
             keys = [SearchKey.get_by_sobject(row, use_id=False) for row in search.get_sobjects()]
             if keys:

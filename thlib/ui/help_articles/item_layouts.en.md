@@ -248,3 +248,34 @@ Visual card edits generate indented XML. **Format XML** on the Source XML tab al
 formats an imported compact definition as a draft change. Opening a view does not
 rewrite saved XML. Text, CDATA/scripts, mixed content, comments and xml:space
 sections are preserved; use ordinary Check/Save to publish any formatting change.
+
+## Page data without XML
+
+In Administration → Page layouts, select a widget on the canvas or in Layers.
+Its Properties panel now has a **Data** section:
+
+- **Data source** selects a real project/system table. Table and Items widgets
+  also offer the saved views available for that source.
+- **Filters** are conditions that all must match. Choose a field, comparison
+  and value. Numbers and Yes/No remain typed; zero and No are valid values.
+  Is empty / Is not empty test missing database values, not blank text.
+  Matches text pattern uses `%` as a wildcard, for example `%robot%`.
+- Text and Markdown offer **Static text**, **Current project**, **Selected
+  object** inside a Details pane, or **Specific record**. For a fixed record,
+  choose its type, enter part of its name/code, click Find records, select the
+  result and its Source field. No search key has to be typed.
+
+Selected-object fields follow the existing item tree selection; a type-specific
+field appears only for that type. A Current project field keeps reading the
+project even inside Details. Markdown expects a text field; Text accepts scalar
+values. A condition group in Details can target a particular record type.
+
+Changing the source keeps the old view and conditions visible for review.
+Unavailable choices are marked; replace or remove them explicitly. Invalid
+conditions show an error and retain the last valid preview. Blank values must
+be filled or replaced with Is empty. Nothing is saved until Check/Save succeeds.
+
+The internal agent can discover these same real sources, fields and views through
+`ts_dashboard_sources`, then preview and save the ordinary page document. It
+does not need XML, a new tree, or generated application code for these bindings.
+Existing permissions, revision checks and save recovery still apply.

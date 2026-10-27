@@ -5,6 +5,7 @@ import { notices, toolbar as documentToolbar } from '../admin.document.mjs';
 import * as Document from './page.document.mjs';
 import { sectionSelector } from '../admin.document.mjs';
 import { spacingField } from './canvas.mjs';
+import * as Data from './page.data.mjs';
 
 export function model(raw, ui) {
     return Object.assign({}, raw, {
@@ -308,24 +309,27 @@ export function describe(model, ui, width, height, language) {
             !item
         );
         if (item) {
-            if (['text', 'markdown'].includes(item.kind))
-                field('text', 'Text', item.text || '');
-            if (['items', 'table', 'metric'].includes(item.kind))
-                fields.push({
-                    kind: 'Choice',
-                    id: 'pageProperty_search_type',
-                    title: 'Search Type',
-                    options: model.searchTypes || [],
-                    props: {
-                        value: item.search_type,
-                        enabled: canEdit,
-                        action: { type: 'change', field: 'search_type' }
-                    }
-                });
-            if (['items', 'table'].includes(item.kind))
-                field('view', 'View', item.view || 'table');
+            fields.push(
+                ...Data.fields(model, ui, right - 24, language, canEdit)
+            );
+            if (
+                ['text', 'markdown'].includes(item.kind) &&
+                Data.mode(model.document, ui.selected) === 'static'
+            )
+                field(
+                    'text',
+                    'Text',
+                    item.text || '',
+                    false,
+                    item.kind === 'markdown' ? 'Area' : undefined
+                );
             if (item.kind === 'link')
                 field('href', 'Link URL', item.href || '');
+            fields.push({
+                kind: 'Heading',
+                id: 'pageLayoutHeading',
+                title: 'Layout'
+            });
             field('width', 'Width', item.width);
             field('height', 'Height', item.height);
             field('weight', 'Flexible width', item.weight || 1);

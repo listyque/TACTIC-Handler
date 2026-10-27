@@ -1,4 +1,5 @@
 import * as Document from './page.document.mjs';
+import * as Data from './page.data.mjs';
 import { documentEvent } from '../admin.document.mjs';
 export function initial() {
     return {
@@ -11,6 +12,7 @@ export function initial() {
         creating: false,
         newName: '',
         newTitle: '',
+        recordQuery: '',
         error: ''
     };
 }
@@ -65,10 +67,23 @@ export function transition(ui, model, event) {
     if (model.busy || ui.confirmation) return { ui: next, commands };
     if (
         (!model.canWrite || model.uncertain) &&
-        !['select', 'panel', 'preview'].includes(event.type)
+        !['select', 'panel', 'preview', 'source', 'recordQuery'].includes(
+            event.type
+        )
     )
         return { ui: next, commands };
     try {
+        const pending = Object.keys(ui.text);
+        if (
+            pending.length &&
+            ['data', 'filter'].includes(event.type) &&
+            !(
+                event.type === 'filter' &&
+                event.action === 'remove' &&
+                pending.every((key) => key === 'filter:' + event.index)
+            )
+        )
+            throw Error('Apply or discard the pending text before continuing');
         if (
             Object.keys(ui.text).length &&
             ['select', 'geometry', 'add', 'remove', 'change'].includes(
@@ -92,7 +107,61 @@ export function transition(ui, model, event) {
                 if (event.key) Document.block(model.document, event.key);
                 next.selected = event.key;
                 next.text = {};
+                next.recordQuery = '';
                 break;
+            case 'recordQuery':
+                next.recordQuery = event.value;
+                break;
+            case 'source': {
+                const source = Data.scope(model.document, ui.selected);
+                commands.push({
+                    type: 'source',
+                    searchType: source.searchType,
+                    recordKey: source.recordKey,
+                    query: event.query ? ui.recordQuery : null
+                });
+                break;
+            }
+            case 'data':
+                replace(
+                    Data.change(
+                        model.document,
+                        ui.selected,
+                        event.field,
+                        event.value
+                    )
+                );
+                next.recordQuery = '';
+                break;
+            case 'filter':
+            case 'filterCommit': {
+                if (
+                    event.type === 'filterCommit' &&
+                    !Object.prototype.hasOwnProperty.call(ui.text, event.key)
+                )
+                    break;
+                const edit =
+                    event.type === 'filterCommit'
+                        ? Object.assign({}, event, {
+                              field: 'value',
+                              value: ui.text[event.key]
+                          })
+                        : event;
+                const source = Data.scope(model.document, ui.selected);
+                replace(
+                    Data.filter(
+                        model.document,
+                        ui.selected,
+                        edit,
+                        model.dataSource?.searchType === source.searchType
+                            ? model.dataSource
+                            : {}
+                    )
+                );
+                next.text = Object.assign({}, next.text);
+                delete next.text[event.key || 'filter:' + event.index];
+                break;
+            }
             case 'load':
                 if (model.dirty) {
                     next.confirmation = 'page';

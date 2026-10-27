@@ -513,6 +513,9 @@ class _RetainedWorkspaceModel:
     def set_process_ignore(self, _value):
         pass
 
+    def set_item_layout(self, value):
+        self.item_layout = dict(value)
+
     def restore_projection(self, projection):
         return getattr(projection, "owner_model", None) is self
 
@@ -850,6 +853,11 @@ class _WarmSectionNavigationHarness(NavigationMixin):
 
 
 class SearchContractTests(unittest.TestCase):
+    def test_json_filters_preserve_zero_false_and_empty_predicates(self):
+        source=[['amount','=',0],['enabled','=',False],['description','is not empty','']]
+        self.assertEqual(filters_from_records(records_from_filters(source)),
+            ['begin',('amount','=',0),('enabled','=',False),'and',('description','is not empty',''),'and'])
+
     def test_primary_search_preserves_the_sidebar_or_preset_scope(self):
         records = records_from_filters([
             ("_expression", "in", "@SOBJECT(sthpw/task['assigned', '$LOGIN'])"),

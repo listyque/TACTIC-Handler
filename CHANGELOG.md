@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.192 - 2026-10-28
+
+- Add page data-source, saved-view, typed filter and content-binding controls backed by a compact native catalog. Pick fixed records and bind project/selection/record fields without XML; preserve source references for review. Guard late metadata replies and retain false, zero and empty predicates through native search cards. Requires Stream 0.112.250 for the page data catalog and binding contract.
+
 ## 0.6.0.191 - 2026-10-27
 
 - Generate readable structural layout XML while preserving mixed text, CDATA and xml:space. Add explicit XML formatting, clean read-only draft previews and overlapping-layer selection with Alt-click. Allow selecting flow children without unsupported grid resize handles; preserve runtime item flow and global UI.

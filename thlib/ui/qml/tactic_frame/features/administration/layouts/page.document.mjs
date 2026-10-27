@@ -9,7 +9,13 @@ export const kinds = [
     'details',
     'link'
 ];
-export const copy = (value) => JSON.parse(JSON.stringify(value));
+// QVariantMap exposes Python None as undefined; keep explicit null fields in drafts.
+export const copy = (value) =>
+    JSON.parse(
+        JSON.stringify(value, (_key, item) =>
+            item === undefined ? null : item
+        )
+    );
 export function path(value) {
     if (value === '') return [];
     if (!/^\d+(\.\d+)*$/.test(value)) throw Error('Select a page block');

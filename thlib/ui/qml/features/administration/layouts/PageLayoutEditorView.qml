@@ -2,6 +2,7 @@ import QtQuick
 import "../../../tactic_frame" as Frame
 import "../../../tactic_frame/features/administration/layouts/page.ui.mjs" as UI
 import "../../../tactic_frame/features/administration/layouts/page.state.mjs" as State
+import "../../../tactic_frame/features/administration/layouts/page.data.mjs" as Data
 import "../../table" as Tables
 
 Item {
@@ -11,6 +12,12 @@ Item {
     property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     property bool saveActionsInHeader: false
     property var ui: State.initial()
+    readonly property var dataScope: Data.scope(controller.document, ui.selected)
+    readonly property string dataKey: JSON.stringify([controller.metadata.sourceEpoch, dataScope])
+    onDataKeyChanged: Qt.callLater(requestSource)
+    function requestSource() {
+        controller.load_source(dataScope.searchType, null, dataScope.recordKey);
+    }
     readonly property string documentName: controller.document.name || ""
     onDocumentNameChanged: {
         ui = State.initial();
@@ -30,7 +37,10 @@ Item {
         canLoad: true,
         checked: JSON.stringify(controller.metadata.checkedDocument) === JSON.stringify(controller.document),
         error: controller.error,
-        searchTypes: controller.metadata.searchTypes || []
+        searchTypes: controller.metadata.searchTypes || [],
+        dataSource: controller.metadata.dataSource || {},
+        dataBusy: controller.metadata.dataBusy || false,
+        dataError: controller.metadata.dataError || ""
     }, ui)
     function toolbarScene(width) {
         return UI.toolbar(frameModel, ui, width, language);
@@ -44,6 +54,9 @@ Item {
         controller.set_presentation_dirty(Object.keys(ui.text).length > 0);
         for (const command of result.commands) {
             switch (command.type) {
+            case "source":
+                controller.load_source(command.searchType, command.query, command.recordKey);
+                break;
             case "document":
                 controller.replace_document(command.document);
                 break;

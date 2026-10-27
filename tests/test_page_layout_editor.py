@@ -69,6 +69,27 @@ class PageOwnerTests(unittest.TestCase):
         self.assertEqual(self.host.document["blocks"], [])
         self.assertEqual(self.pool.workers, [])
 
+    def test_source_reads_coalesce_and_ignore_late_or_closed_replies(self):
+        from PySide6.QtCore import QCoreApplication
+        self.host.load_source('demo/asset')
+        first=self.pool.workers[-1]
+        self.host.load_source('demo/shot')
+        self.assertEqual(len(self.pool.workers),1)
+        first.result.emit(dict(searchType='demo/asset',fields=[dict(value='old')]))
+        QCoreApplication.processEvents()
+        self.assertEqual(len(self.pool.workers),2)
+        self.assertNotEqual(self.host.metadata.get('dataSource',{}).get('searchType'),'demo/asset')
+        second=self.pool.workers[-1]
+        second.result.emit(dict(searchType='demo/shot',fields=[dict(value='name')]))
+        QCoreApplication.processEvents()
+        self.assertEqual(self.host.metadata['dataSource']['searchType'],'demo/shot')
+        self.host.load_source('demo/asset')
+        last=self.pool.workers[-1]
+        self.host.shutdown()
+        last.result.emit(dict(searchType='demo/asset'))
+        QCoreApplication.processEvents()
+        self.assertEqual(self.host.metadata['dataSource']['searchType'],'demo/shot')
+
     def test_write_is_explicit_and_receipt_is_reused(self):
         self.host._identity = "review"
         self.host._document = copy.deepcopy(DOCUMENT)
@@ -206,6 +227,66 @@ class PageCanvasTests(unittest.TestCase):
                     str(Path(output) / "native-page-editor.png")
                 )
             )
+
+    def test_native_data_controls_keep_typed_values_without_geometry_reads(self):
+        from tests.test_administration_qml import AdministrationQmlTests
+        from tests.profile_ui_responsiveness import frame
+        from PySide6.QtCore import QCoreApplication
+
+        fixture=AdministrationQmlTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        fixture.window.resize(1700,950)
+        pool=Pool();self.enterContext(patch.object(env_inst,'server_pool',pool))
+        editor=fixture.admin.dashboardEditor
+        document=dict(name='data_controls',title='Data',blocks=[dict(kind='metric',title='Assets',search_type='demo/asset',filters=[])])
+        compiled=dict(title='Data',targetSearchKey='sthpw/project?code=demo',layoutNodes=[dict(kind='metric',text='Assets',value=4,editorPath=[0])])
+        fixture.seed(editor,'data_controls',document,dict(revision='R1',checkedDocument=copy.deepcopy(document),compiled=compiled,
+            searchTypes=[dict(value='demo/asset',label='Assets',projectOwned=True)]))
+        fixture.admin.select_section('dashboards');frame(fixture.window)
+        fixture.click('pageBlock_0');frame(fixture.window)
+        metadata=dict(searchType='demo/asset',fields=[dict(value='code',label='Code',dataType='varchar'),
+            dict(value='amount',label='Amount',dataType='integer'),dict(value='active',label='Active',dataType='boolean')],
+            tableViews=[],itemViews=[],records=[])
+        self.assertIsNotNone(editor._source_worker)
+        editor._source_worker.result.emit(metadata);QCoreApplication.processEvents();frame(fixture.window)
+        def visible(name):
+            item=fixture.item(name);scroll=fixture.item('pageProperties')
+            y=item.mapToItem(scroll,QPointF()).y()
+            if y<0 or y+item.height()>scroll.height():
+                scroll.setProperty('contentY',max(0,min(scroll.property('contentHeight')-scroll.height(),scroll.property('contentY')+y-16)))
+                frame(fixture.window)
+            return item
+        def click(name):
+            fixture.fixture.click(fixture.window,visible(name))
+        def choose(name,value):
+            item=visible(name);rows=item.property('model')
+            rows=rows.toVariant() if hasattr(rows,'toVariant') else rows
+            index=next(index for index,row in enumerate(rows) if row['value']==value)
+            current=item.property('currentIndex')
+            for _ in range(abs(index-current)):
+                item=visible(name)
+                item.forceActiveFocus(Qt.TabFocusReason)
+                QTest.keyClick(fixture.window,Qt.Key_Down if index>current else Qt.Key_Up)
+                frame(fixture.window)
+            self.assertEqual(fixture.item(name).property('currentValue'),value)
+        click('pageFilterAdd')
+        choose('pageFilter_0_column','amount')
+        self.assertEqual(editor.document['blocks'][0]['filters'][0]['value'],0)
+        choose('pageFilter_0_relation','notEmpty')
+        self.assertIsNone(editor.document['blocks'][0]['filters'][0]['value'])
+        handle=fixture.item('canvasHandle_se')
+        start=handle.mapToScene(QPointF(handle.width()/2,handle.height()/2)).toPoint()
+        QTest.mousePress(fixture.window,Qt.LeftButton,Qt.NoModifier,start)
+        QTest.mouseMove(fixture.window,start+QPointF(20,20).toPoint(),30)
+        QTest.mouseRelease(fixture.window,Qt.LeftButton,Qt.NoModifier,start+QPointF(20,20).toPoint())
+        frame(fixture.window)
+        self.assertIn('value',editor.document['blocks'][0]['filters'][0])
+        self.assertIsNone(editor.document['blocks'][0]['filters'][0]['value'])
+        choose('pageFilter_0_column','active')
+        self.assertIs(editor.document['blocks'][0]['filters'][0]['value'],False)
+        serial=editor._source_serial
+        fixture.window.resize(1500,850);frame(fixture.window)
+        self.assertEqual(editor._source_serial,serial)
+        self.assertEqual(fixture.fixture.warnings,[])
 
 
 class ItemCanvasTests(unittest.TestCase):

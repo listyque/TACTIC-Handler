@@ -93,14 +93,14 @@ def records_from_filters(filters: Iterable | None) -> list[dict]:
     tuples = [
         (index, value)
         for index, value in enumerate(values)
-        if isinstance(value, tuple) and len(value) == 3
+        if isinstance(value, (tuple, list)) and len(value) == 3
     ]
     records = []
     for row, (position, value) in enumerate(tuples):
         operator = "begin" if row == 0 else "and"
         if row > 0 and position + 1 < len(values):
             candidate = values[position + 1]
-            if candidate in {"and", "or"}:
+            if isinstance(candidate, str) and candidate in {"and", "or"}:
                 operator = candidate
         records.append({
             "column": str(value[0]),
@@ -122,7 +122,7 @@ def filters_from_records(records: Iterable[dict] | None) -> list:
             continue
         value = record.get("value")
         relation = record.get("relation")
-        if str(value or "").strip() == "" and relation is not None:
+        if (value is None or str(value).strip() == "") and relation not in (None, "is empty", "is not empty"):
             continue
         active_records.append((record, (column, relation, value)))
 

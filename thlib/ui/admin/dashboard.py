@@ -17,6 +17,10 @@ class DashboardEditor(AdminDocumentEditor):
         self._checked_document = None
         self._preview_serial = 0
         self._detail_key = ""
+        self._source_serial = 0
+        self._source_epoch = 0
+        self._source_worker = None
+        self._source_pending = None
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.setInterval(250)
@@ -24,6 +28,67 @@ class DashboardEditor(AdminDocumentEditor):
 
     def _catalog_loaded(self):
         self._revision = self._metadata.get("revision", self._revision)
+        self._source_epoch += 1
+        self._metadata.update(sourceEpoch=self._source_epoch, project=self._project)
+
+    @Slot(str, "QVariant", str)
+    def load_source(self, search_type, query=None, record_key=""):
+        if self._closed:
+            return
+        self._source_serial += 1
+        self._metadata["dataError"] = ""
+        self._metadata["dataBusy"] = bool(search_type)
+        self._source_pending = (
+            dict(search_type=search_type, query=query, record_key=record_key)
+            if search_type else None
+        )
+        if not search_type:
+            self._metadata["dataSource"] = {}
+        self.stateChanged.emit()
+        if self._source_worker is None:
+            self._load_source()
+
+    def _load_source(self):
+        if self._closed or not self._source_pending:
+            return
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+
+        arguments = self._source_pending
+        self._source_pending = None
+        generation, serial, project = self._generation, self._source_serial, self._project
+        if env_inst.server_pool.is_stopped:
+            env_inst.server_pool.start()
+        worker = env_inst.server_pool.add_task(
+            lambda: tc.execute_procedure_serverside(
+                self._endpoint, dict(action="source", project_code=project, **arguments),
+                project=project,
+            )
+        )
+        if worker is None:
+            self._metadata.update(
+                dataBusy=False, dataError=self.tr("Server worker pool is unavailable")
+            )
+            self.stateChanged.emit()
+            return
+        self._source_worker = worker
+
+        def finish(result=None, error=None):
+            self._source_worker = None
+            if self._closed:
+                return
+            if generation == self._generation and serial == self._source_serial:
+                self._metadata["dataBusy"] = False
+                if error is not None:
+                    self._metadata["dataError"] = str(error[0].get("exception") or error)
+                else:
+                    self._metadata["dataSource"] = result
+                self.stateChanged.emit()
+            self._load_source()
+
+        worker.result.connect(lambda result: finish(result=result), Qt.QueuedConnection)
+        worker.error.connect(lambda error: finish(error=error), Qt.QueuedConnection)
+        worker.start()
 
     def _document_loaded(self):
         self._preview_serial += 1
@@ -231,6 +296,10 @@ class DashboardEditor(AdminDocumentEditor):
         self._closed = True
         self._timer.stop()
         self._preview_serial += 1
+        self._source_serial += 1
+        self._source_pending = None
+        if self._source_worker:
+            self._source_worker.cancel()
         if self._preview_worker:
             self._preview_worker.cancel()
         if self._preview_owner:
