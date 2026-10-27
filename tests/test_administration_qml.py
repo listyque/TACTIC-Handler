@@ -200,9 +200,11 @@ class AdministrationQmlTests(unittest.TestCase):
                     ]
                     self.assertEqual(selectors, [])
                     if section == 'workflow':
-                        self.assertTrue(self.item('adminToggleWorkflowList').isVisible())
                         if width >= 1400:
+                            self.assertTrue(self.item('adminToggleWorkflowList').isVisible())
                             self.assertTrue(self.item('adminWorkflowList').isVisible())
+                        else:
+                            self.assertTrue(self.item('adminGraphPanels').isVisible())
                     self.assertTrue(self.item('administrationProjectSelector').isVisible())
                     self.assertEqual(self.admin.project, 'demo')
                     self.assertEqual(self.admin.schemaEditor.identity, 'demo')
@@ -447,6 +449,7 @@ class AdministrationQmlTests(unittest.TestCase):
             setattr, self.fixture.application, "debug_log", previous_log
         )
         context = self.fixture.engine.rootContext()
+        context.setContextProperty('localizationController', {'current_language': 'ru'})
         for name, value in {
             "debugLog": log,
             "debugLogModel": log.entries_model,

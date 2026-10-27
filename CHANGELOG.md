@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.188 - 2026-10-27
+
+- Add a separate Page layouts editor for saved navigation dashboards, using the existing native dashboard, table and item renderers with isolated preview scopes. Resolve draft details against a private sample record and keep business controls inactive on the canvas. Keep Item layouts as a separate document level. Add canvas selection, responsive-flow drag/reorder, pixel resize handles, grid card movement and spacing properties; preserve automatic item flow and global UI styling. Validate geometry and retain revision/operation protection when saving.
+
 ## 0.6.0.187 - 2026-10-27
 
 - Expose Search Type/current view, saved-view navigation and explicit blank/template/copy creation in Layout Editor. Keep document selection outside technical settings, confirm dirty switches, and open the saved result independently of the editor. Preserve view navigation after failed reads; refresh preview even when views share their source XML.

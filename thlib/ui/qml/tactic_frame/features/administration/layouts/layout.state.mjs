@@ -1,4 +1,5 @@
 import * as Layout from './layout.document.mjs';
+import * as Geometry from './item.geometry.mjs';
 import { documentEvent, policy } from '../admin.document.mjs';
 export function initial() {
     return {
@@ -284,6 +285,58 @@ export function transition(ui, model, event) {
             if (edit && next.selected && !pending(ui))
                 next.confirmation = 'remove';
             break;
+        case 'geometry':
+            if (edit && !model.layoutError && !pending(ui)) {
+                try {
+                    commands.push({
+                        type: 'xml',
+                        value: Geometry.apply(model, event.value)
+                    });
+                    next.selected = event.value.key;
+                    next.error = '';
+                } catch (error) {
+                    next.error = String(error.message || error);
+                }
+            }
+            break;
+        case 'spacing': {
+            if (
+                !edit ||
+                model.layoutError ||
+                !Object.prototype.hasOwnProperty.call(ui.text, event.key)
+            )
+                break;
+            const value = ui.text[event.key];
+            if (!/^\d+$/.test(String(value)) || Number(value) > 256) {
+                next.error = 'Enter spacing from 0 to 256';
+                break;
+            }
+            const item = model.layout.elements.find(
+                (row) => row.name === next.selected
+            );
+            if (
+                !item ||
+                !['padding', 'margin'].includes(event.field) ||
+                !Number.isInteger(event.side) ||
+                event.side < 0 ||
+                event.side > 3
+            )
+                break;
+            const values = (item[event.field] || [0, 0, 0, 0]).slice();
+            values[event.side] = Number(value);
+            if (
+                change(
+                    next,
+                    model,
+                    { field: event.field, value: values.join(' ') },
+                    commands
+                )
+            ) {
+                next.text = Object.assign({}, next.text);
+                delete next.text[event.key];
+            }
+            break;
+        }
         case 'move':
         case 'drop':
             if (edit && !model.layoutError && !pending(ui)) {

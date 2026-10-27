@@ -38,9 +38,16 @@ export const sections = [
         type: 'sthpw/project'
     },
     {
+        id: 'dashboards',
+        title: 'Page layouts',
+        description: 'Whole pages linked from navigation',
+        icon: 'table',
+        type: 'config/widget_config'
+    },
+    {
         id: 'layouts',
-        title: 'Layout Editor',
-        description: 'Custom views and SObject item layouts',
+        title: 'Item layouts',
+        description: 'Object cards and reusable item views',
         icon: 'table',
         type: 'config/widget_config'
     },

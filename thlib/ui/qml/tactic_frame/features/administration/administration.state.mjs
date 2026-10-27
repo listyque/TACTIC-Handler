@@ -26,12 +26,11 @@ export function transition(ui, model, event) {
         case 'help':
             commands.push({
                 type: 'help',
-                topic:
-                    model.section === 'layouts'
-                        ? 'item_layouts'
-                        : model.section === 'sidebar'
-                          ? 'sidebar_editor'
-                          : 'administration'
+                topic: ['layouts', 'dashboards'].includes(model.section)
+                    ? 'item_layouts'
+                    : model.section === 'sidebar'
+                      ? 'sidebar_editor'
+                      : 'administration'
             });
             break;
         case 'close':

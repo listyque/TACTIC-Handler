@@ -2,7 +2,7 @@
 
 
 def layout_editor_request(action: str, project_code: str, search_type: str, view: str,
-                          source_id=None, xml: str = '', revision: str = '') -> str:
+                          source_id=None, xml: str = '', revision: str = '', filters: list = None) -> str:
     import json
     from pyasm.biz import Project
     if not project_code or Project.get_project_code() != project_code:
@@ -19,9 +19,21 @@ def layout_editor_request(action: str, project_code: str, search_type: str, view
         result = {'configuration': read_widget_configuration(search_type, view),
                   'sampleItems': [], 'sampleError': ''}
         try:
-            from pyasm.search import Search, SearchKey
+            from pyasm.search import Search, SearchKey, SearchType
             from tactic_stream.server.result_items import read_result_items
             search = Search(search_type)
+            if filters is not None:
+                # Page previews use the dashboard's stable record order.
+                columns = SearchType.get_column_info(search_type)
+                search.add_order_by(next(name for name in ('name','code','id') if name in columns))
+            if filters:
+                columns = SearchType.get_column_info(search_type)
+                if len(filters)>32:
+                    raise ValueError('Too many preview filters')
+                for column, relation, value in filters:
+                    if column not in columns or relation not in ('=','!=','<','<=','>','>=','like'):
+                        raise ValueError('Invalid preview filter')
+                    search.add_filter(column,value,op=relation)
             search.add_limit(3)
             keys = [SearchKey.get_by_sobject(row, use_id=False) for row in search.get_sobjects()]
             if keys:

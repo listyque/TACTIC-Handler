@@ -5,7 +5,7 @@ order: 39
 ---
 # Build your own view
 
-> Open **Administration → Layout Editor**. Start from a template, arrange one
+> Open **Administration → Item layouts**. Start from a template, arrange one
 > card or row, check the result, then save your view. Ordinary layouts need no XML.
 
 Handler and Stream share the Tactic Frame editor structure and rules. Handler
@@ -15,6 +15,38 @@ opens the system browser in Handler and a separate browser tab in Stream, withou
 a ticket in the URL. Sign in there normally. The editor remains open and can be
 closed independently. Standard views and the
 original SObject Item remain separate.
+
+## Page and card are separate documents
+
+**Administration → Page layouts** edits the whole dashboard linked from navigation.
+Choose a saved page or **New page** to start an empty draft. The ordinary sidebar
+editor also has **Edit page layout** for a saved dashboard link. On a dashboard,
+**Edit layouts** opens its page document. Select a block on the canvas or in
+**Page blocks**. Drag it to reorder or move it into a row/column; resize with the
+right, bottom or corner handles. Rows retain responsive flow, rather than absolute
+screen coordinates. Properties contain pixel width/height, four padding/margin
+values and a container gap. Empty width means flexible width. An Items block's
+**Edit card layout** opens its referenced native item view.
+
+**Administration → Item layouts** edits one object's card or row. Its existing
+grid uses the same canvas selection and resize handles. Movement snaps to grid
+cells; padding and margin are four pixel values. The original automatic shared
+item composition stays automatic; grid positioning is an explicit container
+setting. This does not change the appearance of other views.
+
+**Escape** cancels an unfinished gesture. Arrow keys move a selected page block
+among siblings or move a card element by grid cells; **Shift** uses a larger step.
+**Alt + arrows** resizes by pixels. Narrow windows have labelled layer/canvas/
+properties tabs. The canvas uses the normal runtime renderer and actual available
+records; it does not create a second object tree. Previews are drafts. Saving is
+explicit, checked on the server, and rejects a stale revision. After an uncertain
+save, refresh to check the result before attempting another save. **Open saved view**
+opens the published result without closing the editor.
+
+
+Item blocks preview up to three actual records in both clients; the published page keeps normal paging and expansion.
+
+The details pane previews the first accessible item using the current draft. Business controls are inactive on the canvas; use the saved page to work with records.
 
 ## 1. Choose a starting point
 

@@ -80,9 +80,10 @@ class TableServicesController(QObject):
     connectionRemovalClosed = Signal()
     nestedChanged = Signal()
 
-    def __init__(self, application, parent=None, *, administration=None, tasks=None, scripts=None, links=None):
+    def __init__(self, application, parent=None, *, administration=None, tasks=None, scripts=None, links=None, document_window='table_document'):
         super().__init__(parent)
         self._application = application
+        self._document_window = document_window
         self._administration, self._tasks, self._scripts = administration, tasks, scripts
         self._generation = 0
         self._workers = set()
@@ -121,7 +122,7 @@ class TableServicesController(QObject):
         application.project_changed.connect(self.shutdown)
 
     def _document_visibility(self, window_id, visible):
-        if window_id == 'table_document' and not visible:
+        if self._document_window and window_id == self._document_window and not visible:
             self._document_generation += 1
             self._layout.close()
 
@@ -232,7 +233,8 @@ class TableServicesController(QObject):
             self._document_generation += 1
             self._document = {}
             self.documentChanged.emit()
-            self._application.window_model.close_window('table_document')
+            if self._document_window:
+                self._application.window_model.close_window(self._document_window)
         for key, scope in tuple(self._nested_scopes.items()):
             if id(scope.tab) not in tabs:
                 scope.shutdown()
@@ -899,7 +901,8 @@ class TableServicesController(QObject):
         self._generation += 1
         self._document = {}
         self.documentChanged.emit()
-        self._application.window_model.close_window('table_document')
+        if self._document_window:
+            self._application.window_model.close_window(self._document_window)
         self.cancel_script()
         for worker in self._workers:
             worker.cancel()

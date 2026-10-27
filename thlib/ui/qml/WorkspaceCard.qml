@@ -52,6 +52,7 @@ Item {
     property bool layoutEditing: false
     property string selectedLayoutElement: ""
     signal layoutElementSelected(string name)
+    signal layoutGeometryEdited(var change)
     readonly property var compositionRecord: ({
             kind: isSobject ? "object" : isSnapshot ? "snapshot" : isProcess || isRelation ? "branch" : nodeType,
             depth: compositionDepth,
@@ -711,6 +712,7 @@ Item {
             editing: root.layoutEditing
             readOnly: root.layoutEditing
             selectedElement: root.selectedLayoutElement
+            onGeometryEdited: value => root.layoutGeometryEdited(value)
             onElementSelected: name => root.layoutElementSelected(name)
             onMenuRequested: (relations, anchor) => root.actionMenuRequested(root.nodeId, relations ? root.controller.relation_menu_actions(root.nodeId) : root.controller.item_menu_actions(root.nodeId), anchor || configuredBody, 0, 0, true)
         }

@@ -144,6 +144,11 @@ export function describe(tree, view) {
                         }[key] ||
                         1
                 );
+            for (const key of ['padding', 'margin']) {
+                const value = get(item, key);
+                if (value) result[key] = value.split(/\s+/).map(Number);
+            }
+            if (get(item, 'gap') !== '') result.gap = Number(get(item, 'gap'));
             return result;
         });
     return {
@@ -151,6 +156,7 @@ export function describe(tree, view) {
         flow: get(node, 'flow') || 'grid',
         columns: Number(get(node, 'columns') || 12),
         tracks: get(node, 'tracks'),
+        gap: get(node, 'gap') === '' ? 6 : Number(get(node, 'gap')),
         card_width: Number(get(node, 'card_width') || 280),
         elements
     };

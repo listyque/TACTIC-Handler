@@ -191,6 +191,7 @@ export function transition(ui, model, event) {
                     type: 'apply'
                 });
             break;
+        case 'pageLayout':
         case 'groups':
         case 'search':
             if (allow.editable && !model.dirty)

@@ -35,6 +35,7 @@ Item {
     property bool layoutEditing: false
     property string selectedLayoutElement: ""
     signal layoutElementSelected(string name)
+    signal layoutGeometryEdited(var change)
     readonly property var itemLayout: configuredLayout || resultModel.itemLayout || null
     readonly property real screenWidth: root.Window.window ? root.Window.window.width : root.width
     readonly property real configuredTileHeight: {
@@ -228,6 +229,7 @@ Item {
             layoutEditing: root.layoutEditing
             presentationReadOnly: root.layoutEditing
             selectedLayoutElement: root.selectedLayoutElement
+            onLayoutGeometryEdited: value => root.layoutGeometryEdited(value)
             onLayoutElementSelected: name => root.layoutElementSelected(name)
             controller: root.controller
             presentationActive: root.presentationActive && results.visible
@@ -400,6 +402,7 @@ Item {
             compositionPreviewUrl: model.previewUrl
             layoutEditing: root.layoutEditing
             selectedLayoutElement: root.selectedLayoutElement
+            onLayoutGeometryEdited: value => root.layoutGeometryEdited(value)
             onLayoutElementSelected: name => root.layoutElementSelected(name)
             controller: root.controller
             presentationActive: root.presentationActive && resultTiles.visible

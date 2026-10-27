@@ -12,6 +12,7 @@ import {
 import { sections as form } from '../../../controls/forms/sections.ui.mjs';
 import { translate } from '../../../core/strings.mjs';
 import * as Document from './layout.document.mjs';
+import { spacingField } from './canvas.mjs';
 import { pending } from './layout.state.mjs';
 import * as Catalog from './layout.catalog.mjs';
 export const labels = {
@@ -284,7 +285,7 @@ export function row(list, record, model, ui, language) {
         ]
     };
 }
-function propertyFields(model, ui, language) {
+function propertyFields(model, ui, language, width) {
     const tr = (text) => translate(text, language),
         item = model.layout.elements.find((row) => row.name === ui.selected);
     if (!item) return [];
@@ -499,6 +500,25 @@ function propertyFields(model, ui, language) {
         },
         choice('parent', 'Container', item.parent, parentOptions)
     );
+    if (
+        grid &&
+        model.layout.flow !== 'contents' &&
+        model.layout.collection !== 'table'
+    ) {
+        for (const name of ['padding', 'margin'])
+            fields.push(
+                spacingField(
+                    'layout' + name,
+                    tr(name === 'padding' ? 'Padding' : 'Margin'),
+                    item[name] || [0, 0, 0, 0],
+                    ui.text,
+                    { type: 'spacing', field: name },
+                    language,
+                    edit,
+                    width - 48
+                )
+            );
+    }
     if (grid)
         for (const key of ['row', 'column', 'span', 'rows'])
             fields.push(
@@ -1112,7 +1132,7 @@ export function describe(model, ui, width, height, language) {
     if (wide || ui.panel === 'settings') {
         const w = properties,
             x = wide ? width - w : 0,
-            fields = propertyFields(model, ui, language),
+            fields = propertyFields(model, ui, language, w),
             body = form(fields, w - 40, language, edit && !pending(ui));
         if (selected) {
             body.nodes.push(

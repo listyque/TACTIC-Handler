@@ -17,13 +17,14 @@ Item {
     readonly property var scene: Page.describe({
         title: document.title || "",
         busy: !!document.layoutBusy,
-        error: document.layoutError || ""
+        error: document.layoutError || "",
+        canEdit: !!controller.can_administer && !!document.layoutView?.startsWith("dashboard.")
     }, width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language)
     Frame.FrameView {
         anchors.fill: parent
         theme: root.theme
         scene: root.scene
-        onEvent: root.owner.refresh()
+        onEvent: action => action.type === "edit" ? root.administration.open_layout_editor() : root.owner.refresh()
     }
     Loader {
         x: root.scene.bodyBounds.x

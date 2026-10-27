@@ -811,6 +811,17 @@ function fields(model, ui, language) {
                           'No predefined search'
                       )
                   ),
+                  ...(entry.widgetType === 'custom_layout' &&
+                  entry.displayView?.startsWith('dashboard.')
+                      ? [
+                            action(
+                                'sidebarEditPage',
+                                'Edit page layout',
+                                'pageLayout',
+                                !model.dirty
+                            )
+                        ]
+                      : []),
                   action(
                       'sidebarSearchSetupButton',
                       'Configure search',

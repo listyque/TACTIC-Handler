@@ -37,6 +37,7 @@ AdminWorkflowList 1.0 features/administration/workflow/AdminWorkflowList.qml
 AdminXmlEditor 1.0 features/administration/common/AdminXmlEditor.qml
 ColumnsEditorView 1.0 features/administration/columns/ColumnsEditorView.qml
 LayoutEditorView 1.0 features/administration/layouts/LayoutEditorView.qml
+PageLayoutEditorView 1.0 features/administration/layouts/PageLayoutEditorView.qml
 NamingEditorHeader 1.0 features/administration/naming/NamingEditorHeader.qml
 NamingEditorView 1.0 features/administration/naming/NamingEditorView.qml
 RawCellEditorView 1.0 features/administration/database/RawCellEditorView.qml

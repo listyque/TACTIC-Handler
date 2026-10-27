@@ -64,6 +64,7 @@ class LayoutEditorHost(QObject):
         self._preview_workers = set()
         self._draft_serial = 0
         self._sample_generation = 0
+        self._sample_filters = None
         self._draft_worker = None
         self._draft_timer = QTimer(self)
         self._draft_timer.setSingleShot(True)
@@ -149,7 +150,14 @@ class LayoutEditorHost(QObject):
         if not self._loaded and not self.busy and project:
             self.reload()
 
+    def preview_scope(self, project, search_type, view, filters=None):
+        self.reset(project)
+        self._search_type, self._view = search_type, view
+        self._sample_filters = copy.deepcopy(filters or [])
+        self.reload()
+
     def reset(self, project=''):
+        self._sample_filters = None
         self._generation += 1
         self._sample_generation += 1
         self._draft_serial += 1
@@ -310,6 +318,8 @@ class LayoutEditorHost(QObject):
         generation, project, search_type, view, xml = self._generation, self._project, self._search_type, self._view, self._xml
         procedure = tc.tq.query_search_types_extended if action == 'catalog' else layout_editor_request
         parameters = dict(project_code=project) if action == 'catalog' else dict(action=action, project_code=project, search_type=search_type, view=view)
+        if action == 'read' and self._sample_filters is not None:
+            parameters['filters'] = copy.deepcopy(self._sample_filters)
         if action not in ('read', 'catalog'):
             parameters.update(source_id=self._source if self._source != '' else None, xml=xml, revision=self._configuration['revision'])
         self._error = self._message = ''

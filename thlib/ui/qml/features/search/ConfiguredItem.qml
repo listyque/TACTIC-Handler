@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Window
 import "../../tactic_frame" as Frame
+import "../../tactic_frame/features/administration/layouts/canvas.mjs" as Canvas
+import "../administration/layouts" as Editors
 import "../../tactic_frame/features/administration/layouts/layout.preview.mjs" as Composition
 
 Frame.FrameView {
@@ -15,9 +17,25 @@ Frame.FrameView {
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     readonly property var composition: Composition.describe(layout, record, width, selectedElement, language, root.Window.window ? root.Window.window.width : width, "", "itemComposition", 0, editing || readOnly)
     signal elementSelected(string name)
+    signal geometryEdited(var change)
     signal menuRequested(bool relations, var anchor)
     implicitHeight: composition.height
-    scene: composition
+    scene: editing ? Canvas.itemScene(composition, layout) : composition
+    views: ({
+            canvasOverlay: {
+                component: canvasComponent
+            }
+        })
+    Component {
+        id: canvasComponent
+        Editors.CanvasSelection {
+            theme: root.theme
+            boxes: root.scene.canvasBoxes || []
+            selected: root.selectedElement
+            onSelectedKey: key => root.elementSelected(key)
+            onCommitted: value => root.geometryEdited(value)
+        }
+    }
     onEvent: (event, source) => {
         if (event.type === "select") {
             if (editing)

@@ -61,15 +61,16 @@ export function describe(
     const controls = cell.layoutState?.controls || cell.layoutControls || [];
     function draw(
         items,
-        x,
-        y,
-        available,
+        originX,
+        originY,
+        space,
         prefix = 'customLayout',
         startIndex = 0,
         output = children,
-        bottom = Infinity
+        bottom = Infinity,
+        spacing = 8
     ) {
-        let top = y;
+        let top = originY;
         for (const [index, source] of (items || []).entries()) {
             const id = prefix + '_' + (index + startIndex);
             const item = Object.assign(
@@ -86,13 +87,30 @@ export function describe(
                     : item.translate
                       ? translate(item.text, language)
                       : item.text || '';
+            const padding = item.padding || [0, 0, 0, 0],
+                margin = item.margin || [0, 0, 0, 0],
+                outerTop = top,
+                outerWidth = Math.min(
+                    space,
+                    /^\d+(?:px)?$/.test(item.width || '')
+                        ? parseFloat(item.width)
+                        : space
+                ),
+                x = originX + margin[3] + padding[3],
+                available = Math.max(
+                    0,
+                    outerWidth - margin[1] - margin[3] - padding[1] - padding[3]
+                ),
+                firstOutput = output.length,
+                childGap = item.gap === undefined ? 8 : item.gap;
+            top += margin[0] + padding[0];
             let extent = 0;
             if (item.children) {
                 const horizontal = item.kind === 'row' && available >= 600;
                 if (horizontal) {
                     const budget = Math.max(
                         0,
-                        available - gap * (item.children.length - 1)
+                        available - childGap * (item.children.length - 1)
                     );
                     const requested = item.children.map((child) =>
                         /%$/.test(child.width || '')
@@ -129,10 +147,11 @@ export function describe(
                                 id,
                                 column,
                                 output,
-                                bottom
+                                bottom,
+                                childGap
                             )
                         );
-                        left += part + gap;
+                        left += part + childGap;
                     }
                 } else
                     extent = draw(
@@ -143,7 +162,8 @@ export function describe(
                         id,
                         0,
                         output,
-                        bottom
+                        bottom,
+                        childGap
                     );
             } else if (item.kind === 'metric') {
                 extent = 104;
@@ -432,9 +452,42 @@ export function describe(
                     )
                 );
             }
-            if (extent) top += extent + gap;
+            if (
+                item.editorPath &&
+                Number.isFinite(item.height) &&
+                !['items', 'table', 'details'].includes(item.kind)
+            )
+                extent = item.height;
+            const outerHeight =
+                extent + margin[0] + margin[2] + padding[0] + padding[2];
+            if (item.editorPath) {
+                const content = output.splice(firstOutput);
+                for (const child of content) {
+                    child.x -= originX + margin[3];
+                    child.y -= outerTop + margin[0];
+                }
+                output.push(
+                    node(
+                        'Box',
+                        id + '_block',
+                        rect(
+                            originX + margin[3],
+                            outerTop + margin[0],
+                            Math.max(0, outerWidth - margin[1] - margin[3]),
+                            Math.max(0, outerHeight - margin[0] - margin[2])
+                        ),
+                        {
+                            background: 'transparent',
+                            editorPath: item.editorPath,
+                            clip: Number.isFinite(item.height),
+                            children: content
+                        }
+                    )
+                );
+            }
+            top = outerTop + (outerHeight ? outerHeight + spacing : 0);
         }
-        return Math.max(0, top - y - gap);
+        return Math.max(0, top - originY - spacing);
     }
     const extent = draw(cell.layoutNodes, 0, 0, Math.max(0, width - 24));
     if (cell.layoutError)

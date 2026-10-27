@@ -529,6 +529,21 @@ export function describe(
                 )
             );
         }
+        const padding = item.padding || [0, 0, 0, 0];
+        if (padding.some(Boolean)) {
+            for (const child of children) {
+                child.x += padding[3];
+                child.y += padding[0];
+                child.width = Math.max(
+                    0,
+                    child.width - padding[1] - padding[3]
+                );
+                child.height = Math.max(
+                    0,
+                    child.height - padding[0] - padding[2]
+                );
+            }
+        }
         if (!editing && item.kind === 'link')
             return node('Action', id, box, {
                 layoutElement: item.name,
@@ -679,7 +694,7 @@ export function describe(
                 height: Math.max(92, cursor)
             };
         }
-        const gap = 6,
+        const gap = (definition ? definition.gap : layout.gap) ?? 6,
             available = Math.max(1, w - gap * (columns - 1)),
             sizes = tracks(definition ? '' : layout.tracks, columns, available),
             rows = [];
@@ -697,14 +712,30 @@ export function describe(
                     item.kind === 'group'
                         ? container(
                               item.name,
-                              Math.max(1, cellWidth - 8),
+                              Math.max(
+                                  1,
+                                  cellWidth -
+                                      8 -
+                                      (item.margin?.[1] || 0) -
+                                      (item.margin?.[3] || 0) -
+                                      (item.padding?.[1] || 0) -
+                                      (item.padding?.[3] || 0)
+                              ),
                               nesting + 1
                           )
                         : item.kind === 'view' && item.widget_layout
                           ? describe(
                                 item.widget_layout,
                                 sample,
-                                Math.max(1, cellWidth - 8),
+                                Math.max(
+                                    1,
+                                    cellWidth -
+                                        8 -
+                                        (item.margin?.[1] || 0) -
+                                        (item.margin?.[3] || 0) -
+                                        (item.padding?.[1] || 0) -
+                                        (item.padding?.[3] || 0)
+                                ),
                                 selected,
                                 language,
                                 screenWidth,
@@ -714,7 +745,17 @@ export function describe(
                                 editing
                             )
                           : null,
-                h = child ? child.height + 8 : number(item.height, 40, 1, 1200);
+                h =
+                    Math.max(
+                        child
+                            ? child.height + 8
+                            : number(item.height, 40, 1, 1200),
+                        number(item.height, 40, 1, 1200)
+                    ) +
+                    (item.padding?.[0] || 0) +
+                    (item.padding?.[2] || 0) +
+                    (item.margin?.[0] || 0) +
+                    (item.margin?.[2] || 0);
             for (let index = start; index < start + span; index++)
                 rows[index] = Math.max(
                     rows[index] || 0,
@@ -746,9 +787,65 @@ export function describe(
                     h =
                         sum(rows, row.start, row.start + row.span) +
                         gap * (row.span - 1);
-                result.push(
-                    draw(row.item, rect(x, y, row.cellWidth, h), row.child)
+                const availableHeight = Math.max(
+                    0,
+                    h -
+                        (row.item.margin?.[0] || 0) -
+                        (row.item.margin?.[2] || 0)
                 );
+                const intrinsic =
+                    (row.child
+                        ? Math.max(row.child.height + 8, row.item.height || 40)
+                        : row.item.height || 40) +
+                    (row.item.padding?.[0] || 0) +
+                    (row.item.padding?.[2] || 0);
+                const placedHeight =
+                    row.item.align && row.item.align !== 'stretch'
+                        ? Math.min(availableHeight, intrinsic)
+                        : availableHeight;
+                const offset =
+                    row.item.align === 'center'
+                        ? (availableHeight - placedHeight) / 2
+                        : row.item.align === 'end'
+                          ? availableHeight - placedHeight
+                          : 0;
+                const drawn = draw(
+                    row.item,
+                    rect(
+                        x + (row.item.margin?.[3] || 0),
+                        y + (row.item.margin?.[0] || 0) + offset,
+                        Math.max(
+                            0,
+                            row.cellWidth -
+                                (row.item.margin?.[1] || 0) -
+                                (row.item.margin?.[3] || 0)
+                        ),
+                        placedHeight
+                    ),
+                    row.child
+                );
+                if (editing)
+                    drawn.canvasGrid = {
+                        columns: sizes.map(
+                            (_, index) =>
+                                sizes
+                                    .slice(0, index)
+                                    .reduce((a, b) => a + b, 0) +
+                                gap * index
+                        ),
+                        ends: sizes.map(
+                            (_, index) =>
+                                sizes
+                                    .slice(0, index + 1)
+                                    .reduce((a, b) => a + b, 0) +
+                                gap * index
+                        ),
+                        rows: Array.from(
+                            { length: rows.length },
+                            (_, index) => sum(rows, 0, index) + gap * index
+                        )
+                    };
+                result.push(drawn);
             });
         return {
             nodes: result,

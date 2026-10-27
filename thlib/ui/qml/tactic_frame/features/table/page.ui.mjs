@@ -10,7 +10,7 @@ export function describe(model, width, height, language) {
         }),
         label(
             'workspacePageTitle',
-            rect(16, 12, Math.max(0, width - 76), 28),
+            rect(16, 12, Math.max(0, width - (model.canEdit ? 116 : 76)), 28),
             model.title || '',
             {
                 fontRole: 'heading',
@@ -27,6 +27,18 @@ export function describe(model, width, height, language) {
             { iconOnly: true }
         )
     ];
+    if (model.canEdit)
+        nodes.push(
+            button(
+                'workspacePageEdit',
+                rect(width - 88, 8, 32, 32),
+                tr('Edit page layout'),
+                'edit',
+                { type: 'edit' },
+                !model.busy,
+                { iconOnly: true }
+            )
+        );
     if (model.busy || model.error)
         nodes.push(
             label(

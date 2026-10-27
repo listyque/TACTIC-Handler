@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .layout_editor import LayoutEditorHost
+from .admin.dashboard import DashboardEditor
 from collections.abc import Callable
 import copy
 from typing import TYPE_CHECKING
@@ -73,6 +74,9 @@ class AdministrationController(QObject):
                          'users': self._users_editor}
         self._layout_editor = LayoutEditorHost(application, self, previews=previews)
         self._editors['layouts'] = self._layout_editor
+        self._dashboard_editor = DashboardEditor(application, self)
+        self._editors['dashboards'] = self._dashboard_editor
+        self._dashboard_editor.committed.connect(self._project_document_saved)
         for editor in self._editors.values():
             editor.stateChanged.connect(self.stateChanged.emit)
         application._registry.register('show_layout_editor', self.open_layout_editor)
@@ -137,6 +141,23 @@ class AdministrationController(QObject):
     @Property(QObject, constant=True)
     def usersEditor(self):
         return self._users_editor
+
+    @Property(QObject, constant=True)
+    def dashboardEditor(self):
+        return self._dashboard_editor
+
+    @Slot(str)
+    def open_page_layout(self, name):
+        self.select_section('dashboards')
+        self._dashboard_editor.focus(name)
+
+    @Slot(str, str)
+    def open_page_card(self, search_type, view):
+        if self._layout_editor.dirty or self._layout_editor.busy:
+            self._dashboard_editor.fail(self.tr('Save or discard changes before continuing'))
+            return
+        self._layout_editor.preview_scope(self._project, search_type, view)
+        self.select_section('layouts')
 
     @Property(str, notify=stateChanged)
     def section(self):
@@ -332,7 +353,12 @@ class AdministrationController(QObject):
                 self._application._notify(self.tr('Save or discard the administration draft before switching projects'))
                 return
             self.select_project(project)
-        self.select_section('layouts')
+        tab = self._application._current_tab()
+        view = getattr(tab, 'layout_view', '')
+        if view.startswith('dashboard.'):
+            self.open_page_layout(view[10:])
+        else:
+            self.select_section('layouts')
         self.open()
 
     @Slot()

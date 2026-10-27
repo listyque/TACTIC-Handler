@@ -1,5 +1,50 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Items preview shows up to three records.':
+        'В предпросмотре итемов — до трёх записей.',
+
+    Height: 'Высота',
+    'Move element': 'Переместить элемент',
+
+    'Page layouts': 'Макеты страниц',
+    'Item layouts': 'Макеты карточек',
+    'Whole pages linked from navigation': 'Страницы, открываемые из навигации',
+    'Object cards and reusable item views':
+        'Карточки объектов и повторно используемые виды',
+    'Page layout': 'Макет страницы',
+    'New page': 'Новая страница',
+    'Page name': 'Имя страницы',
+    'Choose a page or create a new page.':
+        'Выберите страницу или создайте новую.',
+    'Page blocks': 'Слои страницы',
+    'Edit page layout': 'Редактировать макет страницы',
+    'Edit card layout': 'Редактировать карточку',
+    'Remove widget': 'Удалить виджет',
+    'Remove this widget from the page?': 'Удалить этот виджет со страницы?',
+    'Flexible width': 'Вес по ширине',
+    Padding: 'Внутренние отступы',
+    Margin: 'Внешние отступы',
+    Gap: 'Интервал',
+    Top: 'Сверху',
+    Left: 'Слева',
+    Markdown: 'Markdown',
+    Metric: 'Счётчик',
+    'Select element': 'Выбрать элемент',
+    'Resize element': 'Изменить размер элемента',
+    'Enter a page name and title': 'Введите имя и заголовок страницы',
+    'Enter spacing from 0 to 256': 'Введите отступ от 0 до 256',
+    'Select a page block': 'Выберите элемент страницы',
+    'The selected element no longer exists':
+        'Выбранный элемент больше не существует',
+    'Choose Grid in the parent container to position elements':
+        'Для размещения элементов выберите «Сетка» в родительском контейнере',
+    'No saved result was found. Save again to retry the same operation.':
+        'Сохранённый результат не найден. Повторите сохранение, чтобы повторить ту же операцию.',
+    'Move elements within their grid. Resize using the handles.':
+        'Перемещайте элементы по сетке. Для изменения размеров используйте ручки выделения.',
+    'Add a widget to start this page.':
+        'Добавьте виджет, чтобы начать эту страницу.',
+
     'New view': 'Новый вид',
     'Add a widget to start this view.':
         'Добавьте виджет, чтобы начать этот вид.',

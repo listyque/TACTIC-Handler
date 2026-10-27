@@ -102,6 +102,7 @@ Item {
         })
     readonly property bool configured: !!configuredLayout && configuredLayout.flow !== "contents" && Composition.supports(configuredLayout, compositionRecord, root.Window.window ? root.Window.window.width : root.width)
     signal layoutElementSelected(string name)
+    signal layoutGeometryEdited(var change)
 
     signal selectedRequested(string nodeId, string searchKey, string nodeType, int modifiers, bool preserveSelection)
     signal actionMenuRequested(string nodeId, var actions, var anchorItem, real localX, real localY, bool below)
@@ -284,6 +285,7 @@ Item {
             readOnly: root.presentationReadOnly
             selectedElement: root.selectedLayoutElement
             record: root.compositionRecord
+            onGeometryEdited: value => root.layoutGeometryEdited(value)
             onElementSelected: name => root.layoutElementSelected(name)
             onMenuRequested: (relations, anchor) => root.actionMenuRequested(root.nodeId, relations ? root.controller.relation_menu_actions(root.nodeId) : root.controller.item_menu_actions(root.nodeId), anchor || configuredBody, 0, 0, true)
         }

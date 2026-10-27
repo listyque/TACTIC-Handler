@@ -10,7 +10,7 @@ Item {
     objectName: "administrationFrameShell"
     required property var theme
     readonly property var controller: administrationController
-    readonly property bool framePage: ["groups", "users", "rules", "raw", "sidebar", "columns", "types", "schema", "workflow", "layouts"].includes(controller.section)
+    readonly property bool framePage: ["groups", "users", "rules", "raw", "sidebar", "columns", "types", "schema", "workflow", "layouts", "dashboards"].includes(controller.section)
     readonly property bool columnsVisible: controller.section === "columns"
     property var ui: State.initial()
     property bool columnsDirty: false
@@ -44,6 +44,7 @@ Item {
             rules: controller.securityEditor,
             users: controller.usersEditor,
             raw: controller.rawEditor,
+            dashboards: controller.dashboardEditor,
             layouts: controller.layoutEditor
         }[section];
         return !!editor && (editor.dirty || editor.writeUncertain);
@@ -90,13 +91,15 @@ Item {
             return contentHost ? contentHost.columns : null;
         case "sidebar":
             return contentHost ? contentHost.sidebar : null;
+        case "dashboards":
+            return contentHost ? contentHost.dashboards : null;
         case "layouts":
             return contentHost ? contentHost.layouts : null;
         default:
             return null;
         }
     }
-    readonly property bool documentPage: ["raw", "types", "schema", "workflow", "rules", "users", "layouts"].includes(controller.section)
+    readonly property bool documentPage: ["raw", "types", "schema", "workflow", "rules", "users", "layouts", "dashboards"].includes(controller.section)
     readonly property bool headerCreateVisible: controller.section === "groups" || (documentPage && !!savePage && !!savePage.allowCreate)
     readonly property bool headerCreateEnabled: controller.section === "groups" ? Boolean(groupsView && groupsView.canCreateGroup) : Boolean(savePage && savePage.canCreateDocument)
     readonly property bool headerReloadVisible: controller.section === "groups" || controller.section === "columns" || (documentPage && !!savePage && !!savePage.allowReload)
@@ -208,6 +211,7 @@ Item {
             readonly property var rules: rulesLoader.item
             readonly property var users: usersLoader.item
             readonly property var columns: columnsLoader.item
+            readonly property var dashboards: dashboardsLoader.item
             readonly property var layouts: layoutsLoader.item
             readonly property var sidebar: sidebarLoader.item
             SecurityGroupsView {
@@ -341,6 +345,21 @@ Item {
                     canWrite: root.controller.canManage
                     saveActionsInHeader: true
                     onCatalogDirtyChanged: root.columnsDirty = catalogDirty
+                }
+            }
+            Loader {
+                id: dashboardsLoader
+                anchors.fill: parent
+                visible: root.controller.section === "dashboards"
+                active: false
+                onVisibleChanged: if (visible)
+                    active = true
+                Component.onCompleted: if (visible)
+                    active = true
+                sourceComponent: PageLayoutEditorView {
+                    theme: root.theme
+                    controller: root.controller.dashboardEditor
+                    saveActionsInHeader: true
                 }
             }
             Loader {

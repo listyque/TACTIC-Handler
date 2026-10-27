@@ -99,6 +99,9 @@ Item {
             case "delete":
                 controller.delete_selected();
                 break;
+            case "pageLayout":
+                administrationController.open_page_layout(controller.selectedEntry.displayView.slice(10));
+                break;
             case "search":
                 controller.open_search();
                 break;

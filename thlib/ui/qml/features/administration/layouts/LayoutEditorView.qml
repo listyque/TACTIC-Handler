@@ -144,6 +144,10 @@ Item {
                 configuredLayout: root.frameModel.liveInterface?.table?.item_layout || null
                 layoutEditing: true
                 selectedLayoutElement: root.ui.selected
+                onLayoutGeometryEdited: value => root.dispatch({
+                        type: "geometry",
+                        value
+                    })
                 onLayoutElementSelected: name => root.dispatch({
                         type: "select",
                         name
