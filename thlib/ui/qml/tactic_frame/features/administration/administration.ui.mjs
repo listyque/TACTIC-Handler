@@ -81,21 +81,9 @@ const rect = (x, y, width, height) => ({
     width: Math.max(0, width),
     height: Math.max(0, height)
 });
-export function geometry(
-    width,
-    height,
-    collapsed,
-    workflow = false,
-    navigationWidth = 250
-) {
+export function geometry(width, height, collapsed) {
     const mobile = width < 1000,
-        nav = mobile
-            ? 0
-            : collapsed
-              ? 56
-              : workflow
-                ? Math.min(navigationWidth, width * 0.35)
-                : 250,
+        nav = mobile ? 0 : collapsed ? 56 : 250,
         body = width - nav,
         pad = mobile ? 12 : 20;
     const header = mobile ? 166 : Header.desktopHeight,
@@ -117,14 +105,7 @@ export function geometry(
 }
 export function describe(model, ui, width, height, language) {
     const tr = (text) => translate(text, language),
-        workflow = model.section === 'workflow',
-        g = geometry(
-            width,
-            height,
-            ui.collapsed,
-            workflow,
-            ui.workflowNavigationWidth
-        ),
+        g = geometry(width, height, ui.collapsed),
         nodes = [],
         branding = [],
         current =
@@ -217,80 +198,20 @@ export function describe(model, ui, width, height, language) {
             );
         }
         const top = ui.collapsed ? 88 : 170;
-        if (workflow && !ui.collapsed) {
-            const columns = 3,
-                cell = (g.nav - 24) / columns;
-            for (const [index, section] of sections.entries()) {
-                const bounds = rect(
-                    8 + (index % columns) * cell,
-                    top + Math.floor(index / columns) * 44,
-                    cell - 4,
-                    40
-                );
-                nav.push(
-                    node('Action', 'adminSection_' + section.id, bounds, {
-                        text: tr(section.title),
-                        description: tr(section.description),
-                        selected: model.section === section.id,
-                        normalColor: 'transparent',
-                        selectedColor: 'selected',
-                        action: { type: 'section', value: section.id },
-                        children: [
-                            node(
-                                'Icon',
-                                'adminSectionIcon_' + section.id,
-                                rect((bounds.width - 22) / 2, 9, 22, 22),
-                                {
-                                    icon: section.icon,
-                                    color:
-                                        model.section === section.id
-                                            ? 'action'
-                                            : 'secondaryText'
-                                }
-                            )
-                        ]
-                    })
-                );
-            }
-            const catalogTop =
-                top + Math.ceil(sections.length / columns) * 44 + 8;
-            nav.push(
-                node(
-                    'View',
-                    'administrationWorkflowLibrary',
-                    rect(8, catalogTop, g.nav - 26, height - catalogTop - 12),
-                    { view: 'workflowLibrary' }
-                )
-            );
-            nav.push(
-                node(
-                    'Splitter',
-                    'administrationNavigationSplit',
-                    rect(g.nav - 10, 0, 10, height),
-                    {
-                        text: tr('Workflow list width'),
-                        value: g.nav,
-                        min: 180,
-                        max: Math.min(420, width * 0.35),
-                        action: { type: 'navigationSplit' }
-                    }
-                )
-            );
-        } else
-            nav.push(
-                node(
-                    'List',
-                    'administrationNavigation',
-                    rect(8, top, g.nav - 16, height - top - 12),
-                    {
-                        source: 'sections',
-                        keyField: 'id',
-                        rowHeight: ui.collapsed ? 48 : 76,
-                        scrollbarId: 'administrationNavigationScrollBar',
-                        label: tr('Administration sections')
-                    }
-                )
-            );
+        nav.push(
+            node(
+                'List',
+                'administrationNavigation',
+                rect(8, top, g.nav - 16, height - top - 12),
+                {
+                    source: 'sections',
+                    keyField: 'id',
+                    rowHeight: ui.collapsed ? 48 : 76,
+                    scrollbarId: 'administrationNavigationScrollBar',
+                    label: tr('Administration sections')
+                }
+            )
+        );
         nodes.push(
             node('Box', 'administrationSidebar', rect(0, 0, g.nav, height), {
                 background: 'surfaceContainerLow',

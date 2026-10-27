@@ -320,12 +320,15 @@ class AdministrationApiTests(unittest.TestCase):
                     dict)
 
     def test_workflow_form_catalogs_use_server_groups_users_and_scoped_pipelines(self):
+        self.tables['sthpw/search_object'][0]['color']='#9bad77'
         self.tables['sthpw/pipeline'].extend([
             dict(code='task', name='Shared statuses', search_type='sthpw/task', project_code=''),
             dict(code='other/tasks', name='Other project', search_type='sthpw/task', project_code='other'),
         ])
         result = json.loads(workflow_request('load', 'demo', 'demo/assets'))
         metadata = result['metadata']
+        self.assertEqual(next(row['color'] for row in metadata['searchTypes'] if row['identity']=='demo/asset'),'#9bad77')
+        self.assertEqual(next(row['color'] for row in metadata['pipelines'] if row['identity']=='demo/assets'),'#667788')
         self.assertEqual(metadata['groups'], [{'identity': 'artists', 'label': 'artists'}])
         self.assertEqual(metadata['users'], [{'identity': 'artist', 'label': 'Artist'}])
         self.assertEqual([row['identity'] for row in metadata['pipelines']

@@ -649,14 +649,14 @@ installed native save handlers and database triggers retain their normal behavio
 ### Workflow navigation and repairable source documents
 
 `AdminWorkflowList` presents the existing pipeline catalog as a persistent list
-in the administration rail, grouped by native Search Type identity. Server names
+inside the workflow editor, grouped by native Search Type identity. Server names
 and colors are retained. `sthpw/task` workflows form a separate group at the end;
 its plus button creates a task-status workflow rather than an object workflow.
 Group collapse and selection do not fetch another catalog. Row activation calls
 the existing document selection path; unsaved/busy documents cannot be replaced.
-While Workflow is open, administration sections use compact labeled-by-tooltip
-icon actions above the list, leaving the canvas and right inspector usable at
-the existing minimum window size. The workflow document combo was removed.
+While Workflow is open, Administration retains the same labelled section menu.
+The library and inspector have independent collapse/resize controls. Narrow
+editors use labelled panel tabs. The workflow document combo was removed.
 
 Native TACTIC can load XML containing stale connections to removed processes.
 `GraphDocument` preserves these connections and projects their absent endpoints

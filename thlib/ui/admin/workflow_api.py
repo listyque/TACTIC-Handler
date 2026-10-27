@@ -69,7 +69,8 @@ def workflow_request(action: str, project_code: str, identity: str = '',
     groups = Search('sthpw/login_group')
     logins = Search('sthpw/login')
     metadata = {'nodeTypes': kinds, 'searchTypes': [
-        {'identity': row.get_code(), 'label': row.get_value('title') or row.get_code()}
+        {'identity': row.get_code(), 'label': row.get_value('title') or row.get_code(),
+         'color': row.get_value('color', no_exception=True) or ''}
         for row in types] + ([] if any(row.get_code() == 'sthpw/task' for row in types)
                             else [{'identity': 'sthpw/task', 'label': 'sthpw/task'}]),
         'pipelines': pipelines, 'processes': process_catalog(pipelines),

@@ -68,7 +68,6 @@ Item {
             }
         }
     }
-    property var workflowCatalogHost: null
     property var contentHost: null
     readonly property var groupsView: contentHost ? contentHost.groups : null
     readonly property var savePage: {
@@ -181,7 +180,6 @@ Item {
         describeRow: (list, record) => UI.row(list, record, root.frameModel, root.ui, root.language)
         views: ({
                 toolbar: toolbarPort,
-                workflowLibrary: workflowLibraryPort,
                 content: contentPort
             })
         onEvent: action => root.dispatch(action)
@@ -195,14 +193,6 @@ Item {
                     nodes: []
                 })
             onEvent: action => root.savePage.dispatch(action)
-        }
-    }
-    Component {
-        id: workflowLibraryPort
-        Item {
-            Component.onCompleted: root.workflowCatalogHost = this
-            Component.onDestruction: if (root.workflowCatalogHost === this)
-                root.workflowCatalogHost = null
         }
     }
     Component {
@@ -299,8 +289,6 @@ Item {
                     active = true
                 sourceComponent: AdminGraphView {
                     theme: root.theme
-                    catalogTarget: root.workflowCatalogHost
-                    catalogPlacement: root.width < 1000 ? "inline" : "sidebar"
                     controller: root.controller.workflowEditor
                     saveActionsInHeader: true
                 }

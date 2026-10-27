@@ -2,7 +2,6 @@ import { sections } from './administration.ui.mjs';
 export function initial() {
     return {
         collapsed: false,
-        workflowNavigationWidth: 250,
         error: ''
     };
 }
@@ -12,13 +11,6 @@ export function transition(ui, model, event) {
     switch (event.type) {
         case 'collapse':
             next.collapsed = !next.collapsed;
-            break;
-        case 'navigationSplit':
-            if (Number.isFinite(event.value))
-                next.workflowNavigationWidth = Math.max(
-                    180,
-                    Math.min(420, event.value)
-                );
             break;
         case 'section':
             if (sections.some((row) => row.id === event.value))

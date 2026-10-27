@@ -23,6 +23,18 @@ order: 38
 | **Groups** | Group members and server descriptions. |
 | **Access rules** | Group access to projects, types, processes, statuses, and interface actions. |
 
+## Workflow navigation and colors
+
+Workflow keeps the same labelled Administration menu as the other sections. Its
+own searchable library sits inside the editor beside the canvas. Collapse or
+resize that library independently; at narrow widths use the Workflows, Canvas
+and Properties tabs. Library and inspector controls have an inner margin.
+
+Workflow group markers and the current-type context use the Search Type color
+from its registry settings. Workflow rows use their own pipeline color when set,
+otherwise the type accent. Process colors retain their own meaning. Set type
+colors in Search Types; they are project data, not a hardcoded UI palette.
+
 ## Project, access, and drafts
 
 The window follows Configuration's header and navigation layout: project and sections stay in the
@@ -55,11 +67,10 @@ Section buttons keep their names as tooltips. Each visited section retains its o
 the window closes. Switching sections does not discard edits. Save/Discard applies to the visible
 section; a dot marks sections with pending work. Closing returns to an unfinished editor before
 asking you to discard it. Project selection remains locked while any section is dirty or busy.
-In Workflow, the library occupies the left Administration panel below the section icons,
-as in the original Handler. Its own arrow hides or shows the list contents; the navigation arrow
-collapses the whole sidebar to give the canvas more room. Drag the sidebar and inspector dividers
-to resize them independently. The library remains available on the Technical page. In a narrow
-window it moves into the editor's Workflows tab. Search and expanded groups survive these changes.
+In Workflow, the Administration menu keeps its section names. The workflow library sits
+inside the editor; its arrow, search and width divider are independent of the main navigation.
+The library remains available beside Technical XML in wide windows. Narrow windows use the
+editor's labelled panel tabs. Search and expanded groups survive navigation/panel changes.
 
 Administration is available to TACTIC administrators and supervisors. Permission is checked
 at sign-in. An unsaved or busy editor temporarily locks project selection so its draft cannot be

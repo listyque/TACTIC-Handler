@@ -10,8 +10,6 @@ Item {
     objectName: "adminGraphView"
     required property var theme
     required property var controller
-    property Item catalogTarget: null
-    property string catalogPlacement: "inline"
     property bool saveActionsInHeader: false
     property string language: typeof localizationController !== "undefined" ? localizationController.current_language : qsTr("Search Types") === "Search Types" ? "en" : "ru"
     readonly property bool workflow: controller.mode === "workflow"
@@ -30,7 +28,6 @@ Item {
     property var deletionConfirmation: null
     readonly property var connection: workflow ? null : controller.connectionEditor
     readonly property var frameModel: ({
-            externalCatalog: root.catalogPlacement === "sidebar",
             mode: workflow ? "workflow" : "schema",
             style: root.theme.style,
             ready: !!controller.document.xml,
@@ -293,25 +290,5 @@ Item {
         models: root.rows
         describeRow: root.rowScene
         onEvent: action => root.dispatch(action)
-    }
-    Loader {
-        parent: root.catalogTarget
-        anchors.fill: parent
-        active: root.workflow && root.catalogPlacement === "sidebar" && !!root.catalogTarget
-        visible: root.visible
-        sourceComponent: Frame.FrameView {
-            theme: root.theme
-            scene: ({
-                    nodes: [Catalog.panel(root.frameModel, root.ui, {
-                            x: 0,
-                            y: 0,
-                            width,
-                            height
-                        }, root.language)]
-                })
-            models: root.rows
-            describeRow: root.rowScene
-            onEvent: action => root.dispatch(action)
-        }
     }
 }

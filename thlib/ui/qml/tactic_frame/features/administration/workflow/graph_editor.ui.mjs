@@ -9,7 +9,6 @@ import {
 import { inspector } from './inspector.ui.mjs';
 export { inspector };
 import { panel as catalogPanel } from './catalog.ui.mjs';
-export { panel as catalog } from './catalog.ui.mjs';
 export { records, row, models } from './catalog.ui.mjs';
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 export function toolbar(model, ui, width, language) {
@@ -56,8 +55,8 @@ export function describe(model, ui, width, height, language) {
         };
     const tr = (text) => translate(text, language),
         workflow = model.mode === 'workflow',
-        internalCatalog = workflow && !model.externalCatalog,
-        narrow = width < 800,
+        internalCatalog = workflow,
+        narrow = width < (workflow ? 1000 : 800),
         edit = policy(model).editable && !ui.confirmation;
     const noticeModel = Object.assign({}, model, {
         error: model.error || ui.error
@@ -138,10 +137,25 @@ export function describe(model, ui, width, height, language) {
             18,
             Math.ceil((text.length * 6) / Math.max(1, width)) * 15
         );
+        const color = details?.color || '';
+        if (color)
+            nodes.push(
+                node(
+                    'Box',
+                    'adminWorkflowSearchTypeColor',
+                    rect(0, y, 3, captionHeight),
+                    { background: color, radius: 1 }
+                )
+            );
         nodes.push(
             label(
                 'adminWorkflowSearchType',
-                rect(0, y, width, captionHeight),
+                rect(
+                    color ? 12 : 0,
+                    y,
+                    width - (color ? 12 : 0),
+                    captionHeight
+                ),
                 text,
                 Object.assign({}, muted, { wrap: true })
             )
@@ -241,7 +255,7 @@ export function describe(model, ui, width, height, language) {
             internalCatalog && !narrow
                 ? ui.catalogVisible
                     ? Math.min(ui.catalogWidth, width * 0.28)
-                    : 40
+                    : 56
                 : 0,
         propertiesWidth = !narrow
             ? ui.propertiesVisible
@@ -250,7 +264,7 @@ export function describe(model, ui, width, height, language) {
                       workflow ? 460 : 420,
                       width * (workflow ? 0.5 : 0.45)
                   )
-                : 40
+                : 56
             : 0;
     if (internalCatalog && (!narrow || ui.panel === 'catalog')) {
         const w = narrow ? width : catalogWidth;
@@ -258,14 +272,14 @@ export function describe(model, ui, width, height, language) {
             Object.assign(
                 catalogPanel(model, ui, rect(0, y, w, h), language, narrow),
                 {
-                    visible: ui.page === 'canvas'
+                    visible: ui.page === 'canvas' || !narrow
                 }
             )
         );
         if (!narrow && ui.catalogVisible)
             nodes.push(
                 node('Splitter', 'adminCatalogSplit', rect(w, y, 10, h), {
-                    visible: ui.page === 'canvas',
+                    visible: ui.page === 'canvas' || !narrow,
                     text: tr('Workflow list width'),
                     value: w,
                     min: 180,
@@ -305,11 +319,7 @@ export function describe(model, ui, width, height, language) {
     nodes.push(
         node('Graph', 'adminGraphCanvas', rect(x, y, graphWidth, h), {
             toolbarRightInset: 46,
-            visible:
-                ui.page === 'canvas' &&
-                (!narrow ||
-                    ui.panel === 'canvas' ||
-                    (model.externalCatalog && ui.panel === 'catalog')),
+            visible: ui.page === 'canvas' && (!narrow || ui.panel === 'canvas'),
             help: false,
             label: tr(workflow ? 'Workflow' : 'Project schema'),
             nodes: graphNodes,
@@ -331,12 +341,12 @@ export function describe(model, ui, width, height, language) {
             px = narrow ? 0 : width - w,
             children = [];
         if (narrow || ui.propertiesVisible) {
-            const inner = inspector(model, ui, w - 12, language);
+            const inner = inspector(model, ui, w - 24, language);
             children.push(
                 node(
                     'Scroll',
                     'adminGraphPropertiesScroll',
-                    rect(12, 46, w - 24, h - 58),
+                    rect(12, 62, w - 24, Math.max(0, h - 74)),
                     {
                         contentHeight: inner.height,
                         resetKey:
@@ -358,8 +368,12 @@ export function describe(model, ui, width, height, language) {
                 button(
                     'adminToggleGraphProperties',
                     rect(
-                        workflow && ui.propertiesVisible ? w - 38 : 0,
-                        0,
+                        ui.propertiesVisible
+                            ? workflow
+                                ? w - 50
+                                : 12
+                            : (w - 38) / 2,
+                        12,
                         38,
                         38
                     ),
@@ -382,7 +396,12 @@ export function describe(model, ui, width, height, language) {
             children.push(
                 button(
                     'adminGraphAddNode',
-                    rect(workflow ? w - 82 : 44, 0, workflow ? 38 : w - 52, 38),
+                    rect(
+                        workflow ? w - (narrow ? 50 : 94) : narrow ? 12 : 58,
+                        12,
+                        workflow ? 38 : w - (narrow ? 24 : 70),
+                        38
+                    ),
                     tr(ui.inspector === 'add_node' ? 'Selection' : 'Add node'),
                     ui.inspector === 'add_node' ? 'tune' : 'add',
                     {
@@ -400,7 +419,7 @@ export function describe(model, ui, width, height, language) {
             children.push(
                 label(
                     'adminGraphInspectorTitle',
-                    rect(12, 0, Math.max(0, w - 144), 38),
+                    rect(12, 12, Math.max(0, w - (narrow ? 112 : 156)), 38),
                     tr('Inspector'),
                     { weight: 600 }
                 )
@@ -412,7 +431,7 @@ export function describe(model, ui, width, height, language) {
                 children.push(
                     button(
                         'adminRemoveGraphSelection',
-                        rect(w - 126, 0, 38, 38),
+                        rect(w - (narrow ? 94 : 138), 12, 38, 38),
                         tr('Remove from canvas'),
                         'delete',
                         { type: 'remove' },
@@ -455,7 +474,12 @@ export function describe(model, ui, width, height, language) {
             node(
                 'Area',
                 'adminGraphXmlEditor',
-                rect(0, y, width, Math.max(1, h - 46)),
+                rect(
+                    narrow ? 0 : x,
+                    y,
+                    width - (narrow ? 0 : x),
+                    Math.max(1, h - 46)
+                ),
                 {
                     label: tr('Native XML'),
                     text: own(ui.text, 'xml') ? ui.text.xml : model.xml || '',
@@ -469,7 +493,12 @@ export function describe(model, ui, width, height, language) {
             ),
             button(
                 'adminGraphApplyXml',
-                rect(0, height - 38, Math.min(240, width), 38),
+                rect(
+                    narrow ? 0 : x,
+                    height - 38,
+                    Math.min(240, width - (narrow ? 0 : x)),
+                    38
+                ),
                 tr('Apply XML'),
                 'check',
                 {
@@ -479,12 +508,7 @@ export function describe(model, ui, width, height, language) {
                 edit && own(ui.text, 'xml')
             )
         );
-    if (
-        ui.page === 'canvas' &&
-        (!narrow ||
-            ui.panel === 'canvas' ||
-            (model.externalCatalog && ui.panel === 'catalog'))
-    ) {
+    if (ui.page === 'canvas' && (!narrow || ui.panel === 'canvas')) {
         // Layout commands share the graph's unused toolbar space after zoom controls.
         const toolbarX = x + 230,
             available = graphWidth - 230;

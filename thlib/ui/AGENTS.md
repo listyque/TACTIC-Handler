@@ -6,6 +6,8 @@ architecture, interaction, visual, and verification requirements.
 
 ## Canonical component architecture
 
+- Expanded Administration navigation keeps section names in every section, including Workflow. Never replace it automatically with an icon matrix; the workflow library belongs inside its editor.
+
 - Catalogs, navigation and conversation history use plain compact rows and quiet
   group captions. Do not give every row a filled rounded background or render
   headings as pills. Emphasize selection, hover and keyboard focus; secondary

@@ -39,6 +39,7 @@ export function records(model, ui, language) {
             identity: 'group:' + key,
             group: true,
             searchType: key,
+            color: info.color || '',
             label:
                 key === 'sthpw/task'
                     ? tr('Task status workflows')
@@ -57,7 +58,8 @@ export function records(model, ui, language) {
                     key: 'draft:' + key,
                     identity: '',
                     label: tr('New workflow'),
-                    searchType: key
+                    searchType: key,
+                    typeColor: info.color || ''
                 });
             out.push.apply(
                 out,
@@ -70,7 +72,8 @@ export function records(model, ui, language) {
                     )
                     .map((row) =>
                         Object.assign({}, row, {
-                            key: 'pipeline:' + row.identity
+                            key: 'pipeline:' + row.identity,
+                            typeColor: info.color || ''
                         })
                     )
             );
@@ -85,9 +88,19 @@ export function row(list, record, model, ui, language) {
         if (record.group)
             return {
                 nodes: [
+                    ...(record.color
+                        ? [
+                              node(
+                                  'Box',
+                                  'workflowGroupColor_' + record.searchType,
+                                  rect(0, 7, 3, 20),
+                                  { background: record.color, radius: 1 }
+                              )
+                          ]
+                        : []),
                     listAction(
                         'workflowGroup_' + record.searchType,
-                        rect(0, 0, width, 34),
+                        rect(8, 0, width - 8, 34),
                         record.label,
                         ui.collapsed.indexOf(record.searchType) >= 0
                             ? 'chevron-right'
@@ -140,11 +153,13 @@ export function row(list, record, model, ui, language) {
                             ' · ' +
                             record.identity,
                         selectedColor: 'contentSelection',
+                        accent: record.color || record.typeColor || undefined,
+                        rail: !!(record.color || record.typeColor),
                         enabled: !model.busy && !model.uncertain,
                         children: [
                             label(
                                 'workflowPipelineTitle_' + record.identity,
-                                rect(10, 0, width - 20, 38),
+                                rect(14, 0, width - 24, 38),
                                 record.label || record.identity
                             )
                         ],
@@ -169,6 +184,8 @@ export function row(list, record, model, ui, language) {
                         selected: ui.typeToAdd === record.identity,
                         normalColor: 'transparent',
                         selectedColor: 'contentSelection',
+                        accent: record.color || undefined,
+                        rail: !!record.color,
                         enabled: !model.busy,
                         children: [
                             label(
@@ -238,7 +255,7 @@ export function models(model, ui, language) {
     };
 }
 
-// The same catalog is hosted in the Administration sidebar or the narrow editor.
+// The editor owns its library in both the side panel and narrow tab layout.
 export function panel(model, ui, bounds, language, narrow = false) {
     const tr = (text) => translate(text, language);
     const w = bounds.width,
@@ -248,13 +265,13 @@ export function panel(model, ui, bounds, language, narrow = false) {
         children.push(
             label(
                 'adminWorkflowCatalogTitle',
-                rect(8, 4, w - 56, 30),
+                rect(12, 12, w - (narrow ? 24 : 74), 38),
                 tr('Workflows'),
                 {
                     weight: 600
                 }
             ),
-            node('Field', 'adminWorkflowSearch', rect(8, 42, w - 16, 38), {
+            node('Field', 'adminWorkflowSearch', rect(12, 58, w - 24, 38), {
                 text: ui.query,
                 placeholder: tr('Find a workflow'),
                 label: tr('Find a workflow'),
@@ -262,18 +279,23 @@ export function panel(model, ui, bounds, language, narrow = false) {
                     type: 'query'
                 }
             }),
-            node('List', 'adminWorkflowCatalog', rect(8, 88, w - 16, h - 96), {
-                source: 'graphPipelines',
-                keyField: 'key',
-                rowHeight: 42,
-                scrollbarId: 'adminWorkflowCatalogScrollBar'
-            })
+            node(
+                'List',
+                'adminWorkflowCatalog',
+                rect(12, 104, w - 24, Math.max(0, h - 116)),
+                {
+                    source: 'graphPipelines',
+                    keyField: 'key',
+                    rowHeight: 42,
+                    scrollbarId: 'adminWorkflowCatalogScrollBar'
+                }
+            )
         );
     if (!narrow)
         children.push(
             button(
                 'adminToggleWorkflowList',
-                rect(w - 38, 0, 38, 38),
+                rect(ui.catalogVisible ? w - 50 : (w - 38) / 2, 12, 38, 38),
                 tr(
                     ui.catalogVisible
                         ? 'Hide workflow list'

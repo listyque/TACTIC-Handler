@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.186 - 2026-10-27
+
+- Keep labelled Administration navigation in Workflow; use the existing editor library and panel tabs on narrow widths. Add inner spacing to library and inspector controls and show configured Search Type colors without replacing pipeline/process colors.
+
 ## 0.6.0.185 - 2026-10-27
 
 - Unify Configuration and Administration window headers: one full-width header, aligned section actions and window controls, and one contextual Help action in the embedded Layout Editor. Preserve draft/close guards and workspace restoration.
