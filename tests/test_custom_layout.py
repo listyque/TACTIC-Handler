@@ -111,6 +111,27 @@ class CustomLayouts(unittest.TestCase):
         view.setProperty('editing',True);frames.frame(window)
         self.assertFalse(self.item(view,'pageRuntimeApply').isEnabled())
 
+    def test_russian_page_filter_buttons_show_complete_captions(self):
+        import os
+        from PySide6.QtGui import QFontDatabase
+        for name in ('segoeui.ttf', 'segoeuib.ttf'):
+            path = Path(os.environ.get('WINDIR', '')) / 'Fonts' / name
+            if path.is_file():
+                QFontDatabase.addApplicationFont(str(path))
+        services = Services(dict(layoutView='dashboard.report', layoutNodes=[], layoutFilters=[
+            dict(name='name', title='Название', value='%', enabled=False, relation='like', dataType='text')]))
+        window, view = self.create('features/table/CustomLayoutView.qml', dict(services=services,
+            controller=_TableController(), columnsController=_TableColumns(), users=None,
+            administration=None, language='ru'), width=1000, height=300)
+        for key in ('pageRuntimeApply', 'pageRuntimeReset'):
+            captions = [item for item in _visual_items(self.item(view, key))
+                        if item.property('text') in ('Применить фильтры', 'Сбросить фильтры')
+                        and item.metaObject().indexOfProperty('truncated') >= 0]
+            self.assertTrue(captions, key)
+            self.assertFalse(any(item.property('truncated') for item in captions),
+                             (key, self.item(view, key).width(),
+                              [(item.width(), item.implicitWidth()) for item in captions]))
+
     def test_planner_embeds_two_live_tables_and_reflows_without_clipping(self):
         model = dict(
             layoutNodes=[

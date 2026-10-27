@@ -109,11 +109,11 @@ export function describe(definitions, draft, width, language, enabled = true) {
     const y = Math.ceil(definitions.length / columns) * 76;
     const applyWidth = Math.min(
             width,
-            buttonWidth(tr('Apply filters').length * 7, true)
+            buttonWidth(tr('Apply filters').length * 9, true)
         ),
         resetWidth = Math.min(
             width,
-            buttonWidth(tr('Reset filters').length * 7, true)
+            buttonWidth(tr('Reset filters').length * 9, true)
         ),
         stacked = applyWidth + resetWidth + 8 > width;
     nodes.push(

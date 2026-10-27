@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.194 - 2026-10-28
+
+- Keep shared page-filter button captions fully visible in Russian in both native and web dashboards.
+
 ## 0.6.0.193 - 2026-10-28
 
 - Add shared page filters with transient Apply/Reset and explicit field mappings. Compose grouped reports and bar charts with native count/sum/average/min/max, UTC date buckets, bounded result groups and numeric metrics directly in the page editor. Use existing native grid/tree controls, revisioned configuration and agent tools; requires Stream 0.112.251.
