@@ -22,6 +22,7 @@ class CustomLayoutController(QObject):
         self._focus_active = False
         self._previous_maximized = ''
         self._view = self._title = self._target = ''
+        self._report_models = {}
         if workspace:
             services._application.results_view_changed.connect(self.changed)
             services._application.selected_node_changed.connect(self.select_detail)
@@ -85,7 +86,20 @@ class CustomLayoutController(QObject):
 
     @Slot()
     def refresh(self):
-        self.open_view(self._view, self._title, self.current, search_key=self._target, force=True)
+        self.open_view(self._view, self._title, self.current, search_key=self._target, force=True,
+                       filter_values=self.document_data.get('layoutFilterValues'))
+
+    @Slot('QVariantMap')
+    def apply_filters(self, values):
+        if not self.workspace or self.document_data.get('layoutBusy'):
+            return
+        self.open_view(self._view, self._title, self.current, search_key=self._target,
+                       force=True, filter_values=values)
+
+    @Slot(str)
+    def filter_error(self, message):
+        self.document_data['layoutError'] = message
+        self.notify_document()
 
     @Slot(QObject, 'QVariantMap')
     def format_document(self, document, style):
@@ -105,6 +119,9 @@ class CustomLayoutController(QObject):
             scope.shutdown()
             scope.deleteLater()
         self.scopes.clear()
+        for model in self._report_models.values():
+            model.deleteLater()
+        self._report_models.clear()
         self.pages.clear()
         self.current = ''
         self.services._nested_changed()
@@ -133,6 +150,7 @@ class CustomLayoutController(QObject):
         )
 
         self._open_tables(document.get('layoutNodes') or [])
+        self._open_reports()
         if tab_key:
             self.pages[tab_key] = dict(
                 document=document, scopes=self.scopes, context=self.context, tab=tab
@@ -147,6 +165,31 @@ class CustomLayoutController(QObject):
             QTimer.singleShot(
                 0, lambda: self.run(source) if generation == self.generation else None
             )
+
+    def _open_reports(self):
+        from ..frame_models import FrameTableModel
+        reports = {}
+        def walk(nodes, prefix):
+            for index, item in enumerate(nodes):
+                key = prefix + '_' + str(index)
+                if item['kind'] == 'summary':
+                    reports[key] = item['report']
+                walk(item.get('children') or [], key)
+        walk(self.document_data.get('layoutNodes') or [], 'customLayout')
+        walk((self.document_data.get('layoutDetail') or {}).get('layoutNodes') or [], 'customLayoutDetails')
+        for key in tuple(self._report_models):
+            if key not in reports:
+                self._report_models.pop(key).deleteLater()
+        for key, report in reports.items():
+            old = self._report_models.get(key)
+            if old is not None and old.report == report:
+                continue
+            if old is not None:
+                old.deleteLater()
+            model = FrameTableModel(lambda report=report: report['rows'],
+                                    lambda report=report: len(report['columns']), self)
+            model.report = report
+            self._report_models[key] = model
 
     def _open_tables(self, items, prefix='customLayout'):
         from .nested import NestedTableController
@@ -196,6 +239,7 @@ class CustomLayoutController(QObject):
             scope.shutdown()
             scope.deleteLater()
         document['layoutDetail'] = dict(busy=bool(key),targetSearchKey=key)
+        self._open_reports()
         self.notify_document()
         if not key:
             return
@@ -210,6 +254,7 @@ class CustomLayoutController(QObject):
         def loaded(result):
             if current():
                 document['layoutDetail'] = result['info']
+                self._open_reports()
                 self._open_tables(result['info']['layoutNodes'], 'customLayoutDetails')
                 self.notify_document()
         def settled():
@@ -217,7 +262,8 @@ class CustomLayoutController(QObject):
                 document['layoutDetail'] = dict(error=self.services.error)
                 self.notify_document()
         self.services._run(lambda:server.execute_cmd('tactic.ui.table.CustomLayoutReadCmd',dict(
-            view=document['layoutView'],search_key=document['targetSearchKey'],detail_key=key)),loaded,settled=settled)
+            view=document['layoutView'],search_key=document['targetSearchKey'],detail_key=key,
+            filter_values=document.get('layoutFilterValues'))),loaded,settled=settled)
 
     def _tabs(self):
         self.document_data['layoutTabs'] = [] if self.workspace else [
@@ -251,7 +297,7 @@ class CustomLayoutController(QObject):
         self.notify_document()
         app.open_window('table_document')
 
-    def open_view(self, view, title, key, *, search_key='', force=False):
+    def open_view(self, view, title, key, *, search_key='', force=False, filter_values=None):
         from thlib import tactic_classes as tc
         from .requests import read_custom_layout
 
@@ -278,7 +324,10 @@ class CustomLayoutController(QObject):
         generation = self.document_generation
         if self.workspace:
             self.tab, self.current = tab, key
-            self.document_data = dict(title=title, layoutBusy=True, layoutError='')
+            if self.document_data.get('layoutView') == view:
+                self.document_data.update(layoutBusy=True, layoutError='')
+            else:
+                self.document_data = dict(title=title, layoutBusy=True, layoutError='')
             self.notify_document()
 
         def loaded(result):
@@ -297,7 +346,7 @@ class CustomLayoutController(QObject):
 
         services._run(
             lambda: tc.execute_procedure_serverside(
-                read_custom_layout, dict(view=view, search_key=search_key), project=project, server=server
+                read_custom_layout, dict(view=view, search_key=search_key,filter_values=filter_values), project=project, server=server
             ),
             loaded,
             settled=settled,
@@ -335,6 +384,7 @@ class CustomLayoutController(QObject):
         self.tab = page.get('tab', self.tab)
         self.current, self.scopes, self.context = key, page['scopes'], page['context']
         self.document_data = page['document']
+        self._open_reports()
         for scope in self.scopes.values():
             scope.document_generation = self.document_generation
             scope.open = True
@@ -383,7 +433,7 @@ class CustomLayoutController(QObject):
 
     @Property('QVariantMap', notify=changed)
     def tableModels(self):
-        return {key: scope.model for key, scope in self.scopes.items()}
+        return {**{key: scope.model for key, scope in self.scopes.items()}, **self._report_models}
 
     @Slot(str)
     def close_page(self, key):

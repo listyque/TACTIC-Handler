@@ -3,6 +3,8 @@ import QtQuick
 import "../../tactic_frame" as Frame
 import "../../controls" as Controls
 import "../../tactic_frame/features/table/layout.ui.mjs" as Layout
+import "../../tactic_frame/features/table/report.ui.mjs" as Report
+import "../../tactic_frame/features/table/page.filters.mjs" as Filters
 import "../../tactic_frame/features/administration/layouts/canvas.mjs" as Canvas
 import "../administration/layouts" as Editors
 import "../.." as Shell
@@ -18,16 +20,24 @@ Frame.FrameView {
     property var itemVersions: null
     property var owner: services.customLayout
     property bool editing: false
+    property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     property bool guides: true
     property string selectedBlock: ""
     property var previewItems: null
+    property var filterDraft: ({})
+    readonly property string filterKey: JSON.stringify([document.layoutView, document.targetSearchKey, document.layoutFilters])
+    onFilterKeyChanged: filterDraft = Filters.initial(document.layoutFilters || [])
     signal blockSelected(string key)
     signal geometryEdited(var change, var boxes)
     readonly property var document: owner.document
     readonly property var baseScene: Layout.describe(Object.assign({}, document, {
-        layoutTables: owner.tableModels || {}
-    }), width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language, true, controller.server_url || "")
+        layoutTables: owner.tableModels || {},
+        layoutFilterDraft: filterDraft,
+        layoutEditing: editing
+    }), width, height, language, true, controller.server_url || "")
     scene: editing && guides ? Canvas.decorate(baseScene, "editorPath") : baseScene
+    models: owner.tableModels || ({})
+    describeCell: Report.cell
     views: ({
             layoutItems: {
                 component: itemsComponent,
@@ -48,6 +58,20 @@ Frame.FrameView {
     onEvent: action => {
         if (editing)
             return;
+        if (action.type === 'page-filter') {
+            filterDraft = Filters.change(filterDraft, action);
+            return;
+        }
+        if (action.type === 'page-filter-apply' || action.type === 'page-filter-reset') {
+            try {
+                if (action.type === 'page-filter-reset')
+                    filterDraft = Filters.initial(document.layoutFilters || []);
+                owner.apply_filters(action.type === 'page-filter-reset' ? {} : Filters.values(document.layoutFilters, filterDraft));
+            } catch (error) {
+                owner.filter_error(String(error.message || error));
+            }
+            return;
+        }
         if (action.type === "layout-tab")
             owner.select_page(action.key);
         else if (action.type === "layout-close-tab")

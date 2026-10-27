@@ -2,7 +2,7 @@ import QtQuick
 import "../../../tactic_frame" as Frame
 import "../../../tactic_frame/features/administration/layouts/page.ui.mjs" as UI
 import "../../../tactic_frame/features/administration/layouts/page.state.mjs" as State
-import "../../../tactic_frame/features/administration/layouts/page.data.mjs" as Data
+import "../../../tactic_frame/features/administration/layouts/page.reports.mjs" as Reports
 import "../../table" as Tables
 
 Item {
@@ -12,7 +12,7 @@ Item {
     property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     property bool saveActionsInHeader: false
     property var ui: State.initial()
-    readonly property var dataScope: Data.scope(controller.document, ui.selected)
+    readonly property var dataScope: Reports.scope(controller.document, ui)
     readonly property string dataKey: JSON.stringify([controller.metadata.sourceEpoch, dataScope])
     onDataKeyChanged: Qt.callLater(requestSource)
     function requestSource() {
@@ -133,6 +133,7 @@ Item {
         Loader {
             active: !!root.controller.metadata.previewOwner
             sourceComponent: Tables.CustomLayoutView {
+                language: root.language
                 theme: root.theme
                 services: root.controller.metadata.previewOwner.services
                 owner: root.controller.metadata.previewOwner.owner

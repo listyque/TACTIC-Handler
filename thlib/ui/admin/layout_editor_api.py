@@ -28,7 +28,7 @@ def layout_editor_request(action: str, project_code: str, search_type: str, view
                 search.add_order_by(next(name for name in ('name','code','id') if name in columns))
             if filters:
                 columns = SearchType.get_column_info(search_type)
-                if len(filters)>32:
+                if len(filters)>40:
                     raise ValueError('Too many preview filters')
                 for column, relation, value in filters:
                     if column not in columns or relation not in ('=','!=','<','<=','>','>=','like','is empty','is not empty'):

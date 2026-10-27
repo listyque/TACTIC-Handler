@@ -1,5 +1,6 @@
 import * as Document from './page.document.mjs';
 import * as Data from './page.data.mjs';
+import * as Reports from './page.reports.mjs';
 import { documentEvent } from '../admin.document.mjs';
 export function initial() {
     return {
@@ -13,6 +14,7 @@ export function initial() {
         newName: '',
         newTitle: '',
         recordQuery: '',
+        pageFilter: 0,
         error: ''
     };
 }
@@ -73,6 +75,28 @@ export function transition(ui, model, event) {
     )
         return { ui: next, commands };
     try {
+        if (Reports.events.includes(event.type)) {
+            if (
+                event.key &&
+                !Object.prototype.hasOwnProperty.call(ui.text, event.key)
+            )
+                return { ui: next, commands };
+            if (
+                Object.keys(ui.text).length &&
+                ![
+                    'pageConditionCommit',
+                    'reportCommit',
+                    'pageFilterChange'
+                ].includes(event.type)
+            )
+                throw Error(
+                    'Apply or discard the pending text before continuing'
+                );
+            const result = Reports.edit(model, ui, event);
+            Object.assign(next, result.ui);
+            if (result.document) replace(result.document);
+            return { ui: next, commands };
+        }
         const pending = Object.keys(ui.text);
         if (
             pending.length &&
@@ -113,7 +137,7 @@ export function transition(ui, model, event) {
                 next.recordQuery = event.value;
                 break;
             case 'source': {
-                const source = Data.scope(model.document, ui.selected);
+                const source = Reports.scope(model.document, ui);
                 commands.push({
                     type: 'source',
                     searchType: source.searchType,

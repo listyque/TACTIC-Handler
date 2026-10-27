@@ -6,6 +6,7 @@ import * as Document from './page.document.mjs';
 import { sectionSelector } from '../admin.document.mjs';
 import { spacingField } from './canvas.mjs';
 import * as Data from './page.data.mjs';
+import * as Reports from './page.reports.mjs';
 
 export function model(raw, ui) {
     return Object.assign({}, raw, {
@@ -196,7 +197,9 @@ export function describe(model, ui, width, height, language) {
                             markdown: 'Markdown',
                             metric: 'Metric',
                             table: 'Table',
-                            link: 'Link'
+                            link: 'Link',
+                            chart: 'Bar chart',
+                            summary: 'Grouped report'
                         }[value]
                     )
                 }))
@@ -308,9 +311,16 @@ export function describe(model, ui, width, height, language) {
             item ? item.title : model.document.title,
             !item
         );
+        if (!item)
+            fields.push(
+                ...Reports.fields(model, ui, right - 24, language, canEdit)
+            );
         if (item) {
             fields.push(
                 ...Data.fields(model, ui, right - 24, language, canEdit)
+            );
+            fields.push(
+                ...Reports.fields(model, ui, right - 24, language, canEdit)
             );
             if (
                 ['text', 'markdown'].includes(item.kind) &&

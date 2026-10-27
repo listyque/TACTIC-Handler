@@ -2,6 +2,8 @@ import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { link } from './cells.ui.mjs';
 import { quickLayout } from './nested.ui.mjs';
+import * as Report from './report.ui.mjs';
+import * as Filters from './page.filters.mjs';
 import {
     tab as workspaceTab,
     viewTabWidth
@@ -59,6 +61,16 @@ export function describe(
         gap = 8,
         tableHeight = Math.max(320, height - tabOffset - 48);
     const controls = cell.layoutState?.controls || cell.layoutControls || [];
+    const pageFilters = Filters.describe(
+        cell.layoutFilters,
+        cell.layoutFilterDraft || Filters.initial(cell.layoutFilters),
+        Math.max(0, width - 24),
+        language,
+        editable &&
+            !cell.layoutBusy &&
+            !cell.layoutFilterBusy &&
+            !cell.layoutEditing
+    );
     function draw(
         items,
         originX,
@@ -165,6 +177,19 @@ export function describe(
                         bottom,
                         childGap
                     );
+            } else if (['chart', 'summary'].includes(item.kind)) {
+                extent = Number.isFinite(item.height) ? item.height : 320;
+                output.push(
+                    node('Box', id, rect(x, top, available, extent), {
+                        children: Report.describe(
+                            item,
+                            id,
+                            available,
+                            extent,
+                            language
+                        ).nodes
+                    })
+                );
             } else if (item.kind === 'metric') {
                 extent = 104;
                 output.push(
@@ -182,7 +207,13 @@ export function describe(
                             label(
                                 id + '_value',
                                 rect(16, 52, Math.max(0, available - 32), 40),
-                                String(item.value ?? 0),
+                                item.value == null &&
+                                    Object.prototype.hasOwnProperty.call(
+                                        item,
+                                        'value'
+                                    )
+                                    ? '—'
+                                    : String(item.value ?? 0),
                                 { fontRole: 'hero', weight: 600 }
                             )
                         ]
@@ -489,7 +520,10 @@ export function describe(
         }
         return Math.max(0, top - originY - spacing);
     }
-    const extent = draw(cell.layoutNodes, 0, 0, Math.max(0, width - 24));
+    children.push(...pageFilters.nodes);
+    const extent =
+        pageFilters.height +
+        draw(cell.layoutNodes, 0, pageFilters.height, Math.max(0, width - 24));
     if (cell.layoutError)
         children.push(
             label(

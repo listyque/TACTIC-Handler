@@ -19,6 +19,10 @@ class Services(QObject):
         super().__init__()
         self.state, self.events = model, []
         self.scopes = {key: Scope() for key in ('customLayout_0_0', 'customLayout_0_1')}
+        self._report_models = {}
+        self.document_data = model
+        from thlib.ui.table.custom_layout import CustomLayoutController
+        CustomLayoutController._open_reports(self)
 
     @Property('QVariantMap', notify=documentChanged)
     def document(self):
@@ -34,7 +38,7 @@ class Services(QObject):
 
     @Property('QVariantMap', notify=nestedChanged)
     def tableModels(self):
-        return {key: scope.model for key, scope in self.scopes.items()}
+        return {**{key: scope.model for key, scope in self.scopes.items()},**self._report_models}
 
     @Slot(str, int, result=QObject)
     def table(self, key, revision=0):
@@ -62,6 +66,14 @@ class Services(QObject):
     def close_page(self, key):
         self.events.append(dict(type='close-tab', key=key))
 
+    @Slot('QVariantMap')
+    def apply_filters(self, values):
+        self.events.append(dict(type='filters',values=values))
+
+    @Slot(str)
+    def filter_error(self, message):
+        self.events.append(dict(type='filter-error',message=message))
+
     @Slot(str, 'QVariantMap', 'QVariantList')
     def open_links(self, node, cell, keys):
         self.events.append(dict(type='links', node=node, keys=list(keys)))
@@ -76,6 +88,28 @@ class CustomLayouts(unittest.TestCase):
     close = frames.FrameTableTests.close
     click = frames.FrameTableTests.click
     item = frames.FrameTableTests.item
+
+    def test_page_filters_apply_typed_values_and_report_grid_is_native(self):
+        from PySide6.QtCore import QCoreApplication
+        report=dict(columns=[dict(key='group_0',title='Status',kind='group'),dict(key='count',title='Count',kind='measure')],
+                    rows=[dict(group_0='ready',count=0)],measure='count',truncated=False)
+        services=Services(dict(layoutView='dashboard.report',layoutFilters=[dict(name='amount',title='Amount',
+            value=0,enabled=False,relation='>=',dataType='numeric')],
+            layoutNodes=[dict(kind='summary',text='Report',height=250,report=report),dict(kind='metric',text='Empty sum',value=None)]))
+        window,view=self.create('features/table/CustomLayoutView.qml',dict(services=services,controller=_TableController(),
+            columnsController=_TableColumns(),users=None,administration=None),width=1000,height=600)
+        self.click(window,self.item(view,'pageRuntime_amount_enabled'))
+        self.click(window,self.item(view,'pageRuntimeApply'))
+        self.assertEqual(services.events[-1],dict(type='filters',values=dict(amount=dict(enabled=True,value=0))))
+        services.documentChanged.emit();frames.frame(window)
+        window.resize(850,600);view.setWidth(850);frames.frame(window)
+        self.assertTrue(self.item(view,'pageRuntime_amount_enabled').property('checked'))
+        self.assertEqual(self.item(view,'customLayout_0_grid_cell_0_1').property('text'),'0')
+        self.assertEqual(self.item(view,'customLayout_1_value').property('text'),'—')
+        self.click(window,self.item(view,'pageRuntimeReset'))
+        self.assertEqual(services.events[-1],dict(type='filters',values={}))
+        view.setProperty('editing',True);frames.frame(window)
+        self.assertFalse(self.item(view,'pageRuntimeApply').isEnabled())
 
     def test_planner_embeds_two_live_tables_and_reflows_without_clipping(self):
         model = dict(

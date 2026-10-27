@@ -279,3 +279,41 @@ The internal agent can discover these same real sources, fields and views throug
 `ts_dashboard_sources`, then preview and save the ordinary page document. It
 does not need XML, a new tree, or generated application code for these bindings.
 Existing permissions, revision checks and save recovery still apply.
+
+## Shared page filters, charts and grouped reports
+
+Select Page in the page editor's Layers. In Properties → Shared page filters,
+add a filter, give it a label, choose its source and field, comparison and default
+value. Enable it by default if required. For a date range add From and To
+conditions. Values stay typed; zero, No and missing values are distinct.
+
+Data widgets inherit enabled page filters for the same source. For a different
+table choose Shared page filters → Choose fields explicitly in that widget and
+map each shared filter to a real field of the same type. Not applied excludes
+that filter. An empty explicit mapping excludes all shared filters. Local widget
+conditions continue to apply too; all conditions are combined with AND.
+
+Add a Bar chart or Grouped report widget. Choose its source in Data, then use
+Grouping and aggregates to add grouping fields and measures. Date/timestamp
+groups can use UTC years, months or days. Count accepts all rows or a particular
+non-empty field; Sum, Average, Minimum and Maximum use numeric fields. A metric
+can show one aggregate without grouping. Give measures meaningful labels.
+
+The server computes aggregates over all visible matching records before limiting
+displayed groups. Choose group order or sort by the first measure, and a group
+limit. If more groups exist, the widget shows a truncation notice. The report grid
+uses normal native scrolling and virtualization; charts support negative values.
+No matching rows leave numeric aggregates empty instead of inventing zero.
+
+On the published page, enable filters, enter values and click Apply filters.
+Typing or resizing does not start a query. Reset filters restores the saved
+defaults. These are temporary values, not edits to the page configuration. Invalid
+values show an error and preserve the previous result. The authoring preview
+shows saved defaults read-only; publish through the usual validated Save.
+
+The internal agent uses the same dashboard schema and native tools for shared
+filters, explicit mappings, groupings and measures. Source permissions, revision
+checks and save recovery still apply. Limits: eight page filters, three grouping
+fields, eight measures, 100 displayed groups per report. Charts currently use
+horizontal bars; arbitrary joins, formulas, editable forms and printable report
+pagination are separate features.

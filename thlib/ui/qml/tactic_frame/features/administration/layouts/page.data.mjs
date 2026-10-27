@@ -51,9 +51,15 @@ export function scope(document, key) {
               ? selectedType(document, key)
               : binding === 'record'
                 ? item.search_type || (item.source_key || '').split('?')[0]
-                : ['table', 'items', 'metric', 'row', 'column'].includes(
-                        item.kind
-                    )
+                : [
+                        'table',
+                        'items',
+                        'metric',
+                        'chart',
+                        'summary',
+                        'row',
+                        'column'
+                    ].includes(item.kind)
                   ? item.search_type || ''
                   : '';
     return {
@@ -109,7 +115,7 @@ export function relation(condition) {
             : 'notEmpty'
         : condition.relation;
 }
-function value(field, raw) {
+export function value(field, raw) {
     if (type(field) === 'boolean') {
         if (![true, false, 'true', 'false'].includes(raw))
             throw Error('Choose Yes or No');
@@ -133,7 +139,7 @@ function value(field, raw) {
 export function filter(document, key, event, metadata) {
     const result = Document.copy(document),
         item = Document.block(result, key);
-    if (!['items', 'table', 'metric'].includes(item.kind))
+    if (!['items', 'table', 'metric', 'chart', 'summary'].includes(item.kind))
         throw Error('Filters belong to a data collection');
     const fields = (metadata?.fields || []).filter(
         (row) => type(row) !== 'complex'
@@ -204,7 +210,7 @@ export function filter(document, key, event, metadata) {
     else throw Error('Unsupported filter property');
     return result;
 }
-function options(rows, current, language) {
+export function options(rows, current, language) {
     const result = (rows || []).map((row) => ({
         value: row.value,
         label: row.label
@@ -227,11 +233,14 @@ export function fields(model, ui, width, language, enabled) {
                 : {},
         tr = (text) => translate(text, language);
     const fields = [],
-        collection = ['table', 'items', 'metric'].includes(item.kind),
+        collection = ['table', 'items', 'metric', 'chart', 'summary'].includes(
+            item.kind
+        ),
         condition =
             ['row', 'column'].includes(item.kind) &&
             inDetails(model.document, ui.selected);
     if (!collection && !binding && !condition) return fields;
+    const sourceReady = enabled && !model.dataBusy && !!metadata.searchType;
     fields.push({
         kind: 'Heading',
         id: 'pageDataHeading',
@@ -246,7 +255,9 @@ export function fields(model, ui, width, language, enabled) {
             options: options(rows, current, language),
             props: {
                 value: current,
-                enabled,
+                enabled: ['binding', 'search_type'].includes(field)
+                    ? enabled
+                    : sourceReady,
                 action: { type: 'data', field }
             }
         });
@@ -385,7 +396,7 @@ export function fields(model, ui, width, language, enabled) {
                         row.column,
                         language
                     ),
-                    enabled,
+                    enabled: sourceReady,
                     action: { type: 'filter', index, field: 'column' }
                 })
             );
@@ -419,7 +430,7 @@ export function fields(model, ui, width, language, enabled) {
                 node('Choice', id + '_relation', rect(0, 42, w, 34), {
                     label: tr('Filter condition'),
                     value: relation(row),
-                    enabled,
+                    enabled: sourceReady && !!sourceField,
                     options: options(
                         operators.map(([value, label]) => ({
                             value,
@@ -439,7 +450,7 @@ export function fields(model, ui, width, language, enabled) {
                 const props = {
                     label: tr('Filter value'),
                     text: content,
-                    enabled,
+                    enabled: sourceReady && !!sourceField,
                     inputMode:
                         type(sourceField) === 'number' ? 'decimal' : 'text',
                     action: { type: 'buffer', key },
@@ -494,7 +505,7 @@ export function fields(model, ui, width, language, enabled) {
             props: {
                 icon: 'add',
                 enabled:
-                    enabled &&
+                    sourceReady &&
                     !!metadata.fields?.length &&
                     (item.filters || []).length < 32,
                 action: { type: 'filter', action: 'add' }

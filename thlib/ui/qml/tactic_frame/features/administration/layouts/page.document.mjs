@@ -7,7 +7,9 @@ export const kinds = [
     'table',
     'items',
     'details',
-    'link'
+    'link',
+    'chart',
+    'summary'
 ];
 // QVariantMap exposes Python None as undefined; keep explicit null fields in drafts.
 export const copy = (value) =>
@@ -126,11 +128,15 @@ export function add(document, key, kind, searchType) {
         item.children = [];
         item.height = 180;
     }
-    if (['items', 'table', 'metric'].includes(kind))
+    if (['items', 'table', 'metric', 'chart', 'summary'].includes(kind))
         Object.assign(item, {
             search_type: searchType || '',
             view: kind === 'items' ? 'continuous_example' : 'table'
         });
+    if (['chart', 'summary'].includes(kind))
+        item.aggregates = [
+            { name: 'count', title: 'Count', function: 'count', column: '' }
+        ];
     if (['text', 'markdown'].includes(kind)) item.text = kind;
     rows.push(item);
     return { document: result, key: parent.concat(rows.length - 1).join('.') };

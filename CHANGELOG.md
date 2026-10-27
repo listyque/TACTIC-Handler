@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.193 - 2026-10-28
+
+- Add shared page filters with transient Apply/Reset and explicit field mappings. Compose grouped reports and bar charts with native count/sum/average/min/max, UTC date buckets, bounded result groups and numeric metrics directly in the page editor. Use existing native grid/tree controls, revisioned configuration and agent tools; requires Stream 0.112.251.
+
 ## 0.6.0.192 - 2026-10-28
 
 - Add page data-source, saved-view, typed filter and content-binding controls backed by a compact native catalog. Pick fixed records and bind project/selection/record fields without XML; preserve source references for review. Guard late metadata replies and retain false, zero and empty predicates through native search cards. Requires Stream 0.112.250 for the page data catalog and binding contract.
