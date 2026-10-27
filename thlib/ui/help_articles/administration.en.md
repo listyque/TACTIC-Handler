@@ -547,12 +547,6 @@ links and responsive rows/columns, and group/reorder existing navigation entries
 hide duplicates, or set icons and colors. Saved dashboards run in both clients.
 Ordinary legacy HTML/JavaScript pages still have separate compatibility limits.
 
-Ask the agent for an expandable tree to explore project → assignments → work →
-reports/materials. It can configure a native tree from actual schema relations
-and linked tasks. Expand a group to load its records; Load more appends the next
-page, and a record title opens details. Failed loads can be retried. Dashboard
-tree rows and ordinary house controls use compact sizing and restrained corners.
-
 Open a dashboard from project navigation or its configured URL: it occupies the
 workspace as a page, without the general search/results shell or a popup. Each
 table widget keeps its own filters and actions. Refresh updates the page and

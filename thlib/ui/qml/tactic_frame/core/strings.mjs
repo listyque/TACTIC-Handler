@@ -1,8 +1,5 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
-    'No results': 'Нет записей',
-    'Too many results. Narrow the search.':
-        'Слишком много записей. Уточните фильтр.',
     'Agent link — includes access and startup instructions':
         'Ссылка для агента — доступ и стартовые инструкции',
     'Copy agent link': 'Скопировать ссылку для агента',

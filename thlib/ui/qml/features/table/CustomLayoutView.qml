@@ -17,10 +17,6 @@ Frame.FrameView {
         layoutTables: owner.tableModels || {}
     }), width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language, true, controller.server_url || "")
     views: ({
-            layoutTree: {
-                component: treeComponent,
-                nodeProps: true
-            },
             layoutMarkdown: {
                 component: markdownComponent,
                 nodeProps: true
@@ -39,21 +35,6 @@ Frame.FrameView {
             owner.set_state(Layout.change(document.layoutState, action.selector, action.value));
         else
             owner.activate(action);
-    }
-    Component {
-        id: treeComponent
-        Item {
-            id: treeHost
-            property var frameNode: ({})
-            Loader {
-                anchors.fill: parent
-                active: !!root.owner.tree(treeHost.frameNode.key || "")
-                sourceComponent: DashboardTreeView {
-                    theme: root.theme
-                    reader: root.owner.tree(treeHost.frameNode.key)
-                }
-            }
-        }
     }
     Component {
         id: markdownComponent

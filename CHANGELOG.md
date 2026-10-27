@@ -3,11 +3,6 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
-## 0.6.0.180 - 2026-10-27
-
-- Support configurable lazy dashboard trees through native schema/instance relationships and linked task, note and snapshot records, with pagination, retry and object navigation. Expose hierarchy discovery/verification to the internal agent.
-- Use compact house controls and restrained corner radii in all themes; reduce simple dashboard table rows and count-card spacing without shrinking complex cell content.
-
 ## 0.6.0.179 - 2026-10-26
 
 - Open configured dashboard/navigation layouts as native workspace pages instead of document windows. Reuse the shared responsive layout, metric cards and embedded table controls; retain per-tab filters and ordinary object layout windows.

@@ -120,7 +120,7 @@ export function describe(
                     }
                 } else extent = draw(item.children, x, top, available, id);
             } else if (item.kind === 'metric') {
-                extent = 76;
+                extent = 104;
                 children.push(
                     node('Box', id, rect(x, top, available, extent), {
                         background: 'panel',
@@ -129,13 +129,13 @@ export function describe(
                         children: [
                             label(
                                 id + '_label',
-                                rect(12, 4, Math.max(0, available - 24), 36),
+                                rect(16, 12, Math.max(0, available - 32), 36),
                                 text,
                                 { color: 'secondaryText', wrap: true }
                             ),
                             label(
                                 id + '_value',
-                                rect(12, 40, Math.max(0, available - 24), 30),
+                                rect(16, 52, Math.max(0, available - 32), 40),
                                 String(item.value ?? 0),
                                 { fontRole: 'hero', weight: 600 }
                             )
@@ -183,21 +183,6 @@ export function describe(
                             targetSearchKey: cell.targetSearchKey
                         },
                         enabled: !item.javascript || editable
-                    })
-                );
-            } else if (item.kind === 'tree') {
-                const treeExtent = Number.isFinite(item.height)
-                    ? item.height
-                    : tableHeight;
-                extent = treeExtent + 32;
-                children.push(
-                    label(id + '_title', rect(x, top, available, 28), text)
-                );
-                children.push(
-                    node('View', id, rect(x, top + 32, available, treeExtent), {
-                        view: 'layoutTree',
-                        key: id,
-                        tree: item.tree
                     })
                 );
             } else if (item.kind === 'table') {
