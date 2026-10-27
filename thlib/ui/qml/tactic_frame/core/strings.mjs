@@ -1,5 +1,9 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Search in this branch': 'Поиск в этой ветке',
+    'Found: {count}': 'Найдено: {count}',
+    'No results found': 'Ничего не найдено',
+    'Clear filter': 'Очистить фильтр',
     'Agent link — includes access and startup instructions':
         'Ссылка для агента — доступ и стартовые инструкции',
     'Copy agent link': 'Скопировать ссылку для агента',

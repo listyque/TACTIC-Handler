@@ -5,6 +5,8 @@ order: 26
 ---
 # Search dock
 
+In an expanded relationship or process branch, use the small magnifier to the left of its title to search its immediate children. The popup has a clear button; Enter/Escape closes it. Other branches and records remain unchanged.
+
 > Search is the main project browser. Each tab keeps its own Search Type, filters, result layout,
 > expanded rows, selection, paging mode and scroll position.
 

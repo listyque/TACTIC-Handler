@@ -4,6 +4,7 @@ import "tactic_frame/features/search/card.ui.mjs" as Card
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "features/search" as Search
 
 Item {
     id: root
@@ -109,6 +110,7 @@ Item {
     readonly property bool objectCard: root.nodeType === "sobject"
     readonly property bool snapshotCard: root.nodeType === "snapshot"
     readonly property bool branchRow: root.nodeType === "process" || root.nodeType === "relation"
+    readonly property bool canFilterChildren: branchRow && expanded && hasChildren && !nodeLoading && !!controller && typeof controller.child_filter_text === "function"
     readonly property bool indentedSurface: root.objectCard || root.snapshotCard || root.branchRow
     readonly property real surfaceLeft: root.indentedSurface ? cardLayout.surfaceLeft : 0
     readonly property bool compactBranchItem: nodeType === "process" || nodeType === "relation" || root.isGroup
@@ -314,7 +316,7 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        visible: root.nodeType !== "file"
+        visible: root.nodeType !== "file" && !root.canFilterChildren
         opacity: root.nodeLoading ? 0.42 : 1
         Behavior on opacity {
             enabled: !root.theme.suppressTransientMotion
@@ -364,6 +366,19 @@ Item {
         }
     }
 
+    Loader {
+        x: root.cardLayout.preview.x
+        y: root.cardLayout.preview.y
+        width: 24
+        height: 24
+        z: 8
+        active: root.canFilterChildren
+        sourceComponent: Search.BranchFilter {
+            theme: root.theme
+            controller: root.controller
+            nodeId: root.nodeId
+        }
+    }
     Item {
         id: content
         x: root.cardLayout.content.x
@@ -559,10 +574,10 @@ Item {
                 }
                 Loader {
                     objectName: "workspaceObjectMetadata"
-                    width: body.parts.resultMetadata.width
-                    height: body.parts.resultMetadata.height
-                    x: body.parts.resultMetadata.x
-                    y: body.parts.resultMetadata.y
+                    width: body.parts.resultMetadata?.width ?? 0
+                    height: body.parts.resultMetadata?.height ?? 0
+                    x: body.parts.resultMetadata?.x ?? 0
+                    y: body.parts.resultMetadata?.y ?? 0
                     active: (root.progressItems || []).length > 0 || (root.infoChips || []).length > 0
                     sourceComponent: Row {
                         anchors.fill: parent

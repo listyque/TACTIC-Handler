@@ -13,6 +13,20 @@ from .results_types import WorkspaceNode
 
 
 class NavigationMixin:
+    @staticmethod
+    def filtered_children(node):
+        return node.children if node.child_matches is None else [
+            child for child in node.children if child.node_id in node.child_matches
+        ]
+
+    def filter_children(self, node_id, query, matches):
+        node = self._nodes.get(node_id)
+        if node is None or node.node_type not in ('relation', 'process'):
+            return
+        node.child_filter = query
+        node.child_matches = set(matches) if query.strip() else None
+        self._replace_visible_items(self._project_visible_rows(self._flatten()), preserve_slots=True)
+
     def _flatten(self) -> list[WorkspaceNode]:
         organized = self.organized_flatten()
         if organized is not None:
@@ -21,7 +35,7 @@ class NavigationMixin:
         def visit(node: WorkspaceNode) -> None:
             result.append(node)
             if node.expanded:
-                for child in node.children:
+                for child in self.filtered_children(node):
                     visit(child)
         for root in self._roots:
             visit(root)
@@ -62,10 +76,10 @@ class NavigationMixin:
         def visit(child: WorkspaceNode) -> None:
             result.append(child)
             if child.expanded:
-                for descendant in child.children:
+                for descendant in self.filtered_children(child):
                     visit(descendant)
 
-        for child in node.children:
+        for child in self.filtered_children(node):
             visit(child)
         return result
 

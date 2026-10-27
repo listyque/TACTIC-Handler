@@ -487,7 +487,7 @@ Item {
                         y: node.y
                         width: node.width
                         height: node.height
-                        radius: node.radius
+                        radius: node.radius || 0
                         color: node.background === "outline" ? root.theme.outline : root.typeColor
                     }
                 }

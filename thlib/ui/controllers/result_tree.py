@@ -284,6 +284,21 @@ class ResultTreeMixin:
             self._restoring_nodes.add(node_id)
             self.toggle_result_node(node_id)
 
+    @Slot(str, result=str)
+    def child_filter_text(self, node_id):
+        node = self.workspace_model.node_for(node_id)
+        return node.child_filter if node else ''
+
+    @Slot(str, result='QVariantList')
+    def child_filter_records(self, node_id):
+        node = self.workspace_model.node_for(node_id)
+        return [dict(id=child.node_id, text='\n'.join((child.title, child.code, child.subtitle, child.context, child.file_path)))
+                for child in node.children] if node else []
+
+    @Slot(str, str, 'QVariantList')
+    def filter_result_children(self, node_id, query, matches):
+        self.workspace_model.filter_children(node_id, query[:256], matches)
+
     @Slot(str)
     def toggle_result_node(self, node_id: str) -> None:
         try:

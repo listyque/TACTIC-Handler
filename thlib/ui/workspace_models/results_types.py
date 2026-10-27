@@ -54,6 +54,8 @@ class WorkspaceNode:
     is_multiple: bool = False
     needs_sync: bool = False
     child_count: int = 0
+    child_filter: str = ''
+    child_matches: set[str] | None = None
     progress_items: list[dict] = field(default_factory=list)
     controls_cache: list[dict] = field(default_factory=list)
     controls_signature: tuple = field(default_factory=tuple)

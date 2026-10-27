@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.183 - 2026-10-27
+
+- Add a compact branch-search button to expanded relationship/process rows in the existing item tree. Filter only that branch, retain the original children and restore them when cleared.
+
 ## 0.6.0.182 - 2026-10-27
 
 - Embed the existing expandable item workspace in agent-authored dashboards, retaining native search-tab models, relationship/process branches, selection and object actions. Keep general UI geometry unchanged.

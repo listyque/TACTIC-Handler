@@ -179,6 +179,27 @@ class _RootSnapshotSource(_SnapshotSource):
 
 
 class ResultTreeStateTests(unittest.TestCase):
+    def test_child_filter_keeps_the_canonical_tree_and_other_branches(self):
+        model = WorkspaceItemModel()
+        root = _loaded_tree()
+        branch = root.children[0]
+        first = branch.children[0]
+        from dataclasses import replace
+        second = replace(first, node_id='other', search_key='sthpw/snapshot?code=SECOND', code='SECOND', title='Other', parent_id=branch.node_id)
+        branch.children.append(second)
+        model.replace_nodes([root])
+        model.filter_children(branch.node_id, 'Other', ['other'])
+        self.assertEqual([node.node_id for node in model._items], [root.node_id, branch.node_id, 'other'])
+        self.assertEqual(branch.children, [first, second])
+        model.toggle_node(branch.node_id)
+        model.toggle_node(branch.node_id)
+        self.assertEqual(model._items[-1].node_id, 'other')
+        model.filter_children(branch.node_id, 'absent', [])
+        self.assertEqual(len(model._items), 2)
+        model.filter_children(branch.node_id, '', [])
+        self.assertIs(model._items[-2], first)
+        self.assertIs(model._items[-1], second)
+
     def test_failed_preview_does_not_immediately_request_missing_file_again(self):
         model = WorkspaceItemModel()
         node = WorkspaceNode(

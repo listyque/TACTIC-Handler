@@ -239,7 +239,7 @@ class OrganizationMixin:
         def visit(node: WorkspaceNode) -> None:
             result.append(node)
             if node.expanded:
-                for child in node.children:
+                for child in self.filtered_children(node):
                     visit(child)
 
         for group in self._root_groups:
