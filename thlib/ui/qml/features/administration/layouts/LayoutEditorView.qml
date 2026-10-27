@@ -14,7 +14,7 @@ Item {
     property var ui: State.initial()
     readonly property var frameModel: UI.model(controller.model, ui)
     readonly property var frameScene: body.scene
-    readonly property var rows: Object.assign({}, UI.models(frameModel), {
+    readonly property var rows: Object.assign({}, UI.models(frameModel, language), {
         sourceEditor: controller.sourceEditor
     })
     readonly property bool allowSave: true

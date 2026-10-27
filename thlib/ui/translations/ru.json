@@ -1,4 +1,11 @@
 {
+  "New view": "Новый вид",
+  "Add a widget to start this view.": "Добавьте виджет, чтобы начать этот вид.",
+  "Views": "Виды",
+  "Open saved view": "Открыть сохранённый вид",
+  "Starting point": "Основа",
+  "Create draft": "Создать черновик",
+  "Discard changes to the current view and continue?": "Отменить изменения текущего вида и продолжить?",
   "Stale source": "Исходник изменился",
   "Historical report": "Исторический отчёт",
   "Agent drafts": "Черновики агента",

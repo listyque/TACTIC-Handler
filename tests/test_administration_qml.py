@@ -781,6 +781,40 @@ class AdministrationQmlTests(unittest.TestCase):
         self.assertFalse(self.admin.projectLocked)
         self.assertEqual(self.fixture.warnings,[])
 
+    def test_layout_document_navigation_new_blank_and_dirty_switch(self):
+        self.window.resize(1400, 940)
+        self.click('adminSection_layouts')
+        host = self.admin.layoutEditor
+        host._release(cancel=True)
+        xml = '<config><cards_example layout="sobject-layout" columns="12"/></config>'
+        host._view = 'cards_example'
+        host._search_type = 'demo/asset'
+        host._loaded_scope = ('demo', 'demo/asset', 'cards_example')
+        host._types = [dict(value='demo/asset', label='Assets')]
+        host._configuration = dict(layout_views=['cards_example', 'another_view'],
+                                   sources=[], resolved=dict(configured=True))
+        host._xml = host._baseline = xml
+        host._parse()
+        host.stateChanged.emit()
+        frame(self.window)
+        self.assertTrue(self.item('layoutView').isVisible())
+        self.assertTrue(self.item('layoutViewsList').isVisible())
+        self.click('layoutNewView')
+        self.assertTrue(self.item('layoutNewName').isVisible())
+        self.assertEqual(self.item('layoutTemplate').property('currentValue'), 'blank')
+        self.click('layoutCancelNewView')
+        with self.assertRaises(StopIteration):
+            self.item('layoutNewName')
+        host._xml += ' '
+        host.stateChanged.emit()
+        frame(self.window)
+        self.click('layoutSavedView_another_view')
+        self.assertTrue(self.item('adminDocumentConfirmation').isVisible())
+        self.click('adminCancelSave')
+        self.assertEqual(host.model['view'], 'cards_example')
+        self.assertTrue(host.dirty)
+        self.assertEqual(self.fixture.warnings, [])
+
 
     def test_shell_close_reveals_hidden_draft_and_does_not_destroy_it(self):
         from PySide6.QtQml import QQmlEngine, QQmlExpression

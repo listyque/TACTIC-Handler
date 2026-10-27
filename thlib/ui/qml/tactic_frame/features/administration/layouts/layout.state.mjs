@@ -8,8 +8,10 @@ export function initial() {
         context: '',
         catalogWidth: 220,
         propertiesWidth: 330,
-        newName: 'custom_view',
-        template: 'continuous',
+        newName: '',
+        template: 'blank',
+        creating: false,
+        pendingContext: null,
         text: {},
         confirmation: '',
         checking: false,
@@ -131,7 +133,19 @@ export function transition(ui, model, event) {
             commands
         };
     }
-    const document = documentEvent(ui, model, event);
+    if (event.type === 'keep') next.pendingContext = null;
+    if (event.type === 'confirm' && ui.confirmation === 'context') {
+        if (!model.busy && !model.uncertain && ui.pendingContext) {
+            commands.push({ type: 'discard' });
+            if (ui.pendingContext.type === 'startView') next.creating = true;
+            else commands.push(ui.pendingContext);
+            next.confirmation = '';
+            next.pendingContext = null;
+            next.text = {};
+        }
+        return { ui: next, commands };
+    }
+    const document = documentEvent(next, model, event);
     if (document) return document;
     if (model.busy || ui.confirmation)
         return {
@@ -315,6 +329,32 @@ export function transition(ui, model, event) {
                 });
             break;
         case 'context':
+            if (
+                !['view', 'searchType'].includes(event.field) ||
+                model[event.field] === event.value
+            )
+                break;
+            if (!model.uncertain) {
+                if (model.dirty || pending(ui)) {
+                    next.confirmation = 'context';
+                    next.pendingContext = event;
+                } else {
+                    next.creating = false;
+                    commands.push(event);
+                }
+            }
+            break;
+        case 'startView':
+            if (edit && !model.uncertain) {
+                if (model.dirty || pending(ui)) {
+                    next.confirmation = 'context';
+                    next.pendingContext = event;
+                } else next.creating = true;
+            }
+            break;
+        case 'cancelView':
+            next.creating = false;
+            break;
         case 'source':
             if (!model.dirty && !model.uncertain && !pending(ui))
                 commands.push(event);
@@ -376,6 +416,12 @@ export function transition(ui, model, event) {
     };
 }
 export function completed(ui, command) {
+    if (command.type === 'newView')
+        return Object.assign({}, ui, {
+            creating: false,
+            page: 'design',
+            panel: 'elements'
+        });
     return ['reload', 'discard', 'source'].indexOf(command.type) >= 0
         ? Object.assign({}, ui, {
               text: {},

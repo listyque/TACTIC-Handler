@@ -13,6 +13,7 @@ import { sections as form } from '../../../controls/forms/sections.ui.mjs';
 import { translate } from '../../../core/strings.mjs';
 import * as Document from './layout.document.mjs';
 import { pending } from './layout.state.mjs';
+import * as Catalog from './layout.catalog.mjs';
 export const labels = {
     group: 'Group',
     view: 'Reusable view',
@@ -208,7 +209,7 @@ export function toolbar(model, ui, width, language, embedded = false) {
         button(
             'layoutOpenView',
             rect(embedded ? 90 : 134, 0, 38, 38),
-            tr(model.externalView ? 'Open view in browser' : 'Open view'),
+            tr('Open saved view'),
             'open-in-new',
             {
                 type: 'openView'
@@ -229,18 +230,20 @@ export function toolbar(model, ui, width, language, embedded = false) {
         result.nodes = result.nodes.filter((row) => row.id !== 'layoutHelp');
     return result;
 }
-export function models(model) {
+export function models(model, language = 'en') {
     return {
-        layoutElements: model.layout.elements
+        layoutElements: model.layout.elements,
+        layoutViews: Catalog.views(model, language)
     };
 }
 export function row(list, record, model, ui, language) {
+    if (list.source === 'layoutViews') return Catalog.row(list, record, model);
     const width = list.width - 16,
         tr = (text) => translate(text, language),
         id = 'layoutElement_' + record.name;
     return {
         nodes: [
-            node('Action', id, rect(0, 0, width, 70), {
+            node('Action', id, rect(0, 0, width, 46), {
                 text: record.title || record.name,
                 selected: ui.selected === record.name,
                 normalColor: 'transparent',
@@ -256,9 +259,9 @@ export function row(list, record, model, ui, language) {
                         id + 'Title',
                         rect(
                             record.parent ? 22 : 10,
-                            4,
+                            0,
                             width - (record.parent ? 32 : 20),
-                            28
+                            26
                         ),
                         (record.parent ? '↳ ' : '') +
                             (record.title || record.name),
@@ -268,7 +271,7 @@ export function row(list, record, model, ui, language) {
                     ),
                     label(
                         id + 'Kind',
-                        rect(10, 36, width - 20, 24),
+                        rect(10, 26, width - 20, 18),
                         tr(labels[record.kind] || record.kind),
                         muted
                     )
@@ -644,6 +647,9 @@ export function describe(model, ui, width, height, language) {
         noticeModel = Object.assign({}, model);
     if (ui.confirmation === 'remove')
         noticeModel.confirmationText = 'Remove this element and its children?';
+    if (ui.confirmation === 'context')
+        noticeModel.confirmationText =
+            'Discard changes to the current view and continue?';
     const notice = notices(
             noticeModel,
             ui,
@@ -654,31 +660,16 @@ export function describe(model, ui, width, height, language) {
         ),
         nodes = notice.nodes;
     let y = notice.top;
+    const context = Catalog.context(model, ui, width, language);
     nodes.push(
-        label(
-            'layoutGuideHeading',
-            rect(0, y, width, 28),
-            tr('Build your own view'),
-            {
-                fontRole: 'title',
-                weight: 600
-            }
-        ),
-        label(
-            'layoutGuideText',
-            rect(0, y + 34, width, width < 520 ? 62 : 36),
-            tr(
-                '1. Choose a starting point · 2. Arrange elements · 3. Check and save'
-            ),
-            Object.assign(
-                {
-                    wrap: true
-                },
-                muted
-            )
+        node(
+            'Box',
+            'layoutDocumentContext',
+            rect(0, y, width, context.height),
+            { children: context.nodes }
         )
     );
-    y += width < 520 ? 104 : 78;
+    y += context.height;
     nodes.push(
         sectionSelector(
             'layoutPages',
@@ -770,72 +761,18 @@ export function describe(model, ui, width, height, language) {
         };
     }
     if (ui.page === 'configuration') {
-        const clean = !model.busy && !model.dirty && !model.uncertain,
-            configuration = model.configuration || {},
-            views = configuration.layout_views || [
-                'continuous_example',
-                'table_example',
-                'cards_example'
-            ],
-            sourceOptions = (configuration.sources || [])
-                .map((row) => ({
-                    value: row.id,
-                    label:
-                        String(row.id) +
-                        ' · ' +
-                        tr('Priority') +
-                        ' ' +
-                        (row.priority === null ? '' : row.priority)
-                }))
-                .concat([
-                    {
-                        value: '',
-                        label: tr('New override')
-                    }
-                ]);
+        const sourceOptions = (model.configuration?.sources || [])
+            .map((row) => ({
+                value: row.id,
+                label:
+                    String(row.id) +
+                    ' · ' +
+                    tr('Priority') +
+                    ' ' +
+                    (row.priority ?? '')
+            }))
+            .concat([{ value: '', label: tr('New override') }]);
         const fields = [
-            {
-                kind: 'Heading',
-                id: 'layoutContextHeading',
-                title: 'Configuration'
-            },
-            {
-                kind: 'Choice',
-                id: 'layoutSearchType',
-                title: 'Search Type',
-                options: model.searchTypes || [],
-                props: {
-                    value: model.searchType,
-                    enabled: clean,
-                    action: {
-                        type: 'context',
-                        field: 'searchType'
-                    }
-                }
-            },
-            {
-                kind: 'Choice',
-                id: 'layoutView',
-                title: 'Configuration view',
-                options: views.map((value) => ({
-                    value,
-                    label: tr(
-                        {
-                            continuous_example: 'Tree example',
-                            table_example: 'Table example',
-                            cards_example: 'Cards example'
-                        }[value] || value
-                    )
-                })),
-                props: {
-                    value: model.view,
-                    enabled: clean,
-                    action: {
-                        type: 'context',
-                        field: 'view'
-                    }
-                }
-            },
             {
                 kind: 'Choice',
                 id: 'layoutSource',
@@ -843,74 +780,8 @@ export function describe(model, ui, width, height, language) {
                 options: sourceOptions,
                 props: {
                     value: model.source,
-                    enabled: clean,
-                    action: {
-                        type: 'source'
-                    }
-                }
-            },
-            {
-                kind: 'Heading',
-                id: 'layoutNewViewHeading',
-                title: 'Create custom view',
-                description:
-                    'Start from a template or copy this view. Give your view a unique name.'
-            },
-            {
-                id: 'layoutNewName',
-                title: 'View name',
-                props: {
-                    text: ui.newName,
-                    enabled: edit && clean,
-                    action: {
-                        type: 'newName'
-                    }
-                }
-            },
-            {
-                kind: 'Choice',
-                id: 'layoutTemplate',
-                title: 'Layout template',
-                options: [
-                    {
-                        value: 'blank',
-                        label: tr('Blank view')
-                    },
-                    {
-                        value: 'continuous',
-                        label: tr('Continuous Tree')
-                    },
-                    {
-                        value: 'cards',
-                        label: tr('Cards')
-                    },
-                    {
-                        value: 'table',
-                        label: tr('Table View')
-                    },
-                    {
-                        value: 'copy',
-                        label: tr('Copy current view')
-                    }
-                ],
-                props: {
-                    value: ui.template,
-                    enabled: edit && clean,
-                    action: {
-                        type: 'template'
-                    }
-                }
-            },
-            {
-                kind: 'Button',
-                id: 'layoutCreateView',
-                title: 'Create custom view',
-                props: {
-                    icon: 'add',
-                    enabled: edit && clean,
-                    action: {
-                        type: 'newView'
-                    }
+                    enabled: !model.busy && !model.dirty && !model.uncertain,
+                    action: { type: 'source' }
                 }
             }
         ];
@@ -1119,37 +990,66 @@ export function describe(model, ui, width, height, language) {
     const bodyHeight = Math.max(1, height - y);
     if (wide || ui.panel === 'elements') {
         const w = left,
+            viewsHeight = Math.min(144, Math.max(68, bodyHeight * 0.24)),
+            elementsTop = 52 + viewsHeight,
             children = [
                 label(
+                    'layoutViewsHeading',
+                    rect(12, 12, w - 24, 28),
+                    tr('Views'),
+                    { weight: 600 }
+                ),
+                node(
+                    'List',
+                    'layoutViewsList',
+                    rect(12, 46, w - 24, viewsHeight),
+                    {
+                        source: 'layoutViews',
+                        keyField: 'value',
+                        rowHeight: 38,
+                        scrollbarId: 'layoutViewsScrollBar'
+                    }
+                ),
+                label(
                     'layoutElementsHeading',
-                    rect(12, 8, w - 24, 28),
+                    rect(12, elementsTop + 8, w - 24, 28),
                     tr('Elements'),
                     {
                         weight: 600
                     }
                 ),
-                node('Choice', 'layoutAddWidget', rect(12, 44, w - 24, 38), {
-                    label: tr('Add widget'),
-                    value: '',
-                    options: [
-                        {
-                            value: '',
-                            label: tr('Add widget')
+                node(
+                    'Choice',
+                    'layoutAddWidget',
+                    rect(12, elementsTop + 44, w - 24, 38),
+                    {
+                        label: tr('Add widget'),
+                        value: '',
+                        options: [
+                            {
+                                value: '',
+                                label: tr('Add widget')
+                            }
+                        ].concat(choices(Document.widgets, language)),
+                        enabled: edit && !pending(ui),
+                        action: {
+                            type: 'add'
                         }
-                    ].concat(choices(Document.widgets, language)),
-                    enabled: edit && !pending(ui),
-                    action: {
-                        type: 'add'
                     }
-                }),
+                ),
                 node(
                     'List',
                     'layoutElementsList',
-                    rect(12, 90, w - 24, bodyHeight - 146),
+                    rect(
+                        12,
+                        elementsTop + 90,
+                        w - 24,
+                        Math.max(0, bodyHeight - elementsTop - 146)
+                    ),
                     {
                         source: 'layoutElements',
                         keyField: 'name',
-                        rowHeight: 74,
+                        rowHeight: 50,
                         scrollbarId: 'layoutElementsScrollBar'
                     }
                 ),
@@ -1296,12 +1196,19 @@ export function describe(model, ui, width, height, language) {
                         tr('Item preview'),
                         { weight: 600 }
                     ),
-                    node(
-                        'View',
-                        'layoutPreviewResults',
-                        rect(12, 44, w - 24, bodyHeight - 56),
-                        { view: 'itemResults' }
-                    )
+                    layout.elements.length
+                        ? node(
+                              'View',
+                              'layoutPreviewResults',
+                              rect(12, 44, w - 24, bodyHeight - 56),
+                              { view: 'itemResults' }
+                          )
+                        : label(
+                              'layoutBlankCanvas',
+                              rect(12, 44, w - 24, 80),
+                              tr('Add a widget to start this view.'),
+                              Object.assign({ wrap: true }, muted)
+                          )
                 ]
             })
         );

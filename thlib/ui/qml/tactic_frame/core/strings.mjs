@@ -1,5 +1,14 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'New view': 'Новый вид',
+    'Add a widget to start this view.':
+        'Добавьте виджет, чтобы начать этот вид.',
+    Views: 'Виды',
+    'Open saved view': 'Открыть сохранённый вид',
+    'Starting point': 'Основа',
+    'Create draft': 'Создать черновик',
+    'Discard changes to the current view and continue?':
+        'Отменить изменения текущего вида и продолжить?',
     'Select an item': 'Выберите элемент слева',
     'Loading...': 'Загрузка…',
     'Search in this branch': 'Поиск в этой ветке',

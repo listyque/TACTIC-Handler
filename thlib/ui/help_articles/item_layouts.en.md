@@ -10,15 +10,17 @@ order: 39
 
 Handler and Stream share the Tactic Frame editor structure and rules. Handler
 renders the editor with native QML controls; Stream uses Vue controls. Validation
-and saving require a server with the layout-authoring API. Handler's **Open view
-in browser** opens the system browser without a ticket in the URL; sign in there
-normally. Stream opens custom views in its workspace. Standard views and the
+and saving require a server with the layout-authoring API. **Open saved view**
+opens the system browser in Handler and a separate browser tab in Stream, without
+a ticket in the URL. Sign in there normally. The editor remains open and can be
+closed independently. Standard views and the
 original SObject Item remain separate.
 
 ## 1. Choose a starting point
 
-Select the **Search Type** whose objects your view will display.
-**Configuration view** offers three ready examples:
+Select the **Search Type** and **View** in the top row. The **Views** list above
+the element layers also opens saved layouts. Both remain outside technical
+Configuration settings. Three ready examples are available:
 
 | Example | Result |
 | --- | --- |
@@ -26,23 +28,23 @@ Select the **Search Type** whose objects your view will display.
 | Table example (`table_example`) | Preview, title, description and action columns. |
 | Tree example (`continuous_example`) | Original SObject Item composition, including children and snapshots. |
 
-**Open view** opens an example immediately. To create your own version, expand
-**Create custom view**, enter a name such as `my_asset_cards`, choose **Cards**,
+**Open saved view** opens an example immediately. To create your own version, click
+**New view**, enter a name such as `my_asset_cards`, choose **Cards**,
 **Table View**, **Continuous Tree**, **Blank view** or **Copy current view**, then
-click **Create custom view**. Start names with a Latin letter or `_`; use Latin
+click **Create draft**. **Blank view** is selected initially. Start names with a Latin letter or `_`; use Latin
 letters, digits, `_`, `.`, `@` or `-`. Creating a view opens a draft; it does not save.
 
 ## 2. Understand the editor
 
 | Area | Purpose |
 | --- | --- |
-| Elements on the left | Select or add images, text, links, buttons and groups. Arrows change element order. |
+| Views and elements on the left | Open saved layouts, then select or add images, text, links, buttons and groups. Arrows change element order. |
 | Preview in the middle | One object, using sample data from your Search Type. Click a part or select it on the left. |
 | Properties on the right | Content and position of the selected element. Images, buttons and text have different settings. |
 | More element settings | Row variants, display conditions, shared item styles, groups and custom bindings. |
 | Advanced layout settings and XML | Whole-item grid, configuration source and direct XML editing. |
 
-On a narrow window, properties move below the preview.
+On a narrow window, use the labelled Elements, Item preview and Element settings tabs.
 
 **Collection layout** repeats objects as cards, a list, a tree or a table; it does
 not position an image inside a card. **Card width** controls how many cards fit across.
@@ -108,10 +110,10 @@ References use the saved configuration; self-reference and cycles are rejected.
 2. Fix any reported error and repeat the check.
 3. **Save to server** publishes the configuration. It stays disabled until a
    successful check.
-4. **Open view** displays the saved view. Its name also appears in workspace view actions.
+4. **Open saved view** displays the saved view independently of the editor. Its name also appears in workspace view actions.
 
 Any edit invalidates the previous check. **Discard** restores the saved version.
-Search Type/view switching stays disabled while a draft is pending. On a revision
+Switching Search Type or view asks whether to keep editing or discard the draft. On a revision
 conflict, reload and reapply changes. If a network failure leaves the save result
 unknown, reload before retrying. Test long names, missing descriptions and absent
 previews. **Preview item type** switches between main/child objects, processes,
@@ -160,7 +162,7 @@ need a renderer implementation. Legacy Mako/Python CustomLayoutWdg is not execut
 ## Native Handler editor
 
 Handler edits layouts with the same Frame controls and XML operations as Stream,
-without WebEngine. **Open view in browser** opens the actual configured view in
+without WebEngine. **Open saved view** opens the actual configured view in
 the system browser; it needs its own normal login. The design preview remains
 native and selecting its elements edits the configuration rather than executing
 object actions. Check and preview the exact XML before Save. Changes made after

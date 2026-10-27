@@ -141,7 +141,7 @@ class LayoutEditorHost(QObject):
                     diff=self._diff, error=self._error or self._draft_error, message=self._message, busy=self.busy,
                     dirty=self.dirty, uncertain=self._uncertain, canWrite=self.canWrite,
                     canLoad=bool(self._application.can_manage_tools and self._project),
-                    assetBase=parts.scheme + '://' + parts.netloc if parts.netloc else '', externalView=True)
+                    assetBase=parts.scheme + '://' + parts.netloc if parts.netloc else '')
 
     def activate(self, project):
         if project != self._project:
