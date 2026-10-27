@@ -68,6 +68,9 @@ class WorkspacePageTests(unittest.TestCase):
         first=self.item(view,'customLayout_0_0');second=self.item(view,'customLayout_0_1')
         self.assertEqual(first.mapToScene(QPointF()).x(),second.mapToScene(QPointF()).x())
         self.assertGreater(second.mapToScene(QPointF()).y(),first.mapToScene(QPointF()).y())
+        self.assertIs(services.workspaceLayout.table('customLayout_1'), scope)
+        self.assertEqual(scope.model['selected'], ['demo/asset?project=demo&code=A'])
+        self.assertEqual(scope.model['filter'], 'Robot')
 
     def test_modal_document_close_does_not_destroy_workspace_scopes(self):
         app, services = self.owner()

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.190 - 2026-10-27
+
+- Add regression coverage that workspace layout resizing preserves the existing table owner, selection and filter. Verify native dashboard detail selection does not reload its result tree; the corresponding web fix watches data scope independently of geometry.
+
 ## 0.6.0.189 - 2026-10-27
 
 - Fix clipped icons and selection in collapsed Administration navigation. Reserve the scrollbar gutter, keep usable section targets and align the expand control with the icons; preserve expanded navigation.
