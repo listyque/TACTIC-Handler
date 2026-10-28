@@ -2611,6 +2611,9 @@ class ColumnsTableViewTests(unittest.TestCase):
             header = table.findChild(QObject, "searchResultTableHeader")
             header_surface = table.findChild(QQuickItem, "tableHeaderSurface")
             self.assertEqual(header_surface.height(), 37)
+            grips = [item for item in _visual_items(table) if item.objectName() == "columnHeaderGrip"]
+            self.assertTrue(grips)
+            self.assertTrue(all(item.width() == 1 and item.height() > 0 and item.opacity() > 0 for item in grips))
             vertical = table.findChild(QQuickItem, "tableVerticalScrollBar")
             self.assertEqual(table.width() - rows.width(),
                              vertical.property("reservedExtent") + 4 if vertical.property("hasOverflow") else 0)
@@ -3332,7 +3335,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                     texts.add(str(item.property("text")))
                 if item.objectName():
                     named_items.setdefault(item.objectName(), item)
-            self.assertLessEqual(len(_visual_items(table)), 250)
+            self.assertLessEqual(len([item for item in _visual_items(table)
+                                      if item.objectName() != "columnHeaderGrip"]), 250)
             self.assertIn("ASSET NAME", texts)
             self.assertIn("ASSET001", texts)
             self.assertIsNotNone(

@@ -1,4 +1,5 @@
 import QtQuick
+import "../../controls" as Controls
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/tasks/table.ui.mjs" as UI
 
@@ -72,6 +73,13 @@ Frame.FrameView {
         Item {
             id: input
             property var frameNode
+            Controls.ColumnHeaderGrip {
+                theme: header.theme
+                highlighted: gripHover.hovered
+            }
+            HoverHandler {
+                id: gripHover
+            }
             MouseArea {
                 objectName: "taskColumnContextArea_" + (input.frameNode ? input.frameNode.column.key : "")
                 anchors.fill: parent

@@ -396,3 +396,5 @@ Imported `project_view` sidebar searches open as tables when no explicit result 
 In tables, a plain row click highlights the active record without checking it or opening the selected-record bar. Use Shift+click for a range or the row checkboxes to select individual records. The compact Deselect button at the left of the bar shows the checked count and removes all checks.
 
 Table headers meet their rows without a dark spacer. Scrollbar space is reserved only when content overflows.
+
+Result and task table headers show a thin vertical column-boundary grip, highlighted on hover.

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.205 - 2026-10-28
+
+- Show the same visible column-boundary grip in result tables and task table headers, with accent feedback on hover.
+
 ## 0.6.0.204 - 2026-10-28
 
 - Combine the selected-record count and clear action into one compact left-aligned Deselect button.

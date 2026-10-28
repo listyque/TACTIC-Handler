@@ -78,3 +78,4 @@ ProgressBar 1.0 feedback/ProgressBar.qml
 
 SearchSuggestionsPopup 1.0 forms/SearchSuggestionsPopup.qml
 FileInput 1.0 FileInput.qml
+ColumnHeaderGrip 1.0 ColumnHeaderGrip.qml

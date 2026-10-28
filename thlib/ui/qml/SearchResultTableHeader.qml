@@ -249,6 +249,10 @@ Rectangle {
                     Accessible.role: Accessible.Button
                     Accessible.name: qsTr("Move column") + " " + String(headerCell.modelData.label || "")
                     Accessible.description: headerCell.grouped ? qsTr("Group by this column") : ""
+                    Controls.ColumnHeaderGrip {
+                        theme: root.theme
+                        highlighted: resizeHandle.containsMouse || resizeHandle.activeFocus || resizeHandle.pressed
+                    }
                     property real pressSceneX: 0
                     property bool leftPressed: false
 
@@ -296,6 +300,7 @@ Rectangle {
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     width: 12
+                    hoverEnabled: true
                     enabled: !root.columnsBusy
                     acceptedButtons: Qt.LeftButton
                     cursorShape: Qt.SplitHCursor
@@ -303,6 +308,10 @@ Rectangle {
                     activeFocusOnTab: true
                     Accessible.role: Accessible.Slider
                     Accessible.name: qsTr("Resize column") + " " + String(headerCell.modelData.label || "")
+                    Controls.ColumnHeaderGrip {
+                        theme: root.theme
+                        highlighted: resizeHandle.containsMouse || resizeHandle.activeFocus || resizeHandle.pressed
+                    }
                     property real pressSceneX: 0
                     property real startWidth: 0
                     property bool changed: false

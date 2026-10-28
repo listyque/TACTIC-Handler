@@ -207,6 +207,9 @@ Item {
 
     def test_task_table_single_click_uses_real_status_editor_and_model(self):
         self.create_task_table()
+        grips = [item for item in self.visual_items() if item.objectName() == "columnHeaderGrip"]
+        self.assertTrue(grips)
+        self.assertTrue(all(item.width() == 1 and item.height() > 0 and item.opacity() > 0 for item in grips))
         for width in (1400, 600):
             with self.subTest(width=width):
                 self.view.setWidth(width)
