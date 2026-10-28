@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.223 - 2026-10-28
+
+- Verify configured item height and native action identity through repeated pane resizing. Document retained tree geometry; the Stream counterpart preserves measured custom-card heights while moving splitters instead of reverting to default estimates.
+
 ## 0.6.0.222 - 2026-10-28
 
 - Synchronize relative event ages with server UTC over monotonic request timing in polling and SSE, preserving actual local event dates when workstation clocks differ. Match Stream's activity day filters and calendar counts to the user's IANA time zone, including DST boundaries, and isolate calendar caches by zone.

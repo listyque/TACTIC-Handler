@@ -1213,6 +1213,13 @@ class WorkspaceResultItemTests(unittest.TestCase):
             self.assertLess(item.height(), 110)
             button = _visual_child(item, 'itemComposition_notesButton')
             self.assertIsNotNone(button)
+            measured_height = item.height()
+            for width in (640, 420, 805, 780, 320, 640) * 10:
+                item.setWidth(width)
+                self.app.processEvents()
+                self.assertEqual(item.height(), measured_height)
+                self.assertEqual(_visual_child(item, 'itemComposition_notesButton'), button)
+                self.assertLessEqual(button.mapToItem(item, QPointF(0, button.height())).y(), item.height())
             from PySide6.QtTest import QTest
             QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
                             button.mapToScene(QPointF(button.width()/2, button.height()/2)).toPoint())

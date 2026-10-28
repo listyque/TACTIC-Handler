@@ -514,3 +514,8 @@ page conditions. Embedded suggestions refine that same table rather than opening
 an unrelated search tab. Short summary tables can hide Search in their controls;
 full lists retain it. The agent should reuse these controls, not add a second
 plain-text filter bar. In the editor, the Items search is shown disabled.
+
+
+Resizing a dashboard pane keeps measured item heights, expansion and selection.
+Custom cards and child rows retain their spacing while the splitter moves;
+changes in the content height are measured without reloading the tree.
