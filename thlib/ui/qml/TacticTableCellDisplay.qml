@@ -109,6 +109,7 @@ Item {
         id: textCell
 
         Item {
+            clip: true
             Label {
                 id: label
                 anchors.fill: parent

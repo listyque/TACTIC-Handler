@@ -785,6 +785,54 @@ class ColumnsTableViewTests(unittest.TestCase):
         self.assertEqual(controller.model._records[0]['displayWidth'], 220)
         self.assertTrue(controller._dirty)
 
+    def test_text_cell_paint_stays_inside_its_column(self):
+        from PySide6.QtGui import QColor
+
+        engine = QQmlEngine()
+        theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / "Theme.qml")))
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / "TacticTableCellDisplay.qml")))
+        controller = _TableController()
+        text = "First line " * 25 + "\n" + "Second line " * 25 + "\n" + "Third line " * 25
+        cell = component.createWithInitialProperties({
+            "theme": theme, "controller": controller,
+            "columnsController": None, "userModel": None,
+            "nodeId": "asset", "kind": "text", "cell": {"text": text},
+            "textValue": text, "columnIndex": 1, "previewActive": False,
+            "previewUrl": "", "previewRevealed": False, "title": "",
+            "accent": "", "comments": 0, "tasks": 0, "displayOptions": {},
+            "x": 20, "y": 20, "width": 120, "height": 60,
+        })
+        self.assertIsNotNone(cell, [e.toString() for e in component.errors()])
+        window = QQuickWindow()
+        background = QColor("#ff00ff")
+        window.setColor(background)
+        window.resize(400, 120)
+        cell.setParentItem(window.contentItem())
+        window.show()
+        try:
+            for multiline in (False, True):
+                cell.setProperty("cell", {"text": text, "multiline": multiline})
+                frame(window)
+                image = window.grabWindow()
+                self.assertFalse(image.isNull())
+                scale = image.devicePixelRatio()
+                inside = image.copy(int(20 * scale), int(20 * scale), int(120 * scale), int(60 * scale))
+                self.assertTrue(any(inside.pixelColor(x, y) != background
+                                    for x in range(inside.width()) for y in range(inside.height())))
+                self.assertTrue(all(image.pixelColor(x, y) == background
+                                    for x in range(int(141 * scale), image.width())
+                                    for y in range(image.height())), "Text painted in the next column")
+                self.assertTrue(all(image.pixelColor(x, y) == background
+                                    for x in range(image.width())
+                                    for y in range(int(81 * scale), image.height())), "Text painted in the next row")
+        finally:
+            window.close()
+            cell.setParentItem(None)
+            cell.deleteLater()
+            window.deleteLater()
+            engine.deleteLater()
+
     def test_group_collapse_reuses_existing_task_cards(self):
         from tests.profile_result_table import benchmark
 
@@ -3667,6 +3715,14 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(table_controller.selections[-1][0], "asset")
             self.assertEqual(menu_requests[-1][0], "asset")
             self.assertTrue(row.property("selected"))
+
+            header = named_items["searchResultTableHeader"]
+            grips = [item for item in _visual_items(header)
+                     if item.objectName() == "columnHeaderGrip"]
+            resize_handles = [item for item in _visual_items(header)
+                              if item.objectName().startswith("tableColumnResize_")]
+            self.assertEqual(len(grips), len(resize_handles))
+            self.assertTrue(all(grip.parentItem() in resize_handles for grip in grips))
 
             header_area = named_items["tableColumnContextArea_code"]
             QTest.mouseClick(

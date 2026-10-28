@@ -249,10 +249,6 @@ Rectangle {
                     Accessible.role: Accessible.Button
                     Accessible.name: qsTr("Move column") + " " + String(headerCell.modelData.label || "")
                     Accessible.description: headerCell.grouped ? qsTr("Group by this column") : ""
-                    Controls.ColumnHeaderGrip {
-                        theme: root.theme
-                        highlighted: resizeHandle.containsMouse || resizeHandle.activeFocus || resizeHandle.pressed
-                    }
                     property real pressSceneX: 0
                     property bool leftPressed: false
 
