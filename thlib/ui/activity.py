@@ -34,7 +34,9 @@ def activity_timestamp_labels(value: str, clock=None) -> tuple[str, str]:
             if clock is not None else gf.parce_timestamp(timestamp)
         )
         return (
-            str(gf.get_pretty_datetime(parsed) or ""),
+            str(gf.get_pretty_datetime(
+                parsed, now=clock.now() if clock is not None else None
+            ) or ""),
             str(gf.get_full_datetime(parsed) or ""),
         )
     except (AttributeError, TypeError, ValueError):

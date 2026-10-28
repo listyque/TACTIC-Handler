@@ -110,6 +110,10 @@ class _ActivityFeedController(QObject):
     def calendarCounts(self):
         return dict(self._calendar_counts)
 
+    @Property(float, notify=stateChanged)
+    def currentTime(self):
+        return 1787392800000.0
+
     @Property(bool, notify=stateChanged)
     def calendarBusy(self):
         return False

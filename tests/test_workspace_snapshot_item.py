@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import unittest
+import time
 from unittest.mock import patch
 
 from thlib.ui.server_clock import ServerClock
@@ -152,8 +153,8 @@ class WorkspaceSnapshotItemTests(unittest.TestCase):
                 "localEnded": (server_now + timedelta(milliseconds=50))
                 .replace(tzinfo=None).isoformat(),
             },
-            client_now.timestamp(),
-            client_now.timestamp() + 0.1,
+            time.monotonic() - 0.1,
+            time.monotonic(),
             session="test",
         ))
 

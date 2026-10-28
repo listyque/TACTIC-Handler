@@ -128,7 +128,10 @@ def can_delete_recent_sobject(source, login: str, clock=None, *, now=None) -> bo
         )
         if created is None:
             return False
-        age = ((now or datetime.now(timezone.utc)) - created).total_seconds()
+        current = now or (
+            clock.now() if clock is not None else datetime.now(timezone.utc)
+        )
+        age = (current - created).total_seconds()
     except (TypeError, ValueError, OverflowError):
         return False
     return 0 <= age < 3600

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtCore import QLocale, QObject, Signal
+from PySide6.QtCore import QLocale, QObject, QTimeZone, Signal
 
 from tests.qt_application import gui_test_application
 from thlib.ui.communication_feed import ActivityFeedController
@@ -680,6 +680,7 @@ class TopBarActivityTests(unittest.TestCase):
             assigned_login="", include_day_counts=False,
             counts_only=False, counts_from_day="", day="",
             logins=[], instance_relations={}, exclude_login="",
+            time_zone=bytes(QTimeZone.systemTimeZoneId()).decode(),
         )
         self.assertEqual(records[0]["targetTitle"], "Robot")
         self.assertEqual(records[0]["process"], "model")
@@ -805,7 +806,7 @@ class TopBarActivityTests(unittest.TestCase):
 
         record = controller.model.get(0)
         self.assertEqual(record["timestamp"], "2026-08-30 15:10:00")
-        self.assertNotEqual(record["timestampFull"], before)
+        self.assertEqual(record["timestampFull"], before)
 
     def test_activity_never_falls_back_to_a_raw_transport_timestamp(self):
         record = activity_record({
@@ -995,6 +996,7 @@ class TopBarActivityTests(unittest.TestCase):
             include_day_counts=True, counts_only=False,
             counts_from_day="", day="",
             logins=[], instance_relations={}, exclude_login="",
+            time_zone=bytes(QTimeZone.systemTimeZoneId()).decode(),
         )
 
     def test_initial_feed_query_does_not_scan_calendar_history(self):
@@ -1222,6 +1224,7 @@ class TopBarActivityTests(unittest.TestCase):
             counts_only=False, counts_from_day="", day="",
             logins=["artist", "admin"], instance_relations={},
             exclude_login="",
+            time_zone=bytes(QTimeZone.systemTimeZoneId()).decode(),
         )
 
     def test_profile_user_scope_forces_full_feed_with_one_refresh(self):

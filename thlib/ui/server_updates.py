@@ -196,6 +196,11 @@ class ServerUpdateService(QObject):
         stream = ServerEventStream(session[0], payload, env_server.get_proxy(), self, batch_delay=self._batch_delay)
         self._stream = stream
         self._busy = True
+        stream.clockSample.connect(
+            lambda sample, started, received: self.clock.observe(
+                sample, started, received, session=session
+            ) if generation == self._request_generation and self._running else None
+        )
         stream.batchReady.connect(lambda value: self._ready_for(generation, value))
         stream.failed.connect(lambda error: self._stream_failed(generation, error))
         self.stateChanged.emit()
@@ -390,7 +395,7 @@ class ServerUpdateService(QObject):
             try:
                 if not self._running or self._session != session:
                     return None
-                client_clock_started = time.time()
+                client_clock_started = time.monotonic()
                 effective_cache_cursor = (
                     cache_cursor
                     or server_cache.read_cursor(
@@ -415,12 +420,12 @@ class ServerUpdateService(QObject):
                             presence_ttl=max(90, self._poll_interval * 3),
                             cache_after=effective_cache_cursor,
                         )
-                    client_clock_received = time.time()
+                    client_clock_received = time.monotonic()
                     result = dict(result or {})
-                    result["__clientClockStartedEpoch"] = (
+                    result["__clientClockStartedMonotonic"] = (
                         client_clock_started
                     )
-                    result["__clientClockReceivedEpoch"] = (
+                    result["__clientClockReceivedMonotonic"] = (
                         client_clock_received
                     )
                     metric["response_bytes"] = len(
@@ -522,8 +527,8 @@ class ServerUpdateService(QObject):
             return
         self.clock.observe(
             value.get("serverClock"),
-            value.get("__clientClockStartedEpoch"),
-            value.get("__clientClockReceivedEpoch"),
+            value.get("__clientClockStartedMonotonic"),
+            value.get("__clientClockReceivedMonotonic"),
             session=self._session,
         )
         messages = list(value.get("messages") or [])

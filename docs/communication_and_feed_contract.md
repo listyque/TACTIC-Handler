@@ -205,9 +205,22 @@ WorkHour records received after an incremental invalidation are returned through
 the same enriched query and shape.
 
 The feed loads history on open, filter change, explicit refresh, or **Load more**.
-The shared update poll returns a four-point clock observation. Presentation maps
-both timezone differences and server clock drift onto the workstation's local
-time, while raw server timestamps remain unchanged for cursors and pagination.
+The shared update poll returns explicit UTC `serverClock.utcStarted/utcEnded`.
+Stream HTTP responses also carry `X-Tactic-UTC-Started/Ended`; both clients sample
+the SSE connection handshake. Clients subtract server processing from monotonic
+request duration and anchor server UTC at receipt plus half the remaining network
+delay. Slow/out-of-order/invalid samples are rejected; observations refresh after
+five minutes. `ServerClock.now()` continues on the monotonic timer, independent of
+workstation wall-clock changes. Before the first sample it uses workstation UTC.
+Event instants never move when clocks synchronize: naive TACTIC timestamps mean
+UTC; explicit offsets are preserved. Relative ages use server now, absolute labels
+use the actual instant in the user's local zone. Raw cursors stay unchanged.
+The feed query accepts an IANA `time_zone` (default UTC). Local midnight boundaries
+are converted separately to UTC, including 23/25-hour DST days. Calendar counts,
+record day groups and native cache identities use that zone. Calendar dates such
+as work days remain dates. Accuracy depends on the server's system UTC; asymmetric
+network delay adds uncertainty of at most half the measured residual round trip.
+This synchronizes presentation; it does not configure operating-system NTP.
 Events performed by the current stable login remain in feed history by default,
 but never contribute to its unread badge or activity notifications. **Exclude my
 activity** is an explicit feed-only switch. When enabled, the server removes those

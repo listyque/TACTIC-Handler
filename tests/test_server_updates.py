@@ -806,8 +806,8 @@ class ServerUpdateServiceTests(unittest.TestCase):
                     "utcEnded": "2026-08-30T10:00:00.100000Z",
                     "localEnded": "2026-08-30T13:00:00.100000",
                 },
-                "__clientClockStartedEpoch": 100.0,
-                "__clientClockReceivedEpoch": 100.2,
+                "__clientClockStartedMonotonic": 100.0,
+                "__clientClockReceivedMonotonic": 100.2,
             })
 
         clock.observe.assert_called_once_with(

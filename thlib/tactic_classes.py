@@ -3344,7 +3344,7 @@ def get_user_recent_activity(
         login='', project_code='', limit=25, offset=0, kinds=None,
         assigned_login='', include_day_counts=False, day='', logins=None,
         counts_only=False, counts_from_day='', instance_relations=None,
-        object_scope=None, exclude_login=''):
+        object_scope=None, exclude_login='', time_zone='UTC'):
     """Return enriched activity using the shared profile/feed API."""
     return _execute_read_only_procedure_serverside(
         tq.query_user_recent_activity,
@@ -3363,6 +3363,7 @@ def get_user_recent_activity(
             'instance_relations': dict(instance_relations or {}),
             'object_scope': dict(object_scope or {}),
             'exclude_login': str(exclude_login or ''),
+            'time_zone': time_zone,
         },
         project='sthpw',
     )

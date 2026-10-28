@@ -40,6 +40,8 @@ class ServerEventStreamTests(unittest.TestCase):
                 if self.path == '/admin/server-events':
                     self.send_response(200)
                     self.send_header('Content-Type', 'text/event-stream')
+                    self.send_header('X-Tactic-UTC-Started', '2026-10-28T00:30:00Z')
+                    self.send_header('X-Tactic-UTC-Ended', '2026-10-28T00:30:00Z')
                     self.end_headers()
                     self.wfile.write(('event: updates\r\ndata: ' + json.dumps(dict(batch, text='Привет'), ensure_ascii=False) + '\r\n\r\n').encode())
                     self.wfile.flush()
@@ -64,13 +66,16 @@ class ServerEventStreamTests(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
         stream = ServerEventStream('http://127.0.0.1:' + str(server.server_port), dict(ticket='private', project='one'), {}, batch_delay=500)
-        batches, errors = [], []
+        batches, errors, samples = [], [], []
         stream.batchReady.connect(batches.append)
         stream.failed.connect(errors.append)
+        stream.clockSample.connect(lambda sample, started, received: samples.append((sample, started, received)))
         try:
             stream.start()
             self.wait(lambda: len(batches) == 1)
             self.assertEqual(batches[0]['text'], 'Привет')
+            self.assertEqual(samples[0][0]['utcEnded'], '2026-10-28T00:30:00Z')
+            self.assertLessEqual(samples[0][1], samples[0][2])
             for index in range(100):
                 frames.put(('event: changes\ndata: ' + json.dumps(dict(channels=['cache'], search_types=['cg/assets' if index % 2 else 'cg/scenes'])) + '\n\n').encode())
             self.wait(lambda: len(calls) == 2)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 import time
 
 from PySide6.QtCore import QObject, Signal
@@ -9,7 +10,7 @@ from thlib.global_functions import parce_timestamp
 
 
 class ServerClock(QObject):
-    """Present TACTIC's UTC timestamps with optional server-clock correction."""
+    """Extrapolate server UTC with a monotonic clock; preserve event instants."""
 
     changed = Signal()
 
@@ -17,7 +18,7 @@ class ServerClock(QObject):
         super().__init__(parent)
         self._session = None
         self._synchronized = False
-        self._client_minus_server_seconds = 0.0
+        self._utc_at_receive = 0.0
         self._best_round_trip_seconds = float("inf")
         self._observed_at = 0.0
 
@@ -28,29 +29,29 @@ class ServerClock(QObject):
             text = text[:-1] + "+00:00"
         parsed = datetime.fromisoformat(text)
         if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=timezone.utc)
+            raise ValueError("Clock observations require an explicit UTC offset")
         return parsed.astimezone(timezone.utc)
 
     def reset(self, session=None) -> None:
         was_synchronized = self._synchronized
         self._session = session
         self._synchronized = False
-        self._client_minus_server_seconds = 0.0
+        self._utc_at_receive = 0.0
         self._best_round_trip_seconds = float("inf")
         self._observed_at = 0.0
         if was_synchronized:
             self.changed.emit()
 
     def observe(
-            self, sample, client_started_epoch, client_received_epoch,
+            self, sample, client_started_monotonic, client_received_monotonic,
             *, session=None) -> bool:
         """Accept one four-timestamp sample without risking the update poll."""
         if session != self._session:
             self.reset(session)
-        sample = dict(sample or {})
         try:
-            client_started = float(client_started_epoch)
-            client_received = float(client_received_epoch)
+            sample = dict(sample or {})
+            client_started = float(client_started_monotonic)
+            client_received = float(client_received_monotonic)
             server_started = self._aware_utc(
                 sample.get("utcStarted")
             ).timestamp()
@@ -60,15 +61,17 @@ class ServerClock(QObject):
             server_ended = server_ended_utc.timestamp()
         except (TypeError, ValueError, OverflowError):
             return False
-        if client_received < client_started or server_ended < server_started:
+        if not all(math.isfinite(value) for value in (
+                client_started, client_received, server_started, server_ended)):
             return False
-
         server_processing = server_ended - server_started
-        round_trip = max(
-            0.0,
-            (client_received - client_started) - server_processing,
-        )
-        observed_at = time.monotonic()
+        round_trip = client_received - client_started - server_processing
+        if (client_received < client_started or server_processing < 0
+                or round_trip < -0.002
+                or (self._synchronized and client_received < self._observed_at)):
+            return False
+        round_trip = max(0.0, round_trip)
+        observed_at = client_received
         should_accept = (
             not self._synchronized
             or round_trip <= self._best_round_trip_seconds * 1.5 + 0.020
@@ -77,18 +80,14 @@ class ServerClock(QObject):
         if not should_accept:
             return False
 
-        client_minus_server = (
-            (client_started - server_started)
-            + (client_received - server_ended)
-        ) / 2.0
+        utc_at_receive = server_ended + round_trip / 2.0
         changed = (
             not self._synchronized
-            or abs(
-                client_minus_server - self._client_minus_server_seconds
-            ) >= 0.5
+            or abs(utc_at_receive - self._utc_at_receive
+                   - (observed_at - self._observed_at)) >= 0.5
         )
         self._synchronized = True
-        self._client_minus_server_seconds = client_minus_server
+        self._utc_at_receive = utc_at_receive
         self._best_round_trip_seconds = min(
             self._best_round_trip_seconds, round_trip
         )
@@ -102,9 +101,13 @@ class ServerClock(QObject):
         parsed = parce_timestamp(value)
         if parsed is None:
             raise ValueError("Timestamp is empty")
-        if self._synchronized:
-            return datetime.fromtimestamp(
-                parsed.timestamp() + self._client_minus_server_seconds,
-                tz=timezone.utc,
-            ).astimezone()
         return parsed
+
+    def now(self) -> datetime:
+        """Return server UTC, independent of workstation wall-clock changes."""
+        if not self._synchronized:
+            return datetime.now(timezone.utc)
+        return datetime.fromtimestamp(
+            self._utc_at_receive + time.monotonic() - self._observed_at,
+            tz=timezone.utc,
+        )

@@ -15,6 +15,7 @@ from .server_address import normalize_tactic_server_url
 
 class ServerEventStream(QObject):
     batchReady = Signal(object)
+    clockSample = Signal(object, float, float)
     failed = Signal(object)
 
     def __init__(self, server: str, payload: dict, proxy: dict, parent=None, batch_delay: int = 200):
@@ -52,10 +53,20 @@ class ServerEventStream(QObject):
         return self.manager.post(request, json.dumps(values).encode('utf-8'))
 
     def start(self):
+        started = time.monotonic()
         self.reply = self._post('/admin/server-events', self.payload)
+        self.reply.metaDataChanged.connect(lambda: self._clock_headers(started))
         self.reply.readyRead.connect(self._received)
         self.reply.finished.connect(self._finished)
         self.timer.start(30000)
+
+    def _clock_headers(self, started):
+        if self.active and self.reply is not None:
+            sample = {
+                'utcStarted': bytes(self.reply.rawHeader('X-Tactic-UTC-Started')).decode(),
+                'utcEnded': bytes(self.reply.rawHeader('X-Tactic-UTC-Ended')).decode(),
+            }
+            self.clockSample.emit(sample, started, time.monotonic())
 
     def cancel(self):
         self.active = False
@@ -145,7 +156,7 @@ class ServerEventStream(QObject):
         values = dict(self.payload, channels=sorted(self.channels), invalidated_types=sorted(self.types), heartbeat=False)
         self.channels.clear()
         self.types.clear()
-        started = time.time()
+        started = time.monotonic()
         reply = self._post('/admin/server-updates', values)
         self.fetch = reply
         def finished():
@@ -165,8 +176,8 @@ class ServerEventStream(QObject):
                     self._fail(self._error(data, status), reply)
                     return
                 value = json.loads(raw)['result']
-                value['__clientClockStartedEpoch'] = started
-                value['__clientClockReceivedEpoch'] = time.time()
+                value['__clientClockStartedMonotonic'] = started
+                value['__clientClockReceivedMonotonic'] = time.monotonic()
                 self._deliver(value)
                 if self.channels:
                     self.debounce.start(self.batch_delay)

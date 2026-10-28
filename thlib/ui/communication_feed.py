@@ -15,6 +15,7 @@ from PySide6.QtCore import (
     QObject,
     Property,
     QTimer,
+    QTimeZone,
     QUrl,
     Qt,
     Signal,
@@ -3457,7 +3458,7 @@ class ActivityFeedController(QObject):
     notificationsEnabledChanged = Signal()
     activityNotification = Signal("QVariantMap")
 
-    CACHE_CONTRACT = "complete-journal-activity-v2"
+    CACHE_CONTRACT = "local-day-journal-activity-v3"
     FILTERS = {
         "all", "my_tasks", "my_objects", "notes", "publications",
     }
@@ -3615,8 +3616,12 @@ class ActivityFeedController(QObject):
     @staticmethod
     def _day_key(record):
         timestamp = str(record.get("timestamp") or "").strip()
-        match = re.match(r"^(\d{4}-\d{2}-\d{2})", timestamp)
-        return match.group(1) if match else ""
+        from thlib.global_functions import parce_timestamp
+        try:
+            parsed = parce_timestamp(timestamp)
+            return parsed.date().isoformat() if parsed else ""
+        except (TypeError, ValueError):
+            return ""
 
     def _merged_day_counts(self):
         loaded_counts = {}
@@ -3640,6 +3645,7 @@ class ActivityFeedController(QObject):
         )
         identity = "\0".join((
             self.CACHE_CONTRACT,
+            bytes(QTimeZone.systemTimeZoneId()).decode(),
             "exclude" if self._exclude_own_activity else "include",
             str(env_server.get_server() or ""),
             str(env_server.get_user() or ""),
@@ -4690,6 +4696,7 @@ class ActivityFeedController(QObject):
         cache_key = json.dumps(
             {
                 "contract": cls.CACHE_CONTRACT,
+                "timeZone": bytes(QTimeZone.systemTimeZoneId()).decode(),
                 "filter": feed_filter,
                 "offset": int(offset or 0),
                 "limit": int(page_size or 0),
@@ -4731,6 +4738,7 @@ class ActivityFeedController(QObject):
             logins=list(selected_users or ()),
             instance_relations=instance_relations,
             exclude_login=excluded_login,
+            time_zone=bytes(QTimeZone.systemTimeZoneId()).decode(),
         )
         if isinstance(records, dict):
             normalized_records = [
@@ -4816,10 +4824,19 @@ class ActivityFeedController(QObject):
         self._calendar_worker = None
         self.stateChanged.emit()
 
+    @Property(float, notify=stateChanged)
+    def currentTime(self):
+        current = (
+            self._clock.now() if self._clock is not None
+            else datetime.now().astimezone()
+        )
+        return current.timestamp() * 1000
+
     def _normalize_record(self, source):
         return activity_record(source, clock=self._clock)
 
     def _clock_changed(self):
+        self.stateChanged.emit()
         if not self._all_records:
             return
         self._replace_records(self._present_records([

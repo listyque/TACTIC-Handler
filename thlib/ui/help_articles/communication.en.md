@@ -145,3 +145,5 @@ long diagnostic text in a scrollable area instead of covering the whole screen.
 ## First-use confirmation
 
 When collaboration storage is missing, **Initialize** opens a confirmation explaining the message metadata and Knowledge Base schema changes. Cancel leaves the schema unchanged. Existing columns and data are preserved on confirmation. The dialog closes when the active project changes; initialization uses the existing server permissions and mutation path.
+
+Event dates and Activity Feed calendar days use your device’s local time zone. Relative ages use synchronized server time, even if the device clock is wrong. Full local times preserve the event’s actual instant. Day filters and calendar counts include daylight-saving changes.

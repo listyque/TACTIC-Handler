@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.222 - 2026-10-28
+
+- Synchronize relative event ages with server UTC over monotonic request timing in polling and SSE, preserving actual local event dates when workstation clocks differ. Match Stream's activity day filters and calendar counts to the user's IANA time zone, including DST boundaries, and isolate calendar caches by zone.
+
 ## 0.6.0.221 - 2026-10-28
 
 - Verify that dashboard buttons to connected-server pages use native workspace tabs, including work, tasks and analytics. Clarify internal versus external links in page-layout Help; the Stream counterpart now uses the same routing.

@@ -10,7 +10,8 @@ Controls.Popup {
     property bool busy: false
     property string selectedDay: ""
     property string localeName: "en_US"
-    property date visibleMonth: new Date()
+    property real currentTime: Date.now()
+    property date visibleMonth: new Date(currentTime)
     readonly property string language: localeName.indexOf("ru") === 0 ? "ru" : "en"
     signal accepted(string dateKey)
     objectName: "activityCalendarPopup"
@@ -27,7 +28,7 @@ Controls.Popup {
         color: root.theme.scrim
     }
     function showBelow(anchorItem) {
-        visibleMonth = UI.initialMonth(selectedDay, dayCounts);
+        visibleMonth = UI.initialMonth(selectedDay, dayCounts, new Date(currentTime));
         toggleBelowItem(anchorItem, true, 6);
     }
     function acceptDay(value) {
@@ -39,6 +40,7 @@ Controls.Popup {
         theme: root.theme
         scene: UI.describe({
             month: root.visibleMonth,
+            now: new Date(root.currentTime),
             counts: root.dayCounts,
             selected: root.selectedDay,
             busy: root.busy

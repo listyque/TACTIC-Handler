@@ -5675,7 +5675,7 @@ def query_user_recent_activity(
         login='', project_code='', limit=25, offset=0, kinds=None,
         assigned_login='', include_day_counts=False, day='', logins=None,
         counts_only=False, counts_from_day='', instance_relations=None,
-        object_scope=None, exclude_login=''):
+        object_scope=None, exclude_login='', time_zone='UTC'):
     """Return one enriched, pageable activity shape for profiles and feeds."""
     import json
     import xml.etree.ElementTree as ElementTree
@@ -5766,13 +5766,28 @@ def query_user_recent_activity(
     include_day_counts = bool(include_day_counts or counts_only)
     counts_from_day = str(counts_from_day or '').strip()
     day = str(day or '').strip()
-    next_day = ''
-    if day:
-        import datetime
-        next_day = (
-            datetime.datetime.strptime(day, '%Y-%m-%d')
-            + datetime.timedelta(days=1)
-        ).strftime('%Y-%m-%d')
+    import datetime
+    from zoneinfo import ZoneInfo
+    zone = ZoneInfo(time_zone)
+
+    def utc_midnight(local_day, days=0):
+        local = datetime.datetime.strptime(local_day, '%Y-%m-%d')
+        local += datetime.timedelta(days=days)
+        return local.replace(tzinfo=zone).astimezone(
+            datetime.timezone.utc
+        ).strftime('%Y-%m-%d %H:%M:%S')
+
+    def local_day_key(timestamp):
+        if not timestamp:
+            return ''
+        instant = datetime.datetime.fromisoformat(str(timestamp))
+        if instant.tzinfo is None:
+            instant = instant.replace(tzinfo=datetime.timezone.utc)
+        return instant.astimezone(zone).date().isoformat()
+
+    day_start = utc_midnight(day) if day else ''
+    day_end = utc_midnight(day, 1) if day else ''
+    counts_start = utc_midnight(counts_from_day) if counts_from_day else ''
 
     records = []
     parent_refs = {}
@@ -5989,11 +6004,11 @@ def query_user_recent_activity(
                         'search_code', list(dict.fromkeys(parent_codes))
                     )
         if filter_day and day:
-            search.add_filter('timestamp', day + ' 00:00:00', op='>=')
-            search.add_filter('timestamp', next_day + ' 00:00:00', op='<')
+            search.add_filter('timestamp', day_start, op='>=')
+            search.add_filter('timestamp', day_end, op='<')
         elif not filter_day and counts_from_day:
             search.add_filter(
-                'timestamp', counts_from_day + ' 00:00:00', op='>='
+                'timestamp', counts_start, op='>='
             )
 
     scope_task_codes = {
@@ -6047,9 +6062,7 @@ def query_user_recent_activity(
                 if actor_is_excluded(source_actor(
                         calendar_item.get_data(), kind)):
                     continue
-                day_key = str(
-                    calendar_item.get_value('timestamp') or ''
-                )[:10]
+                day_key = local_day_key(calendar_item.get_value('timestamp'))
                 if len(day_key) == 10:
                     day_counts[day_key] = day_counts.get(day_key, 0) + 1
         if counts_only:
@@ -6316,14 +6329,14 @@ def query_user_recent_activity(
                 search.add_filter('login', exclude_login, op='!=')
             if filter_day and day:
                 search.add_filter(
-                    'timestamp', day + ' 00:00:00', op='>='
+                    'timestamp', day_start, op='>='
                 )
                 search.add_filter(
-                    'timestamp', next_day + ' 00:00:00', op='<'
+                    'timestamp', day_end, op='<'
                 )
             elif not filter_day and counts_from_day:
                 search.add_filter(
-                    'timestamp', counts_from_day + ' 00:00:00', op='>='
+                    'timestamp', counts_start, op='>='
                 )
             if filter_day and page_cutoff:
                 search.add_filter('timestamp', page_cutoff, op='>=')
@@ -6505,7 +6518,7 @@ def query_user_recent_activity(
                 calendar_data = calendar_transaction.get_data()
                 if actor_is_excluded(calendar_data.get('login')):
                     continue
-                day_key = str(calendar_data.get('timestamp') or '')[:10]
+                day_key = local_day_key(calendar_data.get('timestamp'))
                 if len(day_key) != 10:
                     continue
                 for mutation in parse_transaction(transaction_xml(
@@ -6938,10 +6951,10 @@ def query_user_recent_activity(
             change_search.add_filter('search_code', scope_search_code)
         if day:
             change_search.add_filter(
-                'timestamp', day + ' 00:00:00', op='>='
+                'timestamp', day_start, op='>='
             )
             change_search.add_filter(
-                'timestamp', next_day + ' 00:00:00', op='<'
+                'timestamp', day_end, op='<'
             )
         if page_cutoff:
             change_search.add_filter('timestamp', page_cutoff, op='>=')

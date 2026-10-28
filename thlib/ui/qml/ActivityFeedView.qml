@@ -74,7 +74,7 @@ Item {
         const date = dateFromKey(value);
         if (!date)
             return qsTr("No date");
-        const today = new Date();
+        const today = new Date(activityFeedController.currentTime);
         const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 12);
         const suffix = Qt.formatDate(date, interfaceLocale, date.getFullYear() === today.getFullYear() ? "d MMMM" : "d MMMM yyyy");
         if (dateKey(date) === dateKey(today))
@@ -436,6 +436,7 @@ Item {
     ActivityCalendarPopup {
         id: activityCalendar
         theme: root.theme
+        currentTime: activityFeedController.currentTime
         dayCounts: activityFeedController.calendarCounts
         busy: activityFeedController.calendarBusy
         selectedDay: activityFeedController.selectedDay
