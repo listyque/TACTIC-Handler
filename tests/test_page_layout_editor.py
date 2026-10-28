@@ -132,6 +132,66 @@ class PageCanvasTests(unittest.TestCase):
 
         AdministrationQmlTests.setUpClass()
 
+    def test_canvas_viewport_keeps_logical_resize_and_read_scopes(self):
+        from tests.test_administration_qml import AdministrationQmlTests
+        from tests.profile_ui_responsiveness import frame
+        from PySide6.QtCore import QPoint
+        from PySide6.QtGui import QWheelEvent
+        fixture = AdministrationQmlTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.window.resize(1700, 950)
+        editor = fixture.admin.dashboardEditor
+        fixture.seed(editor, 'review', DOCUMENT, dict(
+            revision='R1', compiled=COMPILED,
+            checkedDocument=copy.deepcopy(DOCUMENT), searchTypes=[]))
+        fixture.admin.select_section('dashboards')
+        frame(fixture.window)
+        serial, source = editor._preview_serial, editor._source_serial
+        field = fixture.item('pageCanvasPixels')
+        field.forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(fixture.window, Qt.Key_A, Qt.ControlModifier)
+        for key in (Qt.Key_8, Qt.Key_0, Qt.Key_0):
+            QTest.keyClick(fixture.window, key)
+        QTest.keyClick(fixture.window, Qt.Key_Tab)
+        frame(fixture.window)
+        fixture.choose_page('pageCanvasZoom', '50')
+        frame(fixture.window)
+        paper = fixture.item('pageViewportPaper')
+        self.assertEqual(paper.width(), 800)
+        self.assertAlmostEqual(paper.mapRectToScene(paper.boundingRect()).width(), 400)
+        self.assertFalse(editor.dirty)
+        self.assertEqual(editor._preview_serial, serial)
+        self.assertEqual(editor._source_serial, source)
+        fixture.click('canvasTarget_0.0')
+        frame(fixture.window)
+        handle = fixture.item('canvasHandle_se')
+        self.assertAlmostEqual(handle.mapRectToScene(handle.boundingRect()).width(), 14)
+        point = handle.mapToScene(QPointF(handle.width() / 2, handle.height() / 2)).toPoint()
+        QTest.mousePress(fixture.window, Qt.LeftButton, Qt.NoModifier, point)
+        QTest.mouseMove(fixture.window, point + QPoint(20, 20), 30)
+        QTest.mouseRelease(fixture.window, Qt.LeftButton, Qt.NoModifier, point + QPoint(20, 20))
+        frame(fixture.window)
+        self.assertEqual(editor.document['blocks'][0]['children'][0]['height'], 100)
+        fixture.click('pageAction_undo')
+        self.assertEqual(editor.document, DOCUMENT)
+        fixture.choose_page('pageCanvasSize', '1280')
+        fixture.choose_page('pageCanvasZoom', '200')
+        frame(fixture.window)
+        scroll = fixture.item('pageViewportScroll')
+        for modifiers, axis in [(Qt.NoModifier, 'contentY'), (Qt.ShiftModifier, 'contentX')]:
+            point = scroll.mapToScene(QPointF(30, 50))
+            event = QWheelEvent(
+                point, QPointF(fixture.window.mapToGlobal(point.toPoint())),
+                QPoint(), QPoint(0, -120), Qt.NoButton, modifiers, Qt.NoScrollPhase, False)
+            gui_test_application().sendEvent(fixture.window, event)
+            frame(fixture.window)
+            self.assertGreater(scroll.property(axis), 0)
+        fixture.choose_page('pageCanvasSize', 'auto')
+        fixture.choose_page('pageCanvasZoom', 'fit')
+        self.assertFalse(editor.dirty)
+        self.assertEqual(fixture.fixture.warnings, [], '\n'.join(fixture.fixture.warnings))
+
     def test_structure_history_and_shortcuts_are_local(self):
         from tests.test_administration_qml import AdministrationQmlTests
         from tests.profile_ui_responsiveness import frame

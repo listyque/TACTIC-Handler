@@ -6,6 +6,7 @@ import "../../tactic_frame/features/table/layout.ui.mjs" as Layout
 import "../../tactic_frame/features/table/report.ui.mjs" as Report
 import "../../tactic_frame/features/table/page.filters.mjs" as Filters
 import "../../tactic_frame/features/administration/layouts/canvas.mjs" as Canvas
+import "../../tactic_frame/features/administration/layouts/page.viewport.mjs" as Viewport
 import "../administration/layouts" as Editors
 import "../.." as Shell
 
@@ -24,6 +25,12 @@ Frame.FrameView {
     property bool guides: true
     property string selectedBlock: ""
     property var previewItems: null
+    property var canvasViewport: null
+    readonly property var canvasSize: canvasViewport ? Viewport.dimensions(canvasViewport, width, height) : ({
+            width,
+            height,
+            scale: 1
+        })
     property var filterDraft: ({})
     readonly property string filterKey: JSON.stringify([document.layoutView, document.targetSearchKey, document.layoutFilters])
     onFilterKeyChanged: filterDraft = Filters.initial(document.layoutFilters || [])
@@ -34,8 +41,9 @@ Frame.FrameView {
         layoutTables: owner.tableModels || {},
         layoutFilterDraft: filterDraft,
         layoutEditing: editing
-    }), width, height, language, true, controller.server_url || "")
-    scene: editing && guides ? Canvas.decorate(baseScene, "editorPath") : baseScene
+    }), canvasSize.width - (canvasViewport ? 24 : 0), Math.max(1, canvasSize.height - (canvasViewport ? 24 : 0)), language, true, controller.server_url || "")
+    readonly property var decoratedScene: editing && guides ? Canvas.decorate(baseScene, "editorPath") : baseScene
+    scene: canvasViewport ? Viewport.describe(decoratedScene, canvasViewport, width, height) : decoratedScene
     models: owner.tableModels || ({})
     describeCell: Report.cell
     views: ({
@@ -84,6 +92,7 @@ Frame.FrameView {
     Component {
         id: canvasComponent
         Editors.CanvasSelection {
+            viewportScale: root.canvasSize.scale
             theme: root.theme
             boxes: root.scene.canvasBoxes || []
             selected: root.selectedBlock

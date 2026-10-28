@@ -8,6 +8,7 @@ import { spacingField } from './canvas.mjs';
 import * as Data from './page.data.mjs';
 import * as Reports from './page.reports.mjs';
 import { listAction } from '../../../controls/lists/tree.ui.mjs';
+import * as Viewport from './page.viewport.mjs';
 
 function blockTitle(item, key, language) {
     if (item.title && item.title !== item.kind) return item.title;
@@ -565,20 +566,40 @@ export function describe(model, ui, width, height, language) {
                 )
             );
     }
-    if (ui.preview || !narrow || ui.panel === 'canvas')
+    if (ui.preview || !narrow || ui.panel === 'canvas') {
+        const tools = Viewport.controls(
+            ui,
+            canvasWidth - 24,
+            language,
+            !model.busy
+        );
         nodes.push(
             node('Box', 'pageCanvasPanel', rect(canvasX, y, canvasWidth, h), {
                 background: 'workspace',
                 border: 'outlineVariant',
                 children: [
                     node(
+                        'Box',
+                        'pageCanvasTools',
+                        rect(12, 12, canvasWidth - 24, tools.height),
+                        {
+                            children: tools.nodes
+                        }
+                    ),
+                    node(
                         'View',
                         'pageCanvas',
-                        rect(12, 12, canvasWidth - 24, h - 24),
+                        rect(
+                            12,
+                            20 + tools.height,
+                            canvasWidth - 24,
+                            Math.max(1, h - tools.height - 32)
+                        ),
                         { view: 'pagePreview' }
                     )
                 ]
             })
         );
+    }
     return { nodes };
 }

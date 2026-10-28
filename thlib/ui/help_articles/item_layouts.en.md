@@ -343,3 +343,24 @@ This history is local to the current draft, not the transaction rollback of a
 saved project. Reloading, discarding or switching pages clears it. Replacing the draft with a server-normalized version also clears its old history. Editing and
 undoing may request an ordinary checked preview, but never save the page.
 Publish only with the normal validated Save to server and revision check.
+
+## Page canvas size and zoom
+
+The toolbar inside the page canvas controls its preview size. Automatic width
+uses the available editor area. Phone 360, Tablet 768, Desktop 1280 and Wide 1920
+presets show the same native page at those logical widths. Enter a custom width
+from 320 to 3840 pixels in the adjacent field; clear it to restore Automatic width.
+Changing preview width reflows the page as it would at that viewport size.
+
+Choose 25–200% or Fit in the zoom selector, or use Zoom in/out. Fit fits the page
+width without enlarging a small preview. Zoom changes its display scale, not
+widget sizes, data filters, layout width or history. Use the normal wheel and
+visible scrollbars to move around a large page; Shift+wheel scrolls horizontally.
+The scrollbars and resize handles stay usable at small scales. Mouse resizing
+uses logical pixels: at 50%, a 20-pixel pointer movement changes geometry by 40px.
+
+Clean preview keeps the selected width and zoom while hiding editor guides and
+disabling mutations. These viewing settings are local to this editor session;
+they are not saved in DashboardDocument and do not make the published page fixed
+width. Switching pages restores default viewing settings. Changing size/zoom
+does not create Undo entries or reload an existing item tree.

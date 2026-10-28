@@ -154,6 +154,7 @@ Item {
                 users: typeof userController === "undefined" ? [] : userController.users
                 administration: typeof administrationController === "undefined" ? null : administrationController
                 editing: true
+                canvasViewport: root.ui.canvas
                 guides: !root.ui.preview
                 selectedBlock: root.ui.preview ? "" : root.ui.selected
                 onBlockSelected: key => root.dispatch({

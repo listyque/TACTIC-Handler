@@ -1,5 +1,19 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Preview size': 'Размер предпросмотра',
+    'Automatic width': 'Автоматическая ширина',
+    'Preview width in pixels': 'Ширина предпросмотра в пикселях',
+    'Canvas zoom': 'Масштаб холста',
+    'Fit width': 'Вписать по ширине',
+    Fit: 'Вписать',
+    Phone: 'Телефон',
+    Tablet: 'Планшет',
+    Desktop: 'Десктоп',
+    Wide: 'Широкий экран',
+    'Enter a preview width from 320 to 3840 pixels, or leave it empty for Auto.':
+        'Укажите ширину от 320 до 3840 пикселей или оставьте поле пустым для автоширины.',
+    'Choose an available canvas zoom': 'Выберите доступный масштаб холста',
+
     'Duplicate widget': 'Дублировать виджет',
     'Parent container': 'Родительский контейнер',
     'A widget cannot contain itself': 'Виджет не может содержать сам себя',

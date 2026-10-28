@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.196 - 2026-10-28
+
+- Add page-editor viewport widths, custom pixel width, zoom and fit-to-width using native Frame rendering and scrollbars. Keep data/history independent of view settings and preserve logical resize coordinates at every scale.
+
 ## 0.6.0.195 - 2026-10-28
 
 - Add local page-draft Undo/Redo, subtree duplication, explicit parent selection, sibling reorder and ancestor breadcrumbs in the shared native/web page editor. Keep text editing shortcuts native and all page changes behind the existing validated save.

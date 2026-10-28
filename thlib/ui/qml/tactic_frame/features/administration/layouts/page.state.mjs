@@ -1,6 +1,7 @@
 import * as Document from './page.document.mjs';
 import * as Data from './page.data.mjs';
 import * as Reports from './page.reports.mjs';
+import * as Viewport from './page.viewport.mjs';
 import { documentEvent } from '../admin.document.mjs';
 export function initial() {
     return {
@@ -18,6 +19,8 @@ export function initial() {
         past: [],
         future: [],
         historyDocument: '',
+        canvas: { width: 0, zoom: 'fit' },
+        canvasWidthText: '',
         error: ''
     };
 }
@@ -112,9 +115,17 @@ export function transition(ui, model, event) {
     if (model.busy || ui.confirmation) return { ui: next, commands };
     if (
         (!model.canWrite || model.uncertain) &&
-        !['select', 'panel', 'preview', 'source', 'recordQuery'].includes(
-            event.type
-        )
+        ![
+            'select',
+            'panel',
+            'preview',
+            'source',
+            'recordQuery',
+            'canvasSize',
+            'canvasWidthBuffer',
+            'canvasWidthCommit',
+            'canvasZoom'
+        ].includes(event.type)
     )
         return { ui: next, commands };
     try {
@@ -168,6 +179,42 @@ export function transition(ui, model, event) {
         )
             throw Error('Apply or discard the pending text before continuing');
         switch (event.type) {
+            case 'canvasSize':
+            case 'canvasWidthCommit': {
+                const text =
+                    event.type === 'canvasSize'
+                        ? String(event.value === 'auto' ? '' : event.value)
+                        : ui.canvasWidthText.trim();
+                if (
+                    text &&
+                    (!/^\d+$/.test(text) ||
+                        Number(text) < 320 ||
+                        Number(text) > 3840)
+                )
+                    throw Error(
+                        'Enter a preview width from 320 to 3840 pixels, or leave it empty for Auto.'
+                    );
+                next.canvas = Object.assign({}, ui.canvas, {
+                    width: text ? Number(text) : 0
+                });
+                next.canvasWidthText = text;
+                next.error = '';
+                break;
+            }
+            case 'canvasWidthBuffer':
+                next.canvasWidthText = String(event.value);
+                break;
+            case 'canvasZoom':
+                if (
+                    event.value !== 'fit' &&
+                    !Viewport.zooms.includes(Number(event.value))
+                )
+                    throw Error('Choose an available canvas zoom');
+                next.canvas = Object.assign({}, ui.canvas, {
+                    zoom: String(event.value)
+                });
+                next.error = '';
+                break;
             case 'undo':
             case 'redo': {
                 if (ui.preview) break;

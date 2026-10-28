@@ -10,6 +10,7 @@ FocusScope {
     property string selected: ""
     property var gesture: null
     property var ghost: null
+    property real viewportScale: 1
     readonly property var chosen: ghost || boxes.find(b => b.key === selected) || null
     signal selectedKey(string key)
     signal committed(var change)
@@ -123,14 +124,14 @@ FocusScope {
         height: root.chosen?.height || 0
         color: "transparent"
         border.color: root.theme.contentAccent
-        border.width: 1
+        border.width: 1 / root.viewportScale
         MouseArea {
             id: moveEdge
             visible: root.chosen?.canTransform !== false
             x: 0
-            y: -4
+            y: -4 / root.viewportScale
             width: parent.width
-            height: 8
+            height: 8 / root.viewportScale
             cursorShape: Qt.SizeAllCursor
             acceptedButtons: Qt.LeftButton
             preventStealing: pressed
@@ -149,10 +150,10 @@ FocusScope {
             theme: root.theme
             activeFocusOnTab: false
             selectByMouse: false
-            y: -20
+            y: -20 / root.viewportScale
             text: Math.round(outline.width) + " × " + Math.round(outline.height)
             color: root.theme.contentAccent
-            font.pixelSize: 11
+            font.pixelSize: Math.round(11 / root.viewportScale)
         }
         Repeater {
             model: root.chosen?.canTransform === false ? [] : Canvas.handles
@@ -160,10 +161,10 @@ FocusScope {
                 id: handle
                 required property string modelData
                 objectName: "canvasHandle_" + modelData
-                width: 14
-                height: 14
-                x: modelData.indexOf("e") >= 0 ? outline.width - 7 : outline.width / 2 - 7
-                y: modelData.indexOf("s") >= 0 ? outline.height - 7 : outline.height / 2 - 7
+                width: 14 / root.viewportScale
+                height: 14 / root.viewportScale
+                x: modelData.indexOf("e") >= 0 ? outline.width - width / 2 : outline.width / 2 - width / 2
+                y: modelData.indexOf("s") >= 0 ? outline.height - height / 2 : outline.height / 2 - height / 2
                 cursorShape: modelData === "se" ? Qt.SizeFDiagCursor : modelData === "e" ? Qt.SizeHorCursor : Qt.SizeVerCursor
                 acceptedButtons: Qt.LeftButton
                 preventStealing: pressed
@@ -179,10 +180,11 @@ FocusScope {
                 }
                 Rectangle {
                     anchors.centerIn: parent
-                    width: 6
-                    height: 6
+                    width: 6 / root.viewportScale
+                    height: 6 / root.viewportScale
                     color: root.theme.panel
                     border.color: root.theme.contentAccent
+                    border.width: 1 / root.viewportScale
                 }
             }
         }
