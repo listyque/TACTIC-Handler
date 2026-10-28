@@ -5,6 +5,7 @@ import { quickLayout } from './nested.ui.mjs';
 import * as Report from './report.ui.mjs';
 import * as Filters from './page.filters.mjs';
 import * as PageLayout from './page.layout.mjs';
+import * as Parts from './record.parts.mjs';
 import { textStyles } from '../../core/foundation.mjs';
 import {
     tab as workspaceTab,
@@ -231,6 +232,66 @@ export function describe(
                             )
                         ]
                     })
+                );
+            } else if (['field', 'form'].includes(item.kind)) {
+                const part =
+                    item.kind === 'field'
+                        ? Parts.field(item, id, available)
+                        : Parts.describe(
+                              item,
+                              id,
+                              available,
+                              cell.layoutForms || {},
+                              language,
+                              editable &&
+                                  !cell.layoutEditing &&
+                                  !cell.layoutBusy
+                          );
+                output.push(
+                    node(
+                        'Box',
+                        id + '_content',
+                        rect(x, top, available, part.height),
+                        {
+                            background: 'transparent',
+                            clip: false,
+                            radius: 0,
+                            children: part.children
+                        }
+                    )
+                );
+                extent = part.height;
+            } else if (item.kind === 'action' && item.nativeAction) {
+                extent = 40;
+                output.push(
+                    button(
+                        id,
+                        rect(x, top, available, extent),
+                        text,
+                        item.icon ||
+                            {
+                                details: 'search',
+                                edit: 'edit',
+                                notes: 'comment',
+                                copy_link: 'link',
+                                refresh: 'refresh'
+                            }[item.nativeAction],
+                        {
+                            type: 'record-action',
+                            name: item.nativeAction,
+                            targetSearchKey: item.targetSearchKey,
+                            view: item.editView,
+                            process: item.process
+                        },
+                        editable &&
+                            item.available !== false &&
+                            !cell.layoutEditing &&
+                            !cell.layoutBusy,
+                        {
+                            highlighted: item.buttonStyle === 'primary',
+                            tonal: item.buttonStyle === 'tonal'
+                        }
+                    )
                 );
             } else if (item.kind === 'text') {
                 const role = item.textRole || 'body',
@@ -588,6 +649,9 @@ export function describe(
                         surface &&
                         [
                             'metric',
+                            'form',
+                            'field',
+                            'action',
                             'image',
                             'button',
                             'link',

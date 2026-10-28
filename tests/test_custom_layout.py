@@ -89,6 +89,14 @@ class CustomLayouts(unittest.TestCase):
     click = frames.FrameTableTests.click
     item = frames.FrameTableTests.item
 
+    def test_markdown_close_drops_queued_formatting(self):
+        window, pane = self.create(
+            'controls/DocumentPane.qml', dict(text='Original', summary='Summary'),
+            width=500, height=300)
+        pane.setProperty('text', 'Changed before closing')
+        pane.setProperty('summary', 'Changed summary before closing')
+        # Cleanup destroys the pane before processing its queued format callbacks.
+
     def test_dashboard_grid_spans_content_size_and_native_button(self):
         from PySide6.QtCore import QPointF
         import os

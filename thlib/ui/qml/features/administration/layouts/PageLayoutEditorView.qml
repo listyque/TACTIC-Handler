@@ -28,7 +28,7 @@ Item {
     readonly property string dataKey: JSON.stringify([controller.metadata.sourceEpoch, dataScope])
     onDataKeyChanged: Qt.callLater(requestSource)
     function requestSource() {
-        controller.load_source(dataScope.searchType, null, dataScope.recordKey);
+        controller.load_source(dataScope.searchType, null, dataScope.recordKey, dataScope.editView || "edit");
     }
     readonly property string documentName: controller.document.name || ""
     onDocumentNameChanged: {
@@ -71,7 +71,7 @@ Item {
         for (const command of result.commands) {
             switch (command.type) {
             case "source":
-                controller.load_source(command.searchType, command.query, command.recordKey);
+                controller.load_source(command.searchType, command.query, command.recordKey, command.editView || "edit");
                 break;
             case "document":
                 controller.replace_document(command.document);

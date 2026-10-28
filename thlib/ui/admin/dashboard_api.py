@@ -12,6 +12,7 @@ def dashboard_editor_request(
     search_type: str = "",
     query: str | None = None,
     record_key: str = "",
+    edit_view: str = "edit",
 ) -> str:
     import json
     from pyasm.command import Command
@@ -23,7 +24,7 @@ def dashboard_editor_request(
         )
 
     if action == "source":
-        return json.dumps(call("sources", search_type=search_type, query=query, record_key=record_key), ensure_ascii=False)
+        return json.dumps(call("sources", search_type=search_type, query=query, record_key=record_key,edit_view=edit_view), ensure_ascii=False)
 
     if action == "preview":
         return json.dumps(

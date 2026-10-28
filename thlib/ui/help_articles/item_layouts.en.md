@@ -445,6 +445,44 @@ The block does not load arbitrary image URLs or local file paths. Use native
 check-in to provide the object's thumbnail. Divider/Spacer use the same layout
 and sizing rules; the spacer remains selectable on the editor canvas.
 
-The palette does not yet expose arbitrary editable forms, script actions or new
-chart types. These elements use the same schema as the internal agent and need
+Native record forms are described below; arbitrary script actions and new
+chart types remain separate. These elements use the same schema as the internal agent and need
 no project-specific frontend code or XML editing.
+
+## Record fields, forms and native actions
+
+Use the existing Items/Details composition for Project -> parts -> nested parts.
+Choose the selected-record binding inside Details; its content follows the native
+item selection. Field/Form/Action also support the current project or a specific
+record from Data. No separate hierarchy or application sidebar is created.
+
+Record field displays one actual scalar field as text, badge, progress (0..100),
+date, date/time or number. NULL displays a dash; zero/false retain their values.
+Set a suffix for units, for example %. A badge's color is the configured theme
+color; it does not guess workflow completion from a label.
+
+Record form uses the existing native edit view. Choose the data source/record,
+then select Form fields from its actual edit-view catalogue. Native edit view
+selects another configured form view. Grid columns, minimum cell width and gap
+arrange the existing inputs. Text, multiline, selection, checkbox and date/time
+controls use native EditWdg metadata; options/statuses come from the project.
+Read-only records show read-only fields; protected fields cannot be submitted.
+Uploads, parent reassignment, multivalues and custom action handlers use the full
+native editor or existing relationship tools, not a replacement write path.
+
+Save is explicit and atomic for changed fields, using EditCmd. Both record and
+form configuration revisions are checked. Native transactions keep ordinary
+Undo. Cancel drops the draft. Drafts belong to their target record and survive
+selection changes within this page (up to 20 pending forms). They are not saved
+as project data or persisted across closing/reloading the page.
+
+After a lost response Save becomes Check saved state. Check does not repeat the
+write. A saved result refreshes the values; unchanged permits another Save;
+a conflict offers cancellation against refreshed data. The selected pane updates
+without reloading the item tree. Never execute changes from editor/clean preview.
+
+Record action offers Open details, Edit record, Notes, Copy link and Refresh.
+These invoke the existing native owners for the bound object; Edit record opens
+the full native editor. Copy link uses the object's actual TACTIC search key.
+Notes keep the record's process where configured. No generated script is run by
+these named actions; custom script launch remains a separate native integration.

@@ -31,15 +31,15 @@ class DashboardEditor(AdminDocumentEditor):
         self._source_epoch += 1
         self._metadata.update(sourceEpoch=self._source_epoch, project=self._project)
 
-    @Slot(str, "QVariant", str)
-    def load_source(self, search_type, query=None, record_key=""):
+    @Slot(str, "QVariant", str, str)
+    def load_source(self, search_type, query=None, record_key="", edit_view="edit"):
         if self._closed:
             return
         self._source_serial += 1
         self._metadata["dataError"] = ""
         self._metadata["dataBusy"] = bool(search_type)
         self._source_pending = (
-            dict(search_type=search_type, query=query, record_key=record_key)
+            dict(search_type=search_type, query=query, record_key=record_key,edit_view=edit_view)
             if search_type else None
         )
         if not search_type:

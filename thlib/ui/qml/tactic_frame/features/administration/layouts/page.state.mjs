@@ -389,8 +389,29 @@ export function transition(ui, model, event) {
                     type: 'source',
                     searchType: source.searchType,
                     recordKey: source.recordKey,
+                    editView: source.editView,
                     query: event.query ? ui.recordQuery : null
                 });
+                break;
+            }
+            case 'formField': {
+                const item = Document.block(model.document, ui.selected),
+                    selected = item.fields || [];
+                replace(
+                    Document.change(
+                        model.document,
+                        ui.selected,
+                        'fields',
+                        event.value
+                            ? selected
+                                  .concat(event.name)
+                                  .filter(
+                                      (name, index, all) =>
+                                          all.indexOf(name) === index
+                                  )
+                            : selected.filter((name) => name !== event.name)
+                    )
+                );
                 break;
             }
             case 'data':

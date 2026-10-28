@@ -220,7 +220,10 @@ export function describe(model, ui, width, height, language) {
                             image: 'Object image',
                             button: 'Button',
                             divider: 'Divider',
-                            spacer: 'Spacer'
+                            spacer: 'Spacer',
+                            field: 'Record field',
+                            form: 'Record form',
+                            action: 'Record action'
                         }[value]
                     )
                 }))

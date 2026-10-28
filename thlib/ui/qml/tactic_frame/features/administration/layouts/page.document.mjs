@@ -16,7 +16,10 @@ export const kinds = [
     'image',
     'button',
     'divider',
-    'spacer'
+    'spacer',
+    'field',
+    'form',
+    'action'
 ];
 // QVariantMap exposes Python None as undefined; keep explicit null fields in drafts.
 export const copy = (value) =>
@@ -100,7 +103,25 @@ export function change(document, key, field, value) {
         collapse_width: [0, 2400],
         icon_size: [16, 128]
     };
-    if (limits[field]) {
+    if (field === 'fields') {
+        if (
+            !Array.isArray(value) ||
+            value.length > 16 ||
+            new Set(value).size !== value.length ||
+            value.some(
+                (name) =>
+                    typeof name !== 'string' ||
+                    !/^[A-Za-z_][\w.-]{0,127}$/.test(name)
+            )
+        )
+            throw Error('Choose distinct fields from the native edit view');
+    } else if (field === 'edit_view') {
+        if (
+            typeof value !== 'string' ||
+            !/^[A-Za-z_][\w.@-]{0,127}$/.test(value)
+        )
+            throw Error('Invalid view name');
+    } else if (limits[field]) {
         if (value === '' && ['width', 'height'].includes(field)) value = null;
         else {
             const range = limits[field];
@@ -118,7 +139,9 @@ export function change(document, key, field, value) {
             'text_align',
             'button_style',
             'image_fit',
-            'text_weight'
+            'text_weight',
+            'format',
+            'native_action'
         ].includes(field)
     ) {
         const choices = {
@@ -136,6 +159,15 @@ export function change(document, key, field, value) {
             text_align: ['left', 'center', 'right'],
             button_style: ['normal', 'primary', 'tonal'],
             image_fit: ['cover', 'contain'],
+            format: [
+                'plain',
+                'badge',
+                'progress',
+                'date',
+                'datetime',
+                'number'
+            ],
+            native_action: ['details', 'edit', 'notes', 'copy_link', 'refresh'],
             text_weight: [400, 600, 700]
         };
         if (field === 'text_weight') value = Number(value);
@@ -156,9 +188,15 @@ export function change(document, key, field, value) {
         )
             throw Error('Choose a supported icon');
     } else if (
-        !['title', 'text', 'search_type', 'view', 'href', 'field'].includes(
-            field
-        )
+        ![
+            'title',
+            'text',
+            'search_type',
+            'view',
+            'href',
+            'field',
+            'suffix'
+        ].includes(field)
     )
         throw Error('Unsupported page property');
     if (['width', 'height'].includes(field))
@@ -230,6 +268,12 @@ export function add(document, key, kind, searchType) {
         Object.assign(item, { icon: 'folder', width: 40, height: 40 });
     if (kind === 'button')
         Object.assign(item, { title: 'Open project', href: '' });
+    if (['field', 'form', 'action'].includes(kind))
+        Object.assign(item, {
+            binding: 'project',
+            fields: [],
+            field: kind === 'field' ? 'code' : ''
+        });
     if (kind === 'image')
         Object.assign(item, { binding: 'project', height: 160 });
     if (['divider', 'spacer'].includes(kind)) item.height = 24;

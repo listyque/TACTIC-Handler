@@ -19,7 +19,7 @@ export function componentFields(fields, item, ui, canEdit, language, field) {
             }
         });
     }
-    if (['icon', 'button'].includes(item.kind))
+    if (['icon', 'button', 'action'].includes(item.kind))
         fields.push({
             kind: 'IconChoice',
             id: 'pageProperty_icon',
@@ -32,13 +32,13 @@ export function componentFields(fields, item, ui, canEdit, language, field) {
         });
     if (item.kind === 'icon')
         field('icon_size', 'Icon size', item.icon_size || 32);
-    if (item.kind === 'button')
+    if (['button', 'action'].includes(item.kind))
         choice('button_style', 'Button style', item.button_style || 'normal', [
             ['normal', 'Normal'],
             ['primary', 'Primary'],
             ['tonal', 'Tonal']
         ]);
-    if (['text', 'heading'].includes(item.kind)) {
+    if (['text', 'heading', 'field'].includes(item.kind)) {
         choice('text_role', 'Text style', item.text_role || 'auto', [
             ['auto', 'Auto'],
             ['caption', 'Caption'],
@@ -61,7 +61,7 @@ export function componentFields(fields, item, ui, canEdit, language, field) {
             ['right', 'Right']
         ]);
     }
-    if (['text', 'heading', 'icon', 'divider'].includes(item.kind)) {
+    if (['text', 'heading', 'icon', 'divider', 'field'].includes(item.kind)) {
         choice(
             'text_color',
             'Text / icon color',
@@ -91,6 +91,68 @@ export function componentFields(fields, item, ui, canEdit, language, field) {
             }
         });
     }
+    if (item.kind === 'field') {
+        choice('format', 'Field display', item.format || 'plain', [
+            ['plain', 'Text'],
+            ['badge', 'Status badge'],
+            ['progress', 'Progress'],
+            ['date', 'Date'],
+            ['datetime', 'Date and time'],
+            ['number', 'Number']
+        ]);
+        fields.push({
+            id: 'pageProperty_suffix',
+            title: 'Value suffix',
+            props: {
+                text: Object.prototype.hasOwnProperty.call(
+                    ui.text,
+                    ui.selected + ':suffix'
+                )
+                    ? ui.text[ui.selected + ':suffix']
+                    : item.suffix || '',
+                enabled: canEdit,
+                action: { type: 'buffer', key: ui.selected + ':suffix' },
+                commitAction: {
+                    type: 'commit',
+                    field: 'suffix',
+                    key: ui.selected + ':suffix'
+                }
+            }
+        });
+    }
+    if (item.kind === 'action')
+        choice(
+            'native_action',
+            'Native action',
+            item.native_action || 'details',
+            [
+                ['details', 'Open details'],
+                ['edit', 'Edit record'],
+                ['notes', 'Notes'],
+                ['copy_link', 'Copy link'],
+                ['refresh', 'Refresh']
+            ]
+        );
+    if (['form', 'action'].includes(item.kind))
+        fields.push({
+            id: 'pageProperty_edit_view',
+            title: 'Native edit view',
+            props: {
+                text: Object.prototype.hasOwnProperty.call(
+                    ui.text,
+                    ui.selected + ':edit_view'
+                )
+                    ? ui.text[ui.selected + ':edit_view']
+                    : item.edit_view || 'edit',
+                enabled: canEdit,
+                action: { type: 'buffer', key: ui.selected + ':edit_view' },
+                commitAction: {
+                    type: 'commit',
+                    field: 'edit_view',
+                    key: ui.selected + ':edit_view'
+                }
+            }
+        });
     if (item.kind === 'image')
         choice('image_fit', 'Image fit', item.image_fit || 'contain', [
             ['contain', 'Contain'],
@@ -160,14 +222,15 @@ export function sizingFields(
             }
         });
     }
-    if (item.kind === 'grid') {
+    if (['grid', 'form'].includes(item.kind)) {
         field('columns', 'Grid columns', item.columns || 3);
         field(
             'min_cell_width',
             'Minimum cell width',
             item.min_cell_width || 200
         );
-        field('row_height', 'Grid row height', item.row_height || 120);
+        if (item.kind === 'grid')
+            field('row_height', 'Grid row height', item.row_height || 120);
     }
     if (item.kind === 'row')
         field(

@@ -3,6 +3,7 @@ import QtQuick
 import "../../tactic_frame" as Frame
 import "../../controls" as Controls
 import "../../tactic_frame/features/table/layout.ui.mjs" as Layout
+import "../../tactic_frame/features/table/record.parts.mjs" as Parts
 import "../../tactic_frame/features/table/report.ui.mjs" as Report
 import "../../tactic_frame/features/table/page.filters.mjs" as Filters
 import "../../tactic_frame/features/administration/layouts/canvas.mjs" as Canvas
@@ -37,6 +38,11 @@ Frame.FrameView {
             height,
             scale: 1
         })
+    property var recordForms: ({})
+    readonly property int formGeneration: document.layoutGeneration || 0
+    onFormGenerationChanged: recordForms = Parts.interrupted(recordForms)
+    property string formIdentity: JSON.stringify([document.layoutView, document.targetSearchKey])
+    onFormIdentityChanged: recordForms = ({})
     property var filterDraft: ({})
     readonly property string filterKey: JSON.stringify([document.layoutView, document.targetSearchKey, document.layoutFilters])
     onFilterKeyChanged: filterDraft = Filters.initial(document.layoutFilters || [])
@@ -71,6 +77,7 @@ Frame.FrameView {
     }
     readonly property var baseScene: Layout.describe(Object.assign({}, document, {
         layoutTables: owner.tableModels || {},
+        layoutForms: recordForms,
         layoutFilterDraft: filterDraft,
         layoutEditing: editing,
         layoutDesigning: editing && guides
@@ -99,6 +106,17 @@ Frame.FrameView {
     onEvent: action => {
         if (editing)
             return;
+        if (action.type === 'record-form') {
+            try {
+                const result = Parts.change(recordForms, document, action);
+                recordForms = result.store;
+                if (result.command)
+                    owner.save_form(action.key, result.command);
+            } catch (error) {
+                owner.filter_error(String(error.message || error));
+            }
+            return;
+        }
         if (action.type === 'page-filter') {
             filterDraft = Filters.change(filterDraft, action);
             return;
@@ -121,6 +139,13 @@ Frame.FrameView {
             owner.set_state(Layout.change(document.layoutState, action.selector, action.value));
         else
             owner.activate(action);
+    }
+    Connections {
+        target: root.owner
+        ignoreUnknownSignals: true
+        function onFormSettled(identity, result) {
+            root.recordForms = Parts.settled(root.recordForms, identity, result, result.failure);
+        }
     }
     Component {
         id: canvasComponent

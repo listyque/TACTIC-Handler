@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.199 - 2026-10-28
+
+- Add record-bound field displays, native inline forms and named record actions to dashboard composition. Reuse native EditWdg/EditCmd permissions, revision checks and transaction Undo; retain local drafts by record and recover uncertain saves without retrying writes. Preserve the existing item hierarchy and update only the selected detail pane.
+
 ## 0.6.0.198 - 2026-10-28
 
 - Add responsive dashboard grids, row/column spans and fixed/fill/content sizing with native font measurement. Expose headings, icons, object thumbnails, native link buttons, dividers and spacers through the page editor and shared agent schema. Keep existing data/record permissions and revisioned Save.

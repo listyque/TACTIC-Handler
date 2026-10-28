@@ -14,10 +14,21 @@ export function inDetails(document, key) {
 }
 export function mode(document, key) {
     const item = key ? Document.block(document, key) : null;
-    if (!item || !['text', 'heading', 'markdown', 'image'].includes(item.kind))
+    if (
+        !item ||
+        ![
+            'text',
+            'heading',
+            'markdown',
+            'image',
+            'field',
+            'form',
+            'action'
+        ].includes(item.kind)
+    )
         return '';
     if (item.binding && item.binding !== 'auto') return item.binding;
-    if (item.kind === 'image')
+    if (['image', 'form', 'action', 'field'].includes(item.kind))
         return item.source_key
             ? 'record'
             : inDetails(document, key)
@@ -69,23 +80,34 @@ export function scope(document, key) {
                     ].includes(item.kind)
                   ? item.search_type || ''
                   : '';
-    return {
+    const result = {
         searchType,
         recordKey: binding === 'record' ? item.source_key || '' : ''
     };
+    if (item.kind === 'form') result.editView = item.edit_view || 'edit';
+    return result;
 }
 export function change(document, key, field, value) {
     const result = Document.copy(document),
         item = Document.block(result, key);
     if (field === 'binding') {
         if (
-            !['text', 'heading', 'markdown', 'image'].includes(item.kind) ||
+            ![
+                'text',
+                'heading',
+                'markdown',
+                'image',
+                'field',
+                'form',
+                'action'
+            ].includes(item.kind) ||
             !['static', 'project', 'selection', 'record'].includes(value)
         )
             throw Error('Choose a supported field binding');
         if (value === 'selection' && !inDetails(result, key))
             throw Error('Place selection-bound widgets inside Details');
         const type = selectedType(result, key);
+        if (item.kind === 'form') item.fields = [];
         Object.assign(item, {
             binding: value,
             field: '',
@@ -235,7 +257,9 @@ export function fields(model, ui, width, language, enabled) {
         binding = mode(model.document, ui.selected),
         requested = scope(model.document, ui.selected);
     const metadata =
-            model.dataSource?.searchType === requested.searchType
+            model.dataSource?.searchType === requested.searchType &&
+            (!requested.editView ||
+                model.dataSource?.editView === requested.editView)
                 ? model.dataSource
                 : {},
         tr = (text) => translate(text, language);
@@ -275,7 +299,9 @@ export function fields(model, ui, width, language, enabled) {
             'Content source',
             binding,
             [
-                ...(item.kind === 'image' ? [] : [['static', 'Static text']]),
+                ...(['image', 'form', 'action', 'field'].includes(item.kind)
+                    ? []
+                    : [['static', 'Static text']]),
                 ['project', 'Current project'],
                 ...(inDetails(model.document, ui.selected)
                     ? [['selection', 'Selected object']]
@@ -361,7 +387,33 @@ export function fields(model, ui, width, language, enabled) {
                 title: 'More matches. Refine your search.'
             });
     }
-    if (binding && binding !== 'static' && item.kind !== 'image') {
+    if (item.kind === 'form') {
+        fields.push({
+            kind: 'Heading',
+            id: 'pageNativeFields',
+            title: 'Form fields',
+            description: 'Select fields from the existing native edit view.'
+        });
+        for (const row of metadata.editFields || []) {
+            const selected = item.fields || [];
+            fields.push({
+                kind: 'CheckBox',
+                id: 'pageFormField_' + row.value,
+                title: row.label,
+                dataLabel: true,
+                props: {
+                    checked: selected.includes(row.value),
+                    enabled: sourceReady,
+                    action: { type: 'formField', name: row.value }
+                }
+            });
+        }
+    }
+    if (
+        binding &&
+        binding !== 'static' &&
+        !['image', 'form', 'action'].includes(item.kind)
+    ) {
         const sourceFields = (metadata.fields || []).filter((row) =>
             item.kind === 'markdown'
                 ? type(row) === 'text'

@@ -5,6 +5,7 @@ from PySide6.QtCore import QObject, Slot, QTimer, Signal, Property
 
 class CustomLayoutController(QObject):
     changed = Signal()
+    formSettled = Signal(str, 'QVariantMap')
 
     def __init__(self, services, *, workspace=False):
         super().__init__(services)
@@ -61,6 +62,7 @@ class CustomLayoutController(QObject):
                     and getattr(self.tab, 'layout_view', ''))
 
     def notify_document(self):
+        self.document_data['layoutGeneration'] = self.document_generation
         if self.workspace:
             self.changed.emit()
         else:
@@ -216,7 +218,7 @@ class CustomLayoutController(QObject):
 
         tables(items, prefix)
 
-    def select_detail(self):
+    def select_detail(self, force=False):
         from thlib import tactic_classes as tc
         app, document = self.services._application, self.document_data
         def has_details(nodes):
@@ -227,7 +229,7 @@ class CustomLayoutController(QObject):
         if node is not None and node.node_type in ('process','relation'):
             return
         key = node.search_key if node is not None else ''
-        if key and document.get('layoutDetail',{}).get('targetSearchKey') == key:
+        if not force and key and document.get('layoutDetail',{}).get('targetSearchKey') == key:
             return
         self._detail_generation += 1
         request, generation = self._detail_generation, self.document_generation
@@ -462,9 +464,88 @@ class CustomLayoutController(QObject):
             self.document_data['layoutState'] = dict(state)
             self.notify_document()
 
+    @Slot(str, 'QVariantMap')
+    def save_form(self, identity, values):
+        from xmlrpc.client import Fault
+        from thlib import tactic_classes as tc
+        generation, selection = self.document_generation, self._detail_generation
+        tab = self.services._application._current_tab()
+        if not self.context.get('project') or values.get('view') != self.document_data.get('layoutView'):
+            self.formSettled.emit(identity, dict(failure=dict(message='The source tab changed. Reload the page.',uncertain=False)))
+            return
+        try:
+            server = tc.server_start(project=self.context['project'])
+        except PermissionError as error:
+            self.formSettled.emit(identity, dict(failure=dict(message=str(error),uncertain=False)))
+            return
+        received = [False]
+        def operation():
+            try:
+                return server.execute_cmd('tactic.ui.panel.dashboard_form_cmd.DashboardFormCmd', dict(values))['info']
+            except Fault as error:
+                return dict(failure=dict(message=error.faultString, uncertain=False))
+        def current():
+            return generation == self.document_generation and tab is self.services._application._current_tab()
+        def loaded(result):
+            received[0] = True
+            if not current():
+                return
+            if result.get('model'):
+                if values.get('detail_key'):
+                    if selection == self._detail_generation:
+                        self.document_data['layoutDetail'] = result['model']
+                else:
+                    self.document_data['layoutNodes'] = result['model']['layoutNodes']
+                self._open_reports()
+                self.notify_document()
+            self.formSettled.emit(identity, result)
+        def settled():
+            if not received[0] and current():
+                self.formSettled.emit(identity, dict(failure=dict(message=self.services._error or 'Unable to reach the server.', uncertain=True)))
+        self.services._run(operation, loaded, settled=settled)
+
+    def record_action(self, action):
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+        from PySide6.QtGui import QGuiApplication
+        app = self.services._application
+        key, kind = action.get('targetSearchKey'), action.get('name')
+        if kind == 'copy_link':
+            QGuiApplication.clipboard().setText('skey://' + key)
+        elif kind == 'refresh':
+            if self.document_data.get('layoutHasDetails'):
+                self.select_detail(force=True)
+            else:
+                self.refresh()
+        elif kind == 'details':
+            app.select_sobject(key)
+            app.open_window('sobject_info')
+        elif kind == 'notes':
+            self.services._tasks.open_notes(key, action.get('process') or 'publish')
+        elif kind == 'edit':
+            project_code = self.context['project']
+            try:
+                server = tc.server_start(project=project_code)
+            except PermissionError as error:
+                self.services.report_error(str(error))
+                return
+            generation, tab = self.document_generation, app._current_tab()
+            def loaded(record):
+                if generation != self.document_generation or tab is not app._current_tab():
+                    return
+                from thlib.ui.sobject_editor import open_sobject_editor
+                stype = env_inst.get_stype_by_code(key.split('?')[0], project_code=project_code)
+                if not record or stype is None:
+                    raise ValueError('The configured table target is unavailable')
+                open_sobject_editor(app, dict(mode='edit', view=action.get('view') or 'edit', stype=stype,
+                    sobject=tc.SObject(record, env_inst.projects[project_code]), parent_sobject=None, _prepared=True))
+            self.services._run(lambda: server.get_by_search_key(key), loaded)
+
     @Slot('QVariantMap')
     def activate(self, action):
-        if action.get('name') == 'script':
+        if action.get('type') == 'record-action':
+            self.record_action(action)
+        elif action.get('name') == 'script':
             self.run(action.get('javascript') or '', action.get('selector') or '')
         elif action.get('name') == 'layout-link':
             self.services._application.open_rich_link(action.get('href') or '')

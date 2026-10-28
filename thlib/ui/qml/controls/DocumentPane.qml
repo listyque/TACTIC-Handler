@@ -37,7 +37,7 @@ ScrollView {
         contentItem.contentY = Math.max(0, Math.min(scrollOffset, Math.max(0, contentHeight - height)));
         const epoch = restoreEpoch;
         Qt.callLater(function () {
-            if (root.restoreEpoch === epoch)
+            if (root && root.restoreEpoch === epoch)
                 root.restoring = false;
         });
     }
@@ -118,6 +118,8 @@ ScrollView {
                 })
                 onLinkActivated: link => root.linkActivated(link)
                 onTextChanged: Qt.callLater(function () {
+                    if (!root || !summaryText)
+                        return;
                     root.formatRequested(summaryText.textDocument, Object.assign({}, Foundation.controls.document, {
                         borderColor: String(root.theme.outlineVariant)
                     }));
@@ -141,6 +143,8 @@ ScrollView {
             })
             onLinkActivated: link => root.linkActivated(link)
             onTextChanged: Qt.callLater(function () {
+                if (!root || !documentBody)
+                    return;
                 root.formatRequested(documentBody.textDocument, Object.assign({}, Foundation.controls.document, {
                     borderColor: String(root.theme.outlineVariant)
                 }));
