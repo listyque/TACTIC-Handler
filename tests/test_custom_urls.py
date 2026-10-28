@@ -6,6 +6,31 @@ from thlib.ui.search_links import parse_custom_page_link
 
 
 class CustomUrls(unittest.TestCase):
+    def test_dashboard_button_routes_to_native_page_without_opening_browser(self):
+        from thlib.ui.controllers.rich_text_links import RichTextLinksMixin
+        from thlib.ui.table.custom_layout import CustomLayoutController
+        app=Mock(); app._current_project_code='demo'; app._custom_url_generation=0
+        app._bootstrap_cache_identity.return_value='captured-server'
+        app.open_rich_link=lambda value: RichTextLinksMixin.open_rich_link(app,value)
+        owner=SimpleNamespace(services=SimpleNamespace(_application=app))
+        server=Mock()
+        with (patch('thlib.ui.custom_urls.env_server') as settings,
+              patch('thlib.ui.custom_urls.env_inst',projects={'demo':Mock()}),
+              patch('thlib.tactic_classes.server_start',return_value=server),
+              patch('thlib.ui.controllers.rich_text_links.QDesktopServices.openUrl') as external):
+            settings.get_server.return_value='local:8081'
+            for name in ('work','tasks','analytics'):
+                href='http://local:8081/projects/demo/dashboard/'+name
+                server.execute_cmd.return_value=dict(info=dict(layoutView='dashboard.'+name,
+                    title=name,options={},search_type='demo/project',view='table'))
+                CustomLayoutController.activate(owner,dict(name='layout-link',href=href))
+                operation,accept=app._table_services._run.call_args.args
+                accept(operation())
+                self.assertEqual(server.execute_cmd.call_args.args[1]['path'],'/dashboard/'+name)
+                self.assertEqual(app._activate_saved_search_preset.call_args.args[0]['layout_view'],'dashboard.'+name)
+            self.assertEqual(app._activate_saved_search_preset.call_count,3)
+            external.assert_not_called()
+
     def test_same_origin_project_pattern_and_legacy_hash(self):
         self.assertEqual(parse_custom_page_link('http://local:8081/projects/demo/review/CAR?q=1','local:8081'),
             dict(project='demo',path='/review/CAR',parameters={'q':'1'}))

@@ -435,8 +435,9 @@ colors. Icons use the existing native icon picker. Buttons expose native normal,
 primary and tonal styles and an optional icon. Set Link URL to an HTTP(S) or
 TACTIC address; an empty new button stays disabled until configured. Editing and
 clean preview never execute actions. Published buttons use existing native link
-navigation; TACTIC links stay inside the application, HTTP(S) uses the normal
-external-link behavior.
+navigation. TACTIC links and connected-server custom page/dashboard URLs open
+inside the workspace as search tabs, preserving the current application. Links
+to other sites retain the normal external-browser behavior.
 
 Object image uses the project's/selected object's/specific record's normal
 ThumbWdg preview, including the existing initials fallback. Choose its binding

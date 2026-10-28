@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.221 - 2026-10-28
+
+- Verify that dashboard buttons to connected-server pages use native workspace tabs, including work, tasks and analytics. Clarify internal versus external links in page-layout Help; the Stream counterpart now uses the same routing.
+
 ## 0.6.0.220 - 2026-10-28
 
 - Reserve scrollbar gutters in the MCP form and permission list at normal and high display scales. Add explicit Select all tools and server-advertised No expiration while preserving revocation, project scope and owner authentication.
