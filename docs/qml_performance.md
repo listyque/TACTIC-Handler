@@ -5,6 +5,36 @@ late visual cleanup. The hot paths are recyclable search delegates, task rows,
 message timeline entries, retained dock content, and report pages with nested
 models.
 
+## Native page data and geometry
+
+`PageLayoutEditorView.editorSnapshot` copies document/metadata values with
+`Object.assign` and the catalog with `Array.from`, once per existing controller
+notification. Keep native QObject services in the snapshot; do not JSON-serialize
+them. Passing deeply nested QVariant property
+references into JavaScript traversal repeatedly invokes the Python getter and
+converts the entire property, even when the getter itself is inexpensive.
+
+`FrameViewport` publishes the final width/height pair through a zero-interval,
+owned timer. Custom pages and the page editor use it for expensive descriptions;
+intermediate geometry in the same event turn is discarded. Data, actions,
+validation and nested Frame synchronization remain immediate. Do not defer all
+`FrameView.sync()` calls: that delays control states, selection and nested layout
+updates. The timer is destroyed with its viewport owner.
+
+`tests.test_native_presentation_performance` checks detached snapshots, QObject
+identity, updates without changing document identity, bounded property reads and
+one complete resize through eight nested containers in the next rendered frame.
+Existing page/canvas/input tests cover edits, filters, undo and retained scopes.
+
+The Python launcher loads local QML files through `QQmlApplicationEngine`.
+Qt compiles and caches QML/JavaScript bytecode at runtime; this checkout does not
+build QML into application resources with an ahead-of-time compiler. Cold source
+loading, native object construction, property conversion and warm rendering are
+separate measurements. Preserve the Windows graphics-backend policy and measure
+GPU presentation separately from offscreen/software tests. See the
+[Qt disk-cache documentation](https://doc.qt.io/qt-6/qmldiskcache.html) and
+[Qt Quick performance guidance](https://doc.qt.io/qt-6/qtquick-performance.html).
+
 ## Idle table cells
 
 `features/tasks/TaskCellDisplay.qml` draws the geometry from shared

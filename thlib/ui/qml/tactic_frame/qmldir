@@ -7,5 +7,6 @@ FrameGraphBranch 1.0 controls/graph/FrameGraphBranch.qml
 FrameGrid 1.0 controls/grid/FrameGrid.qml
 FrameGridBranch 1.0 controls/grid/FrameGridBranch.qml
 FrameView 1.0 core/FrameView.qml
+FrameViewport 1.0 core/FrameViewport.qml
 
 FrameArrayList 1.0 controls/lists/FrameArrayList.qml

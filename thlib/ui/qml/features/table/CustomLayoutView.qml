@@ -33,9 +33,13 @@ Frame.FrameView {
     onSceneChanged: canvasBoxesEdited(scene.canvasBoxes || [])
     property var previewItems: null
     property var canvasViewport: null
-    readonly property var canvasSize: canvasViewport ? Viewport.dimensions(canvasViewport, width, height) : ({
-            width,
-            height,
+    Frame.FrameViewport {
+        id: viewport
+        target: root
+    }
+    readonly property var canvasSize: canvasViewport ? Viewport.dimensions(canvasViewport, viewport.size.width, viewport.size.height) : ({
+            width: viewport.size.width,
+            height: viewport.size.height,
             scale: 1
         })
     property var recordForms: ({})
@@ -83,7 +87,7 @@ Frame.FrameView {
         layoutDesigning: editing && guides
     }), canvasSize.width - (canvasViewport ? 24 : 0), Math.max(1, canvasSize.height - (canvasViewport ? 24 : 0)), language, true, controller.server_url || "", measure)
     readonly property var decoratedScene: editing && guides ? Canvas.decorate(baseScene, "editorPath") : baseScene
-    scene: canvasViewport ? Viewport.describe(decoratedScene, canvasViewport, width, height) : decoratedScene
+    scene: canvasViewport ? Viewport.describe(decoratedScene, canvasViewport, viewport.size.width, viewport.size.height) : decoratedScene
     models: owner.tableModels || ({})
     describeCell: Report.cell
     views: ({

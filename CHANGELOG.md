@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.237 - 2026-10-29
+
+- Read page editor documents, metadata and catalogs through detached presentation snapshots instead of repeatedly converting nested QVariant property references. Coalesce custom page and editor viewport dimensions within one event turn, preserving immediate data/actions, native input, drafts and the existing UI. Add native snapshot and nested resize regressions.
+
 ## 0.6.0.236 - 2026-10-29
 
 - Show labeled editor-only sample data in Item layouts when real records are absent or do not match the selected widget. Preserve real previews and errors, support canvas selection/resizing, and save configuration without creating sample records. Match Stream and update EN/RU Help.

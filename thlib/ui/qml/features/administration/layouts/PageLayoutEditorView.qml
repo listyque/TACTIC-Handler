@@ -14,12 +14,18 @@ Item {
     required property var theme
     required property var controller
     property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    // Copy the values once; nested traversal must not retain a QVariant property reference.
+    readonly property var editorSnapshot: ({
+            document: Object.assign({}, root.controller.document),
+            metadata: Object.assign({}, root.controller.metadata),
+            catalog: Array.from(root.controller.catalog)
+        })
     property bool saveActionsInHeader: false
     property var ui: State.initial()
     property var canvasBoxes: []
     property var contexts: Object.create(null)
     property string previousDocument: ""
-    readonly property string documentProject: controller.metadata.project || ""
+    readonly property string documentProject: root.editorSnapshot.metadata.project || ""
     onDocumentProjectChanged: {
         contexts = Object.create(null);
         previousDocument = "";
@@ -35,13 +41,13 @@ Item {
             event.accepted = true;
         }
     }
-    readonly property var dataScope: Reports.scope(controller.document, ui)
-    readonly property string dataKey: JSON.stringify([controller.metadata.sourceEpoch, dataScope])
+    readonly property var dataScope: Reports.scope(root.editorSnapshot.document, ui)
+    readonly property string dataKey: JSON.stringify([root.editorSnapshot.metadata.sourceEpoch, dataScope])
     onDataKeyChanged: Qt.callLater(requestSource)
     function requestSource() {
         controller.load_source(dataScope.searchType, null, dataScope.recordKey, dataScope.editView || "edit");
     }
-    readonly property string documentName: controller.document.name || ""
+    readonly property string documentName: root.editorSnapshot.document.name || ""
     onDocumentNameChanged: {
         if (previousDocument) {
             contexts[previousDocument] = Links.context(ui);
@@ -59,22 +65,22 @@ Item {
     readonly property bool allowCreate: false
     readonly property bool canReloadDocument: !controller.busy
     readonly property var frameModel: UI.model({
-        document: controller.document,
-        project: controller.metadata.project || "",
-        origin: controller.metadata.origin || "",
-        catalog: controller.catalog,
+        document: root.editorSnapshot.document,
+        project: root.editorSnapshot.metadata.project || "",
+        origin: root.editorSnapshot.metadata.origin || "",
+        catalog: root.editorSnapshot.catalog,
         dirty: controller.dirty,
         busy: controller.busy,
         uncertain: controller.writeUncertain,
         canWrite: controller.canWrite,
         canLoad: true,
-        checked: JSON.stringify(controller.metadata.checkedDocument) === JSON.stringify(controller.document),
+        checked: JSON.stringify(root.editorSnapshot.metadata.checkedDocument) === JSON.stringify(root.editorSnapshot.document),
         error: controller.error,
-        sourceXml: controller.metadata.sourceXml || "",
-        searchTypes: controller.metadata.searchTypes || [],
-        dataSource: controller.metadata.dataSource || {},
-        dataBusy: controller.metadata.dataBusy || false,
-        dataError: controller.metadata.dataError || ""
+        sourceXml: root.editorSnapshot.metadata.sourceXml || "",
+        searchTypes: root.editorSnapshot.metadata.searchTypes || [],
+        dataSource: root.editorSnapshot.metadata.dataSource || {},
+        dataBusy: root.editorSnapshot.metadata.dataBusy || false,
+        dataError: root.editorSnapshot.metadata.dataError || ""
     }, ui)
     function toolbarScene(width) {
         return UI.toolbar(frameModel, ui, width, language);
@@ -170,7 +176,11 @@ Item {
         width: root.width
         height: root.height - y
         theme: root.theme
-        scene: UI.describe(root.frameModel, root.ui, width, height, root.language)
+        Frame.FrameViewport {
+            id: bodyViewport
+            target: body
+        }
+        scene: UI.describe(root.frameModel, root.ui, bodyViewport.size.width, bodyViewport.size.height, root.language)
         models: Object.assign({}, UI.models(root.frameModel, root.ui), {
             sourceEditor: root.controller.sourceEditor
         })
@@ -217,14 +227,14 @@ Item {
     Component {
         id: previewComponent
         Loader {
-            active: !!root.controller.metadata.previewOwner
+            active: !!root.editorSnapshot.metadata.previewOwner
             sourceComponent: Tables.CustomLayoutView {
                 language: root.language
                 theme: root.theme
-                services: root.controller.metadata.previewOwner.services
-                owner: root.controller.metadata.previewOwner.owner
-                previewItems: root.controller.metadata.previewOwner.items
-                controller: root.controller.metadata.application
+                services: root.editorSnapshot.metadata.previewOwner.services
+                owner: root.editorSnapshot.metadata.previewOwner.owner
+                previewItems: root.editorSnapshot.metadata.previewOwner.items
+                controller: root.editorSnapshot.metadata.application
                 columnsController: typeof columnsEditorController === "undefined" ? null : columnsEditorController
                 users: typeof userController === "undefined" ? [] : userController.users
                 administration: typeof administrationController === "undefined" ? null : administrationController
