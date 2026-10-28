@@ -360,7 +360,8 @@ class _TableController(QObject):
     @Slot(str, str, str, int, bool)
     def select_result_node(self, *args):
         self.selections.append(args)
-        self._selected = [args[0]]
+        if not args[4]:
+            self._selected = [args[0]]
         self.selected_node_changed.emit()
 
     @Slot(str, result="QVariantList")
@@ -3573,6 +3574,18 @@ class ColumnsTableViewTests(unittest.TestCase):
             row_selection = named_items["tableSelection_asset"]
             table_controller.clear_result_selection()
             QTest.qWait(20)
+            point = row.mapToScene(QPointF(100, row.height() / 2)).toPoint()
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, point)
+            QTest.qWait(20)
+            self.assertFalse(row.property("selected"))
+            QTest.mouseClick(window, Qt.LeftButton, Qt.ShiftModifier, point)
+            QTest.qWait(20)
+            self.assertTrue(row.property("selected"))
+            clear = table.findChild(QQuickItem, "clearTableSelection")
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                             clear.mapToScene(QPointF(clear.width() / 2, clear.height() / 2)).toPoint())
+            QTest.qWait(20)
+            self.assertFalse(row.property("selected"))
             QTest.mouseClick(
                 window, Qt.LeftButton, Qt.NoModifier,
                 row_selection.mapToScene(QPointF(
@@ -3592,7 +3605,7 @@ class ColumnsTableViewTests(unittest.TestCase):
                 )).toPoint(),
             )
             QTest.qWait(20)
-            self.assertEqual(table_controller.clear_selection_calls, 2)
+            self.assertEqual(table_controller.clear_selection_calls, 3)
             QTest.mouseClick(
                 window, Qt.LeftButton, Qt.NoModifier,
                 select_all.mapToScene(QPointF(

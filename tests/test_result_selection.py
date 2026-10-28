@@ -134,6 +134,18 @@ def _relation(node_id):
 
 
 class ResultSelectionTests(unittest.TestCase):
+    def test_table_focus_preserves_checks_and_sets_shift_anchor(self):
+        nodes = [_sobject("one"), _sobject("two"), _sobject("three")]
+        controller = _SelectionHarness(nodes)
+        controller.select_result_node("one", nodes[0].search_key, "sobject", 0, True)
+        self.assertEqual(controller.tab.selected_node_ids, [])
+        self.assertEqual(controller.tab.selected_node_id, "one")
+        controller.select_result_node("three", nodes[2].search_key, "sobject", Qt.ShiftModifier.value)
+        self.assertEqual(controller.tab.selected_node_ids, ["one", "two", "three"])
+        controller.select_result_node("two", nodes[1].search_key, "sobject", 0, True)
+        self.assertEqual(controller.tab.selected_node_ids, ["one", "two", "three"])
+        self.assertEqual(controller.tab.selected_node_id, "two")
+
     def test_ctrl_toggling_active_row_emits_selection_without_reloading_details(self):
         controller = _SelectionHarness([_sobject("one"), _sobject("two")])
         controller.select_result_node("one", "demo/asset?code=one", "sobject")

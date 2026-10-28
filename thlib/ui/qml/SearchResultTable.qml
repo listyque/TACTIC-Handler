@@ -143,17 +143,49 @@ Item {
         }
     }
 
+    Loader {
+        id: selectionActions
+        objectName: "tableSelectionActions"
+        anchors.top: parent.top
+        width: parent.width
+        height: active ? 36 : 0
+        active: root.controller.selected_result_node_ids.length > 0
+        sourceComponent: Rectangle {
+            color: root.theme.contentSelection
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                spacing: 8
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Selected") + ": " + root.controller.selected_result_node_ids.length
+                    color: root.theme.primaryText
+                    font.family: root.theme.fontFamily
+                }
+                Controls.Button {
+                    objectName: "clearTableSelection"
+                    theme: root.theme
+                    text: qsTr("Clear selection")
+                    onClicked: root.controller.clear_result_selection()
+                }
+            }
+        }
+    }
+
     Item {
         id: scrollBarFrame
         anchors.fill: parent
         anchors.margins: 0
-        anchors.topMargin: taskDraftActions.visible ? taskDraftActions.height + 12 : 0
+        anchors.topMargin: selectionActions.height + (taskDraftActions.visible ? taskDraftActions.height + 12 : 0)
     }
 
     Loader {
         id: taskDraftActions
         objectName: "tableTaskDraftActions"
-        anchors.top: parent.top
+        anchors.top: selectionActions.bottom
         anchors.right: parent.right
         anchors.margins: 8
         active: Number(root.columnsController ? root.columnsController.dirtyTaskCount || 0 : 0) > 0
@@ -452,7 +484,7 @@ Item {
                             resultRow.activate(mouse.modifiers);
                         return;
                     }
-                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, mouse.modifiers, mouse.button === Qt.RightButton && resultRow.selected);
+                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, mouse.modifiers, !(mouse.modifiers & Qt.ShiftModifier));
                     if (mouse.button === Qt.RightButton) {
                         root.requestActionMenu(resultRow.nodeId, resultRow, mouse.x, mouse.y, false);
                     } else if (mouse.button === Qt.MiddleButton) {
@@ -682,7 +714,7 @@ Item {
                 Accessible.name: qsTr("Item actions")
                 onClicked: {
                     rows.currentIndex = resultRow.index;
-                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, resultRow.selected);
+                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, true);
                     root.requestActionMenu(resultRow.nodeId, rowActions, 0, rowActions.height, true);
                 }
             }

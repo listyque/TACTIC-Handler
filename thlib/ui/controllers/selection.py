@@ -107,8 +107,9 @@ class SelectionMixin:
         alt = bool(modifiers & Qt.KeyboardModifier.AltModifier.value)
         old_ids = list(tab.selected_node_ids)
         old_current = tab.selected_node_id
-        if preserve_selection and node_id in old_ids:
+        if preserve_selection:
             selected_ids = old_ids
+            tab.selection_anchor_id = node_id
         elif shift and tab.selection_anchor_id:
             ranged = self._selection_range(tab.selection_anchor_id, node_id)
             selected_ids = list(dict.fromkeys(
