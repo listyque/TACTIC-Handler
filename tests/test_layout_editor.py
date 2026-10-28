@@ -3,11 +3,14 @@ import copy
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+from tests import test_frame_table as frames
+from tests.test_columns_table_view import _visual_items
 from PySide6.QtCore import QObject, Signal, QCoreApplication
 from tests.qt_application import gui_test_application
 from thlib import tactic_classes as tc
 from thlib.environment import env_inst, env_server
 from thlib.ui.layout_editor import LayoutEditorHost, layout_tree
+from thlib.ui.admin.layout_editor_api import layout_editor_request
 
 XML='<config><!--custom--><cards_example layout="sobject-layout"><element name="title" custom="kept"><display class="title"/></element></cards_example></config>'
 class Worker(QObject):
@@ -26,6 +29,7 @@ class Pool:
         worker=Worker(operation);self.workers.append(worker);return worker
 
 class LayoutEditorTests(unittest.TestCase):
+    close = frames.FrameTableTests.close
     @classmethod
     def setUpClass(cls):cls.app=gui_test_application()
     def setUp(self):
@@ -46,6 +50,8 @@ class LayoutEditorTests(unittest.TestCase):
         return dict(revision='R1',sources=[dict(id=7,xml=XML,priority=0)],layers=[],layout_templates=[],views=['cards_example'],resolved={'configured':True})
     def loaded(self):
         self.host.activate('demo');worker=self.pool.workers[-1]
+        worker.result.emit({'stypes':[{'code':'demo/asset','title':'Assets'}]})
+        QCoreApplication.processEvents();worker=self.pool.workers[-1]
         worker.result.emit(dict(configuration=self.configuration(),sampleItems=[]))
         QCoreApplication.processEvents()
         self.assertTrue(self.host.canWrite)
@@ -81,14 +87,53 @@ class LayoutEditorTests(unittest.TestCase):
         response={'stypes':[{'code':'demo/hidden','title':'Hidden','__record_read__':{'available':False}},{'code':'demo/asset','title':'Assets'}]}
         self.read.return_value=response
         self.assertEqual(worker.operation(),response)
-        self.assertIs(self.read.call_args.args[0],tc.tq.query_search_types_extended)
-        self.assertEqual(self.read.call_args.args[1],{'project_code':'demo'})
+        self.assertIs(self.read.call_args.args[0],layout_editor_request)
+        self.assertEqual(self.read.call_args.args[1]['action'],'catalog')
+        self.assertEqual(self.read.call_args.args[1]['project_code'],'demo')
         self.assertIs(self.read.call_args.kwargs['server'],self.server)
         worker.result.emit(response);QCoreApplication.processEvents()
         self.assertEqual(self.host.model['searchTypes'],[{'value':'demo/asset','label':'Assets'}])
         self.assertEqual(self.host._search_type,'demo/asset')
         self.assertEqual(len(self.pool.workers),2)
         self.assertTrue(self.host.busy)
+    def test_warm_project_validates_cached_types_before_reading_a_layout(self):
+        foreign=SimpleNamespace(get_code=lambda:'other/activity',get_info=lambda:{'title':'Activity'})
+        self.project.stypes['other/activity']=foreign
+        self.host.reset('demo');self.host.activate('demo')
+        worker=self.pool.workers[-1]
+        response={'stypes':[{'code':'demo/asset','title':'Assets'}]}
+        self.read.return_value=response
+        worker.operation()
+        self.assertIs(self.read.call_args.args[0],layout_editor_request)
+        self.assertEqual(self.read.call_args.args[1]['action'],'catalog')
+        worker.result.emit(response);QCoreApplication.processEvents()
+        self.assertEqual(self.host.model['searchTypes'],[{'value':'demo/asset','label':'Assets'}])
+        self.assertEqual(self.host._search_type,'demo/asset')
+        self.read.return_value=dict(configuration=self.configuration(),sampleItems=[])
+        self.pool.workers[-1].operation()
+        self.assertEqual(self.read.call_args.args[1]['search_type'],'demo/asset')
+    def test_preview_displays_read_failure_instead_of_loading_forever(self):
+        self.loaded();self.host._draft_timer.stop()
+        self.host._error='Registered table does not exist'
+        window,view=frames.FrameTableTests.create(self,'features/administration/layouts/LayoutEditorView.qml',
+            dict(controller=self.host),width=1200,height=800)
+        texts=[item.property('text') for item in _visual_items(view) if item.isVisible()]
+        self.assertNotIn('Loading interface...',texts)
+        self.assertIn(self.host._error,texts)
+    def test_page_card_focus_loads_catalog_and_preserves_type_view_and_filters(self):
+        filters=[['code','=','CARD001']]
+        self.host.preview_scope('demo','demo/card','cards_example',filters)
+        self.pool.workers[-1].operation()
+        self.assertEqual(self.read.call_args.args[1]['action'],'catalog')
+        self.pool.workers[-1].result.emit({'stypes':[
+            {'code':'demo/asset','title':'Assets'},{'code':'demo/card','title':'Cards'}]})
+        QCoreApplication.processEvents()
+        self.pool.workers[-1].operation()
+        request=self.read.call_args.args[1]
+        self.assertEqual((request['action'],request['search_type'],request['view']),
+                         ('read','demo/card','cards_example'))
+        self.assertEqual(request['filters'],filters)
+        self.assertEqual(len(self.host.model['searchTypes']),2)
     def test_cancelled_catalog_cannot_repopulate_another_project(self):
         self.project.stypes=None;self.host.reset('demo');self.host.activate('demo');worker=self.pool.workers[-1]
         self.host.reset('other');self.assertTrue(worker.cancelled)
@@ -124,7 +169,7 @@ class LayoutEditorTests(unittest.TestCase):
         self.host.shutdown();self.assertFalse(self.host.busy)
     def test_save_requires_exact_checked_buffer_and_never_retries(self):
         self.loaded();self.host.set_xml(XML.replace('kept','changed'));self.host.save()
-        self.assertEqual(len(self.pool.workers),1)
+        self.assertEqual(len(self.pool.workers),2)
         self.host._checked=self.host._xml;self.host.save();worker=self.pool.workers[-1]
         self.write.return_value=self.configuration();worker.operation()
         self.write.assert_called_once();self.read.assert_not_called()
@@ -133,7 +178,7 @@ class LayoutEditorTests(unittest.TestCase):
         QCoreApplication.processEvents()
         self.assertTrue(self.host.writeUncertain)
         previous=self.host._xml;self.host.set_xml(XML);self.host.save()
-        self.assertEqual(self.host._xml,previous);self.assertEqual(len(self.pool.workers),2)
+        self.assertEqual(self.host._xml,previous);self.assertEqual(len(self.pool.workers),3)
         self.host.reload(True);self.pool.workers[-1].result.emit(dict(configuration=self.configuration(),sampleItems=[]))
         QCoreApplication.processEvents()
         self.assertFalse(self.host.writeUncertain);self.assertFalse(self.host.dirty)
@@ -144,7 +189,7 @@ class LayoutEditorTests(unittest.TestCase):
         self.assertTrue(self.host.writeUncertain);self.assertTrue(self.host.dirty)
     def test_permission_and_changed_context_block_mutations(self):
         self.loaded();self.application.can_manage_tools=False;self.host.set_xml('<config/>');self.host.check()
-        self.assertEqual(self.host._xml,XML);self.assertEqual(len(self.pool.workers),1)
+        self.assertEqual(self.host._xml,XML);self.assertEqual(len(self.pool.workers),2)
         self.application.can_manage_tools=True;self.host._view='other';self.host.set_xml('<config/>');self.assertEqual(self.host._xml,XML)
     def test_external_view_contains_no_session_ticket(self):
         self.loaded()

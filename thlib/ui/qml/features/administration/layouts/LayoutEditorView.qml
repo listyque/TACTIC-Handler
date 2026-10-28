@@ -157,7 +157,7 @@ Item {
             Controls.SelectableText {
                 visible: !parent.active
                 theme: root.theme
-                text: root.frameModel.previewError || root.frameModel.sampleError || qsTr("Loading interface...")
+                text: root.frameModel.error || root.frameModel.previewError || root.frameModel.sampleError || qsTr("Loading interface...")
             }
         }
     }

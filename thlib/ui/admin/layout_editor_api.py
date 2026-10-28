@@ -7,11 +7,13 @@ def layout_editor_request(action: str, project_code: str, search_type: str, view
     from pyasm.biz import Project
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select the target project before editing layouts')
-    if action not in ('read', 'preview', 'save'):
+    if action not in ('catalog', 'read', 'preview', 'save'):
         raise ValueError('Unknown layout operation')
     from tactic_stream.server.widget_configuration import (
-        read_widget_configuration, preview_widget_configuration, save_widget_configuration)
-    if action == 'preview':
+        read_layout_catalog, read_widget_configuration, preview_widget_configuration, save_widget_configuration)
+    if action == 'catalog':
+        result = read_layout_catalog()
+    elif action == 'preview':
         result = preview_widget_configuration(search_type, view, source_id, xml, revision)
     elif action == 'save':
         result = save_widget_configuration(search_type, view, source_id, xml, revision)

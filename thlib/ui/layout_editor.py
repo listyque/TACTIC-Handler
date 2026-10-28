@@ -148,13 +148,13 @@ class LayoutEditorHost(QObject):
         if project != self._project:
             self.reset(project)
         if not self._loaded and not self.busy and project:
-            self.reload()
+            self._request('catalog')
 
     def preview_scope(self, project, search_type, view, filters=None):
         self.reset(project)
-        self._search_type, self._view = search_type, view
+        self._preferred_type, self._view = search_type, view
         self._sample_filters = copy.deepcopy(filters or [])
-        self.reload()
+        self._request('catalog')
 
     def reset(self, project=''):
         self._sample_filters = None
@@ -167,14 +167,6 @@ class LayoutEditorHost(QObject):
         self._project = project
         self._reset_state()
         if project and self._application.can_manage_tools:
-            from thlib.environment import env_inst
-            selected = env_inst.get_project_by_code(project) if env_inst.projects else None
-            stypes = getattr(selected, 'stypes', None) or {}
-            for stype in (stypes or {}).values():
-                info = stype.get_info() or {}
-                if (info.get('__record_read__') or {}).get('available') is not False:
-                    self._types.append(dict(value=stype.get_code(), label=info.get('title') or stype.get_code()))
-            self._types.sort(key=lambda row: row['label'].lower())
             tab = self._application._current_tab()
             self._preferred_type = tab.stype.get_code() if tab and tab.stype else ''
             self._select_type()
@@ -316,8 +308,8 @@ class LayoutEditorHost(QObject):
             return
         self._generation += 1
         generation, project, search_type, view, xml = self._generation, self._project, self._search_type, self._view, self._xml
-        procedure = tc.tq.query_search_types_extended if action == 'catalog' else layout_editor_request
-        parameters = dict(project_code=project) if action == 'catalog' else dict(action=action, project_code=project, search_type=search_type, view=view)
+        procedure = layout_editor_request
+        parameters = dict(action=action, project_code=project, search_type=search_type, view=view)
         if action == 'read' and self._sample_filters is not None:
             parameters['filters'] = copy.deepcopy(self._sample_filters)
         if action not in ('read', 'catalog'):

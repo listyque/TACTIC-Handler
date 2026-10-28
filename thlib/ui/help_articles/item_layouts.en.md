@@ -555,3 +555,8 @@ between these areas; canvas positioning works within its area. Nested containers
 inherit their parent's area; moving a header/footer block into one changes its
 region to Content. Filters, table search, selection and pagination keep their
 normal state and stable widget identity during resizing.
+
+The Search Type list uses the selected project's current server catalog.
+Shared types are available when their tables exist in that project. The editor
+does not choose a type from another project's cached list. A failed preview shows
+its error instead of continuing to show Loading interface.

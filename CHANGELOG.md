@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.231 - 2026-10-28
+
+- Discover Item Layout Search Types from the selected project's current server catalog instead of cached/global registry metadata. Share table availability and read-policy checks with Stream; replace failed-preview loading placeholders with their actual error.
+
 ## 0.6.0.230 - 2026-10-28
 
 - Separate configured pages into shared header, scrolling content and footer regions. Expose region placement in the page editor; retain stable widget paths and bounded header/footer scrollbars. Give nested tables clear toolbar and pagination surfaces, matching Stream.
