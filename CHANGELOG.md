@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.228 - 2026-10-28
+
+- Explain how configured pages display stored record fields, how Edit opens the native edit definition, and how to expose missing long-text fields without changing the page layout or record data.
+
 ## 0.6.0.227 - 2026-10-28
 
 - Verify painted task and note counter badges on configured cards, including changing counts, hidden zero, 99+, exact tooltip values and native mouse/keyboard actions. Document the matching Stream behavior.

@@ -7,6 +7,13 @@ order: 12
 
 > The object editor uses the active TACTIC EditWdg definition.
 
+On a configured page, **Edit record** opens the selected object's native form.
+The page displays stored record values; its layout controls their presentation.
+If a displayed value is missing from the form, add its actual column to that
+Search Type's `edit` definition. Use TextAreaWdg for long or Markdown text.
+Edit the source text, choose **Save changes**, then refresh the selected details
+to see its rendered content. Closing without saving leaves the record unchanged.
+
 Keywords use the same tag editor as the results table. Click the field to add
 or remove individual tags. Save applies the tags to the form draft; submit the
 object form to write them to TACTIC. Cancel leaves the field unchanged.
