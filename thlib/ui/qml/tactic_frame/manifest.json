@@ -33,7 +33,7 @@
     "core/icons.mjs": "94967d67725d7c557602f1f5b4430f971aca2bd9c2cd1116921b9ab7f8554f49",
     "core/interaction.mjs": "fd043ede2490d7d70735d1c98ebc968506828d7130009cbf7e095d76158f9405",
     "core/legacy_icons.mjs": "a9bae9608d3c24bc369071f80ab4301ec7833bcb1daf9a9792922bcaa2940d14",
-    "core/strings.mjs": "ba0fc75a67d39d0f1517383d53214bedaf7d4e46dd6b1491f3827c166f54fc62",
+    "core/strings.mjs": "4264a6579500b61b44a862553c1cebe4ba402d62cb4f5c2c5aff463a6b6d7204",
     "features/activity/calendar.ui.mjs": "16f09ceb0f88c4a7465885c7757842063ac2f7a9ec42e6e5fde503f352f71d2e",
     "features/activity/event.ui.mjs": "9293c7051f72b0553ee8227e03788e5f9f196f6f296f550aaafff94dae36560e",
     "features/activity/feed.ui.mjs": "15de6d00da9e61260a8ca17335c333ec9381831fc721422d33b1dc7a37228f43",

@@ -5,7 +5,7 @@ Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
 ## 0.6.0.211 - 2026-10-28
 
-- Reuse native smart search and suggestions in dashboard item trees and embedded tables. Keep parent/page constraints and submitted-query paging, reject stale suggestions, and show matching disabled editor search. Match Stream's NULL-presence filters in native scoped tables.
+- Reuse native smart search and suggestions in dashboard item trees and embedded tables. Keep parent/page constraints and submitted-query paging, reject stale suggestions, and show matching disabled editor search. Match Stream's NULL-presence filters in native scoped tables. Localize search labels and validation messages in EN/RU.
 
 ## 0.6.0.210 - 2026-10-28
 
