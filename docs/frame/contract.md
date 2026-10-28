@@ -230,3 +230,13 @@ same-project page; adapters retain editors and route commands. Page-link parsing
 never opens arbitrary/external URLs as local administration targets. Passing an
 empty `controlId` to `FrameView.focusListRow(id, index, '')` reveals a row without
 moving keyboard focus. Canvas selection unfolds ancestors before revealing it.
+
+Nested Item layout navigation belongs to `layout.state.mjs`: it resolves view
+widgets using explicit/inherited Search Types, guards dirty/pending work and
+retains up to32 parent UI contexts without draft documents. Both adapters load
+through their existing readonly configuration owners and reject missing views
+or original configuration sources. Return restores source, widget and UI context;
+the existing outer Page layout return remains available after unwinding.
+Native FrameDragScope owns an exclusive release-within-bounds tap and emits it
+once through FrameView, while DragHandler can take over for a drag. Regression
+input covers mouse, keyboard, touch and drag/drop without duplicate activation.

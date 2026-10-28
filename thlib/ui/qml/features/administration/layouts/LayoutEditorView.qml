@@ -12,6 +12,7 @@ Item {
     property string language: typeof localizationController !== "undefined" ? localizationController.current_language : qsTr("Search Types") === "Search Types" ? "en" : "ru"
     property bool saveActionsInHeader: false
     property var ui: State.initial()
+    readonly property var navigationParent: State.navigationParent(ui)
     readonly property var frameModel: UI.model(controller.model, ui)
     readonly property var frameScene: body.scene
     readonly property var rows: Object.assign({}, UI.models(frameModel, language), {
@@ -33,16 +34,26 @@ Item {
             controller.initialize_xml(blank);
             return;
         }
-        ui = State.synchronize(ui, frameModel);
+        const next = State.synchronize(ui, frameModel);
+        if (next !== ui) {
+            ui = next;
+            Qt.callLater(revealSelection);
+        }
+    }
+    function revealSelection() {
+        body.focusListRow("layoutElementsList", rows.layoutElements.findIndex(row => row.name === ui.selected), "");
     }
     function dispatch(event) {
         const result = State.transition(ui, frameModel, event);
         ui = result.ui;
         if (event.type === "select")
-            Qt.callLater(() => body.focusListRow("layoutElementsList", root.rows.layoutElements.findIndex(row => row.name === root.ui.selected), ""));
+            Qt.callLater(revealSelection);
         controller.set_presentation_dirty(State.pending(ui));
         for (const command of result.commands) {
             switch (command.type) {
+            case "reference":
+                controller.open_reference(command.searchType, command.view, command.source);
+                break;
             case "xml":
                 controller.set_xml(command.value);
                 break;

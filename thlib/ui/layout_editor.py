@@ -76,6 +76,7 @@ class LayoutEditorHost(QObject):
             previews.previewsReady.connect(self._previews_ready)
 
     def _reset_state(self):
+        self._pending_reference = None
         self._loaded = False
         self._loaded_scope = None
         self._types = []
@@ -258,6 +259,19 @@ class LayoutEditorHost(QObject):
         self._loaded = False
         self.reload()
 
+    @Slot(str, str, 'QVariant')
+    def open_reference(self, search_type: str, view: str, source=None) -> None:
+        if (self.busy or self.dirty or not self._application.can_manage_tools
+                or search_type not in {row['value'] for row in self._types}
+                or not re.fullmatch(r'[A-Za-z_][\w.@-]{0,127}', view)):
+            return
+        if search_type != self._search_type:
+            self._sample_filters = None
+        self._search_type, self._view = search_type, view
+        self._pending_template = None
+        self._pending_reference = dict(source=source)
+        self._request('read')
+
     @Slot(str, str)
     def new_view(self, view, xml):
         if self.busy or self.dirty or not self._configuration or not re.fullmatch(r'[A-Za-z_][\w.@-]{0,127}', view):
@@ -308,6 +322,9 @@ class LayoutEditorHost(QObject):
             return
         self._generation += 1
         generation, project, search_type, view, xml = self._generation, self._project, self._search_type, self._view, self._xml
+        reference = self._pending_reference if action == 'read' else None
+        if action == 'read':
+            self._pending_reference = None
         procedure = layout_editor_request
         parameters = dict(action=action, project_code=project, search_type=search_type, view=view)
         if action == 'read' and self._sample_filters is not None:
@@ -368,6 +385,12 @@ class LayoutEditorHost(QObject):
                     configuration = result['configuration'] if action == 'read' else result
                     if not isinstance(configuration.get('revision'), str) or not isinstance(configuration.get('sources'), list):
                         raise ValueError('Invalid layout configuration response')
+                    if reference is not None:
+                        if view not in configuration.get('layout_views', []):
+                            raise ValueError(self.tr('Referenced item layout is unavailable'))
+                        source = reference['source']
+                        if source not in (None, '') and not any(row['id'] == source and not isinstance(source, bool) for row in configuration['sources']):
+                            raise ValueError(self.tr('The original configuration source is unavailable'))
                     templates = [dict(row, tree=layout_tree(row['xml'])) for row in configuration.get('layout_templates', [])]
             except Exception as error:
                 self._uncertain = action == 'save'
@@ -391,7 +414,8 @@ class LayoutEditorHost(QObject):
                 self._templates = templates
                 self._uncertain = False
                 self._loaded = True
-                self._select_source(configuration.get('sources', [{}])[0].get('id', '') if configuration.get('sources') else '')
+                source = configuration['sources'][0]['id'] if configuration['sources'] else ''
+                self._select_source(reference['source'] if reference is not None and reference['source'] is not None else source)
                 if action == 'read':
                     self._preview_model.replace_sobjects(result.get('nativeObjects') or [], result.get('nativeSType'))
                     self._prepare_preview_images()

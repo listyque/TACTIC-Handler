@@ -268,7 +268,13 @@ export function describe(model, ui, width, height, language) {
         head.push(
             node('Button', 'adminReturnToLayout', rect(20, 11, 38, 38), {
                 text:
-                    tr('Back to page layout') + ': ' + model.layoutParent.title,
+                    tr(
+                        model.layoutParent.kind === 'item'
+                            ? 'Back to item layout'
+                            : 'Back to page layout'
+                    ) +
+                    ': ' +
+                    model.layoutParent.title,
                 icon: 'arrow-back',
                 iconOnly: true,
                 action: { type: 'return-layout' },

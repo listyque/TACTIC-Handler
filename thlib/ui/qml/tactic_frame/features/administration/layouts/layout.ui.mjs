@@ -13,7 +13,7 @@ import { sections as form } from '../../../controls/forms/sections.ui.mjs';
 import { translate } from '../../../core/strings.mjs';
 import * as Document from './layout.document.mjs';
 import { spacingField } from './canvas.mjs';
-import { pending } from './layout.state.mjs';
+import { pending, reference } from './layout.state.mjs';
 import * as Catalog from './layout.catalog.mjs';
 export const labels = {
     group: 'Group',
@@ -605,10 +605,20 @@ function propertyFields(model, ui, language, width) {
             text('option:radius', 'Corner radius', item.options.radius || '0')
         );
     }
-    if (item.kind === 'view')
-        fields.push(
-            text('option:view', 'Reusable view', item.options.view || '')
+    if (item.kind === 'view') {
+        const field = text(
+            'option:view',
+            'Reusable view',
+            item.options.view || ''
         );
+        field.trailingAction = {
+            title: 'Edit nested item layout',
+            icon: 'open-in-new',
+            enabled: !model.busy && !model.uncertain && !!reference(model, ui),
+            action: { type: 'openLayout' }
+        };
+        fields.push(field);
+    }
     const parentOptions = [
             {
                 value: '',

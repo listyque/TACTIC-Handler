@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.235 - 2026-10-29
+
+- Open nested reusable Item layouts directly from widget properties and return through the parent chain with the original configuration source, widget and panel state. Protect unsaved edits and reject unavailable references. Restore ordinary mouse/keyboard/touch activation of draggable native widget rows while retaining drag/drop. Match Stream navigation and EN/RU Help.
+
 ## 0.6.0.234 - 2026-10-29
 
 - Follow page widget references directly to the exact item layout, table-column definition or linked page, with a return action and retained editor drafts/view state. Reveal canvas selection in the widget tree without taking keyboard focus from the canvas. Use the same compact field actions and navigation rules in Stream.

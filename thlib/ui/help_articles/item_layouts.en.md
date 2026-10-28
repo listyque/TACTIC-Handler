@@ -593,3 +593,17 @@ them. Reopening that same card/column definition reuses the draft. Opening a
 different definition or replacing a page first requires saving or discarding its
 changes. Canvas selection automatically unfolds and scrolls its widget into view
 in the tree, while keyboard input remains on the canvas.
+
+In **Item layouts**, select a **Reusable view** widget and click the small
+**Edit nested item layout** icon beside its **Reusable view** field. The editor
+opens the named view for the widget's explicit Search Type, or the current
+Search Type when that field is empty. **Back to item layout** in the header
+returns one level and restores the configuration source, selected widget, editor
+tab and panel widths. Multiple nested levels work in order; returning from the
+first level restores the existing **Back to page layout** action when applicable.
+Save or discard changes before opening another layout or returning. Navigation
+never saves automatically. A missing nested view shows an error and still allows
+return; it does not create a blank override. Unavailable Search Types and invalid
+or self-referencing names cannot be opened. Native draggable widget-tree rows
+also support ordinary click, keyboard and touch activation without duplicate
+actions; dragging still moves the widget.

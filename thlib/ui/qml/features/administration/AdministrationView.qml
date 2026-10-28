@@ -17,7 +17,7 @@ Item {
     readonly property string language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
     readonly property var frameModel: ({
             section: controller.section,
-            layoutParent: controller.layoutParent,
+            layoutParent: controller.section === "layouts" && root.contentHost?.layouts?.navigationParent || controller.layoutParent,
             project: controller.project,
             projects: projectModel.allProjects.map(row => ({
                         value: row.projectCode,
@@ -56,7 +56,12 @@ Item {
         for (const command of result.commands) {
             switch (command.type) {
             case "return-layout":
-                controller.return_to_page_layout();
+                if (controller.section === "layouts" && root.contentHost?.layouts?.navigationParent)
+                    root.contentHost.layouts.dispatch({
+                        type: "backLayout"
+                    });
+                else
+                    controller.return_to_page_layout();
                 break;
             case "section":
                 controller.select_section(command.value);

@@ -4,6 +4,7 @@ Item {
     id: root
     required property var value
     signal started
+    signal tapped
     readonly property var frameDragValue: value
     function cancel() {
         proxy.Drag.cancel();
@@ -13,6 +14,11 @@ Item {
         cancel()
     HoverHandler {
         cursorShape: Qt.OpenHandCursor
+    }
+    TapHandler {
+        acceptedButtons: Qt.LeftButton
+        gesturePolicy: TapHandler.ReleaseWithinBounds
+        onTapped: root.tapped()
     }
     DragHandler {
         id: gesture

@@ -260,6 +260,11 @@ Item {
                 active: root.interactive && !!wrapper.node.enabled && wrapper.node.dragValue !== undefined && wrapper.node.dragValue !== null
                 sourceComponent: FrameDragScope {
                     value: wrapper.node.dragValue
+                    onTapped: {
+                        if (loader.item)
+                            loader.item.forceActiveFocus(Qt.MouseFocusReason);
+                        root.send(wrapper.node.action, undefined, loader.item);
+                    }
                     onStarted: root.send(wrapper.node.dragStartAction)
                 }
             }

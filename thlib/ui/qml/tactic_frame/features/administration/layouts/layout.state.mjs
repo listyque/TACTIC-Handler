@@ -16,11 +16,31 @@ export function initial() {
         text: {},
         confirmation: '',
         checking: false,
+        navigation: [],
+        navigationScope: '',
+        navigationPending: null,
         error: ''
     };
 }
 export function pending(ui) {
     return Object.keys(ui.text).length > 0;
+}
+export function reference(model, ui) {
+    const item = model.layout.elements.find((row) => row.name === ui.selected);
+    if (item?.kind !== 'view') return null;
+    const view = item.options.view || '',
+        searchType = item.search_type || model.searchType;
+    return /^[A-Za-z_][\w.@-]{0,127}$/.test(view) &&
+        model.searchTypes.some((row) => row.value === searchType) &&
+        (searchType !== model.searchType || view !== model.view)
+        ? { searchType, view }
+        : null;
+}
+export function navigationParent(ui) {
+    const parent = ui.navigation[ui.navigation.length - 1];
+    return parent
+        ? { kind: 'item', name: parent.view, title: parent.view }
+        : null;
 }
 export function blankXml(model) {
     const blank = (model.templates || []).find((row) => row.name === 'blank');
@@ -29,6 +49,12 @@ export function blankXml(model) {
         : '';
 }
 export function synchronize(ui, model) {
+    if (ui.navigation[0]?.project && ui.navigation[0].project !== model.project)
+        return Object.assign({}, ui, {
+            navigation: [],
+            navigationScope: '',
+            navigationPending: null
+        });
     if (!model.ready) return ui;
     const key = [
             model.project,
@@ -49,6 +75,36 @@ export function synchronize(ui, model) {
         !model.layout.elements.some((row) => row.name === next.selected)
     )
         next.selected = (model.layout.elements[0] || {}).name || '';
+    const scope = [model.project, model.searchType, model.view].join(':');
+    if (
+        ui.navigationPending?.searchType === model.searchType &&
+        ui.navigationPending.view === model.view
+    ) {
+        const restore = ui.navigationPending.restore;
+        if (restore) {
+            for (const field of [
+                'page',
+                'panel',
+                'selected',
+                'catalogWidth',
+                'propertiesWidth'
+            ])
+                next[field] = restore[field];
+            if (
+                !model.layout.elements.some((row) => row.name === next.selected)
+            )
+                next.selected = model.layout.elements[0]?.name || '';
+        }
+        next.navigationPending = null;
+        next.navigationScope = scope;
+    } else if (
+        (next.navigationPending || next.navigationScope) &&
+        next.navigationScope !== scope
+    ) {
+        next.navigation = [];
+        next.navigationPending = null;
+        next.navigationScope = '';
+    }
     if (next.checking && !model.busy) {
         if (model.checked && model.checked === model.xml)
             next.page = 'resolved';
@@ -154,6 +210,52 @@ export function transition(ui, model, event) {
             commands
         };
     switch (event.type) {
+        case 'openLayout':
+        case 'backLayout': {
+            if (model.dirty || model.uncertain || pending(ui)) {
+                next.error = 'Save or discard changes before continuing';
+                break;
+            }
+            const target =
+                event.type === 'openLayout'
+                    ? reference(model, ui)
+                    : ui.navigation[ui.navigation.length - 1];
+            if (!target || (target.project && target.project !== model.project))
+                break;
+            if (event.type === 'openLayout') {
+                if (ui.navigation.length >= 32) {
+                    next.error =
+                        'Return to a parent layout before opening another nested layout';
+                    break;
+                }
+                next.navigation = ui.navigation.concat([
+                    {
+                        project: model.project,
+                        searchType: model.searchType,
+                        view: model.view,
+                        source: model.source,
+                        selected: ui.selected,
+                        page: ui.page,
+                        panel: ui.panel,
+                        catalogWidth: ui.catalogWidth,
+                        propertiesWidth: ui.propertiesWidth
+                    }
+                ]);
+            } else next.navigation = ui.navigation.slice(0, -1);
+            next.navigationPending = {
+                searchType: target.searchType,
+                view: target.view,
+                restore: event.type === 'backLayout' ? target : null
+            };
+            next.error = '';
+            commands.push({
+                type: 'reference',
+                searchType: target.searchType,
+                view: target.view,
+                source: event.type === 'backLayout' ? target.source : null
+            });
+            break;
+        }
         case 'page':
             next.page = event.value;
             break;
