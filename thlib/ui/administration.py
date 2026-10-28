@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 class AdministrationController(QObject):
     stateChanged = Signal()
     groupsChanged = Signal()
+    pageColumnsRequested = Signal(str, str)
 
     def __init__(self, application, users, *, previews=None) -> None:
         super().__init__()
@@ -56,6 +57,7 @@ class AdministrationController(QObject):
         self._server_key = (application.server_url, application.server_user)
         self._section = 'groups'
         self._project = ''
+        self._layout_links = []
         self._pending_metadata = set()
         self._types_editor = SearchTypesEditor(application, self, previews=previews)
         self._schema_editor = GraphEditor(application, 'schema', self)
@@ -148,15 +150,74 @@ class AdministrationController(QObject):
 
     @Slot(str)
     def open_page_layout(self, name):
+        self._layout_links.clear()
         self.select_section('dashboards')
         self._dashboard_editor.focus(name)
 
+    @Property('QVariantMap', notify=stateChanged)
+    def layoutParent(self):
+        if not self._layout_links:
+            return {}
+        parent = self._layout_links[-1]
+        if (parent['project'] != self._project or parent['target'] != self._section
+                or self._section == 'dashboards' and parent['targetName'] != self._dashboard_editor.identity):
+            return {}
+        return parent
+
+    @Slot(str, str)
+    def remember_page_layout(self, target, name=''):
+        editor = self._dashboard_editor
+        if self._section != 'dashboards' or not editor.identity or target not in {'layouts', 'columns', 'dashboards'}:
+            return
+        if target == 'dashboards' and name == editor.identity:
+            return
+        self._layout_links = (self._layout_links + [dict(
+            project=self._project, name=editor.identity,
+            title=editor.document.get('title') or editor.identity,
+            target=target, targetName=name)])[-32:]
+
+    @Slot()
+    def return_to_page_layout(self):
+        parent = self.layoutParent
+        if not parent:
+            return
+        editor = self._dashboard_editor
+        if editor.identity != parent['name']:
+            if editor.dirty or editor.busy:
+                editor.fail(self.tr('Save or discard changes before continuing'))
+                return
+            editor.focus(parent['name'])
+        self._layout_links.pop()
+        self.select_section('dashboards')
+
+    @Slot(str)
+    def open_linked_page(self, name):
+        editor = self._dashboard_editor
+        if not self.canManage or not any(row['identity'] == name for row in editor.catalog):
+            return
+        if editor.dirty or editor.busy:
+            editor.fail(self.tr('Save or discard changes before continuing'))
+            return
+        self.remember_page_layout('dashboards', name)
+        editor.focus(name)
+
+    @Slot(str, str)
+    def open_page_columns(self, search_type, view):
+        if self.canManage:
+            self.pageColumnsRequested.emit(search_type, view)
+
     @Slot(str, str)
     def open_page_card(self, search_type, view):
-        if self._layout_editor.dirty or self._layout_editor.busy:
+        if not self.canManage:
+            return
+        same = (self._layout_editor._loaded_scope == (self._project, search_type, view)
+                and self._layout_editor._configuration and not self._layout_editor.busy)
+        if not same and (self._layout_editor.dirty or self._layout_editor.busy):
             self._dashboard_editor.fail(self.tr('Save or discard changes before continuing'))
             return
-        self._layout_editor.preview_scope(self._project, search_type, view)
+        self.remember_page_layout('layouts', '')
+        if not same:
+            self._layout_editor.preview_scope(self._project, search_type, view)
         self.select_section('layouts')
 
     @Property(str, notify=stateChanged)
@@ -214,6 +275,7 @@ class AdministrationController(QObject):
     @Slot(str)
     def select_project(self, project: str) -> None:
         if self.canManage and not self.projectLocked and project != self._project:
+            self._layout_links.clear()
             self._project = project
             for editor in self._editors.values():
                 editor.reset(project)
@@ -511,6 +573,7 @@ class AdministrationController(QObject):
         if not self.canManage:
             self._application.window_model.close_window('administration')
         self._pending_metadata.clear()
+        self._layout_links.clear()
         self._project = ''
         for editor in self._editors.values():
             editor.reset()

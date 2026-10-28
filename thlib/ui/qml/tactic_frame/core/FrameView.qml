@@ -1150,7 +1150,8 @@ Item {
                                 return false;
                             contentY = Contract.revealListOffset(contentY, row, height, count, wrapper.node.rowHeight, wrapper.node.rowGap === undefined ? 4 : wrapper.node.rowGap);
                             forceLayout();
-                            Qt.callLater(() => root.focusControl(controlId));
+                            if (controlId)
+                                Qt.callLater(() => root.focusControl(controlId));
                             return true;
                         }
                         clip: true

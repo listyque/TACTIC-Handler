@@ -344,7 +344,7 @@ export function fields(model, ui, width, language, enabled) {
                 props: { icon: 'refresh', action: { type: 'source' } }
             });
     }
-    if (['items', 'table'].includes(item.kind))
+    if (['items', 'table'].includes(item.kind)) {
         choice(
             'pageProperty_view',
             'Saved view',
@@ -352,6 +352,16 @@ export function fields(model, ui, width, language, enabled) {
             item.kind === 'items' ? metadata.itemViews : metadata.tableViews,
             'view'
         );
+        fields[fields.length - 1].trailingAction = {
+            title:
+                item.kind === 'items'
+                    ? 'Edit card layout'
+                    : 'Edit table columns',
+            icon: 'open-in-new',
+            enabled: !model.busy && !!requested.searchType,
+            action: { type: item.kind === 'items' ? 'card' : 'columns' }
+        };
+    }
     if (binding === 'record' && requested.searchType) {
         fields.push({
             id: 'pageRecordQuery',

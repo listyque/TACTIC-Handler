@@ -222,3 +222,11 @@ harness and its source map rather than replacing production widgets with it.
 - [Files](files.md), [support/connection](support.md), [tables](table.md)
 - [Stream source layout](../../../TS/tactic_stream/src/tactic_stream/shared_ui/README.md)
 - [TH and TS API/source boundaries](../../../TS/tactic_stream/docs/admin_agent/SOURCES.md)
+
+Layout-reference controls use the optional neutral `trailingAction` descriptor
+in `controls/forms/sections.ui.mjs`; the shared form reserves one square control
+beside the field. Domain state resolves the referenced Search Type/view or known
+same-project page; adapters retain editors and route commands. Page-link parsing
+never opens arbitrary/external URLs as local administration targets. Passing an
+empty `controlId` to `FrameView.focusListRow(id, index, '')` reveals a row without
+moving keyboard focus. Canvas selection unfolds ancestors before revealing it.

@@ -33,6 +33,9 @@ export function transition(ui, model, event) {
                       : 'administration'
             });
             break;
+        case 'return-layout':
+            if (model.layoutParent?.name && !model.busy) commands.push(event);
+            break;
         case 'close':
             if (model.locked) {
                 next.error = 'Save or discard changes before continuing';

@@ -33,9 +33,14 @@ class DashboardEditor(AdminDocumentEditor):
         return self._source_editor
 
     def _catalog_loaded(self):
+        from urllib.parse import urlsplit
+        from ..server_address import normalize_tactic_server_url
+
+        address = urlsplit(normalize_tactic_server_url(getattr(self._application, 'server_url', '')))
         self._revision = self._metadata.get("revision", self._revision)
         self._source_epoch += 1
-        self._metadata.update(sourceEpoch=self._source_epoch, project=self._project)
+        self._metadata.update(sourceEpoch=self._source_epoch, project=self._project,
+                              origin=address.scheme + '://' + address.netloc if address.netloc else '')
 
     @Slot(str, "QVariant", str, str)
     def load_source(self, search_type, query=None, record_key="", edit_view="edit"):

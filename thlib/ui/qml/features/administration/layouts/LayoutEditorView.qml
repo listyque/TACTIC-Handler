@@ -38,6 +38,8 @@ Item {
     function dispatch(event) {
         const result = State.transition(ui, frameModel, event);
         ui = result.ui;
+        if (event.type === "select")
+            Qt.callLater(() => body.focusListRow("layoutElementsList", root.rows.layoutElements.findIndex(row => row.name === root.ui.selected), ""));
         controller.set_presentation_dirty(State.pending(ui));
         for (const command of result.commands) {
             switch (command.type) {

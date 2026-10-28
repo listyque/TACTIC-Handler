@@ -3,6 +3,7 @@ import * as Data from './page.data.mjs';
 import * as Reports from './page.reports.mjs';
 import * as Viewport from './page.viewport.mjs';
 import * as Selection from './page.selection.mjs';
+import * as Links from './page.links.mjs';
 import { documentEvent } from '../admin.document.mjs';
 export function initial() {
     return {
@@ -364,6 +365,16 @@ export function transition(ui, model, event) {
                 for (const key of event.keys)
                     Document.block(model.document, key);
                 next.selection = Selection.roots(event.keys);
+                if (next.selection.length)
+                    next.collapsed = ui.collapsed.filter(
+                        (key) =>
+                            key !== 'page' &&
+                            !next.selection.some(
+                                (selected) =>
+                                    selected === key ||
+                                    selected.startsWith(key + '.')
+                            )
+                    );
                 next.selected = next.selection[next.selection.length - 1] || '';
                 next.recordQuery = '';
                 break;
@@ -631,14 +642,36 @@ export function transition(ui, model, event) {
                     : next.selection[next.selection.length - 1];
                 break;
             }
-            case 'card': {
+            case 'card':
+            case 'columns': {
                 const item = Document.block(model.document, ui.selected);
-                if (item?.kind === 'items')
+                const searchType = Data.scope(
+                    model.document,
+                    ui.selected
+                ).searchType;
+                if (
+                    item?.kind ===
+                        (event.type === 'card' ? 'items' : 'table') &&
+                    searchType &&
+                    !model.busy
+                )
                     commands.push({
-                        type: 'card',
-                        searchType: item.search_type,
-                        view: item.view
+                        type: event.type,
+                        searchType,
+                        view: item.view || 'table'
                     });
+                break;
+            }
+            case 'linkedPage': {
+                const item = Document.block(model.document, ui.selected);
+                const name = Links.target(
+                    item?.href,
+                    model.project,
+                    model.origin,
+                    model.catalog
+                );
+                if (name && !model.dirty && !model.busy)
+                    commands.push({ type: 'linkedPage', name });
                 break;
             }
             case 'open':

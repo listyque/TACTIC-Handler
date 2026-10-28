@@ -97,7 +97,8 @@ Flickable {
             return false;
         contentY = Contract.revealListOffset(contentY, row, height, count, node.rowHeight, node.rowGap === undefined ? 4 : node.rowGap, rowOffsets);
         refreshScene();
-        Qt.callLater(() => body.focusControl(controlId));
+        if (controlId)
+            Qt.callLater(() => body.focusControl(controlId));
         return true;
     }
     function focusGrid(id, row, column, name) {

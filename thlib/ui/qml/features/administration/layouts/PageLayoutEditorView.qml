@@ -4,6 +4,7 @@ import "../../../tactic_frame" as Frame
 import "../../../tactic_frame/features/administration/layouts/page.ui.mjs" as UI
 import "../../../tactic_frame/features/administration/layouts/page.state.mjs" as State
 import "../../../tactic_frame/features/administration/layouts/page.reports.mjs" as Reports
+import "../../../tactic_frame/features/administration/layouts/page.links.mjs" as Links
 import "../../table" as Tables
 import "../../../controls" as Controls
 import "../../.." as Shell
@@ -16,6 +17,14 @@ Item {
     property bool saveActionsInHeader: false
     property var ui: State.initial()
     property var canvasBoxes: []
+    property var contexts: Object.create(null)
+    property string previousDocument: ""
+    readonly property string documentProject: controller.metadata.project || ""
+    onDocumentProjectChanged: {
+        contexts = Object.create(null);
+        previousDocument = "";
+        ui = State.initial();
+    }
     Keys.onPressed: event => {
         const focused = root.Window.window?.activeFocusItem;
         if (event.isAutoRepeat || (focused && focused.cursorPosition !== undefined))
@@ -34,8 +43,16 @@ Item {
     }
     readonly property string documentName: controller.document.name || ""
     onDocumentNameChanged: {
-        ui = State.initial();
+        if (previousDocument) {
+            contexts[previousDocument] = Links.context(ui);
+            const names = Object.keys(contexts);
+            if (names.length > 32)
+                delete contexts[names[0]];
+        }
+        ui = Object.assign(State.initial(), contexts[documentName] || {});
+        previousDocument = documentName;
         controller.set_presentation_dirty(false);
+        Qt.callLater(revealSelection);
     }
     readonly property bool allowSave: true
     readonly property bool allowReload: true
@@ -43,6 +60,8 @@ Item {
     readonly property bool canReloadDocument: !controller.busy
     readonly property var frameModel: UI.model({
         document: controller.document,
+        project: controller.metadata.project || "",
+        origin: controller.metadata.origin || "",
         catalog: controller.catalog,
         dirty: controller.dirty,
         busy: controller.busy,
@@ -63,6 +82,12 @@ Item {
     function rowScene(list, row) {
         return UI.row(list, row, frameModel, ui, language);
     }
+    function revealSelection() {
+        if (ui.layersHidden || ui.preview || ui.source)
+            return;
+        const rows = UI.models(frameModel, ui).pageBlocks;
+        body.focusListRow("pageBlocks", rows.findIndex(row => row.key === (ui.selected || "page")), "");
+    }
     function dispatch(event) {
         if (event.type === "align")
             event = Object.assign({}, event, {
@@ -70,6 +95,8 @@ Item {
             });
         const result = State.transition(ui, frameModel, event);
         ui = result.ui;
+        if (["selection", "select", "togglePanel"].includes(event.type))
+            Qt.callLater(revealSelection);
         controller.set_presentation_dirty(Object.keys(ui.text).length > 0);
         for (const command of result.commands) {
             switch (command.type) {
@@ -101,6 +128,12 @@ Item {
                 break;
             case "card":
                 administrationController.open_page_card(command.searchType, command.view);
+                break;
+            case "columns":
+                administrationController.open_page_columns(command.searchType, command.view);
+                break;
+            case "linkedPage":
+                administrationController.open_linked_page(command.name);
                 break;
             default:
                 throw Error("Unsupported page command: " + command.type);

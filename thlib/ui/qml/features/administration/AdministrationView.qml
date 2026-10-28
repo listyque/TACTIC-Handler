@@ -17,6 +17,7 @@ Item {
     readonly property string language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
     readonly property var frameModel: ({
             section: controller.section,
+            layoutParent: controller.layoutParent,
             project: controller.project,
             projects: projectModel.allProjects.map(row => ({
                         value: row.projectCode,
@@ -54,6 +55,9 @@ Item {
         ui = result.ui;
         for (const command of result.commands) {
             switch (command.type) {
+            case "return-layout":
+                controller.return_to_page_layout();
+                break;
             case "section":
                 controller.select_section(command.value);
                 break;
@@ -70,6 +74,21 @@ Item {
         }
     }
     property var contentHost: null
+    Connections {
+        target: root.controller
+        function onPageColumnsRequested(searchType, view) {
+            const columns = root.contentHost ? root.contentHost.columns : null;
+            const same = columns && columns.selectedCatalog.searchType === searchType && columns.selectedCatalog.view === view && !columnsEditorController.busy;
+            if (!same && (columnsEditorController.busy || columnsEditorController.catalogUncertain || (columns && columns.catalogDirty))) {
+                root.controller.dashboardEditor.fail(qsTr("Save or discard changes before continuing"));
+                return;
+            }
+            root.controller.remember_page_layout("columns", "");
+            if (!same)
+                columnsEditorController.open_scoped_definition(searchType, view, root.controller.project);
+            root.controller.select_section("columns");
+        }
+    }
     readonly property var groupsView: contentHost ? contentHost.groups : null
     readonly property var savePage: {
         switch (controller.section) {

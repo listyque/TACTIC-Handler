@@ -236,15 +236,16 @@ export function describe(model, ui, width, height, language) {
             })
         );
     }
+    const linked = !!model.layoutParent?.name;
     const head = [
         label(
             'administrationSectionTitle',
             rect(
-                20,
+                linked ? 66 : 20,
                 11,
                 g.mobile
-                    ? g.body - (width > 700 ? 200 : 120)
-                    : Math.max(0, g.body - g.toolbar - 218),
+                    ? g.body - (width > 700 ? 200 : 120) - (linked ? 46 : 0)
+                    : Math.max(0, g.body - g.toolbar - 218 - (linked ? 46 : 0)),
                 28
             ),
             current.title,
@@ -263,6 +264,17 @@ export function describe(model, ui, width, height, language) {
             }
         )
     ];
+    if (linked)
+        head.push(
+            node('Button', 'adminReturnToLayout', rect(20, 11, 38, 38), {
+                text:
+                    tr('Back to page layout') + ': ' + model.layoutParent.title,
+                icon: 'arrow-back',
+                iconOnly: true,
+                action: { type: 'return-layout' },
+                enabled: !model.busy
+            })
+        );
     head.push(
         node(
             'View',

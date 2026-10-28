@@ -3,6 +3,7 @@ import { translate } from '../../../core/strings.mjs';
 import { sections } from '../../../controls/forms/sections.ui.mjs';
 import { notices, toolbar as documentToolbar } from '../admin.document.mjs';
 import * as Document from './page.document.mjs';
+import * as Links from './page.links.mjs';
 import { sectionSelector } from '../admin.document.mjs';
 import { spacingField } from './canvas.mjs';
 import * as Data from './page.data.mjs';
@@ -260,8 +261,23 @@ export function describe(model, ui, width, height, language) {
                     false,
                     item.kind === 'markdown' ? 'Area' : undefined
                 );
-            if (['link', 'button'].includes(item.kind))
+            if (['link', 'button'].includes(item.kind)) {
                 field('href', 'Link URL', item.href || '');
+                if (
+                    Links.target(
+                        item.href,
+                        model.project,
+                        model.origin,
+                        model.catalog
+                    )
+                )
+                    fields[fields.length - 1].trailingAction = {
+                        title: 'Edit linked page layout',
+                        icon: 'open-in-new',
+                        enabled: !model.busy && !model.dirty,
+                        action: { type: 'linkedPage' }
+                    };
+            }
             Components.componentFields(
                 fields,
                 item,
@@ -421,17 +437,6 @@ export function describe(model, ui, width, height, language) {
                           }
                 });
             }
-            if (item.kind === 'items')
-                fields.push({
-                    kind: 'Button',
-                    id: 'pageEditCard',
-                    title: 'Edit card layout',
-                    props: {
-                        icon: 'edit',
-                        enabled: !model.busy,
-                        action: { type: 'card' }
-                    }
-                });
             fields.push({
                 kind: 'Button',
                 id: 'pageRemoveBlock',

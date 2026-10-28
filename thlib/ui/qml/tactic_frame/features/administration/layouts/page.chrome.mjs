@@ -12,7 +12,7 @@ export const icons = {
     text: 'notes',
     markdown: 'description',
     metric: 'speed',
-    table: 'table-chart',
+    table: 'table',
     items: 'view-list',
     details: 'info',
     link: 'link',
@@ -173,6 +173,7 @@ export function treePanel(model, ui, bounds, language, enabled, narrow) {
                     source: 'pageBlocks',
                     keyField: 'key',
                     rowHeight: 34,
+                    rowGap: 2,
                     scrollbarId: 'pageBlocksScrollBar'
                 }
             )

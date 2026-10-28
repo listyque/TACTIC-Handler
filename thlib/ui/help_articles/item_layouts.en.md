@@ -577,3 +577,19 @@ the usual size preset, zoom and selection tools remain above the canvas.
 source viewer with selection, copy and search. **Design** returns to the canvas.
 This is the XML generated for Save, including the dashboard definition. Viewing
 XML, folding branches or changing panel widths does not save a layout.
+
+Open a referenced layout directly with the small **Open** icon beside
+**Saved view** in the page widget's Data settings: Items opens that exact Search
+Type and view in **Item layouts**, and Table opens its saved definition in
+**Columns Editor**. A page Link/Button that points to an existing dashboard in
+this project also has **Edit linked page layout** beside **Link URL**. External
+addresses and pages from another project do not open a local layout editor.
+
+The destination header has **Back to page layout**, named after the source page.
+Back restores the selected widget and its tree branch. Page view state (panel
+widths, folding and canvas scale) is retained during linked navigation. Card and
+column editors remain open with their drafts; returning does not save or discard
+them. Reopening that same card/column definition reuses the draft. Opening a
+different definition or replacing a page first requires saving or discarding its
+changes. Canvas selection automatically unfolds and scrolls its widget into view
+in the tree, while keyboard input remains on the canvas.

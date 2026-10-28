@@ -1,5 +1,8 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Back to page layout': 'Назад к макету страницы',
+    'Edit linked page layout': 'Изменить макет связанной страницы',
+    'Edit table columns': 'Изменить колонки таблицы',
     Results: 'Результаты',
     'Page region': 'Область страницы',
     Header: 'Шапка',
