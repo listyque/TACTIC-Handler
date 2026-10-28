@@ -387,6 +387,7 @@ Item {
             onViewPooledChanged: updateNestedView()
             readonly property bool isGroup: nodeType === "group"
             readonly property var parentGroup: isGroup ? values.parentGroup || null : null
+            readonly property bool active: !isGroup && root.controller.selected_node_id === nodeId
             readonly property bool selected: !isGroup && root.controller.selected_result_node_ids.indexOf(nodeId) >= 0
             readonly property bool inVerticalViewport: y + height >= rows.contentY && y <= rows.contentY + rows.height
             readonly property bool previewActive: root.presentationActive && root.hasThumbnailColumn && !isGroup && inVerticalViewport && !viewPooled
@@ -397,7 +398,7 @@ Item {
             focus: ListView.isCurrentItem && rows.activeFocus
             Accessible.role: isGroup ? Accessible.Button : Accessible.ListItem
             Accessible.name: isGroup ? title + " · " + childCount : title
-            Accessible.selected: selected
+            Accessible.selected: selected || active
 
             function cellRecord(columnName) {
                 const nativeCell = nativeCells ? nativeCells[columnName] : undefined;
@@ -455,7 +456,7 @@ Item {
                 anchors.fill: parent
                 anchors.bottomMargin: resultRow.nestedHeight
                 theme: root.theme
-                selected: resultRow.selected
+                selected: resultRow.selected || resultRow.active
                 normalColor: rowHover.hovered ? root.theme.rowHover : resultRow.isGroup ? root.theme.surfaceContainerHigh : root.theme.surfaceContainerLow
                 railVisible: false
                 animateStateChanges: !rows.moving
@@ -706,7 +707,7 @@ Item {
                 z: 4
                 theme: root.theme
                 iconName: "more_vert"
-                opacity: rowHover.hovered || resultRow.selected ? 1 : 0.35
+                opacity: rowHover.hovered || resultRow.selected || resultRow.active ? 1 : 0.35
                 toolTip: qsTr("Item actions")
                 visible: !resultRow.isGroup
                 Accessible.name: qsTr("Item actions")

@@ -309,6 +309,7 @@ class _TableController(QObject):
     def __init__(self):
         super().__init__()
         self._selected = []
+        self._focused = ""
         self.selections = []
         self.actions = []
         self.double_clicks = []
@@ -326,6 +327,10 @@ class _TableController(QObject):
         self._result_group_mode = "none"
         self.group_modes = []
         self.toggled_nodes = []
+
+    @Property(str, notify=selected_node_changed)
+    def selected_node_id(self):
+        return self._focused
 
     @Property("QVariantList", notify=selected_node_changed)
     def selected_result_node_ids(self):
@@ -360,6 +365,7 @@ class _TableController(QObject):
     @Slot(str, str, str, int, bool)
     def select_result_node(self, *args):
         self.selections.append(args)
+        self._focused = args[0]
         if not args[4]:
             self._selected = [args[0]]
         self.selected_node_changed.emit()
@@ -3585,6 +3591,12 @@ class ColumnsTableViewTests(unittest.TestCase):
             QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, point)
             QTest.qWait(20)
             self.assertFalse(row.property("selected"))
+            self.assertTrue(row.property("active"))
+            self.assertFalse(row_selection.property("checked"))
+            self.assertFalse(table.findChild(QQuickItem, "tableSelectionActions").property("active"))
+            surface = next(item for item in _visual_items(row)
+                           if item.objectName() == "searchResultTableRowSurface")
+            self.assertTrue(surface.property("selected"))
             QTest.mouseClick(window, Qt.LeftButton, Qt.ShiftModifier, point)
             QTest.qWait(20)
             self.assertTrue(row.property("selected"))

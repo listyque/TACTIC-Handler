@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.203 - 2026-10-28
+
+- Highlight the active table row independently from checked records. Plain clicks show the active row without enabling its checkbox or the selected-record bar.
+
 ## 0.6.0.202 - 2026-10-28
 
 - Remove the dark strip beneath result table headers and reserve scrollbar space only while the corresponding scrollbar is needed.
