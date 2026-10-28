@@ -14,8 +14,15 @@ export function inDetails(document, key) {
 }
 export function mode(document, key) {
     const item = key ? Document.block(document, key) : null;
-    if (!item || !['text', 'markdown'].includes(item.kind)) return '';
+    if (!item || !['text', 'heading', 'markdown', 'image'].includes(item.kind))
+        return '';
     if (item.binding && item.binding !== 'auto') return item.binding;
+    if (item.kind === 'image')
+        return item.source_key
+            ? 'record'
+            : inDetails(document, key)
+              ? 'selection'
+              : 'project';
     return item.source_key
         ? 'record'
         : item.field
@@ -72,7 +79,7 @@ export function change(document, key, field, value) {
         item = Document.block(result, key);
     if (field === 'binding') {
         if (
-            !['text', 'markdown'].includes(item.kind) ||
+            !['text', 'heading', 'markdown', 'image'].includes(item.kind) ||
             !['static', 'project', 'selection', 'record'].includes(value)
         )
             throw Error('Choose a supported field binding');
@@ -237,7 +244,7 @@ export function fields(model, ui, width, language, enabled) {
             item.kind
         ),
         condition =
-            ['row', 'column'].includes(item.kind) &&
+            ['row', 'column', 'grid'].includes(item.kind) &&
             inDetails(model.document, ui.selected);
     if (!collection && !binding && !condition) return fields;
     const sourceReady = enabled && !model.dataBusy && !!metadata.searchType;
@@ -268,7 +275,7 @@ export function fields(model, ui, width, language, enabled) {
             'Content source',
             binding,
             [
-                ['static', 'Static text'],
+                ...(item.kind === 'image' ? [] : [['static', 'Static text']]),
                 ['project', 'Current project'],
                 ...(inDetails(model.document, ui.selected)
                     ? [['selection', 'Selected object']]
@@ -354,7 +361,7 @@ export function fields(model, ui, width, language, enabled) {
                 title: 'More matches. Refine your search.'
             });
     }
-    if (binding && binding !== 'static') {
+    if (binding && binding !== 'static' && item.kind !== 'image') {
         const sourceFields = (metadata.fields || []).filter((row) =>
             item.kind === 'markdown'
                 ? type(row) === 'text'

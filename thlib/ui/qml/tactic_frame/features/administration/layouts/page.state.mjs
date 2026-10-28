@@ -181,6 +181,7 @@ export function transition(ui, model, event) {
                 'selection',
                 'align',
                 'appearance',
+                'sizing',
                 'add',
                 'remove',
                 'change',
@@ -333,6 +334,28 @@ export function transition(ui, model, event) {
                             event.boxes
                         ).document
                     );
+                break;
+            }
+            case 'sizing':
+            case 'sizingCommit': {
+                if (ui.preview) break;
+                if (
+                    event.type === 'sizingCommit' &&
+                    !Object.prototype.hasOwnProperty.call(ui.text, event.key)
+                )
+                    break;
+                replace(
+                    Document.sizing(
+                        model.document,
+                        ui.selected,
+                        event.field,
+                        event.type === 'sizingCommit'
+                            ? ui.text[event.key]
+                            : event.value
+                    )
+                );
+                next.text = Object.assign({}, next.text);
+                delete next.text[event.key];
                 break;
             }
             case 'appearance':

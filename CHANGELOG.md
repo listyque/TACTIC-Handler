@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.198 - 2026-10-28
+
+- Add responsive dashboard grids, row/column spans and fixed/fill/content sizing with native font measurement. Expose headings, icons, object thumbnails, native link buttons, dividers and spacers through the page editor and shared agent schema. Keep existing data/record permissions and revisioned Save.
+
 ## 0.6.0.197 - 2026-10-28
 
 - Add page-canvas multiple selection, marquee, group movement, alignment and snap guides with atomic local Undo. Preserve container hierarchy with validated pixel offsets. Expose block fill, stroke, radius, shadow and opt-in layout animation through the same saved dashboard contract in Handler and Stream.

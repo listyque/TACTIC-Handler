@@ -9,7 +9,14 @@ export const kinds = [
     'details',
     'link',
     'chart',
-    'summary'
+    'summary',
+    'grid',
+    'heading',
+    'icon',
+    'image',
+    'button',
+    'divider',
+    'spacer'
 ];
 // QVariantMap exposes Python None as undefined; keep explicit null fields in drafts.
 export const copy = (value) =>
@@ -84,7 +91,14 @@ export function change(document, key, field, value) {
         weight: [1, 12],
         gap: [0, 128],
         offset_x: [-2400, 2400],
-        offset_y: [-1600, 1600]
+        offset_y: [-1600, 1600],
+        columns: [1, 12],
+        min_cell_width: [80, 1200],
+        row_height: [40, 800],
+        column_span: [1, 12],
+        row_span: [1, 12],
+        collapse_width: [0, 2400],
+        icon_size: [16, 128]
     };
     if (limits[field]) {
         if (value === '' && ['width', 'height'].includes(field)) value = null;
@@ -99,11 +113,58 @@ export function change(document, key, field, value) {
             value = Number(value);
         }
     } else if (
+        [
+            'text_role',
+            'text_align',
+            'button_style',
+            'image_fit',
+            'text_weight'
+        ].includes(field)
+    ) {
+        const choices = {
+            text_role: [
+                'auto',
+                'caption',
+                'body',
+                'bodyLarge',
+                'title',
+                'heading',
+                'display',
+                'statistic',
+                'hero'
+            ],
+            text_align: ['left', 'center', 'right'],
+            button_style: ['normal', 'primary', 'tonal'],
+            image_fit: ['cover', 'contain'],
+            text_weight: [400, 600, 700]
+        };
+        if (field === 'text_weight') value = Number(value);
+        if (!choices[field].includes(value))
+            throw Error('Choose a supported component property');
+    } else if (field === 'text_color') {
+        if (
+            !/^(auto|primaryText|secondaryText|contentAccent|error|#[0-9a-fA-F]{6})$/.test(
+                value
+            )
+        )
+            throw Error('Choose a theme color or enter a six-digit hex color');
+    } else if (field === 'icon') {
+        if (
+            typeof value !== 'string' ||
+            value.length > 128 ||
+            !/^[A-Za-z0-9_./:-]*$/.test(value)
+        )
+            throw Error('Choose a supported icon');
+    } else if (
         !['title', 'text', 'search_type', 'view', 'href', 'field'].includes(
             field
         )
     )
         throw Error('Unsupported page property');
+    if (['width', 'height'].includes(field))
+        item.sizing = Object.assign({}, item.sizing || {}, {
+            [field + '_mode']: value === null ? 'auto' : 'fixed'
+        });
     item[field] = value;
     return result;
 }
@@ -129,7 +190,7 @@ export function add(document, key, kind, searchType) {
     const result = copy(document),
         selected = key ? block(result, key) : null;
     const parent =
-        selected && ['row', 'column', 'details'].includes(selected.kind)
+        selected && ['row', 'column', 'grid', 'details'].includes(selected.kind)
             ? path(key)
             : key
               ? path(key).slice(0, -1)
@@ -142,7 +203,7 @@ export function add(document, key, kind, searchType) {
         throw Error('Dashboard exceeds 128 bricks');
     if (parent.length > 6) throw Error('Dashboard nesting exceeds six levels');
     const item = { kind, title: kind };
-    if (['row', 'column', 'details'].includes(kind)) {
+    if (['row', 'column', 'grid', 'details'].includes(kind)) {
         item.children = [];
         item.height = 180;
     }
@@ -155,7 +216,23 @@ export function add(document, key, kind, searchType) {
         item.aggregates = [
             { name: 'count', title: 'Count', function: 'count', column: '' }
         ];
-    if (['text', 'markdown'].includes(kind)) item.text = kind;
+    if (['text', 'heading', 'markdown'].includes(kind)) item.text = kind;
+    if (kind === 'heading') item.text_weight = 600;
+    if (kind === 'grid')
+        Object.assign(item, {
+            height: null,
+            children: [],
+            columns: 3,
+            min_cell_width: 200,
+            row_height: 120
+        });
+    if (kind === 'icon')
+        Object.assign(item, { icon: 'folder', width: 40, height: 40 });
+    if (kind === 'button')
+        Object.assign(item, { title: 'Open project', href: '' });
+    if (kind === 'image')
+        Object.assign(item, { binding: 'project', height: 160 });
+    if (['divider', 'spacer'].includes(kind)) item.height = 24;
     rows.push(item);
     return { document: result, key: parent.concat(rows.length - 1).join('.') };
 }
@@ -231,7 +308,10 @@ export function reparent(document, key, parent) {
         item = block(result, key);
     if (!item) throw Error('Select a page block');
     const container = parent ? block(result, parent) : null;
-    if (container && !['row', 'column', 'details'].includes(container.kind))
+    if (
+        container &&
+        !['row', 'column', 'grid', 'details'].includes(container.kind)
+    )
         throw Error('Choose a row, column or details container');
     if (p.slice(0, -1).join('.') === parent) return { document: result, key };
     const target = container
@@ -277,6 +357,9 @@ export function geometry(document, change, boxes) {
                 )
             );
         }
+        item.sizing = Object.assign({}, item.sizing || {});
+        if (change.handle.includes('e')) item.sizing.width_mode = 'fixed';
+        if (change.handle.includes('s')) item.sizing.height_mode = 'fixed';
         return { document: result, key: change.key };
     }
     if (change.keyboard) {
@@ -301,7 +384,9 @@ export function geometry(document, change, boxes) {
     let parent = hit ? path(hit.key) : [];
     if (
         hit &&
-        !['row', 'column', 'details'].includes(block(result, hit.key)?.kind)
+        !['row', 'column', 'grid', 'details'].includes(
+            block(result, hit.key)?.kind
+        )
     )
         parent = parent.slice(0, -1);
     if (parent.length > 5) throw Error('Dashboard nesting exceeds six levels');
@@ -408,4 +493,55 @@ export function geometries(document, changes, boxes) {
         } else result = geometry(result, change, boxes).document;
     }
     return { document: result, keys };
+}
+
+export function sizing(document, key, field, value) {
+    const result = copy(document),
+        item = block(result, key);
+    const size = Object.assign(
+        {
+            width_mode: 'auto',
+            height_mode: 'auto',
+            min_width: 0,
+            min_height: 0,
+            max_width: null,
+            max_height: null
+        },
+        item.sizing || {}
+    );
+    if (['width_mode', 'height_mode'].includes(field)) {
+        if (!['auto', 'fixed', 'fill', 'content'].includes(value))
+            throw Error('Choose a supported size behavior');
+        const axis = field === 'width_mode' ? 'width' : 'height';
+        if (value === 'fixed' && item[axis] == null)
+            item[axis] = axis === 'width' ? 240 : 120;
+        if (['fill', 'content'].includes(value)) item[axis] = null;
+    } else {
+        if (
+            !['min_width', 'max_width', 'min_height', 'max_height'].includes(
+                field
+            )
+        )
+            throw Error('Unsupported page property');
+        if (value === '' && field.startsWith('max_')) value = null;
+        else {
+            if (
+                !/^\d+$/.test(String(value)) ||
+                Number(value) > (field.endsWith('width') ? 2400 : 1600) ||
+                (field.startsWith('max_') &&
+                    Number(value) < (field.endsWith('width') ? 40 : 24))
+            )
+                throw Error('Enter a whole number within the allowed range');
+            value = Number(value);
+        }
+    }
+    size[field] = value;
+    for (const axis of ['width', 'height'])
+        if (
+            size['max_' + axis] !== null &&
+            size['max_' + axis] < size['min_' + axis]
+        )
+            throw Error('Maximum size must not be smaller than minimum size');
+    item.sizing = size;
+    return result;
 }

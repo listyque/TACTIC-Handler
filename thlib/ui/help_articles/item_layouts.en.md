@@ -405,3 +405,46 @@ Shadow uses the existing item-surface shadow treatment. Animation transitions
 geometry when a live page changes; it is suppressed while editing and respects
 global motion/reduced-motion settings. It is not an autoplay or script animation
 builder. Clean preview hides selection/guides while preserving actual styling.
+
+## Responsive grids and native page elements
+
+Add widget now includes Grid layout, Heading, Icon, Object image, Button, Divider
+and Spacer. Existing tables, item trees, details, metrics and reports remain the
+same native components. Add a grid to a blank page, then add its children. Empty
+grids keep one visible row so the canvas remains selectable.
+
+Grid columns (1..12) and minimum cell width (80..1200px) determine the actual
+column count at the current width. A cell may span several columns/rows (1..12).
+Column spans shrink when there are fewer columns. Row height (40..800px) and Gap
+define the tracks. The editor fills free cells in row order; offsets are not
+required. Set Row/Column span on a selected child. Increase span/track height for
+more room. Contents remain bounded by the cell. A grid grows with its rows unless
+you set a fixed height. Row containers also expose their Stack below width.
+
+Width/Height behavior: Auto retains existing numeric-size or automatic behavior;
+Fixed uses the numeric field; Fill container uses the available cell; Fit content
+uses the natural content size. Minimum/maximum sizes constrain these preferences.
+Leave a maximum empty for no additional limit. Narrow hosts/cells bound preferred
+minimums rather than forcing shell overflow. Height and its limits refer to
+content, with padding/margins outside. Changing a numeric width/height or resizing
+with the mouse selects Fixed. Content sizing uses native font metrics in both
+clients. Geometry edits remain local Undo steps until ordinary revisioned Save.
+
+Heading/Text expose shared typography roles, weight, alignment and theme/custom
+colors. Icons use the existing native icon picker. Buttons expose native normal,
+primary and tonal styles and an optional icon. Set Link URL to an HTTP(S) or
+TACTIC address; an empty new button stays disabled until configured. Editing and
+clean preview never execute actions. Published buttons use existing native link
+navigation; TACTIC links stay inside the application, HTTP(S) uses the normal
+external-link behavior.
+
+Object image uses the project's/selected object's/specific record's normal
+ThumbWdg preview, including the existing initials fallback. Choose its binding
+and record in Data. Contain keeps the whole image; Cover crops to fill the area.
+The block does not load arbitrary image URLs or local file paths. Use native
+check-in to provide the object's thumbnail. Divider/Spacer use the same layout
+and sizing rules; the spacer remains selectable on the editor canvas.
+
+The palette does not yet expose arbitrary editable forms, script actions or new
+chart types. These elements use the same schema as the internal agent and need
+no project-specific frontend code or XML editing.

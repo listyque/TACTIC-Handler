@@ -4,6 +4,8 @@ import { link } from './cells.ui.mjs';
 import { quickLayout } from './nested.ui.mjs';
 import * as Report from './report.ui.mjs';
 import * as Filters from './page.filters.mjs';
+import * as PageLayout from './page.layout.mjs';
+import { textStyles } from '../../core/foundation.mjs';
 import {
     tab as workspaceTab,
     viewTabWidth
@@ -54,7 +56,8 @@ export function describe(
     height,
     language,
     editable = true,
-    server = ''
+    server = '',
+    measure = (text, size) => String(text).length * size
 ) {
     const tabOffset = cell.layoutTabs?.length ? 56 : 0;
     const children = [],
@@ -80,7 +83,8 @@ export function describe(
         startIndex = 0,
         output = children,
         bottom = Infinity,
-        spacing = 8
+        spacing = 8,
+        slotHeight = null
     ) {
         let top = originY;
         for (const [index, source] of (items || []).entries()) {
@@ -102,12 +106,7 @@ export function describe(
             const padding = item.padding || [0, 0, 0, 0],
                 margin = item.margin || [0, 0, 0, 0],
                 outerTop = top,
-                outerWidth = Math.min(
-                    space,
-                    /^\d+(?:px)?$/.test(item.width || '')
-                        ? parseFloat(item.width)
-                        : space
-                ),
+                outerWidth = PageLayout.width(item, space, measure),
                 x = originX + margin[3] + padding[3],
                 available = Math.max(
                     0,
@@ -118,37 +117,43 @@ export function describe(
             top += margin[0] + padding[0];
             let extent = 0;
             if (item.children) {
-                const horizontal = item.kind === 'row' && available >= 600;
-                if (horizontal) {
+                const horizontal =
+                    item.kind === 'row' &&
+                    available >= (item.collapseWidth ?? 600);
+                if (item.kind === 'grid') {
+                    const cells = PageLayout.grid(
+                        item.children,
+                        available,
+                        item,
+                        childGap
+                    );
+                    for (const cell of cells.placements)
+                        draw(
+                            [item.children[cell.index]],
+                            x + cell.x,
+                            top + cell.y,
+                            cell.width,
+                            id,
+                            cell.index,
+                            output,
+                            bottom,
+                            childGap,
+                            cell.height
+                        );
+                    extent = cells.height || item.row_height || 120;
+                } else if (horizontal) {
                     const budget = Math.max(
                         0,
                         available - childGap * (item.children.length - 1)
                     );
-                    const requested = item.children.map((child) =>
-                        /%$/.test(child.width || '')
-                            ? (parseFloat(child.width) / 100) * budget
-                            : /^\d+(?:px)?$/.test(child.width || '')
-                              ? parseFloat(child.width)
-                              : 0
-                    );
-                    const fixed = requested.reduce(
-                        (sum, value) => sum + value,
-                        0
-                    );
-                    const flex = item.children.reduce(
-                        (sum, child, index) =>
-                            sum +
-                            (requested[index] ? 0 : Number(child.weight) || 1),
-                        0
+                    const widths = PageLayout.rowWidths(
+                        item.children,
+                        budget,
+                        measure
                     );
                     let left = x;
                     for (const [column, child] of item.children.entries()) {
-                        const part = requested[column]
-                            ? requested[column] *
-                              Math.min(1, budget / Math.max(1, fixed))
-                            : (Math.max(0, budget - fixed) *
-                                  (Number(child.weight) || 1)) /
-                              Math.max(1, flex);
+                        const part = widths[column];
                         extent = Math.max(
                             extent,
                             draw(
@@ -228,20 +233,73 @@ export function describe(
                     })
                 );
             } else if (item.kind === 'text') {
+                const role = item.textRole || 'body',
+                    size = textStyles[role];
                 extent = text
-                    ? Math.max(
-                          28,
-                          Math.ceil(
-                              String(text).length /
-                                  Math.max(1, Math.floor(available / 8))
-                          ) * 22
-                      )
+                    ? item.editorPath
+                        ? PageLayout.textHeight(
+                              text,
+                              available,
+                              size,
+                              item.textWeight || 400,
+                              measure
+                          )
+                        : Math.max(
+                              28,
+                              Math.ceil(
+                                  String(text).length /
+                                      Math.max(1, Math.floor(available / 8))
+                              ) * 22
+                          )
                     : 0;
                 if (extent)
                     output.push(
                         label(id, rect(x, top, available, extent), text, {
-                            wrap: true
+                            wrap: true,
+                            fontRole: role,
+                            weight: item.textWeight || 400,
+                            align: item.textAlign || 'left',
+                            color: item.textColor || 'primaryText'
                         })
+                    );
+            } else if (item.kind === 'icon') {
+                extent = item.iconSize || 32;
+                output.push(
+                    node(
+                        'Icon',
+                        id,
+                        rect(x, top, Math.min(available, extent), extent),
+                        {
+                            icon: item.icon || 'folder',
+                            text,
+                            color: item.textColor || 'primaryText'
+                        }
+                    )
+                );
+            } else if (item.kind === 'image') {
+                extent = Number.isFinite(item.height) ? item.height : 160;
+                output.push(
+                    node('Preview', id, rect(x, top, available, extent), {
+                        source: link(item.image, server) || '',
+                        initials: String(text).slice(0, 2),
+                        round: false,
+                        outlined: false,
+                        fit: item.fit || 'contain'
+                    })
+                );
+            } else if (item.kind === 'divider' || item.kind === 'spacer') {
+                extent = item.height || (item.kind === 'divider' ? 24 : 16);
+                if (item.kind === 'divider')
+                    output.push(
+                        node(
+                            'Box',
+                            id,
+                            rect(x, top + Math.floor(extent / 2), available, 1),
+                            {
+                                background: item.textColor || 'outlineVariant',
+                                radius: 0
+                            }
+                        )
                     );
             } else if (item.kind === 'markdown') {
                 extent = Number.isFinite(item.height)
@@ -477,26 +535,75 @@ export function describe(
                         id,
                         rect(x, top, available, extent),
                         text,
-                        item.kind === 'link' ? 'open-in-new' : 'edit',
+                        item.icon ||
+                            (['link', 'button'].includes(item.kind)
+                                ? 'open-in-new'
+                                : 'edit'),
                         {
                             type: 'service',
-                            name:
-                                item.kind === 'link' ? 'layout-link' : 'script',
+                            name: ['link', 'button'].includes(item.kind)
+                                ? 'layout-link'
+                                : 'script',
                             href: item.href,
                             javascript: item.javascript,
                             selector: item.selector
                         },
-                        item.kind === 'link' || (editable && !cell.layoutBusy),
-                        { outlined: true }
+                        ['link', 'button'].includes(item.kind)
+                            ? !!item.href
+                            : editable && !cell.layoutBusy,
+                        {
+                            highlighted: item.buttonStyle === 'primary',
+                            tonal: item.buttonStyle === 'tonal'
+                        }
                     )
                 );
             }
-            if (
-                item.editorPath &&
-                Number.isFinite(item.height) &&
-                !['items', 'table', 'details'].includes(item.kind)
-            )
-                extent = item.height;
+            if (item.editorPath) {
+                const overhead = ['items', 'table', 'details'].includes(
+                    item.kind
+                )
+                    ? 32
+                    : 0;
+                const contentSlot =
+                    slotHeight === null
+                        ? null
+                        : Math.max(
+                              0,
+                              slotHeight -
+                                  margin[0] -
+                                  margin[2] -
+                                  padding[0] -
+                                  padding[2] -
+                                  overhead
+                          );
+                const resolved =
+                    PageLayout.height(
+                        item,
+                        Math.max(0, extent - overhead),
+                        contentSlot
+                    ) + overhead;
+                if (resolved !== extent) {
+                    const surface = output[firstOutput];
+                    if (
+                        surface &&
+                        [
+                            'metric',
+                            'image',
+                            'button',
+                            'link',
+                            'chart',
+                            'summary',
+                            'markdown'
+                        ].includes(item.kind)
+                    )
+                        surface.height = resolved;
+                    if (['table', 'items'].includes(item.kind))
+                        for (const surface of output.slice(firstOutput))
+                            if (surface.kind === 'View')
+                                surface.height = Math.max(0, resolved - 32);
+                }
+                extent = resolved;
+            }
             const outerHeight =
                 extent + margin[0] + margin[2] + padding[0] + padding[2];
             if (item.editorPath) {
@@ -573,7 +680,13 @@ export function describe(
                                       }
                                     : null,
                             editorPath: item.editorPath,
-                            clip: Number.isFinite(item.height),
+                            clip:
+                                Number.isFinite(item.height) ||
+                                slotHeight !== null ||
+                                !!item.sizing?.max_height ||
+                                ['fixed', 'fill'].includes(
+                                    item.sizing?.height_mode
+                                ),
                             children: content
                         }
                     )

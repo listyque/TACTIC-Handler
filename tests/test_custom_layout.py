@@ -89,6 +89,82 @@ class CustomLayouts(unittest.TestCase):
     click = frames.FrameTableTests.click
     item = frames.FrameTableTests.item
 
+    def test_dashboard_grid_spans_content_size_and_native_button(self):
+        from PySide6.QtCore import QPointF
+        import os
+        from PySide6.QtGui import QFontDatabase
+
+        # Offscreen runs need the same explicit text fonts as the paired capture.
+        for name in ("segoeui.ttf", "seguisb.ttf"):
+            path = Path(os.environ.get("WINDIR", "")) / "Fonts" / name
+            if path.is_file():
+                QFontDatabase.addApplicationFont(str(path))
+        services = Services(
+            dict(
+                targetSearchKey="sthpw/project?code=demo",
+                layoutNodes=[
+                    dict(
+                        kind="grid",
+                        editorPath=[0],
+                        columns=3,
+                        min_cell_width=200,
+                        row_height=100,
+                        gap=10,
+                        children=[
+                            dict(
+                                kind="text",
+                                text="Overview",
+                                textRole="heading",
+                                textWeight=600,
+                                editorPath=[0, 0],
+                                columnSpan=2,
+                            ),
+                            dict(
+                                kind="icon", icon="folder", iconSize=32, editorPath=[0, 1]
+                            ),
+                            dict(
+                                kind="button",
+                                text="Open project",
+                                href="https://example.com/project",
+                                buttonStyle="primary",
+                                editorPath=[0, 2],
+                                sizing=dict(width_mode="content", height_mode="content"),
+                            ),
+                            dict(kind="spacer", editorPath=[0, 3]),
+                        ],
+                    )
+                ],
+            )
+        )
+        window, view = self.create(
+            "features/table/CustomLayoutView.qml",
+            dict(
+                services=services,
+                controller=_TableController(),
+                columnsController=_TableColumns(),
+                users=None,
+                administration=None,
+            ),
+            width=1000,
+            height=600,
+        )
+        first = self.item(view, "customLayout_0_0_block")
+        second = self.item(view, "customLayout_0_1_block")
+        self.assertGreater(first.width(), second.width() * 1.8)
+        button = self.item(view, "customLayout_0_2")
+        self.assertGreater(button.width(), 100)
+        self.click(window, button)
+        self.assertEqual(services.events[-1]["name"], "layout-link")
+        self.assertEqual(services.events[-1]["href"], "https://example.com/project")
+        window.resize(420, 600)
+        view.setWidth(420)
+        frames.frame(window)
+        one = self.item(view, "customLayout_0_1_block").mapToScene(QPointF())
+        two = self.item(view, "customLayout_0_2_block").mapToScene(QPointF())
+        self.assertAlmostEqual(one.x(), two.x())
+        self.assertGreater(two.y(), one.y())
+        self.assertIsNotNone(self.item(view, "customLayout_0_3_block"))
+
     def test_page_filters_apply_typed_values_and_report_grid_is_native(self):
         from PySide6.QtCore import QCoreApplication
         report=dict(columns=[dict(key='group_0',title='Status',kind='group'),dict(key='count',title='Count',kind='measure')],

@@ -43,12 +43,38 @@ Frame.FrameView {
     signal blockSelected(string key)
     signal geometryEdited(var change, var boxes)
     readonly property var document: owner.document
+    FontMetrics {
+        id: regular
+        font.family: root.theme.fontFamily
+        font.pixelSize: 64
+        font.hintingPreference: Font.PreferVerticalHinting
+    }
+    FontMetrics {
+        id: semibold
+        font.family: root.theme.fontFamily
+        font.pixelSize: 64
+        font.weight: Font.DemiBold
+        font.hintingPreference: Font.PreferVerticalHinting
+    }
+    FontMetrics {
+        id: bold
+        font.family: root.theme.fontFamily
+        font.pixelSize: 64
+        font.weight: Font.Bold
+        font.hintingPreference: Font.PreferVerticalHinting
+    }
+    function measure(text, size, weight) {
+        const metrics = weight === 700 ? bold : weight === 600 ? semibold : regular;
+        // Reading the font keeps content sizing bound to initial/theme font changes.
+        const pixels = metrics.font.pixelSize;
+        return metrics.advanceWidth(String(text)) * size / Math.max(1, pixels);
+    }
     readonly property var baseScene: Layout.describe(Object.assign({}, document, {
         layoutTables: owner.tableModels || {},
         layoutFilterDraft: filterDraft,
         layoutEditing: editing,
         layoutDesigning: editing && guides
-    }), canvasSize.width - (canvasViewport ? 24 : 0), Math.max(1, canvasSize.height - (canvasViewport ? 24 : 0)), language, true, controller.server_url || "")
+    }), canvasSize.width - (canvasViewport ? 24 : 0), Math.max(1, canvasSize.height - (canvasViewport ? 24 : 0)), language, true, controller.server_url || "", measure)
     readonly property var decoratedScene: editing && guides ? Canvas.decorate(baseScene, "editorPath") : baseScene
     scene: canvasViewport ? Viewport.describe(decoratedScene, canvasViewport, width, height) : decoratedScene
     models: owner.tableModels || ({})

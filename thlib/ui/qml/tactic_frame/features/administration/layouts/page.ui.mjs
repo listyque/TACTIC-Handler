@@ -9,6 +9,7 @@ import * as Data from './page.data.mjs';
 import * as Reports from './page.reports.mjs';
 import { listAction } from '../../../controls/lists/tree.ui.mjs';
 import * as Viewport from './page.viewport.mjs';
+import * as Components from './page.components.mjs';
 
 function blockTitle(item, key, language) {
     if (item.title && item.title !== item.kind) return item.title;
@@ -212,7 +213,14 @@ export function describe(model, ui, width, height, language) {
                             table: 'Table',
                             link: 'Link',
                             chart: 'Bar chart',
-                            summary: 'Grouped report'
+                            summary: 'Grouped report',
+                            grid: 'Grid layout',
+                            heading: 'Heading',
+                            icon: 'Icon',
+                            image: 'Object image',
+                            button: 'Button',
+                            divider: 'Divider',
+                            spacer: 'Spacer'
                         }[value]
                     )
                 }))
@@ -465,7 +473,7 @@ export function describe(model, ui, width, height, language) {
                     model.layers
                         .filter(
                             (row) =>
-                                ['row', 'column', 'details'].includes(
+                                ['row', 'column', 'grid', 'details'].includes(
                                     row.kind
                                 ) &&
                                 row.key !== ui.selected &&
@@ -507,7 +515,7 @@ export function describe(model, ui, width, height, language) {
                 )
             );
             if (
-                ['text', 'markdown'].includes(item.kind) &&
+                ['text', 'heading', 'markdown'].includes(item.kind) &&
                 Data.mode(model.document, ui.selected) === 'static'
             )
                 field(
@@ -517,8 +525,16 @@ export function describe(model, ui, width, height, language) {
                     false,
                     item.kind === 'markdown' ? 'Area' : undefined
                 );
-            if (item.kind === 'link')
+            if (['link', 'button'].includes(item.kind))
                 field('href', 'Link URL', item.href || '');
+            Components.componentFields(
+                fields,
+                item,
+                ui,
+                canEdit,
+                language,
+                field
+            );
             fields.push({
                 kind: 'Heading',
                 id: 'pageLayoutHeading',
@@ -526,10 +542,20 @@ export function describe(model, ui, width, height, language) {
             });
             field('offset_x', 'Horizontal offset', item.offset_x || 0);
             field('offset_y', 'Vertical offset', item.offset_y || 0);
+            Components.sizingFields(
+                fields,
+                item,
+                ui,
+                model.document,
+                parent,
+                canEdit,
+                language,
+                field
+            );
             field('width', 'Width', item.width);
             field('height', 'Height', item.height);
             field('weight', 'Flexible width', item.weight || 1);
-            if (['row', 'column', 'details'].includes(item.kind))
+            if (['row', 'column', 'grid', 'details'].includes(item.kind))
                 field('gap', 'Gap', item.gap ?? 8);
             for (const name of ['padding', 'margin'])
                 fields.push(
