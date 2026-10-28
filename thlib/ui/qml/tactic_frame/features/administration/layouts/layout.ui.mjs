@@ -14,6 +14,7 @@ import { translate } from '../../../core/strings.mjs';
 import * as Document from './layout.document.mjs';
 import { spacingField } from './canvas.mjs';
 import { pending, reference } from './layout.state.mjs';
+import * as Samples from './layout.samples.mjs';
 import * as Catalog from './layout.catalog.mjs';
 export const labels = {
     group: 'Group',
@@ -66,7 +67,7 @@ export function choices(values, language) {
         label: translate(labels[value] || value || 'None', language)
     }));
 }
-export function model(raw, ui) {
+export function model(raw, ui, language = 'en', screenWidth = 1000) {
     let layout = {
             elements: [],
             columns: 12,
@@ -168,6 +169,17 @@ export function model(raw, ui) {
                   : 0
         );
     return Object.assign({}, raw, {
+        samplePreview:
+            !raw.busy && !raw.error && !raw.sampleError && !raw.previewError
+                ? Samples.fallback(
+                      raw.liveInterface?.table?.item_layout,
+                      raw.sampleItems,
+                      raw.searchType,
+                      ui.selected,
+                      language,
+                      screenWidth
+                  )
+                : null,
         ready: !!raw.configuration,
         canLoad: !!raw.canLoad,
         canWrite: !!raw.canWrite,
@@ -1366,7 +1378,11 @@ export function describe(model, ui, width, height, language) {
                     label(
                         'layoutPreviewHeading',
                         rect(12, 8, w - 24, 28),
-                        tr('Item preview'),
+                        tr(
+                            model.samplePreview
+                                ? 'Item preview · Sample data'
+                                : 'Item preview'
+                        ),
                         { weight: 600 }
                     ),
                     layout.elements.length

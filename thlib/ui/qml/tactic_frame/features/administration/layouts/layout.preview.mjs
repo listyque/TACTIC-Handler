@@ -50,7 +50,7 @@ export function actionAvailable(action, sample) {
         return sample.kind !== 'branch';
     return ['operate', 'upload', 'quickaction'].includes(action);
 }
-function visible(item, sample, layout, width) {
+export function visible(item, sample, layout, width) {
     const branch = sample.branch || {},
         snapshot = sample.snapshot_display || {},
         conditions = {

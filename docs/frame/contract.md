@@ -240,3 +240,13 @@ the existing outer Page layout return remains available after unwinding.
 Native FrameDragScope owns an exclusive release-within-bounds tap and emits it
 once through FrameView, while DragHandler can take over for a drag. Regression
 input covers mouse, keyboard, touch and drag/drop without duplicate activation.
+
+Item layout sample data belongs to `layout.samples.mjs`. The common model
+uses it only without matching real DTOs for the selected widget and ancestor
+scope, never on busy/read/preview errors. Samples have no record identity or
+external assets; shared composition and canvas render them without record
+operations or enrichment requests. Geometry changes use the ordinary XML draft
+path. Both adapters retain the real result surface while samples are visible;
+native also retains the sample canvas owner while its scene clears on updates.
+Regressions exercise empty/typed scopes, real-data transitions, actual resize,
+configuration-only saves and absence of persisted synthetic records.

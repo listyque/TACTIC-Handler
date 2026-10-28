@@ -1,5 +1,12 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Item preview · Sample data': 'Предпросмотр · Пример данных',
+    'Example item': 'Пример элемента',
+    'Example value': 'Пример значения',
+    'Example description': 'Пример описания',
+    'Example status': 'Пример статуса',
+    'Example process': 'Пример процесса',
+    'Example author': 'Пример автора',
     'Back to item layout': 'Назад к макету элемента',
     'Edit nested item layout': 'Изменить вложенный макет элемента',
     'Referenced item layout is unavailable':

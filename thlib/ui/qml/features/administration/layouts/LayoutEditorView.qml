@@ -1,7 +1,9 @@
 import QtQuick
+import QtQuick.Window
 import "../../../tactic_frame" as Frame
 import "../../../tactic_frame/features/administration/layouts/layout.ui.mjs" as UI
 import "../../../tactic_frame/features/administration/layouts/layout.state.mjs" as State
+import "../../../tactic_frame/features/administration/layouts/layout.samples.mjs" as Samples
 import "../../.." as Shell
 import "../../../controls" as Controls
 
@@ -13,7 +15,7 @@ Item {
     property bool saveActionsInHeader: false
     property var ui: State.initial()
     readonly property var navigationParent: State.navigationParent(ui)
-    readonly property var frameModel: UI.model(controller.model, ui)
+    readonly property var frameModel: UI.model(controller.model, ui, language, root.Window.window ? root.Window.window.width : width)
     readonly property var frameScene: body.scene
     readonly property var rows: Object.assign({}, UI.models(frameModel, language), {
         sourceEditor: controller.sourceEditor
@@ -143,35 +145,85 @@ Item {
     }
     Component {
         id: liveResults
-        Loader {
-            active: !!root.controller.application && !!root.frameModel.liveInterface?.table?.item_layout
-            sourceComponent: Shell.SearchResultSurface {
-                enabled: root.ui.page !== "resolved"
-                theme: root.theme
-                controller: root.controller.application
-                expansionOwner: root.controller
-                resultModel: root.controller.previewModel
-                current: root.ui.page !== "resolved"
-                viewMode: root.frameModel.liveInterface?.table?.item_layout?.collection === "grid" ? "tiles" : "continious"
-                splitterRatio: 0.5
-                presentationActive: visible
-                configuredLayout: root.frameModel.liveInterface?.table?.item_layout || null
-                layoutEditing: root.ui.page !== "resolved"
-                selectedLayoutElement: root.ui.page === "resolved" ? "" : root.ui.selected
-                onLayoutGeometryEdited: value => root.dispatch({
-                        type: "geometry",
-                        value
-                    })
-                onLayoutElementSelected: name => root.dispatch({
-                        type: "select",
-                        name
-                    })
+        Item {
+            Loader {
+                anchors.fill: parent
+                active: !!root.controller.application && !!root.frameModel.liveInterface?.table?.item_layout
+                visible: !root.frameModel.samplePreview
+                sourceComponent: realResults
+            }
+            Loader {
+                anchors.fill: parent
+                // Keep the canvas owner alive while its scene clears on real-data updates.
+                visible: !!root.frameModel.samplePreview
+                sourceComponent: sampleResults
             }
             Controls.SelectableText {
-                visible: !parent.active
+                visible: !root.frameModel.liveInterface?.table?.item_layout
                 theme: root.theme
                 text: root.frameModel.error || root.frameModel.previewError || root.frameModel.sampleError || qsTr("Loading interface...")
             }
+        }
+    }
+    Component {
+        id: sampleResults
+        Frame.FrameView {
+            id: samplePreview
+            theme: root.theme
+            scene: Samples.scene(root.frameModel.liveInterface?.table?.item_layout, root.frameModel.samplePreview, width, height, root.ui.selected, root.ui.page !== "resolved", root.language, root.Window.window ? root.Window.window.width : root.width, "")
+            views: ({
+                    canvasOverlay: {
+                        component: sampleCanvas
+                    }
+                })
+            onEvent: action => {
+                if (action.type === "select")
+                    root.dispatch({
+                        type: "select",
+                        name: action.name
+                    });
+            }
+            Component {
+                id: sampleCanvas
+                CanvasSelection {
+                    theme: root.theme
+                    boxes: samplePreview.scene.canvasBoxes || []
+                    selected: root.ui.selected
+                    onSelectedKey: key => root.dispatch({
+                            type: "select",
+                            name: key
+                        })
+                    onCommitted: value => root.dispatch({
+                            type: "geometry",
+                            value
+                        })
+                }
+            }
+        }
+    }
+    Component {
+        id: realResults
+        Shell.SearchResultSurface {
+            enabled: root.ui.page !== "resolved"
+            theme: root.theme
+            controller: root.controller.application
+            expansionOwner: root.controller
+            resultModel: root.controller.previewModel
+            current: root.ui.page !== "resolved"
+            viewMode: root.frameModel.liveInterface?.table?.item_layout?.collection === "grid" ? "tiles" : "continious"
+            splitterRatio: 0.5
+            presentationActive: visible
+            configuredLayout: root.frameModel.liveInterface?.table?.item_layout || null
+            layoutEditing: root.ui.page !== "resolved"
+            selectedLayoutElement: root.ui.page === "resolved" ? "" : root.ui.selected
+            onLayoutGeometryEdited: value => root.dispatch({
+                    type: "geometry",
+                    value
+                })
+            onLayoutElementSelected: name => root.dispatch({
+                    type: "select",
+                    name
+                })
         }
     }
 }

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.236 - 2026-10-29
+
+- Show labeled editor-only sample data in Item layouts when real records are absent or do not match the selected widget. Preserve real previews and errors, support canvas selection/resizing, and save configuration without creating sample records. Match Stream and update EN/RU Help.
+
 ## 0.6.0.235 - 2026-10-29
 
 - Open nested reusable Item layouts directly from widget properties and return through the parent chain with the original configuration source, widget and panel state. Protect unsaved edits and reject unavailable references. Restore ordinary mouse/keyboard/touch activation of draggable native widget rows while retaining drag/drop. Match Stream navigation and EN/RU Help.

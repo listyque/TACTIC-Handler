@@ -607,3 +607,11 @@ return; it does not create a blank override. Unavailable Search Types and invali
 or self-referencing names cannot be opened. Native draggable widget-tree rows
 also support ordinary click, keyboard and touch activation without duplicate
 actions; dragging still moves the widget.
+
+When there are no records for the preview, **Item layouts** displays
+**Item preview · Sample data** with example values. Selecting a widget also
+uses sample data when the available records do not match its Search Type or
+variant. Matching real records take priority. You can select widgets and resize
+them on this canvas normally; Save writes the layout configuration only.
+Example values never create or change business records. Read and permission
+errors remain visible instead of being replaced by sample data.
