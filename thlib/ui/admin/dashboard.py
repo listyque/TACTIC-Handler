@@ -3,7 +3,8 @@
 import copy
 import re
 from uuid import uuid4
-from PySide6.QtCore import QObject, Slot, QTimer, Qt
+from PySide6.QtCore import QObject, Property, Slot, QTimer, Qt
+from ..source_editor import SourceEditorService
 from .editor import AdminDocumentEditor
 from .dashboard_api import dashboard_editor_request
 
@@ -11,6 +12,7 @@ from .dashboard_api import dashboard_editor_request
 class DashboardEditor(AdminDocumentEditor):
     def __init__(self, application, parent=None):
         super().__init__(application, dashboard_editor_request, parent)
+        self._source_editor = SourceEditorService(self)
         self._pending_save = None
         self._preview_owner = None
         self._preview_worker = None
@@ -25,6 +27,10 @@ class DashboardEditor(AdminDocumentEditor):
         self._timer.setSingleShot(True)
         self._timer.setInterval(250)
         self._timer.timeout.connect(self._preview)
+
+    @Property(QObject, constant=True)
+    def sourceEditor(self):
+        return self._source_editor
 
     def _catalog_loaded(self):
         self._revision = self._metadata.get("revision", self._revision)
@@ -196,10 +202,11 @@ class DashboardEditor(AdminDocumentEditor):
             if self._closed:
                 return
             if generation != self._generation or serial != self._preview_serial:
-                if self.dirty:
+                if self._document:
                     self._timer.start()
                 return
             self._metadata["compiled"] = result["model"]
+            self._metadata["sourceXml"] = result["xml"]
             self._metadata["checkedDocument"] = document
             self._checked_document = document
             self._update_preview()
@@ -207,14 +214,13 @@ class DashboardEditor(AdminDocumentEditor):
 
         def failed(error):
             self._preview_worker = None
-            if (
-                not self._closed
-                and generation == self._generation
-                and serial == self._preview_serial
-            ):
+            if self._closed:
+                return
+            if generation != self._generation or serial != self._preview_serial:
+                if self._document:
+                    self._timer.start()
+            else:
                 self.fail(str(error[0].get("exception") or error))
-            elif not self._closed and self.dirty:
-                self._timer.start()
 
         worker.result.connect(loaded, Qt.QueuedConnection)
         worker.error.connect(failed, Qt.QueuedConnection)

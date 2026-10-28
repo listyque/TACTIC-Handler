@@ -1,4 +1,4 @@
-import { node, rect, label, button, muted } from '../../../core/frame.mjs';
+import { node, rect } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 import { sections } from '../../../controls/forms/sections.ui.mjs';
 import { notices, toolbar as documentToolbar } from '../admin.document.mjs';
@@ -7,9 +7,8 @@ import { sectionSelector } from '../admin.document.mjs';
 import { spacingField } from './canvas.mjs';
 import * as Data from './page.data.mjs';
 import * as Reports from './page.reports.mjs';
-import { listAction } from '../../../controls/lists/tree.ui.mjs';
-import * as Viewport from './page.viewport.mjs';
 import * as Components from './page.components.mjs';
+import * as Chrome from './page.chrome.mjs';
 
 function blockTitle(item, key, language) {
     if (item.title && item.title !== item.kind) return item.title;
@@ -34,53 +33,38 @@ export function model(raw, ui) {
                 key: 'page',
                 depth: 0,
                 label: raw.document?.title || 'Page',
-                kind: 'page'
+                kind: 'page',
+                hasChildren: !!raw.document?.blocks?.length
             }
-        ].concat(Document.layers(raw.document || { blocks: [] }))
+        ].concat(
+            Document.layers(raw.document || { blocks: [] }).map(
+                (row, index, rows) =>
+                    Object.assign({}, row, {
+                        depth: row.depth + 1,
+                        hasChildren: rows[index + 1]?.depth > row.depth
+                    })
+            )
+        )
     });
 }
 export function toolbar(model, ui, width, language) {
     return documentToolbar(model, ui, width, language);
 }
-export function models(model) {
-    return { pageBlocks: model.layers };
+export { actions, toolEvent } from './page.chrome.mjs';
+export function models(model, ui) {
+    return {
+        pageBlocks: model.layers.filter(
+            (row) =>
+                !(ui.collapsed || []).some(
+                    (key) =>
+                        row.key !== key &&
+                        (key === 'page' || row.key.startsWith(key + '.'))
+                )
+        )
+    };
 }
 export function row(list, record, model, ui, language) {
-    const key = record.key === 'page' ? '' : record.key;
-    const title =
-        record.label === record.kind
-            ? blockTitle({ kind: record.kind }, record.key, language)
-            : record.label;
-    return {
-        nodes: [
-            node(
-                'Action',
-                'pageBlock_' + record.key,
-                rect(0, 0, list.width - 16, 38),
-                {
-                    text: title,
-                    normalColor: 'transparent',
-                    selectedColor: 'contentSelection',
-                    selected:
-                        (ui.selection || []).includes(key) ||
-                        ui.selected === key,
-                    children: [
-                        label(
-                            'pageBlockLabel_' + record.key,
-                            rect(
-                                8 + record.depth * 12,
-                                0,
-                                list.width - 32 - record.depth * 12,
-                                38
-                            ),
-                            title
-                        )
-                    ],
-                    action: { type: 'select', key }
-                }
-            )
-        ]
-    };
+    return Chrome.treeRow(list, record, model, ui, language, blockTitle);
 }
 
 export function describe(model, ui, width, height, language) {
@@ -112,274 +96,19 @@ export function describe(model, ui, width, height, language) {
     const notice = notices(noticesModel, ui, width, language),
         nodes = notice.nodes;
     let y = notice.top;
-    const newWidth = language === 'ru' ? 170 : 120;
-    const pickerWidth = Math.min(360, Math.max(100, width - newWidth - 70));
-    nodes.push(
-        node('Choice', 'pageLayoutChoice', rect(0, y, pickerWidth, 38), {
-            label: tr('Page layout'),
-            value: model.document.name || '',
-            options: model.catalog.map((r) => ({
-                value: r.identity,
-                label: r.label
-            })),
-            enabled: !model.busy && !model.uncertain,
-            action: { type: 'load' }
-        }),
-        button(
-            'pageLayoutNew',
-            rect(pickerWidth + 12, y, newWidth, 38),
-            tr('New page'),
-            'add',
-            { type: 'new' },
-            canEdit
-        ),
-        button(
-            'pageLayoutOpen',
-            rect(pickerWidth + newWidth + 24, y, 38, 38),
-            tr('Open saved view'),
-            'open-in-new',
-            { type: 'open' },
-            !model.dirty && !!model.document.name && !model.busy
-        )
-    );
-    y += 50;
-    if (ui.creating) {
-        const w = Math.min(300, Math.max(100, (width - 12) / 2));
-        nodes.push(
-            node('Field', 'pageLayoutName', rect(0, y, w, 38), {
-                label: tr('Page name'),
-                placeholder: 'my_dashboard',
-                text: ui.newName,
-                action: { type: 'newName' }
-            }),
-            node('Field', 'pageLayoutTitle', rect(w + 12, y, w, 38), {
-                label: tr('Title'),
-                placeholder: tr('Title'),
-                text: ui.newTitle,
-                action: { type: 'newTitle' }
-            }),
-            button(
-                'pageLayoutCreate',
-                rect(0, y + 48, 164, 38),
-                tr('Create draft'),
-                'add',
-                { type: 'create' },
-                canEdit
-            ),
-            button(
-                'pageLayoutCancelNew',
-                rect(176, y + 48, 120, 38),
-                tr('Cancel'),
-                'close',
-                { type: 'cancelNew' },
-                true
-            )
-        );
-        y += 98;
-    }
+    const geometry = Chrome.geometry(width, ui),
+        { narrow, left, right, canvasX, canvasWidth } = geometry;
     if (!model.document.name) {
-        nodes.push(
-            label(
-                'pageChooseHelp',
-                rect(0, y, width, 90),
-                tr('Choose a page or create a new page.'),
-                Object.assign({}, muted, { wrap: true })
-            )
-        );
-        return { nodes };
-    }
-    const narrow = width < 1000,
-        modeWidth = narrow ? 38 : language === 'ru' ? 200 : 176,
-        left = narrow ? width : 220,
-        right = narrow ? width : 310,
-        canvasX = narrow || ui.preview ? 0 : left + 12,
-        canvasWidth = narrow || ui.preview ? width : width - left - right - 24;
-    nodes.push(
-        node('Choice', 'pageAddWidget', rect(0, y, Math.min(width, 220), 38), {
-            label: tr('Add widget'),
-            value: '',
-            options: [{ value: '', label: tr('Add widget') }].concat(
-                Document.kinds.map((value) => ({
-                    value,
-                    label: tr(
-                        {
-                            items: 'Items',
-                            details: 'Details',
-                            row: 'Row',
-                            column: 'Column',
-                            text: 'Text',
-                            markdown: 'Markdown',
-                            metric: 'Metric',
-                            table: 'Table',
-                            link: 'Link',
-                            chart: 'Bar chart',
-                            summary: 'Grouped report',
-                            grid: 'Grid layout',
-                            heading: 'Heading',
-                            icon: 'Icon',
-                            image: 'Object image',
-                            button: 'Button',
-                            divider: 'Divider',
-                            spacer: 'Spacer',
-                            field: 'Record field',
-                            form: 'Record form',
-                            action: 'Record action'
-                        }[value]
-                    )
-                }))
-            ),
-            enabled: canEdit && !ui.preview,
-            toolTip: model.layers.some((row) => row.kind === 'items')
-                ? tr('Items preview shows up to three records.')
-                : '',
-            action: { type: 'add' }
-        })
-    );
-    if (!ui.preview) {
-        const current = Document.fingerprint(model.document);
-        const historyCurrent = ui.historyDocument === current;
-        const ready = canEdit && !model.pendingText && !ui.confirmation;
-        const single = (ui.selection || []).length < 2;
-        const p = Document.path(ui.selected),
-            rows = p.length ? Document.siblings(model.document, p) : [];
-        const actions = [
-            [
-                'Undo',
-                'undo',
-                { type: 'undo' },
-                ready && historyCurrent && ui.past?.length
-            ],
-            [
-                'Redo',
-                'redo',
-                { type: 'redo' },
-                ready && historyCurrent && ui.future?.length
-            ],
-            [
-                'Duplicate widget',
-                'content-copy',
-                { type: 'duplicate' },
-                ready && single && !!ui.selected
-            ],
-            [
-                'Move up',
-                'arrow-upward',
-                { type: 'reorder', delta: -1 },
-                ready && single && p.length && p[p.length - 1] > 0
-            ],
-            [
-                'Move down',
-                'arrow-downward',
-                { type: 'reorder', delta: 1 },
-                ready && single && p.length && p[p.length - 1] < rows.length - 1
-            ]
-        ];
-        const separate = width < 700;
-        actions.forEach(([title, icon, action, enabled], index) =>
-            nodes.push(
-                button(
-                    'pageAction_' + action.type + (action.delta || ''),
-                    rect(
-                        (separate ? 0 : 232) + index * 40,
-                        y + (separate ? 44 : 0),
-                        32,
-                        32
-                    ),
-                    tr(title),
-                    icon,
-                    action,
-                    !!enabled,
-                    { iconOnly: true }
-                )
-            )
-        );
-    }
-    y += 50;
-    nodes.push(
-        button(
-            'pagePreviewMode',
-            rect(width - modeWidth, y - 50, modeWidth, 38),
-            tr(ui.preview ? 'Back to editing' : 'Clean preview'),
-            ui.preview ? 'edit' : 'visibility',
-            { type: 'preview' },
-            !model.busy && !ui.creating && !model.pendingText,
-            { iconOnly: narrow }
-        )
-    );
-    if (!ui.preview && width < 700) y += 44;
-    if (width >= 500) {
-        if (ui.preview)
-            nodes.push(
-                label(
-                    'pageSelectionHint',
-                    rect(0, y, width, 24),
-                    tr(
-                        ui.preview
-                            ? 'Read-only draft preview. Nothing is saved.'
-                            : 'Click to select. Alt-click for underlying layers.'
-                    ),
-                    Object.assign({}, muted, { fontRole: 'caption' })
-                )
-            );
-        else {
-            const p = Document.path(ui.selected),
-                crumbs = [
-                    { key: '', title: model.document.title || tr('Page') }
-                ];
-            p.forEach((_, index) => {
-                const key = p.slice(0, index + 1).join('.'),
-                    item = Document.block(model.document, key);
-                crumbs.push({
-                    key,
-                    title: blockTitle(item, key, language)
-                });
-            });
-            let x = 0;
-            const children = [];
-            crumbs.forEach((crumb, index) => {
-                if (index) {
-                    children.push(
-                        label(
-                            'pageAncestorSeparator_' + index,
-                            rect(x, 0, 20, 30),
-                            '›',
-                            muted
-                        )
-                    );
-                    x += 20;
-                }
-                const w = Math.max(
-                    60,
-                    Math.min(180, crumb.title.length * 8 + 24)
-                );
-                children.push(
-                    listAction(
-                        'pageAncestor_' + (crumb.key || 'page'),
-                        rect(x, 0, w, 30),
-                        crumb.title,
-                        '',
-                        { type: 'select', key: crumb.key },
-                        !model.busy && !model.pendingText,
-                        {
-                            toolTip: crumb.title,
-                            selected: crumb.key === ui.selected
-                        }
-                    )
-                );
-                x += w;
-            });
-            nodes.push(
-                node('Scroll', 'pageAncestors', rect(0, y, width, 46), {
-                    contentWidth: x,
-                    contentHeight: 30,
-                    scrollbarId: 'pageAncestorsBar',
-                    children
+        const tools = Chrome.canvasTools(model, ui, width, language, canEdit);
+        return {
+            nodes: nodes.concat(
+                node('Box', 'pageEmptyTools', rect(0, y, width, tools.height), {
+                    children: tools.nodes
                 })
-            );
-        }
-        y += ui.preview ? 32 : 50;
+            )
+        };
     }
-    if (narrow && !ui.preview) {
+    if (narrow && !ui.preview && !ui.source) {
         nodes.push(
             sectionSelector(
                 'pageEditorPanels',
@@ -390,40 +119,27 @@ export function describe(model, ui, width, height, language) {
                 ],
                 ui.panel,
                 rect(0, y, width, 38),
-                !model.busy,
+                true,
                 'panel'
             )
         );
-        y += 50;
+        y += 42;
     }
     const h = Math.max(100, height - y);
     {
-        if (!ui.preview && (!narrow || ui.panel === 'layers'))
+        if (!ui.preview && !ui.source && (!narrow || ui.panel === 'layers'))
             nodes.push(
-                node('Box', 'pageLayersPanel', rect(0, y, left, h), {
-                    background: 'surfaceContainerLow',
-                    border: 'outlineVariant',
-                    children: [
-                        label(
-                            'pageLayersTitle',
-                            rect(12, 12, left - 24, 24),
-                            tr('Page blocks'),
-                            { weight: 600 }
-                        ),
-                        node(
-                            'List',
-                            'pageBlocks',
-                            rect(12, 48, left - 24, Math.max(0, h - 60)),
-                            {
-                                source: 'pageBlocks',
-                                keyField: 'key',
-                                rowHeight: 42,
-                                scrollbarId: 'pageBlocksScrollBar'
-                            }
-                        )
-                    ]
-                })
+                Chrome.treePanel(
+                    model,
+                    ui,
+                    rect(0, y, left, h),
+                    language,
+                    canEdit,
+                    narrow
+                )
             );
+        if (!narrow && !ui.preview && !ui.source)
+            nodes.push(...Chrome.splitters(geometry, y, h, language));
         const item = ui.selected
                 ? Document.block(model.document, ui.selected)
                 : null,
@@ -737,7 +453,7 @@ export function describe(model, ui, width, height, language) {
                   )
                 : fields;
         const body = sections(properties, right - 24, language, canEdit);
-        if (!ui.preview && (!narrow || ui.panel === 'properties'))
+        if (!ui.preview && !ui.source && (!narrow || ui.panel === 'properties'))
             nodes.push(
                 node(
                     'Box',
@@ -746,28 +462,38 @@ export function describe(model, ui, width, height, language) {
                     {
                         background: 'surfaceContainerLow',
                         border: 'outlineVariant',
-                        children: [
-                            node(
-                                'Scroll',
-                                'pageProperties',
-                                rect(12, 12, right - 24, h - 24),
-                                {
-                                    contentHeight: body.height,
-                                    scrollbarId: 'pagePropertiesBar',
-                                    children: body.nodes
-                                }
-                            )
-                        ]
+                        children: Chrome.propertiesHeader(
+                            ui,
+                            right,
+                            language,
+                            narrow
+                        ).concat(
+                            ui.propertiesHidden && !narrow
+                                ? []
+                                : [
+                                      node(
+                                          'Scroll',
+                                          'pageProperties',
+                                          rect(8, 36, right - 16, h - 44),
+                                          {
+                                              contentHeight: body.height,
+                                              scrollbarId: 'pagePropertiesBar',
+                                              children: body.nodes
+                                          }
+                                      )
+                                  ]
+                        )
                     }
                 )
             );
     }
-    if (ui.preview || !narrow || ui.panel === 'canvas') {
-        const tools = Viewport.controls(
+    if (ui.preview || ui.source || !narrow || ui.panel === 'canvas') {
+        const tools = Chrome.canvasTools(
+            model,
             ui,
-            canvasWidth - 24,
+            canvasWidth - 16,
             language,
-            !model.busy
+            canEdit
         );
         nodes.push(
             node('Box', 'pageCanvasPanel', rect(canvasX, y, canvasWidth, h), {
@@ -777,22 +503,42 @@ export function describe(model, ui, width, height, language) {
                     node(
                         'Box',
                         'pageCanvasTools',
-                        rect(12, 12, canvasWidth - 24, tools.height),
-                        {
-                            children: tools.nodes
-                        }
+                        rect(8, 8, canvasWidth - 16, tools.height),
+                        { children: tools.nodes }
                     ),
-                    node(
-                        'View',
-                        'pageCanvas',
-                        rect(
-                            12,
-                            20 + tools.height,
-                            canvasWidth - 24,
-                            Math.max(1, h - tools.height - 32)
-                        ),
-                        { view: 'pagePreview' }
-                    )
+                    ui.source
+                        ? node(
+                              'Code',
+                              'pageXmlSource',
+                              rect(
+                                  8,
+                                  tools.height + 16,
+                                  canvasWidth - 16,
+                                  Math.max(1, h - tools.height - 24)
+                              ),
+                              {
+                                  text: model.checked
+                                      ? model.sourceXml || ''
+                                      : '',
+                                  syntax: 'xml',
+                                  language,
+                                  readOnly: true,
+                                  service: 'sourceEditor',
+                                  label: tr('Source XML'),
+                                  bufferKey: 'page:' + model.document.name
+                              }
+                          )
+                        : node(
+                              'View',
+                              'pageCanvas',
+                              rect(
+                                  8,
+                                  tools.height + 16,
+                                  canvasWidth - 16,
+                                  Math.max(1, h - tools.height - 24)
+                              ),
+                              { view: 'pagePreview' }
+                          )
                 ]
             })
         );

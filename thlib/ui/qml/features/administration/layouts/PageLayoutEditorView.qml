@@ -5,6 +5,8 @@ import "../../../tactic_frame/features/administration/layouts/page.ui.mjs" as UI
 import "../../../tactic_frame/features/administration/layouts/page.state.mjs" as State
 import "../../../tactic_frame/features/administration/layouts/page.reports.mjs" as Reports
 import "../../table" as Tables
+import "../../../controls" as Controls
+import "../../.." as Shell
 
 Item {
     id: root
@@ -49,6 +51,7 @@ Item {
         canLoad: true,
         checked: JSON.stringify(controller.metadata.checkedDocument) === JSON.stringify(controller.document),
         error: controller.error,
+        sourceXml: controller.metadata.sourceXml || "",
         searchTypes: controller.metadata.searchTypes || [],
         dataSource: controller.metadata.dataSource || {},
         dataBusy: controller.metadata.dataBusy || false,
@@ -135,14 +138,48 @@ Item {
         height: root.height - y
         theme: root.theme
         scene: UI.describe(root.frameModel, root.ui, width, height, root.language)
-        models: UI.models(root.frameModel)
+        models: Object.assign({}, UI.models(root.frameModel, root.ui), {
+            sourceEditor: root.controller.sourceEditor
+        })
         describeRow: root.rowScene
         views: ({
+                pageTools: {
+                    component: toolsComponent,
+                    nodeProps: true
+                },
                 pagePreview: {
                     component: previewComponent
                 }
             })
         onEvent: action => root.dispatch(action)
+    }
+    Component {
+        id: toolsComponent
+        Item {
+            id: menuOwner
+            property var frameNode: ({})
+            readonly property var menu: toolsMenu
+            Controls.Button {
+                id: toolsButton
+                objectName: "pageEditorToolsButton"
+                anchors.fill: parent
+                theme: root.theme
+                compact: true
+                icon.name: "more-vert"
+                toolTip: menuOwner.frameNode.label || ""
+                Accessible.name: toolTip
+                onClicked: toolsMenu.openBelow(toolsButton)
+            }
+            Shell.ActionMenu {
+                id: toolsMenu
+                parent: root
+                objectName: "pageEditorToolsMenu"
+                theme: root.theme
+                alignBelowRight: true
+                actions: menuOwner.frameNode.actions || []
+                onTriggered: command => root.dispatch(UI.toolEvent(command))
+            }
+        }
     }
     Component {
         id: previewComponent

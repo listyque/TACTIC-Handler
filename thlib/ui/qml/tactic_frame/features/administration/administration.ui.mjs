@@ -90,7 +90,7 @@ const rect = (x, y, width, height) => ({
 });
 export function geometry(width, height, collapsed) {
     const mobile = width < 1000,
-        nav = mobile ? 0 : collapsed ? 72 : 250,
+        nav = mobile ? 0 : collapsed ? 56 : 250,
         body = width - nav,
         pad = mobile ? 12 : 20;
     const header = mobile ? 166 : Header.desktopHeight,
@@ -214,7 +214,12 @@ export function describe(model, ui, width, height, language) {
             node(
                 'List',
                 'administrationNavigation',
-                rect(8, top, g.nav - 16, height - top - 12),
+                rect(
+                    ui.collapsed ? 0 : 8,
+                    top,
+                    g.nav - (ui.collapsed ? 0 : 16),
+                    height - top - 12
+                ),
                 {
                     source: 'sections',
                     keyField: 'id',

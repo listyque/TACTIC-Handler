@@ -19,7 +19,7 @@ original SObject Item remain separate.
 ## Page and card are separate documents
 
 **Administration → Page layouts** edits the whole dashboard linked from navigation.
-Choose a saved page or **New page** to start an empty draft. The ordinary sidebar
+Choose a saved page or **⋮ → New page** to start an empty draft. The ordinary sidebar
 editor also has **Edit page layout** for a saved dashboard link. On a dashboard,
 **Edit layouts** opens its page document. Select a block on the canvas or in
 **Page blocks**. Drag it to reorder or move it into a row/column; resize with the
@@ -560,3 +560,20 @@ The Search Type list uses the selected project's current server catalog.
 Shared types are available when their tables exist in that project. The editor
 does not choose a type from another project's cached list. A failed preview shows
 its error instead of continuing to show Loading interface.
+
+The page editor's **Page blocks** tree uses widget icons. Its header contains
+**Add widget**. Click a branch chevron to fold or unfold its children; when a tree
+row has focus, Left folds and Right unfolds. Selecting a block on the canvas
+reveals its ancestors in the tree. Drag either panel divider to resize the tree
+or properties; the header chevrons collapse and restore each panel at its last
+width. The tree starts narrower, and collapsed Administration navigation uses a
+compact icon rail. Narrow windows keep the labelled panel selector.
+
+The toolbar above the canvas contains the page picker, Undo/Redo, **XML** and
+**⋮**. The menu holds New page, Open saved view, Duplicate widget, Move up/down,
+Canvas settings and Clean preview. Canvas settings reveals a custom pixel width;
+the usual size preset, zoom and selection tools remain above the canvas.
+**XML** shows the current validated draft's server configuration in a read-only
+source viewer with selection, copy and search. **Design** returns to the canvas.
+This is the XML generated for Save, including the dashboard definition. Viewing
+XML, folding branches or changing panel widths does not save a layout.

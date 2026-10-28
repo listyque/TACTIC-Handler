@@ -50,6 +50,7 @@ Frame.FrameView {
             resultModel: root.previewItems.previewModel
             configuredLayout: root.previewItems.model.liveInterface?.table?.item_layout || null
             viewMode: "continious"
+            splitterRatio: 0.5
             layoutEditing: true
             current: true
             presentationActive: visible

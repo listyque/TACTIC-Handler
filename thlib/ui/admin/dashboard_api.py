@@ -74,6 +74,7 @@ def dashboard_editor_request(
             metadata=dict(
                 result["metadata"],
                 compiled=compiled["model"],
+                sourceXml=compiled["xml"],
                 checkedDocument=compiled["document"],
             ),
         )

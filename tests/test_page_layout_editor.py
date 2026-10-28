@@ -43,6 +43,36 @@ COMPILED = dict(
 )
 
 
+def page_menu(fixture, command):
+    from PySide6.QtCore import QObject
+    from tests.profile_ui_responsiveness import frame
+    from tests.test_columns_table_view import _visual_items
+    fixture.click('pageEditorToolsButton')
+    button=fixture.item('pageEditorToolsButton')
+    menu=button.parentItem().property('menu')
+    assert menu is not None and menu.property('visible'), (command, menu)
+    if menu.property('openingInputGuardActive'):
+        guard=QSignalSpy(menu.openingInputGuardActiveChanged)
+        assert guard.wait(1500), 'Native popup opening guard did not settle'
+    content=menu.property('contentItem')
+    rows=[]
+    for item in _visual_items(content):
+        value=item.property('modelData')
+        if hasattr(value,'toVariant'):
+            value=value.toVariant()
+        if isinstance(value,dict) and value.get('command')==command:
+            rows.append(item)
+    assert len(rows)==1, command
+    target=next(item for item in _visual_items(rows[0]) if item.objectName()=='actionMenuPrimaryTarget')
+    window=target.window()
+    spy=QSignalSpy(menu.triggered)
+    point=target.mapToScene(QPointF(target.width()/2,target.height()/2)).toPoint()
+    QTest.mouseClick(window,Qt.LeftButton,Qt.NoModifier,point)
+    if not spy.count():
+        assert spy.wait(1500), command
+    frame(fixture.window)
+
+
 class PageOwnerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -123,6 +153,110 @@ class PageOwnerTests(unittest.TestCase):
         self.host._metadata["compiled"]["layoutDetail"] = dict(targetSearchKey=key)
         self.host._samples_changed()
         self.assertEqual(self.host._preview_serial, serial)
+
+    def test_latest_readonly_detail_preview_runs_after_a_stale_reply(self):
+        from PySide6.QtCore import QCoreApplication
+        self.enterContext(patch('thlib.tactic_classes.server_start',return_value=object()))
+        self.host._document=copy.deepcopy(DOCUMENT)
+        self.host._original=copy.deepcopy(DOCUMENT)
+        self.host._preview_owner=SimpleNamespace(items=SimpleNamespace(model={}),shutdown=lambda:None)
+        for outcome,changed_context in [('result',False),('error',False),('result',True),('error',True)]:
+            with self.subTest(outcome=outcome,changed_context=changed_context):
+                self.host._metadata['compiled']=dict(layoutHasDetails=True)
+                self.host._detail_key='demo/asset?code=A'
+                self.host._preview()
+                old=self.pool.workers[-1]
+                if changed_context:
+                    self.host._generation+=1
+                self.host._preview_owner.items.model=dict(sampleItems=[dict(record={'__search_key__':'demo/asset?code=B'})])
+                self.host._samples_changed()
+                self.host._timer.stop()
+                self.host._preview()
+                self.assertIs(self.host._preview_worker,old)
+                if outcome=='result':
+                    old.result.emit(dict(model=dict(layoutHasDetails=True),xml='<config/>'))
+                else:
+                    old.error.emit((dict(exception=ValueError('Old preview failed')),old))
+                QCoreApplication.processEvents()
+                self.assertTrue(self.host._timer.isActive(),'Latest preview must run even when the document is unchanged')
+                self.assertFalse(self.host.dirty)
+                self.host._timer.stop()
+                self.host._preview()
+                self.pool.workers[-1].result.emit(dict(model=dict(layoutHasDetails=True,layoutDetail={'searchKey':'demo/asset?code=B'}),xml='<config/>'))
+                QCoreApplication.processEvents()
+                self.assertEqual(self.host.metadata['compiled']['layoutDetail']['searchKey'],'demo/asset?code=B')
+                self.assertFalse(self.host.error)
+
+
+class PageChromeTests(unittest.TestCase):
+    from tests.test_frame_table import FrameTableTests
+    create = FrameTableTests.create
+    close = FrameTableTests.close
+    item = FrameTableTests.item
+    click = FrameTableTests.click
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = gui_test_application()
+
+    def test_item_preview_initializes_the_result_surface(self):
+        from tests.test_workspace_result_item import _WorkspaceAppController
+        from thlib.ui.layout_editor import LayoutEditorHost
+        application=_WorkspaceAppController()
+        application.can_manage_tools=True
+        application.debug_log=None
+        host=LayoutEditorHost(application)
+        self.addCleanup(host.shutdown)
+        window,view=self.create('features/table/DashboardItems.qml',dict(controller=application,
+            owner=None,columnsController=None,users=[],surfacesModel=None,versionsModel=None,previewItems=host),
+            width=400,height=600,context=dict(appController=application))
+        self.assertIsNotNone(self.item(view,'searchResultsListView'))
+
+    def test_tree_splitters_collapsed_panels_and_source_xml_do_not_edit(self):
+        from tests.profile_ui_responsiveness import frame
+        from tests.test_columns_table_view import _visual_items
+        from PySide6.QtCore import QPoint
+        host = DashboardEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        self.addCleanup(host.shutdown)
+        host._document = copy.deepcopy(DOCUMENT)
+        host._original = copy.deepcopy(DOCUMENT)
+        host._identity = 'review'
+        host._can_write = host._loaded = True
+        host._checked_document = copy.deepcopy(DOCUMENT)
+        host._metadata = dict(checkedDocument=copy.deepcopy(DOCUMENT), sourceXml='<config><view name="dashboard.review"/></config>')
+        host._catalog = [dict(identity='review',label='Review')]
+        window,view = self.create('features/administration/layouts/PageLayoutEditorView.qml',dict(controller=host),width=1400,height=900)
+        self.assertEqual(self.item(view,'pageLayersPanel').width(),180)
+        self.assertEqual(self.item(view,'pageLayersPanel').y(),0)
+        self.assertTrue(any(item.objectName()=='pageBlock_0.0' for item in _visual_items(view)))
+        self.click(window,self.item(view,'pageTreeToggle_0'))
+        self.assertFalse(any(item.objectName()=='pageBlock_0.0' and item.isVisible() for item in _visual_items(view)))
+        row=self.item(view,'pageBlock_0')
+        row.forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(window,Qt.Key_Right)
+        frame(window)
+        self.assertIsNotNone(self.item(view,'pageBlock_0.0'))
+        for name,delta in [('pageLayersSplitter',QPoint(60,0)),('pagePropertiesSplitter',QPoint(-40,0))]:
+            handle=self.item(view,name)
+            point=handle.mapToScene(QPointF(handle.width()/2,handle.height()/2)).toPoint()
+            QTest.mousePress(window,Qt.LeftButton,Qt.NoModifier,point)
+            QTest.mouseMove(window,point+delta,20)
+            QTest.mouseRelease(window,Qt.LeftButton,Qt.NoModifier,point+delta)
+            frame(window)
+        self.assertEqual(self.item(view,'pageLayersPanel').width(),240)
+        self.assertEqual(self.item(view,'pagePropertiesPanel').width(),320)
+        for prefix,expanded in [('Layers',240),('Properties',320)]:
+            self.click(window,self.item(view,'page'+prefix+'Toggle'))
+            self.assertEqual(self.item(view,'page'+prefix+'Panel').width(),32)
+            self.click(window,self.item(view,'page'+prefix+'Toggle'))
+            self.assertEqual(self.item(view,'page'+prefix+'Panel').width(),expanded)
+        self.click(window,self.item(view,'pageSourceXml'))
+        self.assertIsNotNone(self.item(view,'pageXmlSource'))
+        self.click(window,self.item(view,'pageSourceXml'))
+        self.assertEqual(self.item(view,'pageLayersPanel').width(),240)
+        self.assertEqual(host.document,DOCUMENT)
+        self.assertFalse(host.dirty)
+        self.assertIsNone(host._pending_save)
 
 
 class PageCanvasTests(unittest.TestCase):
@@ -271,6 +405,7 @@ class PageCanvasTests(unittest.TestCase):
         fixture.admin.select_section('dashboards')
         frame(fixture.window)
         serial, source = editor._preview_serial, editor._source_serial
+        page_menu(fixture, 'canvasSettings')
         field = fixture.item('pageCanvasPixels')
         field.forceActiveFocus(Qt.TabFocusReason)
         QTest.keyClick(fixture.window, Qt.Key_A, Qt.ControlModifier)
@@ -348,17 +483,17 @@ class PageCanvasTests(unittest.TestCase):
         QTest.keyClick(fixture.window, Qt.Key_Down)
         frame(fixture.window)
         self.assertEqual(len(editor.document['blocks']), 1)
-        fixture.click('pageAction_reorder-1')
+        page_menu(fixture, 'moveUp')
         for _ in range(4):
             fixture.click('pageAction_undo')
         self.assertEqual(editor.document, DOCUMENT)
-        fixture.click('pageAncestor_0')
+        fixture.click('pageBlock_0')
         self.assertIsNotNone(fixture.item('pageProperty_gap'))
-        fixture.click('pageAncestor_page')
+        fixture.click('pageBlock_page')
         with self.assertRaises(StopIteration):
             fixture.item('pageParent')
         fixture.click('pageBlock_0.0')
-        fixture.click('pageAction_duplicate')
+        page_menu(fixture, 'duplicate')
         field = fixture.item('pageProperty_title')
         field.forceActiveFocus(Qt.TabFocusReason)
         QTest.keyClick(fixture.window, Qt.Key_X)
@@ -419,13 +554,13 @@ class PageCanvasTests(unittest.TestCase):
         target = fixture.item("canvasTarget_0.0")
         fixture.fixture.click(fixture.window, target)
         frame(fixture.window)
-        fixture.click("pagePreviewMode")
+        page_menu(fixture, 'preview')
         with self.assertRaises(StopIteration):
             fixture.item("canvasTarget_0.0")
         with self.assertRaises(StopIteration):
             fixture.item("pageLayersPanel")
         self.assertFalse(editor.dirty)
-        fixture.click("pagePreviewMode")
+        page_menu(fixture, 'preview')
         target = fixture.item("canvasTarget_0.0")
         fixture.fixture.click(fixture.window, target)
         handle = fixture.item("canvasHandle_se")

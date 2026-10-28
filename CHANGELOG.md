@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.232 - 2026-10-28
+
+- Compact Page Layout tools above the canvas, move uncommon actions into the existing menu, and place Add widget inside the icon-bearing collapsible block tree. Add resizable, collapsible tree/properties panes and a narrower Administration icon rail. Show the exact generated draft XML in the shared read-only source viewer. Initialize the native item preview splitter and resume the latest detail preview after a stale reply even when the document is unchanged. Keep draft history and server saves explicit.
+
 ## 0.6.0.231 - 2026-10-28
 
 - Discover Item Layout Search Types from the selected project's current server catalog instead of cached/global registry metadata. Share table availability and read-policy checks with Stream; replace failed-preview loading placeholders with their actual error.

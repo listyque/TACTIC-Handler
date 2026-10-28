@@ -25,6 +25,13 @@ export function initial() {
         historyDocument: '',
         canvas: { width: 0, zoom: 'fit' },
         canvasWidthText: '',
+        layersWidth: 180,
+        propertiesWidth: 280,
+        layersHidden: false,
+        propertiesHidden: false,
+        collapsed: [],
+        source: false,
+        canvasSettings: false,
         error: ''
     };
 }
@@ -119,6 +126,45 @@ export function transition(ui, model, event) {
                 historyDocument: ''
             });
         return document;
+    }
+    if (event.type === 'panelSize') {
+        if (
+            ['layers', 'properties'].includes(event.panel) &&
+            Number.isFinite(event.value)
+        )
+            next[event.panel + 'Width'] = Math.max(
+                event.panel === 'layers' ? 140 : 240,
+                Math.min(event.panel === 'layers' ? 320 : 420, event.value)
+            );
+        return { ui: next, commands };
+    }
+    if (event.type === 'togglePanel') {
+        if (['layers', 'properties'].includes(event.panel))
+            next[event.panel + 'Hidden'] = !ui[event.panel + 'Hidden'];
+        return { ui: next, commands };
+    }
+    if (['treeToggle', 'treeExpand', 'treeCollapse'].includes(event.type)) {
+        if (
+            event.key !== 'page' &&
+            !Document.layers(model.document).some(
+                (row) => row.key === event.key
+            )
+        )
+            return { ui: next, commands };
+        const collapsed = ui.collapsed.includes(event.key);
+        next.collapsed =
+            event.type === 'treeExpand' ||
+            (event.type === 'treeToggle' && collapsed)
+                ? ui.collapsed.filter((key) => key !== event.key)
+                : collapsed
+                  ? ui.collapsed
+                  : ui.collapsed.concat(event.key);
+        return { ui: next, commands };
+    }
+    if (event.type === 'sourceXml' || event.type === 'canvasSettings') {
+        next[event.type === 'sourceXml' ? 'source' : 'canvasSettings'] =
+            event.type === 'sourceXml' ? !ui.source : !ui.canvasSettings;
+        return { ui: next, commands };
     }
     if (model.busy || ui.confirmation) return { ui: next, commands };
     if (
@@ -289,12 +335,19 @@ export function transition(ui, model, event) {
                         'Apply or discard the pending text before continuing'
                     );
                 next.preview = !ui.preview;
+                next.source = false;
                 break;
             case 'panel':
                 if (['layers', 'canvas', 'properties'].includes(event.value))
                     next.panel = event.value;
                 break;
             case 'select':
+                next.collapsed = ui.collapsed.filter(
+                    (key) =>
+                        key !== 'page' &&
+                        key !== event.key &&
+                        !event.key.startsWith(key + '.')
+                );
                 next.selection = event.key
                     ? ui.multiSelect
                         ? Selection.toggle(ui.selection || [], event.key)
