@@ -2604,7 +2604,9 @@ class ColumnsTableViewTests(unittest.TestCase):
             header = table.findChild(QObject, "searchResultTableHeader")
             header_surface = table.findChild(QQuickItem, "tableHeaderSurface")
             self.assertEqual(header_surface.height(), 34)
-            self.assertEqual(header_surface.property("radius"), theme.property("itemRadius"))
+            self.assertEqual(header_surface.property("radius"), 0)
+            self.assertEqual(rows.x(), 0)
+            self.assertEqual(rows.y(), 0)
             self.assertEqual(header_surface.property("color"), theme.property("surfaceContainer"))
             for item in _visual_items(table):
                 if item.objectName() in {"tableSelectionSurface", "tableActionSurface"}:

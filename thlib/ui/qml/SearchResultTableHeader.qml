@@ -132,7 +132,7 @@ Rectangle {
     }
 
     objectName: "searchResultTableHeader"
-    radius: theme.itemRadius
+    radius: 0
     color: theme.background
 
     Rectangle {

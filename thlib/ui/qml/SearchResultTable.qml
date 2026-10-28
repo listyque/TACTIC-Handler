@@ -146,8 +146,8 @@ Item {
     Item {
         id: scrollBarFrame
         anchors.fill: parent
-        anchors.margins: 8
-        anchors.topMargin: taskDraftActions.visible ? taskDraftActions.height + 12 : 8
+        anchors.margins: 0
+        anchors.topMargin: taskDraftActions.visible ? taskDraftActions.height + 12 : 0
     }
 
     Loader {
@@ -191,9 +191,9 @@ Item {
         id: rows
         objectName: "searchResultsTableView"
         anchors.fill: parent
-        anchors.margins: 8
+        anchors.margins: 0
         anchors.topMargin: scrollBarFrame.y
-        anchors.rightMargin: 8 + verticalBar.reservedExtent + 4
+        anchors.rightMargin: verticalBar.reservedExtent + 4
         anchors.bottomMargin: 8 + horizontalBar.reservedExtent + 4
         opacity: initialTablePresentation.ready ? 1 : 0
         model: root.resultModel
