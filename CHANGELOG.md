@@ -7,6 +7,10 @@ Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
 - Keep table row focus separate from checked selection: use Shift-click or checkboxes to select, and clear checks directly from the selected-record bar.
 
+## 0.6.0.200 - 2026-10-28
+
+- Use square corners for inline notices and task pending-change bars in shared screens.
+
 ## 0.6.0.199 - 2026-10-28
 
 - Add record-bound field displays, native inline forms and named record actions to dashboard composition. Reuse native EditWdg/EditCmd permissions, revision checks and transaction Undo; retain local drafts by record and recover uncertain saves without retrying writes. Preserve the existing item hierarchy and update only the selected detail pane.
