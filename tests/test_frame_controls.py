@@ -142,6 +142,23 @@ class FrameControlsTests(unittest.TestCase):
                                 (style, dark, language, width, state, self.warnings),
                             )
 
+    def test_round_icon_action_uses_unfilled_house_control(self):
+        view = self.item("area")
+        while view.property("scene") is None:
+            view = view.parentItem()
+        base = view.property("scene").toVariant()["nodes"][0]
+        view.setProperty("scene", {"nodes": [dict(base, **{"kind": "Button", "id": "roundIconTest",
+                         "x": 0, "y": 0, "width": 38, "height": 38,
+                         "enabled": True, "visible": True, "opacity": 1, "icon": "code", "iconOnly": True,
+                         "iconAction": True, "round": True, "text": "Shelf"})]})
+        frame(self.window)
+        self.assertEqual(self.warnings, [])
+        button = self.item("roundIconTest")
+        self.assertTrue(button.property("round"))
+        self.assertEqual(button.width(), button.height())
+        self.assertEqual(button.property("backgroundColor").alpha(), 0)
+        self.assertEqual(self.warnings, [])
+
     def test_inline_notice_has_square_background(self):
         view = self.item("area")
         while view.property("scene") is None:
