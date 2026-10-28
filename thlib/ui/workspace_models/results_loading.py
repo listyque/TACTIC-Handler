@@ -380,6 +380,9 @@ class LoadingMixin:
         ):
             process_names.append("attachment")
         process_names = list(dict.fromkeys(process_names))
+        navigation = self._item_layout.get("navigation", {}).get(node.search_key.removeprefix("skey://").split("?")[0])
+        if navigation is not None:
+            process_names = []
         separate_versions = True
 
         def build_process(
@@ -475,6 +478,8 @@ class LoadingMixin:
                 if relation.get("type") == "many_to_many":
                     continue
                 child_code = relation.get("from")
+                if navigation is not None and child_code not in navigation:
+                    continue
                 if not child_code or child_code in ancestor_stype_codes:
                     continue
                 if child_code in (
@@ -494,7 +499,7 @@ class LoadingMixin:
                     node_type="relation",
                     search_key=node.search_key,
                     code=child_code,
-                    title=child_stype.get_pretty_name(),
+                    title=relation.get("title") or child_stype.get_pretty_name(),
                     subtitle=str(relation.get("relationship") or "related"),
                     accent=child_stype.get_stype_color(fmt="hex") or node.accent,
                     depth=node.depth + 1,
@@ -578,7 +583,7 @@ class LoadingMixin:
         direct_publish = []
         publish_process = (
             available_processes.get("publish")
-            if "publish" not in (
+            if navigation is None and "publish" not in (
                 self._process_ignore.get("builtins") or []
             ) else None
         )
@@ -672,7 +677,7 @@ class LoadingMixin:
                 watch_state=self._watch_state(sobject),
                 needs_sync=self._needs_sync(sobject),
                 progress_items=self._progress_items(sobject, child_stype),
-                has_children=True,
+                has_children=self._item_layout.get("navigation", {}).get(self._plain_search_type(search_key)) != [],
                 source=sobject,
                 preview_source=sobject,
                 chips=self._build_info_items(child_stype, info),

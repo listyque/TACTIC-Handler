@@ -51,7 +51,7 @@
     "features/administration/layouts/canvas.mjs": "fd4448b2eb1c29cd8826317d783732ee51deb789588fa30d69c783e669a6b20e",
     "features/administration/layouts/item.geometry.mjs": "b636faf29f30f1a2ee801f21870f8af724ee4b54f90cd6c580d0bbcc647aa1ac",
     "features/administration/layouts/layout.catalog.mjs": "f3141a5b6650d51d88249d0d188de404d0140994c15b0aa4fe08e820c45ae5fc",
-    "features/administration/layouts/layout.document.mjs": "f9a6a34a9d949e6a5c3e3cd6f424b0f43a5f3407ba9887dde45279cebf501edb",
+    "features/administration/layouts/layout.document.mjs": "568e402dabe1946064ba1057e0270efadc33698720ede53fcd3e30a9a7726435",
     "features/administration/layouts/layout.preview.mjs": "f812c1eb6686780db225455a1194a2c808110c868e9b9ba8dc0a59708af4f966",
     "features/administration/layouts/layout.state.mjs": "eb87dd47d61437ab0c7f787b5ce57f443f79b7857b1630f6245ae55ece860be5",
     "features/administration/layouts/layout.ui.mjs": "e6a8f046632fe4db45b31fe9cddfac99564e0b58c5da859016e13dd7169884f0",

@@ -727,7 +727,7 @@ class RecordsMixin:
                 values=values,
                 chips=info_items,
                 source=sobject,
-                has_children=True,
+                has_children=self._item_layout.get("navigation", {}).get(self._plain_search_type(search_key)) != [],
                 needs_sync=self._needs_sync(sobject),
                 watch_state=self._watch_state(sobject),
                 preview_source=sobject,

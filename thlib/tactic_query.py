@@ -7761,6 +7761,7 @@ def query_search_types_extended(project_code):
         return sobj
 
     prj = Project.get_by_code(project_code)
+    project_schema = None
     if project_code in ('sthpw', 'admin'):
         stypes = prj.get_search_types(
             include_sthpw=True,
@@ -7769,6 +7770,19 @@ def query_search_types_extended(project_code):
         )
     else:
         stypes = prj.get_search_types(include_multi_project=True)
+        # Explicit shared nodes are part of this project's authored navigation.
+        from xml.etree import ElementTree
+        from pyasm.search import SearchType
+        project_schema = server.query('sthpw/schema', [('code', project_code)])
+        known = {stype.get_code() for stype in stypes}
+        for row in project_schema:
+            for node in ElementTree.fromstring(row.get('schema') or '<schema/>').findall('search_type'):
+                code = node.get('name', '')
+                if code.startswith(('sthpw/', 'config/')) and code not in known:
+                    stype = SearchType.get(code)
+                    if SearchType.get_sql_by_search_type(code).table_exists(stype.get_table()):
+                        stypes.append(stype)
+                        known.add(code)
 
     all_stypes = []
     # longest time consuming part, don't know how to optimize yet
@@ -7836,7 +7850,7 @@ def query_search_types_extended(project_code):
         pipelines.append(stypes_dict)
 
     # getting project schema
-    schema = server.query('sthpw/schema', [('code', project_code)])
+    schema = project_schema if project_schema is not None else server.query('sthpw/schema', [('code', project_code)])
 
     if project_code == 'sthpw':
         from pyasm.biz import Schema

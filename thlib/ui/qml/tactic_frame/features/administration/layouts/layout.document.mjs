@@ -152,7 +152,7 @@ export function describe(tree, view) {
             if (get(item, 'gap') !== '') result.gap = Number(get(item, 'gap'));
             return result;
         });
-    return {
+    const result = {
         collection: get(node, 'collection') || 'grid',
         flow: get(node, 'flow') || 'grid',
         columns: Number(get(node, 'columns') || 12),
@@ -161,6 +161,9 @@ export function describe(tree, view) {
         card_width: Number(get(node, 'card_width') || 280),
         elements
     };
+    if (get(node, 'navigation'))
+        result.navigation = JSON.parse(get(node, 'navigation'));
+    return result;
 }
 export function serialize(node, pretty = false) {
     if (pretty) {

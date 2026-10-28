@@ -20,9 +20,9 @@ Item {
     Frame.FrameView {
         anchors.fill: parent
         theme: root.theme
-        scene: UI.describe(root.scope.model, width, height, root.language)
+        scene: root.scope ? UI.describe(root.scope.model, width, height, root.language) : ({ nodes: [] })
         models: ({
-                rows: UI.rows(root.scope.model)
+                rows: root.scope ? UI.rows(root.scope.model) : []
             })
         views: ({
                 tableSearch: searchComponent,
@@ -35,11 +35,11 @@ Item {
                     nodeProps: true
                 }
             })
-        describeRow: (list, row, index) => UI.row(root.scope.model, row, root.language, list.width - 16)
+        describeRow: (list, row, index) => root.scope ? UI.row(root.scope.model, row, root.language, list.width - 16) : ({ nodes: [] })
         onEvent: (action, value) => {
             if (action.type === "close")
                 root.closed();
-            else
+            else if (root.scope)
                 root.scope.activate(action, value);
         }
     }
@@ -49,7 +49,7 @@ Item {
             anchors.fill: parent
             theme: root.theme
             controller: root.scope
-            suggestionModel: root.scope.searchSuggestions
+            suggestionModel: root.scope ? root.scope.searchSuggestions : null
             placeholderText: qsTr("Search objects")
         }
     }

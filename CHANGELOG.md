@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.233 - 2026-10-29
+
+- Let configured item trees show an explicit per-type navigation path using existing relationships, with native task branches and meaningful relationship labels. Keep ordinary views and access rules unchanged; pair this with Stream's project-scoped task relationship discovery.
+
 ## 0.6.0.232 - 2026-10-28
 
 - Compact Page Layout tools above the canvas, move uncommon actions into the existing menu, and place Add widget inside the icon-bearing collapsible block tree. Add resizable, collapsible tree/properties panes and a narrower Administration icon rail. Show the exact generated draft XML in the shared read-only source viewer. Initialize the native item preview splitter and resume the latest detail preview after a stale reply even when the document is unchanged. Keep draft history and server saves explicit.
