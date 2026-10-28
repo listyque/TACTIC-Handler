@@ -538,6 +538,7 @@ Item {
                         iconColor: root.color(wrapper.node.iconColor || (wrapper.node.highlighted ? "selectedText" : "primaryText"))
                         backgroundColor: wrapper.node.highlighted ? (enabled ? root.effectiveTheme.action : root.effectiveTheme.surfaceContainerHigh) : "transparent"
                         badgeCount: wrapper.node.badgeCount || 0
+                        badgeColor: root.color(wrapper.node.badgeColor || "error")
                         toolTip: wrapper.node.text
                         enabled: !!wrapper.node.enabled
                         Accessible.name: wrapper.node.label || wrapper.node.text
@@ -588,7 +589,7 @@ Item {
                         compact: !!wrapper.node.iconOnly
                         icon.name: wrapper.node.icon || ""
                         iconSize: wrapper.node.iconSize || 0
-                        toolTip: wrapper.node.text
+                        toolTip: wrapper.node.toolTip || wrapper.node.label || wrapper.node.text
                         font: root.controlFont(wrapper.node)
                         Accessible.name: wrapper.node.label || wrapper.node.text
                         Accessible.role: wrapper.node.radio ? Accessible.RadioButton : Accessible.Button

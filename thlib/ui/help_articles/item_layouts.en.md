@@ -519,3 +519,22 @@ plain-text filter bar. In the editor, the Items search is shown disabled.
 Resizing a dashboard pane keeps measured item heights, expansion and selection.
 Custom cards and child rows retain their spacing while the splitter moves;
 changes in the content height are measured without reloading the tree.
+
+## Readable cards and field colors
+
+In the Item layout editor, add **Field**, choose its data binding and a display:
+plain text, date, date/time, status badge or progress. **Label** is an optional
+caption; dates hide the unused time and progress draws a percentage and track.
+Choose **Text / icon color** for a field, or **Value color** for values found in
+the preview and saved color rules. These are presentation rules for the actual
+project values; they do not change workflow meanings. Choose another preview
+record to inspect its value. Removing a value color restores the field default.
+
+Groups expose **Fill color**, **Stroke color** and **Corner radius** to separate
+related information without changing the application theme. Keep action rows at
+least 40 px high. Named actions show their count alongside the label once;
+narrow action cells keep the icon and count with a full tooltip. Icon-only
+actions use a square control with a separate corner count. Tasks and
+Notes still open their ordinary inspector. The same saved view renders in TH
+and TS, including the editor's clean preview. Native revision checks and
+transaction history apply to saves.

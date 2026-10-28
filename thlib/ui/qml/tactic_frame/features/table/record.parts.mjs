@@ -335,7 +335,7 @@ export function field(item, id, width) {
                 'Box',
                 id + '_progress',
                 rect(0, y + 30, (width * percent) / 100, 4),
-                { background: 'contentAccent', radius: 2 }
+                { background: item.progressColor || 'contentAccent', radius: 2 }
             )
         );
         y += 10;

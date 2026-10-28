@@ -2,6 +2,28 @@ import { node } from '../../../core/frame.mjs';
 import { rect, label, muted } from '../admin.document.mjs';
 import { translate } from '../../../core/strings.mjs';
 import { binding } from './layout.document.mjs';
+import { field } from '../../table/record.parts.mjs';
+import { buttonWidth as preferredButtonWidth } from '../../../controls/buttons/metrics.mjs';
+
+function fieldModel(item, sample) {
+    const options = item.options || {},
+        value = options.bind ? binding(options.bind, sample) : '',
+        colors = options.colors ? JSON.parse(options.colors) : {},
+        color = Object.prototype.hasOwnProperty.call(colors, String(value))
+            ? colors[String(value)]
+            : options.color ||
+              (['badge', 'progress'].includes(options.format)
+                  ? 'contentAccent'
+                  : 'primaryText');
+    return {
+        value,
+        text: options.text || '',
+        format: options.format || 'plain',
+        suffix: options.format === 'progress' ? '%' : '',
+        textColor: color,
+        progressColor: color
+    };
+}
 const number = (value, fallback, min, max) =>
     Number.isFinite(Number(value))
         ? Math.max(min, Math.min(max, Number(value)))
@@ -226,6 +248,9 @@ export function describe(
                         Math.max(0, box.height - 8)
                     ),
                     {
+                        background: options.fill || 'transparent',
+                        border: options.stroke,
+                        radius: Number(options.radius || 0),
                         children: inner ? inner.nodes : []
                     }
                 )
@@ -308,6 +333,17 @@ export function describe(
                     }
                 )
             );
+        } else if (item.kind === 'field') {
+            const rendered = field(
+                fieldModel(item, sample),
+                id + 'Value',
+                Math.max(0, box.width - 12)
+            );
+            for (const child of rendered.children) {
+                child.x += 6;
+                child.y += 4;
+                children.push(child);
+            }
         } else if (item.kind === 'button') {
             const badge = options.badge
                     ? Number(binding(options.badge, sample))
@@ -330,6 +366,30 @@ export function describe(
                           )
                         : options.href || tr('Link'));
             const iconOnly = !!options.icon && !options.text && !options.bind;
+            const fullCaption =
+                    caption +
+                    (Number.isFinite(badge) && badge > 0 ? ' · ' + badge : ''),
+                icon =
+                    options.icon ||
+                    {
+                        tasks: 'task',
+                        notes: 'notes',
+                        upload: 'upload',
+                        inspect: 'search',
+                        relations: 'link'
+                    }[options.action] ||
+                    '',
+                counted =
+                    !iconOnly &&
+                    !!icon &&
+                    !!options.badge &&
+                    box.width - 8 <
+                        preferredButtonWidth(fullCaption.length * 7, true);
+            const buttonHeight = Math.max(0, Math.min(38, box.height - 8)),
+                buttonWidth = Math.max(
+                    0,
+                    Math.min(box.width - 8, iconOnly ? buttonHeight : box.width)
+                );
             children.push(
                 node(
                     'Button',
@@ -337,25 +397,29 @@ export function describe(
                     rect(
                         4,
                         4,
-                        Math.max(
-                            0,
-                            Math.min(
-                                box.width - 8,
-                                iconOnly ? box.height - 8 : box.width
-                            )
-                        ),
-                        Math.max(0, Math.min(38, box.height - 8))
+                        buttonWidth,
+                        iconOnly ? buttonWidth : buttonHeight
                     ),
                     {
                         iconOnly,
-                        badgeCount: Number.isFinite(badge)
-                            ? Math.max(0, badge)
-                            : 0,
-                        text:
-                            caption +
-                            (Number.isFinite(badge) && badge > 0
-                                ? ' · ' + badge
-                                : ''),
+                        iconAction: iconOnly,
+                        round: iconOnly,
+                        iconColor:
+                            badge > 0 ? 'contentAccent' : 'secondaryText',
+                        badgeColor: 'contentAccent',
+                        badgeCount:
+                            iconOnly && Number.isFinite(badge)
+                                ? Math.max(0, badge)
+                                : 0,
+                        text: counted
+                            ? String(
+                                  Number.isFinite(badge)
+                                      ? Math.max(0, badge)
+                                      : 0
+                              )
+                            : fullCaption,
+                        label: fullCaption,
+                        toolTip: fullCaption,
                         enabled:
                             !editing &&
                             (!!(options.href_bind
@@ -370,16 +434,7 @@ export function describe(
                                 ? binding(options.href_bind, sample)
                                 : options.href
                         },
-                        icon:
-                            options.icon ||
-                            {
-                                tasks: 'task',
-                                notes: 'notes',
-                                upload: 'upload',
-                                inspect: 'search',
-                                relations: 'link'
-                            }[options.action] ||
-                            ''
+                        icon
                     }
                 )
             );
@@ -517,7 +572,7 @@ export function describe(
                     {
                         wrap: maxLines > 1,
                         maxLines,
-                        color,
+                        color: options.color || color,
                         weight,
                         fontRole: item.kind === 'title' ? 'section' : 'body',
                         align:
@@ -668,13 +723,16 @@ export function describe(
                 } else {
                     const h = child
                         ? child.height + 8
-                        : item.role === 'title-line'
-                          ? 36
-                          : item.kind === 'image'
-                            ? number(item.height, 76, 24, 1200)
-                            : item.kind === 'description'
-                              ? 44
-                              : 38;
+                        : item.kind === 'field'
+                          ? field(fieldModel(item, sample), 'measure', w - 16)
+                                .height + 8
+                          : item.role === 'title-line'
+                            ? 36
+                            : item.kind === 'image'
+                              ? number(item.height, 76, 24, 1200)
+                              : item.kind === 'description'
+                                ? 44
+                                : 38;
                     box = rect(8, cursor, w - 16, h);
                     cursor += h + 4;
                 }
@@ -750,7 +808,15 @@ export function describe(
                     Math.max(
                         child
                             ? child.height + 8
-                            : number(item.height, 40, 1, 1200),
+                            : item.kind === 'field'
+                              ? field(
+                                    fieldModel(item, sample),
+                                    'measure',
+                                    cellWidth
+                                ).height + 8
+                              : item.kind === 'button'
+                                ? Math.max(40, number(item.height, 40, 1, 1200))
+                                : number(item.height, 40, 1, 1200),
                         number(item.height, 40, 1, 1200)
                     ) +
                     (item.padding?.[0] || 0) +

@@ -3,6 +3,7 @@ export const widgets = [
     'group',
     'view',
     'text',
+    'field',
     'title',
     'description',
     'image',
@@ -260,6 +261,20 @@ export function edit(tree, view, name, field, value) {
               (node) => node.name === 'element' && get(node, 'name') === name
           )
         : root;
+    if (field.startsWith('valueColor:')) {
+        const display = children(item).find((node) => node.name === 'display'),
+            option =
+                display &&
+                children(display).find((node) => node.name === 'colors'),
+            colors = option ? JSON.parse(content(option)) : {},
+            key = field.slice(11);
+        if (['__proto__', 'constructor', 'prototype'].includes(key))
+            throw Error('Invalid field value colors');
+        if (value) colors[key] = value;
+        else delete colors[key];
+        field = 'option:colors';
+        value = Object.keys(colors).length ? JSON.stringify(colors) : '';
+    }
     if (field === 'add') {
         if (widgets.indexOf(value) < 0)
             throw Error('Unsupported layout widget');

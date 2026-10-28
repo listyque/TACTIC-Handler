@@ -19,6 +19,7 @@ export const labels = {
     group: 'Group',
     view: 'Reusable view',
     text: 'Text',
+    field: 'Field',
     title: 'Title',
     description: 'Description',
     image: 'Image',
@@ -112,6 +113,20 @@ export function model(raw, ui) {
         if (layout.elements.length > 128)
             layoutError = 'Layout supports at most 128 elements';
         for (const item of layout.elements) {
+            if (item.options.colors) {
+                try {
+                    const colors = JSON.parse(item.options.colors);
+                    if (
+                        !colors ||
+                        typeof colors !== 'object' ||
+                        Array.isArray(colors)
+                    )
+                        throw Error('Invalid field value colors');
+                } catch {
+                    layoutError = 'Invalid field value colors';
+                    break;
+                }
+            }
             const seen = [item.name];
             let parent = item.parent;
             while (parent) {
@@ -418,9 +433,15 @@ function propertyFields(model, ui, language, width) {
         choice('kind', 'Widget', item.kind, choices(Document.widgets, language))
     );
     if (
-        ['text', 'title', 'description', 'image', 'link', 'button'].indexOf(
-            item.kind
-        ) >= 0
+        [
+            'text',
+            'field',
+            'title',
+            'description',
+            'image',
+            'link',
+            'button'
+        ].indexOf(item.kind) >= 0
     ) {
         fields.push(
             {
@@ -436,11 +457,15 @@ function propertyFields(model, ui, language, width) {
                 'Choose which object value to display'
             )
         );
-        if (!item.options.bind)
+        if (!item.options.bind || item.kind === 'field')
             fields.push(
                 text(
                     'option:text',
-                    item.kind === 'image' ? 'Image URL' : 'Text',
+                    item.kind === 'image'
+                        ? 'Image URL'
+                        : item.kind === 'field'
+                          ? 'Label'
+                          : 'Text',
                     item.options.text || ''
                 )
             );
@@ -484,6 +509,101 @@ function propertyFields(model, ui, language, width) {
                 ),
                 text('option:icon', 'Icon', item.options.icon || '')
             );
+    }
+    const palette = [
+        ['', 'Auto'],
+        ['primaryText', 'Text'],
+        ['secondaryText', 'Secondary'],
+        ['contentAccent', 'Accent'],
+        ['green', 'Green'],
+        ['yellow', 'Yellow'],
+        ['red', 'Red'],
+        ['cyan', 'Cyan'],
+        ['violet', 'Violet']
+    ];
+    const colorOptions = (value, entries = palette) =>
+        entries
+            .map(([value, label]) => ({ value, label: tr(label) }))
+            .concat(value?.startsWith('#') ? [{ value, label: value }] : []);
+    if (['field', 'text', 'title', 'description'].includes(item.kind)) {
+        fields.push(
+            choice(
+                'option:color',
+                'Text / icon color',
+                item.options.color || '',
+                colorOptions(item.options.color)
+            )
+        );
+    }
+    if (item.kind === 'field') {
+        fields.push(
+            choice(
+                'option:format',
+                'Field display',
+                item.options.format || 'plain',
+                [
+                    ['plain', 'Plain text'],
+                    ['date', 'Date'],
+                    ['datetime', 'Date and time'],
+                    ['badge', 'Status badge'],
+                    ['progress', 'Progress']
+                ].map(([value, label]) => ({ value, label: tr(label) }))
+            )
+        );
+        const colors = item.options.colors
+                ? JSON.parse(item.options.colors)
+                : {},
+            values = [
+                ...new Set(
+                    Object.keys(colors).concat(
+                        (model.sampleItems || [])
+                            .map((sample) =>
+                                String(
+                                    Document.binding(item.options.bind, sample)
+                                )
+                            )
+                            .filter(Boolean)
+                    )
+                )
+            ].slice(0, 32);
+        for (const value of values)
+            fields.push(
+                choice(
+                    'valueColor:' + value,
+                    'Value color',
+                    colors[value] || '',
+                    colorOptions(colors[value]),
+                    '«' + value + '»'
+                )
+            );
+    }
+    if (item.kind === 'group') {
+        const surfaces = [
+                ['', 'None'],
+                ['panel', 'Panel'],
+                ['workspace', 'Workspace'],
+                ['surfaceContainerLow', 'Surface']
+            ],
+            borders = [
+                ['', 'None'],
+                ['outlineVariant', 'Outline'],
+                ['contentAccent', 'Accent']
+            ];
+        fields.push(
+            choice(
+                'option:fill',
+                'Fill color',
+                item.options.fill || '',
+                colorOptions(item.options.fill, surfaces)
+            ),
+            choice(
+                'option:stroke',
+                'Stroke color',
+                item.options.stroke || '',
+                colorOptions(item.options.stroke, borders)
+            ),
+            text('option:radius', 'Corner radius', item.options.radius || '0')
+        );
     }
     if (item.kind === 'view')
         fields.push(

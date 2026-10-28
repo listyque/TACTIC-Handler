@@ -1,5 +1,15 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    Secondary: 'Вторичный',
+    Surface: 'Поверхность',
+
+    'Value color': 'Цвет значения',
+    Yellow: 'Жёлтый',
+    'Invalid field value colors': 'Некорректные цвета значений поля',
+    'Invalid field display format': 'Некорректный формат поля',
+    'Corner radius must be between 0 and 48':
+        'Радиус углов должен быть от 0 до 48',
+
     'Search objects': 'Поиск объектов',
     'Invalid nested search text': 'Некорректный текст поиска',
     'Invalid suggestion scope': 'Некорректная область поиска подсказок',
