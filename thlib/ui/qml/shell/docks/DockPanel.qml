@@ -273,6 +273,7 @@ Item {
     property real handlePressHostY: 0
     property bool dockDragging: resultsDragHandle.dragActive || dockMoveHandle.dragActive
     property bool geometryTransitionsReady: false
+    property bool resultsDragHandleVisible: true
     readonly property real chromeInset: dockArea === "floating" ? DockChrome.dimensions.floatingSurfaceInset : DockChrome.dimensions.surfaceInset
     readonly property var chrome: DockChrome.describe({
         width: panelBody.width,
@@ -280,7 +281,7 @@ Item {
         stackSize: root.stackSize,
         closable: root.closable,
         floating: root.dockArea === "floating",
-        leadingStackInset: root.kind === "results" ? resultsDragHandle.width + 6 : 6,
+        leadingStackInset: resultsDragHandle.visible ? resultsDragHandle.width + 6 : 6,
         capabilities: {
             separateWindow: true,
             queueOwnChrome: true
@@ -724,7 +725,7 @@ Item {
         id: resultsDragHandle
         parent: panelBody
         objectName: "dockTitleDrag_" + root.panelId
-        visible: root.kind === "results"
+        visible: root.kind === "results" && root.resultsDragHandleVisible
         anchors.left: parent.left
         anchors.top: parent.top
         width: 34

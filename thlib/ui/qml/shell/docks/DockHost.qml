@@ -15,6 +15,7 @@ Item {
     required property string projectTitle
     required property string pageTitle
     property bool workspaceActive: true
+    property bool resultsDragHandleVisible: true
     property var ownerWindow: Window.window
     signal notice(string message)
     signal requestDockMenu(var sourceItem)
@@ -108,6 +109,7 @@ Item {
             stackPanels: dockDelegate.stackPanels
             stackSize: dockDelegate.stackSize
             contentComponent: dockDelegate.panelContentComponent
+            resultsDragHandleVisible: root.resultsDragHandleVisible
         }
     }
 
@@ -180,9 +182,9 @@ Item {
     }
     function cancelActiveGesture() {
         for (let index = 0; index < dockRepeater.count; index++) {
-            const panel = dockRepeater.itemAt(index);
-            if (panel)
-                panel.cancelGesture();
+            const item = dockRepeater.itemAt(index) as DockDelegate;
+            if (item)
+                item.panel.cancelGesture();
         }
     }
     Shortcut {

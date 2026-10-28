@@ -71,7 +71,7 @@ class UiPerformanceMonitor(QObject):
         self._expiry = QTimer(self)
         self._expiry.setInterval(1000)
         self._expiry.timeout.connect(self._expire)
-        self.frameReported.connect(self._frame, Qt.QueuedConnection)
+        self.frameReported.connect(self._frame, Qt.AutoConnection)
         self._dispatchRequested.connect(
             self._dispatch_done,
             Qt.ConnectionType.QueuedConnection,
@@ -128,7 +128,7 @@ class UiPerformanceMonitor(QObject):
                 try:
                     window.removeEventFilter(self)
                     window.frameSwapped.disconnect(callback)
-                    window.beforeSynchronizing.disconnect(synchronizing)
+                    window.afterAnimating.disconnect(synchronizing)
                     window.destroyed.disconnect(destroyed)
                 except (RuntimeError, TypeError):
                     pass  # The native window can already be destroyed at shutdown.
@@ -137,16 +137,20 @@ class UiPerformanceMonitor(QObject):
     def _observe(self, window):
         key = id(window)
         if key not in self._windows:
-            sync_time = [0.0]
+            prepared_frames = deque(maxlen=8)
             def synchronizing():
-                sync_time[0] = time.perf_counter()
+                prepared_frames.append(time.perf_counter())
             def presented():
+                if not prepared_frames:
+                    return
+                prepared_at = prepared_frames.popleft()
                 if self._pending or self._feedback_callbacks:
-                    self.frameReported.emit(key, time.perf_counter(), sync_time[0])
+                    self.frameReported.emit(key, time.perf_counter(), prepared_at)
             destroyed = lambda: self._forget_window(key)
             self._windows[key] = (weakref.ref(window), presented, synchronizing, destroyed)
-            window.frameSwapped.connect(presented, Qt.DirectConnection)
-            window.beforeSynchronizing.connect(synchronizing, Qt.DirectConnection)
+            # Render-thread Python callbacks can deadlock on the GUI thread's GIL.
+            window.frameSwapped.connect(presented, Qt.QueuedConnection)
+            window.afterAnimating.connect(synchronizing, Qt.DirectConnection)
             window.destroyed.connect(destroyed)
         if self._installed:
             # A global application filter also receives every delegate's paint,

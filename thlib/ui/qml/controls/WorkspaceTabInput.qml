@@ -9,11 +9,13 @@ Item {
     property bool selected: false
     property bool vertical: false
     signal command(var action)
+    signal keyboardInput
     activeFocusOnTab: selected
     Accessible.role: Accessible.PageTab
     Accessible.name: label
     Accessible.selected: selected
     Keys.onPressed: event => {
+        root.keyboardInput();
         const keys = {
             [Qt.Key_Left]: "ArrowLeft",
             [Qt.Key_Right]: "ArrowRight",

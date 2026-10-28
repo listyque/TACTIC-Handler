@@ -47,6 +47,7 @@ class WorkspacePageTests(unittest.TestCase):
 
     def owner(self):
         app = Application()
+        app.section_state_changed = Mock()
         app.tab.layout_view = 'dashboard.review'
         app.tab.tab_id = 'dashboard-tab'
         app.tab.title = 'Review'

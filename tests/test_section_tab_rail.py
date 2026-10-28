@@ -119,6 +119,26 @@ class SectionTabRailQmlTests(unittest.TestCase):
             window.deleteLater()
             del model, engine
 
+    def test_mouse_selection_does_not_keep_the_tab_revealed(self):
+        engine, theme, model, component, rail, window = self._create_rail()
+        try:
+            tabs = self._visual_children(rail, "sectionTabDelegate")
+            QTest.mouseMove(window, QPoint(20, 24))
+            QTest.qWait(300)
+            QTest.mouseClick(window, Qt.LeftButton, pos=QPoint(20, 24))
+            QTest.mouseMove(window, QPoint(860, 490))
+            QTest.qWait(600)
+            self.assertFalse(rail.property("expanded"))
+            self.assertEqual(tabs[0].width(), rail.property("reservedWidth"))
+            # The same focused tab must still support keyboard discovery/actions.
+            QTest.keyClick(window, Qt.Key_Down)
+            QTest.qWait(300)
+            self.assertTrue(rail.property("expanded"))
+        finally:
+            window.close()
+            window.deleteLater()
+            del model, engine
+
     def test_current_switch_updates_roles_without_resetting_the_rail(self):
         model = SectionTabModel()
         model.replace([

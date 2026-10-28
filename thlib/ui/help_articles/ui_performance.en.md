@@ -53,3 +53,5 @@ records and does not alter application behavior.
 ## Selection and long lists
 
 Resume recording, perform an action, then pause and select its row. Arrow keys and Home/End move selection and reveal virtualized rows. Copy exports the complete measurements; Clear resets selection and details. Selection survives resizing. Signing out clears browser measurements and recording state. Browser frame timings bound a paint opportunity using animation callbacks; they do not confirm GPU presentation. Asynchronous handler duration can include waiting; inspect the recorded phases separately.
+
+Native first/ready-frame values include delivery of the presentation notification to the interface thread. They are bounds on visible responsiveness, not measurements of renderer CPU or GPU time. Recording and navigation feedback do not run Python callbacks in the render thread.

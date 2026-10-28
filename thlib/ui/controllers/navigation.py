@@ -1250,6 +1250,7 @@ class NavigationMixin:
             self._set_loading(False)
             page.open_view(tab.layout_view, tab.title, tab.tab_id, search_key=tab.layout_target)
             self.results_view_changed.emit()
+            self.section_state_changed.emit()
             return
         if page is not None and not content_only:
             page.leave_workspace()

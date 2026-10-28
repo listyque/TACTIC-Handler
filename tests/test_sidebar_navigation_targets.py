@@ -119,7 +119,10 @@ class SidebarNavigationTargetTests(unittest.TestCase):
         tab=self.controller._current_tab()
         self.assertEqual(tab.layout_view,'planner_layout')
         from thlib.ui.controllers.navigation import NavigationMixin
+        sections_changed = []
+        self.controller.section_state_changed.connect(lambda: sections_changed.append(True))
         NavigationMixin._show_or_load_tab(self.controller,tab)
+        self.assertEqual(sections_changed, [True], 'Main workspace visibility must be notified when a custom page opens')
         self.controller._table_services.workspaceLayout.open_view.assert_called_once_with('planner_layout','Planner',tab.tab_id,search_key='')
         self.controller._table_services.customLayout.open_view.assert_not_called()
 

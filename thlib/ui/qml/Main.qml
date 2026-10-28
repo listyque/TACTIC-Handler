@@ -943,6 +943,7 @@ ApplicationWindow {
             pageTitle: window.pageTitle
             projectTitle: window.projectTitle
             workspaceActive: Boolean(appController.current_section_key) || fileWorkspaceController.enabled
+            resultsDragHandleVisible: !tableServicesController.workspaceLayout.active
             onNotice: function (message) {
                 window.showNotice(message);
             }

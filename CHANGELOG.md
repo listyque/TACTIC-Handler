@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.225 - 2026-10-28
+
+- Fix first-opening custom sidebar pages remaining behind the empty workspace, collapse mouse-focused section labels after pointer leave, and hide the Search drag grip on custom pages. Cancel dock gestures through their real panels. Move frame diagnostics and navigation feedback off Python render-thread callbacks to prevent GUI/GIL deadlocks while preserving per-frame readiness cutoffs.
+
 ## 0.6.0.224 - 2026-10-28
 
 - Fit dashboard content to the available body width and reserve the outer scrollbar gutter only when the page overflows. Verify both responsive grid thresholds; document bounded composer growth and status-card color fallback in Inspector Help, matching Stream's browser fixes.

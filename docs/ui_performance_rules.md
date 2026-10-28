@@ -85,3 +85,21 @@ See [performance fixtures and measured medians](qml_performance.md),
 [task query/presentation contract](tasks_workspace.md) and
 [shared component ownership](ui_component_map.md). Synthetic Python timings are
 not production frame rates; no claim of instant server responses is made.
+
+## Native frame callback lifetime
+
+`UiPerformanceMonitor` records frame preparation from GUI-thread `afterAnimating`
+and handles `frameSwapped` through a queued connection. Never execute Python in
+render-thread `beforeSynchronizing` or direct swap callbacks: synchronization can
+block a GUI operation that still owns the GIL. The queued swap consumes its own
+preparation cutoff, so a frame already in flight cannot claim later work or
+release navigation feedback early. Frame/ready values include GUI-queue delivery
+and are responsiveness bounds; use the renderer's native timing diagnostic for
+CPU/GPU render costs. Qt documents these signal threads in
+[QQuickWindow](https://doc.qt.io/qt-6/qquickwindow.html#afterAnimating).
+
+`tests.test_workspace_shell_lifecycle` runs the actual offline Main.qml with fresh
+settings, repeatedly opens the first sidebar page and cancels dock gestures. It
+checks real custom content, empty-state visibility, hidden Search grip and QML
+warnings, and exercises GUI/render synchronization without a deadlock. Native
+section-rail input tests distinguish pointer focus from keyboard navigation.

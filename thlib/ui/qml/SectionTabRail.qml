@@ -20,6 +20,8 @@ Item {
     property bool hoverLatched: false
     property int revealedIndex: -1
     property int focusedIndex: -1
+    property int pointerFocusIndex: -1
+    readonly property bool keyboardFocused: focusedIndex >= 0 && focusedIndex !== pointerFocusIndex
     readonly property bool expanded: hoverLatched || rail.dragSourceIndex >= 0
     readonly property real reservedWidth: Workspace.dimensions.railWidth
 
@@ -66,7 +68,7 @@ Item {
         }
     }
     function updateHoverState() {
-        const active = root.focusedIndex >= 0 || panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0;
+        const active = root.keyboardFocused || panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0;
         if (active) {
             collapseTimer.stop();
             hoverLatched = true;
@@ -80,7 +82,7 @@ Item {
         interval: Workspace.dimensions.revealDelay
         repeat: false
         onTriggered: {
-            if (root.focusedIndex >= 0 || panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0)
+            if (root.keyboardFocused || panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0)
                 return;
             root.hoverLatched = false;
             root.revealedIndex = -1;
@@ -185,8 +187,16 @@ Item {
             if (activeFocus) {
                 root.focusedIndex = index;
                 root.revealedIndex = index;
-            } else if (root.focusedIndex === index)
+            } else if (root.focusedIndex === index) {
                 root.focusedIndex = -1;
+                if (root.pointerFocusIndex === index)
+                    root.pointerFocusIndex = -1;
+            }
+            root.updateHoverState();
+        }
+        onKeyboardInput: {
+            root.pointerFocusIndex = -1;
+            root.revealedIndex = index;
             root.updateHoverState();
         }
         Keys.onSpacePressed: root.selected(entryKey)
@@ -361,7 +371,9 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onPressed: {
                 tab.dragAborted = false;
+                root.pointerFocusIndex = tab.index;
                 tab.forceActiveFocus(Qt.MouseFocusReason);
+                root.updateHoverState();
             }
             onPressAndHold: mouse => {
                 root.openSectionMenu(tab, mouse.x, mouse.y);

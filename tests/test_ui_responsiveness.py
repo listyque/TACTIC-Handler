@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
-from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, Qt, QUrl
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QPointF, Qt, QUrl, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem, QQuickWindow
@@ -173,6 +173,35 @@ class UiResponsivenessTests(TestCase):
         self.assertIn(token, monitor._pending)
         monitor._frame(123, 1.13, 1.11)
         self.assertAlmostEqual(monitor._samples[0]["readyMs"], 130)
+
+    def test_queued_swap_uses_its_own_preparation_boundary(self):
+        class Window(QObject):
+            afterAnimating = Signal()
+            frameSwapped = Signal()
+
+        window = Window()
+        monitor = UiPerformanceMonitor()
+        self.addCleanup(monitor.shutdown)
+        key = monitor._observe(window)
+        with patch("thlib.ui.ui_performance.time.perf_counter", return_value=1.):
+            token = monitor._begin("Operation", "Window", key)
+        monitor._pending[token].update(handlerMs=4, operation=True, committedAt=1.05)
+        with patch("thlib.ui.ui_performance.time.perf_counter", return_value=1.01):
+            window.afterAnimating.emit()
+        window.frameSwapped.emit()
+        # Another preparation can happen before the queued swap is handled.
+        with patch("thlib.ui.ui_performance.time.perf_counter", return_value=1.11):
+            window.afterAnimating.emit()
+        with patch("thlib.ui.ui_performance.time.perf_counter", return_value=1.2):
+            self.app.processEvents()
+            self.app.processEvents()
+        self.assertIn(token, monitor._pending)
+        with patch("thlib.ui.ui_performance.time.perf_counter", return_value=1.3):
+            window.frameSwapped.emit()
+            self.app.processEvents()
+            self.app.processEvents()
+        self.assertNotIn(token, monitor._pending)
+        self.assertAlmostEqual(monitor._samples[0]["readyMs"], 300)
 
     def test_deferred_navigation_waits_for_a_new_feedback_frame(self):
         monitor = UiPerformanceMonitor()
