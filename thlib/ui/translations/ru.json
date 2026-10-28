@@ -5778,5 +5778,8 @@
   "Choose Save or Check for this form": "Выберите сохранение или проверку состояния формы",
   "The page changed while a save was pending. Check saved state.": "Страница изменилась во время сохранения. Проверьте сохранённое состояние.",
   "Record field must be a finite number": "Поле объекта должно содержать конечное число",
-  "The source tab changed. Reload the page.": "Исходная вкладка изменилась. Обновите страницу."
+  "The source tab changed. Reload the page.": "Исходная вкладка изменилась. Обновите страницу.",
+  "Select all tools": "Выбрать все инструменты",
+  "No expiration": "Без срока",
+  "MCP access lifetime must be zero or between 5 and 480 minutes": "Срок MCP-доступа должен быть равен нулю или составлять от 5 до 480 минут"
 }

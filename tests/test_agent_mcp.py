@@ -25,6 +25,7 @@ class McpApplication(Application):
 class Server:
     def __init__(self):
         self.last = None
+        self.created = None
 
     def get_project(self):
         return 'one'
@@ -32,8 +33,10 @@ class Server:
     def execute_cmd(self, command, values):
         self.last = deepcopy(values)
         if values['action'] == 'create':
+            self.created = deepcopy(values)
             return dict(status='OK', info=dict(id='fixture', path='/mcp/fixture', token='test-only-token'))
-        return dict(status='OK', info=dict(enabled=True, connections=[], tools=[
+        return dict(status='OK', info=dict(enabled=True, unlimited_lifetime=True,
+            connections=[dict(id='persistent', title='Persistent fixture', expires=None, revoked=False, pending=False)], tools=[
             dict(name='agent_context', description='Captured context', readonly=True),
             dict(name='ts_dashboard_save', description='Save a dashboard', readonly=False)]))
 
@@ -69,11 +72,23 @@ class McpUI(unittest.TestCase):
             self.assertEqual(controller.model['selected'], ['agent_context'])
             QTest.keyClick(window, Qt.Key_Space); frame(window)
             self.assertEqual(controller.model['selected'], [])
+            surface.click(window, surface.item(view, 'mcpAllTools')); frame(window)
+            self.assertEqual(set(controller.model['selected']), {'agent_context', 'ts_dashboard_save'})
+            surface.click(window, surface.item(view, 'mcpClearTools')); frame(window)
+            self.assertEqual(controller.model['selected'], [])
             field = surface.item(view,'mcpTitle'); field.forceActiveFocus()
             for char in 'Tracker': QTest.keyClick(window,char)
             surface.click(window,surface.item(view,'mcpReadTools')); frame(window)
             self.assertEqual(controller.model['selected'],['agent_context'])
+            surface.item(view, 'mcpLifetime').forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_Down)
+            QTest.keyClick(window, Qt.Key_Down); frame(window)
+            self.assertEqual(controller.model['minutes'], '0')
             surface.click(window,surface.item(view,'mcpCreate')); wait(); frame(window)
+            self.assertEqual(server.created['minutes'], 0)
+            self.assertFalse(controller.model['connections'][0]['expired'])
+            self.assertIn('No expiration', surface.item(view, 'mcpExisting_0').property('text'))
+            self.assertTrue(controller.model['unlimited_lifetime'])
             self.assertEqual(controller.model['title'],'Tracker')
             self.assertIn('/mcp/fixture',controller.model['issued'])
             scene=surface.item(view,'mcpCopyAgentLink')

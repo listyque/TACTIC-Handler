@@ -275,6 +275,10 @@ const russian = {
     '8 hours': '8 часов',
     'Allowed tools': 'Разрешённые инструменты',
     'Select read tools': 'Выбрать инструменты чтения',
+    'Select all tools': 'Выбрать все инструменты',
+    'No expiration': 'Без срока',
+    'MCP access lifetime must be zero or between 5 and 480 minutes':
+        'Срок MCP-доступа должен быть равен нулю или составлять от 5 до 480 минут',
     'Copy this connection now. The access token will not be shown again.':
         'Скопируйте подключение сейчас. Токен доступа больше не будет показан.',
     'Copy connection': 'Скопировать подключение',

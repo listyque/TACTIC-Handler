@@ -1,5 +1,6 @@
 import { node, rect, label, button, muted } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import { controls } from '../../core/foundation.mjs';
 
 export function initial() {
     return {
@@ -7,6 +8,7 @@ export function initial() {
         tools: [],
         selected: [],
         enabled: false,
+        unlimited_lifetime: false,
         title: '',
         instructions: '',
         minutes: '60',
@@ -40,17 +42,19 @@ export function edit(model, action) {
                 .filter((tool) => tool.readonly)
                 .map((tool) => tool.name)
         });
+    if (action.type === 'all')
+        return Object.assign({}, model, {
+            selected: model.tools.map((tool) => tool.name)
+        });
     if (action.type === 'clear')
         return Object.assign({}, model, { selected: [] });
     return model;
 }
 export function describe(model, width, height, language) {
     const tr = (value) => translate(value, language),
-        inner = Math.max(0, width - 24),
+        inner = Math.max(0, width - 24 - controls.scrollBar.extent - 8),
         lifetimeWidth = inner >= 560 ? 152 : inner,
-        fieldWidth = inner >= 560 ? inner - lifetimeWidth - 12 : inner,
-        clearWidth = Math.min(120, (inner - 8) / 3),
-        readWidth = Math.min(200, inner - clearWidth - 8);
+        fieldWidth = inner >= 560 ? inner - lifetimeWidth - 12 : inner;
     const nodes = [],
         content = [];
     let y = 0;
@@ -102,7 +106,11 @@ export function describe(model, width, height, language) {
                     { value: '5', label: tr('5 minutes') },
                     { value: '60', label: tr('1 hour') },
                     { value: '480', label: tr('8 hours') }
-                ],
+                ].concat(
+                    model.unlimited_lifetime
+                        ? [{ value: '0', label: tr('No expiration') }]
+                        : []
+                ),
                 action: { type: 'field', field: 'minutes' }
             }
         )
@@ -125,32 +133,35 @@ export function describe(model, width, height, language) {
             '/' +
             model.tools.length
     );
-    content.push(
-        button(
-            'mcpReadTools',
-            rect(0, y, readWidth, 32),
-            tr('Select read tools'),
-            'check',
-            { type: 'readonly' },
-            !model.busy
-        )
-    );
-    content.push(
-        button(
-            'mcpClearTools',
-            rect(readWidth + 8, y, clearWidth, 32),
-            tr('Clear'),
-            'close',
-            { type: 'clear' },
-            !model.busy
-        )
-    );
+    let left = 0;
+    for (const [id, text, type, icon, preferred] of [
+        ['mcpAllTools', 'Select all tools', 'all', 'check', 164],
+        ['mcpReadTools', 'Select read tools', 'readonly', 'check', 200],
+        ['mcpClearTools', 'Clear', 'clear', 'close', 96]
+    ]) {
+        const extent = Math.min(preferred, inner);
+        if (left && left + extent > inner) {
+            left = 0;
+            y += 40;
+        }
+        content.push(
+            button(
+                id,
+                rect(left, y, extent, 32),
+                tr(text),
+                icon,
+                { type },
+                !model.busy
+            )
+        );
+        left += extent + 8;
+    }
     y += 40;
     const toolRows = [],
         rowHeight = inner < 480 ? 88 : 68;
     for (const [index, tool] of model.tools.entries()) {
         const toolY = index * rowHeight,
-            rowWidth = inner - 16,
+            rowWidth = inner - 8 - controls.scrollBar.extent - 4,
             nameWidth = Math.max(0, rowWidth - (inner < 480 ? 56 : 164));
         if (index)
             toolRows.push(
@@ -313,7 +324,9 @@ export function describe(model, width, height, language) {
                     ? tr('Revoked')
                     : item.expired
                       ? tr('Expired')
-                      : item.expiresLabel)
+                      : item.expires == null
+                        ? tr('No expiration')
+                        : item.expiresLabel)
         );
         content.push(
             button(

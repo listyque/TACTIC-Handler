@@ -24,7 +24,7 @@ class AgentMcpController(QObject):
 
     @staticmethod
     def initial():
-        return dict(connections=[], tools=[], selected=[], enabled=False, title='', instructions='',
+        return dict(connections=[], tools=[], selected=[], enabled=False, unlimited_lifetime=False, title='', instructions='',
                     minutes='60', busy=False, error='', issued='')
 
     @Property('QVariantMap', notify=changed)
@@ -80,6 +80,8 @@ class AgentMcpController(QObject):
             self._model['selected'] = sorted(selected)
         elif kind == 'readonly':
             self._model['selected'] = [tool['name'] for tool in self._model['tools'] if tool['readonly']]
+        elif kind == 'all':
+            self._model['selected'] = [tool['name'] for tool in self._model['tools']]
         elif kind == 'clear':
             self._model['selected'] = []
         elif kind == 'refresh':
@@ -145,6 +147,6 @@ class AgentMcpController(QObject):
             else:
                 now = datetime.now().timestamp()
                 self._model.update(info)
-                self._model['connections'] = [dict(item, expired=item['expires'] <= now,
-                    expiresLabel=datetime.fromtimestamp(item['expires']).strftime('%Y-%m-%d %H:%M')) for item in info['connections']]
+                self._model['connections'] = [dict(item, expired=item['expires'] is not None and item['expires'] <= now,
+                    expiresLabel=datetime.fromtimestamp(item['expires']).strftime('%Y-%m-%d %H:%M') if item['expires'] is not None else '') for item in info['connections']]
         self.changed.emit()

@@ -129,10 +129,19 @@ The agent can create native tasks for selected project objects and edit their de
 The **MCP connections** window grants access only to the captured project and
 the checked tools. Each permission row shows its name, description and **Read
 only** or **Write** access. Click the row or use Space to toggle it. The counter
-shows the selected total. **Select read tools** selects only tools marked read-only
+shows the selected total. **Select all tools** selects the complete available
+catalogue, including write tools. **Select read tools** selects only tools marked read-only
 by the server; **Clear** removes the selection. Neither button issues access.
 Creation requires a name and at least one selected tool. Existing connections
 and revocation remain below the form; scroll to reach them.
+
+Choose **No expiration** for access without a calendar deadline. It remains
+revocable and depends on the owner's enabled account and current permissions.
+It uses a separate server-held session and does not extend the browser login.
+Revoking access also removes that connection's dedicated session.
+Existing connections keep their configured deadlines. The option appears only
+when the connected server supports it. Scrollbars have reserved space so fields,
+row captions and panel borders remain visible with classic Windows scrollbars.
 
 ## Conversation library
 
