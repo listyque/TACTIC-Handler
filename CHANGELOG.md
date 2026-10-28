@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.217 - 2026-10-28
+
+- Render MCP permission captions, descriptions and read/write access as compact bounded rows, with explicit selection counts and a separated action footer. Align connection name/lifetime and reduce unused form space without changing access policy.
+
 ## 0.6.0.216 - 2026-10-28
 
 - Add a native table-render diagnostic using Qt renderer logs and asynchronous GPU timestamps. Report rendering, synchronization, layout and presentation wait separately; retain end-to-end page timings as a different metric.

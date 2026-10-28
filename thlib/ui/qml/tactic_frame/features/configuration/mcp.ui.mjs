@@ -46,7 +46,11 @@ export function edit(model, action) {
 }
 export function describe(model, width, height, language) {
     const tr = (value) => translate(value, language),
-        inner = Math.max(0, width - 40);
+        inner = Math.max(0, width - 24),
+        lifetimeWidth = inner >= 560 ? 152 : inner,
+        fieldWidth = inner >= 560 ? inner - lifetimeWidth - 12 : inner,
+        clearWidth = Math.min(120, (inner - 8) / 3),
+        readWidth = Math.min(200, inner - clearWidth - 8);
     const nodes = [],
         content = [];
     let y = 0;
@@ -62,7 +66,7 @@ export function describe(model, width, height, language) {
         tr(
             'External access is limited to this project and the tools you select. Revoke it at any time.'
         ),
-        48
+        40
     );
     if (!model.enabled)
         caption(
@@ -73,41 +77,58 @@ export function describe(model, width, height, language) {
             48
         );
     content.push(
-        node('Field', 'mcpTitle', rect(0, y, inner, 40), {
+        node('Field', 'mcpTitle', rect(0, y, fieldWidth, 36), {
             text: model.title,
+            label: tr('Connection name'),
             placeholder: tr('Connection name'),
             enabled: !model.busy,
             action: { type: 'field', field: 'title' }
         })
     );
-    y += 48;
     content.push(
-        node('Area', 'mcpInstructions', rect(0, y, inner, 112), {
+        node(
+            'Choice',
+            'mcpLifetime',
+            rect(
+                inner >= 560 ? fieldWidth + 12 : 0,
+                inner >= 560 ? y : y + 44,
+                lifetimeWidth,
+                36
+            ),
+            {
+                value: model.minutes,
+                enabled: !model.busy,
+                options: [
+                    { value: '5', label: tr('5 minutes') },
+                    { value: '60', label: tr('1 hour') },
+                    { value: '480', label: tr('8 hours') }
+                ],
+                action: { type: 'field', field: 'minutes' }
+            }
+        )
+    );
+    y += inner >= 560 ? 44 : 88;
+    content.push(
+        node('Area', 'mcpInstructions', rect(0, y, inner, 72), {
             text: model.instructions,
             placeholder: tr('Instructions for this connection'),
             enabled: !model.busy,
             action: { type: 'field', field: 'instructions' }
         })
     );
-    y += 120;
-    content.push(
-        node('Choice', 'mcpLifetime', rect(0, y, inner, 36), {
-            value: model.minutes,
-            enabled: !model.busy,
-            options: [
-                { value: '5', label: tr('5 minutes') },
-                { value: '60', label: tr('1 hour') },
-                { value: '480', label: tr('8 hours') }
-            ],
-            action: { type: 'field', field: 'minutes' }
-        })
+    y += 84;
+    caption(
+        'mcpToolsTitle',
+        tr('Allowed tools') +
+            ' · ' +
+            model.selected.length +
+            '/' +
+            model.tools.length
     );
-    y += 44;
-    caption('mcpToolsTitle', tr('Allowed tools'));
     content.push(
         button(
             'mcpReadTools',
-            rect(0, y, Math.min(200, inner / 2), 32),
+            rect(0, y, readWidth, 32),
             tr('Select read tools'),
             'check',
             { type: 'readonly' },
@@ -117,7 +138,7 @@ export function describe(model, width, height, language) {
     content.push(
         button(
             'mcpClearTools',
-            rect(Math.min(208, inner / 2), y, Math.min(120, inner / 2), 32),
+            rect(readWidth + 8, y, clearWidth, 32),
             tr('Clear'),
             'close',
             { type: 'clear' },
@@ -125,40 +146,100 @@ export function describe(model, width, height, language) {
         )
     );
     y += 40;
-    const toolRows = [];
+    const toolRows = [],
+        rowHeight = inner < 480 ? 88 : 68;
     for (const [index, tool] of model.tools.entries()) {
-        const toolY = index * 84;
+        const toolY = index * rowHeight,
+            rowWidth = inner - 16,
+            nameWidth = Math.max(0, rowWidth - (inner < 480 ? 56 : 164));
+        if (index)
+            toolRows.push(
+                node(
+                    'Box',
+                    'mcpToolDivider_' + index,
+                    rect(12, toolY, rowWidth - 24, 1),
+                    { background: 'outline' }
+                )
+            );
         toolRows.push(
             node(
                 'CheckBox',
                 'mcpTool_' + index,
-                rect(0, toolY, inner - 16, 32),
+                rect(0, toolY, rowWidth, rowHeight),
                 {
-                    label: tool.name,
+                    label:
+                        (tool.title || tool.name) +
+                        ' · ' +
+                        tr(tool.readonly ? 'Read only' : 'Write'),
+                    text: tool.title || tool.name,
+                    description: tool.description,
+                    indicatorX: 12,
+                    selectedColor: 'contentSelection',
                     checked: model.selected.includes(tool.name),
                     enabled: !model.busy,
-                    action: { type: 'tool', name: tool.name }
+                    action: { type: 'tool', name: tool.name },
+                    children: [
+                        label(
+                            'mcpToolName_' + index,
+                            rect(44, 8, nameWidth, 22),
+                            tool.title || tool.name,
+                            { weight: 600 }
+                        ),
+                        label(
+                            'mcpToolAccess_' + index,
+                            rect(
+                                inner < 480 ? 44 : rowWidth - 112,
+                                inner < 480 ? 28 : 8,
+                                inner < 480 ? rowWidth - 56 : 100,
+                                22
+                            ),
+                            tr(tool.readonly ? 'Read only' : 'Write'),
+                            Object.assign({}, muted, {
+                                align: inner < 480 ? 'left' : 'right',
+                                color: tool.readonly
+                                    ? 'secondaryText'
+                                    : 'contentAccent'
+                            })
+                        ),
+                        label(
+                            'mcpToolDescription_' + index,
+                            rect(44, inner < 480 ? 52 : 32, rowWidth - 56, 30),
+                            tool.description,
+                            Object.assign({}, muted, {
+                                wrap: true,
+                                maxLines: 2
+                            })
+                        )
+                    ]
                 }
             )
         );
-        toolRows.push(
-            label(
-                'mcpToolDescription_' + index,
-                rect(28, toolY + 32, inner - 44, 44),
-                tool.description,
-                Object.assign({}, muted, { wrap: true })
-            )
-        );
     }
-    const toolHeight = Math.min(252, model.tools.length * 84);
+    const toolHeight = Math.min(
+        Math.max(160, height - y - 88),
+        340,
+        model.tools.length * rowHeight
+    );
     content.push(
-        node('Scroll', 'mcpToolList', rect(0, y, inner, toolHeight), {
-            contentHeight: model.tools.length * 84,
-            scrollbarId: 'mcpToolListBar',
-            children: toolRows
+        node('Box', 'mcpToolSurface', rect(0, y, inner, toolHeight + 8), {
+            background: 'panel',
+            border: 'outline',
+            radius: 4,
+            children: [
+                node(
+                    'Scroll',
+                    'mcpToolList',
+                    rect(4, 4, inner - 8, toolHeight),
+                    {
+                        contentHeight: model.tools.length * rowHeight,
+                        scrollbarId: 'mcpToolListBar',
+                        children: toolRows
+                    }
+                )
+            ]
         })
     );
-    y += toolHeight + 12;
+    y += toolHeight + 20;
     if (model.issued) {
         caption(
             'mcpAgentLinkTitle',
@@ -250,13 +331,23 @@ export function describe(model, width, height, language) {
         node(
             'Scroll',
             'mcpScroll',
-            rect(12, 8, width - 24, Math.max(0, height - 108)),
+            rect(
+                12,
+                8,
+                width - 24,
+                Math.max(0, height - (model.error ? 108 : 64))
+            ),
             {
                 contentHeight: y,
                 scrollbarId: 'mcpScrollBar',
                 children: content
             }
         )
+    );
+    nodes.push(
+        node('Box', 'mcpFooterDivider', rect(12, height - 56, width - 24, 1), {
+            background: 'outline'
+        })
     );
     if (model.error)
         nodes.push(

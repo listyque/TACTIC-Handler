@@ -124,6 +124,16 @@ Activity, waiting and completion status appear inside the conversation, aligned 
 
 The agent can create native tasks for selected project objects and edit their descriptions, assignments, supervisors, planned dates/hours, progress and statuses through the ordinary task inspector. It prepares actual workflow choices and revisions before saving a checked batch. Existing tasks are retained, exact retries do not create duplicates, and conflicts roll back the packet. Scoped MCP connections must explicitly include the task preparation/save tools. These task operations are outside the field-only Undo button.
 
+## MCP connections
+
+The **MCP connections** window grants access only to the captured project and
+the checked tools. Each permission row shows its name, description and **Read
+only** or **Write** access. Click the row or use Space to toggle it. The counter
+shows the selected total. **Select read tools** selects only tools marked read-only
+by the server; **Clear** removes the selection. Neither button issues access.
+Creation requires a name and at least one selected tool. Existing connections
+and revocation remain below the form; scroll to reach them.
+
 ## Conversation library
 
 Conversation history is a separate left panel, with **Search conversations** and

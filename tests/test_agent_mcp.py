@@ -4,7 +4,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from PySide6.QtCore import Signal, QPointF
+from PySide6.QtCore import Signal, QPointF, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTest import QTest
@@ -62,6 +62,13 @@ class McpUI(unittest.TestCase):
             view = surface.create(QML/'features/configuration/AgentMcpView.qml', dict(theme=surface.theme, controller=controller, width=800, height=650))
             window = QQuickWindow(); window.resize(800,650); surface.windows.append(window)
             view.setParentItem(window.contentItem()); window.show(); frame(window)
+            self.assertEqual(surface.item(view, 'mcpTool_0').property('text'), 'agent_context')
+            caption = surface.item(view, 'mcpToolName_0')
+            self.assertEqual(caption.property('text'), 'agent_context')
+            surface.click(window, caption)
+            self.assertEqual(controller.model['selected'], ['agent_context'])
+            QTest.keyClick(window, Qt.Key_Space); frame(window)
+            self.assertEqual(controller.model['selected'], [])
             field = surface.item(view,'mcpTitle'); field.forceActiveFocus()
             for char in 'Tracker': QTest.keyClick(window,char)
             surface.click(window,surface.item(view,'mcpReadTools')); frame(window)
