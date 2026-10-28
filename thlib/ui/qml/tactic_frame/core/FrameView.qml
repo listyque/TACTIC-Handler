@@ -199,6 +199,20 @@ Item {
                     easing.type: Easing.OutCubic
                 }
             }
+            Behavior on y {
+                enabled: wrapper.duration('y') > 0
+                NumberAnimation {
+                    duration: wrapper.duration('y')
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Behavior on height {
+                enabled: wrapper.duration('height') > 0
+                NumberAnimation {
+                    duration: wrapper.duration('height')
+                    easing.type: Easing.OutCubic
+                }
+            }
             scale: node.scale === undefined ? 1 : node.scale
             transformOrigin: Item.TopLeft
             x: node.x
@@ -330,7 +344,7 @@ Item {
                         border.color: root.color(wrapper.node.border)
                         radius: wrapper.node.radiusRole ? root.effectiveTheme[wrapper.node.radiusRole] : wrapper.node.radius === undefined ? root.effectiveTheme.surfaceRadius : wrapper.node.radius
                         bottomRightRadius: wrapper.node.bottomRightRadius === undefined ? radius : wrapper.node.bottomRightRadius
-                        clip: true
+                        clip: wrapper.node.clip !== false
                         HoverHandler {
                             id: rowHover
                             enabled: wrapper.node.recordKey !== undefined

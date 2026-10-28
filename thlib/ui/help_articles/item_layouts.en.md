@@ -364,3 +364,44 @@ disabling mutations. These viewing settings are local to this editor session;
 they are not saved in DashboardDocument and do not make the published page fixed
 width. Switching pages restores default viewing settings. Changing size/zoom
 does not create Undo entries or reload an existing item tree.
+
+## Multiple selection, alignment and guides
+
+In Page layouts, Ctrl/Cmd-click or Shift-click toggles blocks in the selection.
+The compact Multiple selection button gives the same operation without a
+modifier. Shift-drag draws a selection rectangle; dragging empty canvas also
+draws a rectangle. Whole blocks inside the rectangle are added. Selecting a
+container includes its descendants once, so a parent and child are never moved
+twice. Click an unselected block normally to return to a single selection.
+
+Drag selected blocks together, or use arrow keys (Shift: 10px). The Align menu
+matches left/right/top/bottom edges or horizontal/vertical centers against the
+selection's bounding box. A movement or alignment is one local Undo step. Escape
+cancels a drag. Multiple-block resize is deliberately unavailable; resize blocks
+individually. Structure actions apply to a single selection.
+
+Guides snap dragged edges/centers to other visible blocks within six screen
+pixels, including at a different zoom. The Snap button toggles this; hold Alt
+during movement to bypass snapping. Alt-click still cycles underlying layers.
+Guides and the selection rectangle are transient and are never saved.
+
+Mouse movement now changes Horizontal/Vertical offset in the current container;
+it preserves the existing layout slots, hierarchy and data bindings. Positive
+and negative offsets are supported (X: -2400..2400, Y: -1600..1600). Fixed-height
+containers still clip their contents. Use Parent container and Move up/down to
+change structure. Offsets are part of the page and follow normal revisioned Save.
+
+## Block appearance
+
+Appearance controls the block wrapper: fill, stroke color/width (0..8px), corner
+radius (0..48px), shadow and layout-change animation. Colors accept six-digit
+hex values. Fill also accepts transparent, panel, workspace, surfaceContainerLow;
+stroke accepts outlineVariant, contentAccent and transparent. Theme roles adapt
+to light/dark mode. Existing content widgets retain their native inner styling.
+For multiple selection the appearance change applies to every selected block;
+the inspector displays the primary block's current values. Undo is atomic.
+
+Shadow uses the existing item-surface shadow treatment. Animation transitions
+geometry when a live page changes; it is suppressed while editing and respects
+global motion/reduced-motion settings. It is not an autoplay or script animation
+builder. Clean preview hides selection/guides while preserving actual styling.

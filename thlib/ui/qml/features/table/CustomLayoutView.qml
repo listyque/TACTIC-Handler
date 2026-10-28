@@ -24,6 +24,12 @@ Frame.FrameView {
     property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     property bool guides: true
     property string selectedBlock: ""
+    property var selectedBlocks: []
+    property bool multiSelect: false
+    property bool snap: false
+    signal selectionEdited(var keys)
+    signal canvasBoxesEdited(var boxes)
+    onSceneChanged: canvasBoxesEdited(scene.canvasBoxes || [])
     property var previewItems: null
     property var canvasViewport: null
     readonly property var canvasSize: canvasViewport ? Viewport.dimensions(canvasViewport, width, height) : ({
@@ -40,7 +46,8 @@ Frame.FrameView {
     readonly property var baseScene: Layout.describe(Object.assign({}, document, {
         layoutTables: owner.tableModels || {},
         layoutFilterDraft: filterDraft,
-        layoutEditing: editing
+        layoutEditing: editing,
+        layoutDesigning: editing && guides
     }), canvasSize.width - (canvasViewport ? 24 : 0), Math.max(1, canvasSize.height - (canvasViewport ? 24 : 0)), language, true, controller.server_url || "")
     readonly property var decoratedScene: editing && guides ? Canvas.decorate(baseScene, "editorPath") : baseScene
     scene: canvasViewport ? Viewport.describe(decoratedScene, canvasViewport, width, height) : decoratedScene
@@ -96,6 +103,11 @@ Frame.FrameView {
             theme: root.theme
             boxes: root.scene.canvasBoxes || []
             selected: root.selectedBlock
+            selection: root.selectedBlocks
+            multiple: !!root.canvasViewport
+            multiSelect: root.multiSelect
+            snap: root.snap
+            onSelectionEdited: keys => root.selectionEdited(keys)
             onSelectedKey: key => root.blockSelected(key)
             onCommitted: change => root.geometryEdited(change, root.scene.canvasBoxes || [])
         }

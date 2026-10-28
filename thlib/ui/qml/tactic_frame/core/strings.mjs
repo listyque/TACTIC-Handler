@@ -4881,7 +4881,42 @@ const russian = {
     '{minutes} min read': 'Чтение: {minutes} мин',
     'Inherited from definition': 'Наследуется из definition',
     'Column definition was not found in saved configurations.':
-        'Определение колонки не найдено в сохранённых конфигурациях.'
+        'Определение колонки не найдено в сохранённых конфигурациях.',
+    'Multiple selection': 'Множественное выделение',
+    selected: 'выбрано',
+    'Align selected elements': 'Выровнять выбранные элементы',
+    Align: 'Выровнять',
+    'Left edges': 'По левым краям',
+    'Horizontal centers': 'По центрам по горизонтали',
+    'Right edges': 'По правым краям',
+    'Top edges': 'По верхним краям',
+    'Vertical centers': 'По центрам по вертикали',
+    'Bottom edges': 'По нижним краям',
+    'Snap to guides': 'Привязка к направляющим',
+    'Horizontal offset': 'Смещение по горизонтали',
+    'Vertical offset': 'Смещение по вертикали',
+    'Fill color': 'Цвет заливки',
+    'Stroke color': 'Цвет обводки',
+    'Stroke width': 'Толщина обводки',
+    'Corner radius': 'Радиус углов',
+    Shadow: 'Тень',
+    'Animate layout changes': 'Анимация перестроения',
+    'Follows appearance motion settings. Disabled while editing.':
+        'Учитывает настройки анимации интерфейса. Отключена при редактировании.',
+    'Choose a theme color or enter a six-digit hex color':
+        'Выберите цвет темы или укажите шестизначный HEX-цвет',
+    'Select independent page blocks': 'Выберите независимые блоки страницы',
+    'Movement exceeds the page offset range':
+        'Смещение превышает допустимый диапазон',
+    'Appearance for selection': 'Оформление выделения',
+    'Custom fill color': 'Свой цвет заливки',
+    'Custom stroke color': 'Свой цвет обводки',
+    'Low surface': 'Приглушённая поверхность',
+    Transparent: 'Прозрачный',
+    Outline: 'Контур',
+    Panel: 'Панель',
+    Workspace: 'Рабочая область',
+    Accent: 'Акцентный'
 };
 
 export function translate(text, language, values) {

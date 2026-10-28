@@ -82,14 +82,16 @@ export function change(document, key, field, value) {
         width: [40, 2400],
         height: [24, 1600],
         weight: [1, 12],
-        gap: [0, 128]
+        gap: [0, 128],
+        offset_x: [-2400, 2400],
+        offset_y: [-1600, 1600]
     };
     if (limits[field]) {
         if (value === '' && ['width', 'height'].includes(field)) value = null;
         else {
             const range = limits[field];
             if (
-                !/^\d+$/.test(String(value)) ||
+                !/^-?\d+$/.test(String(value)) ||
                 Number(value) < range[0] ||
                 Number(value) > range[1]
             )
@@ -343,4 +345,67 @@ export function geometry(document, change, boxes) {
         document: result,
         key: location(result.blocks, target).concat(insertion).join('.')
     };
+}
+
+export function appearances(document, keys, field, value) {
+    const defaults = {
+        fill: 'transparent',
+        stroke: 'outlineVariant',
+        stroke_width: 0,
+        radius: 0,
+        shadow: false,
+        animate: false
+    };
+    const result = copy(document);
+    if (!Object.prototype.hasOwnProperty.call(defaults, field))
+        throw Error('Unsupported page property');
+    if (['shadow', 'animate'].includes(field)) {
+        if (typeof value !== 'boolean') throw Error('Choose Yes or No');
+    } else if (['radius', 'stroke_width'].includes(field)) {
+        if (
+            !/^\d+$/.test(String(value)) ||
+            Number(value) > (field === 'radius' ? 48 : 8)
+        )
+            throw Error('Enter a whole number within the allowed range');
+        value = Number(value);
+    } else if (
+        !(
+            field === 'fill'
+                ? /^(transparent|panel|workspace|surfaceContainerLow|#[0-9a-fA-F]{6})$/
+                : /^(outlineVariant|contentAccent|transparent|#[0-9a-fA-F]{6})$/
+        ).test(value)
+    )
+        throw Error('Choose a theme color or enter a six-digit hex color');
+    for (const key of keys) {
+        const item = block(result, key);
+        item.appearance = Object.assign({}, defaults, item.appearance || {}, {
+            [field]: value
+        });
+    }
+    return result;
+}
+export function geometries(document, changes, boxes) {
+    let result = copy(document);
+    const keys = changes.map((change) => change.key);
+    if (
+        new Set(keys).size !== keys.length ||
+        keys.some((key) => keys.some((other) => key.startsWith(other + '.')))
+    )
+        throw Error('Select independent page blocks');
+    for (const change of changes) {
+        if (change.position && change.handle === 'move') {
+            const item = block(result, change.key);
+            for (const axis of ['x', 'y']) {
+                const delta = change.after[axis] - change.before[axis];
+                const value = Math.round((item['offset_' + axis] || 0) + delta);
+                if (
+                    !Number.isFinite(value) ||
+                    Math.abs(value) > (axis === 'x' ? 2400 : 1600)
+                )
+                    throw Error('Movement exceeds the page offset range');
+                item['offset_' + axis] = value;
+            }
+        } else result = geometry(result, change, boxes).document;
+    }
+    return { document: result, keys };
 }

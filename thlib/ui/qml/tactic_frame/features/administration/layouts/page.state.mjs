@@ -2,10 +2,14 @@ import * as Document from './page.document.mjs';
 import * as Data from './page.data.mjs';
 import * as Reports from './page.reports.mjs';
 import * as Viewport from './page.viewport.mjs';
+import * as Selection from './page.selection.mjs';
 import { documentEvent } from '../admin.document.mjs';
 export function initial() {
     return {
         selected: '',
+        selection: [],
+        multiSelect: false,
+        snap: true,
         panel: 'canvas',
         preview: false,
         text: {},
@@ -41,6 +45,7 @@ export function transition(ui, model, event) {
         next.future = [];
         next.historyDocument = '';
         next.selected = '';
+        next.selection = [];
     }
     if (
         event.type === 'confirm' &&
@@ -54,7 +59,8 @@ export function transition(ui, model, event) {
             .concat([
                 {
                     document: Document.copy(model.document),
-                    selected: ui.selected
+                    selected: ui.selected,
+                    selection: ui.selection
                 }
             ])
             .slice(-20);
@@ -90,6 +96,7 @@ export function transition(ui, model, event) {
         try {
             replace(Document.remove(model.document, ui.selected));
             next.selected = '';
+            next.selection = [];
         } catch (e) {
             next.error = e.message;
         }
@@ -105,6 +112,7 @@ export function transition(ui, model, event) {
         )
             Object.assign(document.ui, {
                 selected: '',
+                selection: [],
                 text: {},
                 past: [],
                 future: [],
@@ -124,7 +132,10 @@ export function transition(ui, model, event) {
             'canvasSize',
             'canvasWidthBuffer',
             'canvasWidthCommit',
-            'canvasZoom'
+            'canvasZoom',
+            'multiSelect',
+            'snap',
+            'selection'
         ].includes(event.type)
     )
         return { ui: next, commands };
@@ -167,6 +178,9 @@ export function transition(ui, model, event) {
             [
                 'select',
                 'geometry',
+                'selection',
+                'align',
+                'appearance',
                 'add',
                 'remove',
                 'change',
@@ -227,11 +241,14 @@ export function transition(ui, model, event) {
                     .concat([
                         {
                             document: Document.copy(model.document),
-                            selected: ui.selected
+                            selected: ui.selected,
+                            selection: ui.selection
                         }
                     ])
                     .slice(-20);
                 next.selected = snapshot.selected;
+                next.selection =
+                    snapshot.selection || [snapshot.selected].filter(Boolean);
                 next.recordQuery = '';
                 next.pageFilter = 0;
                 next.historyDocument = Document.fingerprint(snapshot.document);
@@ -262,6 +279,7 @@ export function transition(ui, model, event) {
                             );
                 replace(value.document);
                 next.selected = value.key;
+                next.selection = [value.key];
                 break;
             }
             case 'preview':
@@ -276,11 +294,69 @@ export function transition(ui, model, event) {
                     next.panel = event.value;
                 break;
             case 'select':
+                next.selection = event.key
+                    ? ui.multiSelect
+                        ? Selection.toggle(ui.selection || [], event.key)
+                        : [event.key]
+                    : [];
                 if (event.key) Document.block(model.document, event.key);
-                next.selected = event.key;
+                next.selected = next.selection.includes(event.key)
+                    ? event.key
+                    : next.selection[next.selection.length - 1] || '';
                 next.text = {};
                 next.recordQuery = '';
                 break;
+            case 'selection':
+                for (const key of event.keys)
+                    Document.block(model.document, key);
+                next.selection = Selection.roots(event.keys);
+                next.selected = next.selection[next.selection.length - 1] || '';
+                next.recordQuery = '';
+                break;
+            case 'multiSelect':
+                next.multiSelect = !ui.multiSelect;
+                break;
+            case 'snap':
+                next.snap = !ui.snap;
+                break;
+            case 'align': {
+                if (ui.preview) break;
+                const changes = Selection.alignment(
+                    Selection.selected(event.boxes || [], ui.selection),
+                    event.value
+                );
+                if (changes.length)
+                    replace(
+                        Document.geometries(
+                            model.document,
+                            changes,
+                            event.boxes
+                        ).document
+                    );
+                break;
+            }
+            case 'appearance':
+            case 'appearanceCommit': {
+                if (ui.preview) break;
+                if (
+                    event.type === 'appearanceCommit' &&
+                    !Object.prototype.hasOwnProperty.call(ui.text, event.key)
+                )
+                    break;
+                replace(
+                    Document.appearances(
+                        model.document,
+                        ui.selection.length ? ui.selection : [ui.selected],
+                        event.field,
+                        event.type === 'appearanceCommit'
+                            ? ui.text[event.key]
+                            : event.value
+                    )
+                );
+                next.text = Object.assign({}, next.text);
+                delete next.text[event.key];
+                break;
+            }
             case 'recordQuery':
                 next.recordQuery = event.value;
                 break;
@@ -341,6 +417,7 @@ export function transition(ui, model, event) {
                 } else {
                     commands.push({ type: 'load', name: event.value });
                     next.selected = '';
+                    next.selection = [];
                     next.creating = false;
                 }
                 break;
@@ -373,6 +450,7 @@ export function transition(ui, model, event) {
                 });
                 next.creating = false;
                 next.selected = '';
+                next.selection = [];
                 break;
             case 'buffer':
                 next.text = Object.assign({}, ui.text, {
@@ -430,19 +508,30 @@ export function transition(ui, model, event) {
                 );
                 replace(value.document);
                 next.selected = value.key;
+                next.selection = [value.key];
                 break;
             }
             case 'remove':
                 if (ui.selected) next.confirmation = 'remove';
                 break;
             case 'geometry': {
-                const value = Document.geometry(
-                    model.document,
-                    event.value,
-                    event.boxes
-                );
+                if (ui.preview) break;
+                const value = event.value.changes
+                    ? Document.geometries(
+                          model.document,
+                          event.value.changes,
+                          event.boxes
+                      )
+                    : Document.geometry(
+                          model.document,
+                          event.value,
+                          event.boxes
+                      );
                 replace(value.document);
-                next.selected = value.key;
+                next.selection = value.keys || [value.key];
+                next.selected = next.selection.includes(ui.selected)
+                    ? ui.selected
+                    : next.selection[next.selection.length - 1];
                 break;
             }
             case 'card': {

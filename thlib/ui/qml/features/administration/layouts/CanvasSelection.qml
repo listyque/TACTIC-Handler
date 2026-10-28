@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "../../../controls" as Controls
 import "../../../tactic_frame/features/administration/layouts/canvas.mjs" as Canvas
+import "../../../tactic_frame/features/administration/layouts/page.selection.mjs" as Selection
 
 FocusScope {
     id: root
@@ -11,14 +12,69 @@ FocusScope {
     property var gesture: null
     property var ghost: null
     property real viewportScale: 1
-    readonly property var chosen: ghost || boxes.find(b => b.key === selected) || null
+    property var selection: []
+    property bool multiple: false
+    property bool multiSelect: false
+    property bool snap: false
+    property var preview: null
+    property var rubber: null
+    readonly property var group: Selection.selected(boxes, selection)
+    readonly property var outlines: preview ? preview.changes.map(change => change.after) : group
+    readonly property var chosen: multiple && group.length > 1 ? Object.assign({}, Selection.bounds(outlines), {
+        group: true
+    }) : ghost || (preview ? preview.changes[0].after : null) || boxes.find(b => b.key === selected) || null
+    signal selectionEdited(var keys)
     signal selectedKey(string key)
     signal committed(var change)
+    function cancel() {
+        gesture = null;
+        ghost = null;
+        preview = null;
+        rubber = null;
+    }
     function begin(area, mouse, box, handle, hit = false) {
         const point = area.mapToItem(root, mouse.x, mouse.y);
+        forceActiveFocus();
+        if (multiple && (!box || (mouse.modifiers & Qt.ShiftModifier))) {
+            gesture = {
+                marquee: true,
+                start: {
+                    x: point.x,
+                    y: point.y
+                },
+                base: selection,
+                box
+            };
+            rubber = {
+                x: point.x,
+                y: point.y,
+                width: 0,
+                height: 0
+            };
+            return;
+        }
         if (hit && (mouse.modifiers & Qt.AltModifier))
             box = Canvas.pick(boxes, point.x, point.y, selected, true) || box;
-        forceActiveFocus();
+        if (multiple) {
+            let keys = selection;
+            if (!box.group && ((mouse.modifiers & (Qt.ControlModifier | Qt.MetaModifier)) || multiSelect)) {
+                selectionEdited(Selection.toggle(keys, box.key));
+                return;
+            }
+            if (!box.group && !keys.includes(box.key))
+                keys = [box.key];
+            selectionEdited(keys);
+            const chosenBoxes = Selection.selected(boxes, keys);
+            if (!chosenBoxes.length)
+                return;
+            gesture = {
+                boxes: chosenBoxes,
+                handle,
+                x: point.x,
+                y: point.y
+            };
+            return;
+        }
         selectedKey(box.key);
         if (box.canTransform === false)
             return;
@@ -34,27 +90,56 @@ FocusScope {
         if (!gesture)
             return;
         const point = area.mapToItem(root, mouse.x, mouse.y);
-        ghost = Canvas.transform(gesture.box, gesture.handle, point.x - gesture.x, point.y - gesture.y);
+        if (gesture.marquee) {
+            rubber = Selection.bounds([Object.assign({}, gesture.start, {
+                    width: 0,
+                    height: 0
+                }),
+                {
+                    x: point.x,
+                    y: point.y,
+                    width: 0,
+                    height: 0
+                }
+            ]);
+            return;
+        }
+        const dx = point.x - gesture.x, dy = point.y - gesture.y;
+        if (gesture.boxes) {
+            if (Math.hypot(dx, dy) * viewportScale < 3 && !gesture.moved)
+                return;
+            gesture.moved = true;
+            preview = Selection.drag(gesture.boxes, gesture.handle, dx, dy, boxes, viewportScale, snap && !(mouse.modifiers & Qt.AltModifier));
+        } else
+            ghost = Canvas.transform(gesture.box, gesture.handle, dx, dy);
     }
     function finish(area, mouse) {
         if (!gesture)
             return;
         update(area, mouse);
-        const action = {
-            key: gesture.box.key,
-            handle: gesture.handle,
-            before: gesture.box,
-            after: ghost
-        };
-        gesture = null;
-        ghost = null;
-        if (JSON.stringify(action.before) !== JSON.stringify(action.after))
-            committed(action);
+        const g = gesture;
+        if (g.marquee) {
+            const point = area.mapToItem(root, mouse.x, mouse.y);
+            const small = Math.hypot(point.x - g.start.x, point.y - g.start.y) * viewportScale < 3;
+            selectionEdited(small ? (g.box ? Selection.toggle(g.base, g.box.key) : []) : Selection.roots(g.base.concat(Selection.marquee(boxes, g.start, point))));
+        } else if (g.boxes) {
+            const changes = preview ? preview.changes : [];
+            if (changes.some(c => JSON.stringify(c.before) !== JSON.stringify(c.after)))
+                committed({
+                    changes
+                });
+        } else if (JSON.stringify(g.box) !== JSON.stringify(ghost))
+            committed({
+                key: g.box.key,
+                handle: g.handle,
+                before: g.box,
+                after: ghost
+            });
+        cancel();
     }
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape) {
-            gesture = null;
-            ghost = null;
+            cancel();
             event.accepted = true;
             return;
         }
@@ -68,16 +153,76 @@ FocusScope {
         const d = delta[event.key];
         if (!d)
             return;
-        const step = event.modifiers & Qt.ShiftModifier ? 10 : 1;
-        const handle = event.modifiers & Qt.AltModifier ? "se" : "move";
-        committed({
-            key: chosen.key,
-            handle,
-            keyboard: true,
-            before: chosen,
-            after: Canvas.transform(chosen, handle, d[0] * step, d[1] * step)
-        });
+        const step = event.modifiers & Qt.ShiftModifier ? 10 : 1, handle = event.modifiers & Qt.AltModifier ? 'se' : 'move';
+        if (multiple) {
+            if (group.length > 1 && handle !== 'move')
+                return;
+            committed({
+                changes: Selection.drag(group, handle, d[0] * step, d[1] * step, [], viewportScale, false).changes
+            });
+        } else
+            committed({
+                key: chosen.key,
+                handle,
+                keyboard: true,
+                before: chosen,
+                after: Canvas.transform(chosen, handle, d[0] * step, d[1] * step)
+            });
         event.accepted = true;
+    }
+    MouseArea {
+        id: background
+        objectName: "canvasMarqueeArea"
+        anchors.fill: parent
+        visible: root.multiple
+        z: -1
+        preventStealing: pressed
+        onPressed: mouse => root.begin(background, mouse, null, "move")
+        onPositionChanged: mouse => {
+            if (pressed)
+                root.update(background, mouse);
+        }
+        onReleased: mouse => root.finish(background, mouse)
+        onCanceled: root.cancel()
+    }
+    Repeater {
+        model: root.multiple ? root.outlines : []
+        delegate: Rectangle {
+            required property var modelData
+            objectName: "canvasSelected_" + modelData.key
+            x: modelData.x
+            y: modelData.y
+            width: modelData.width
+            height: modelData.height
+            z: 200
+            color: "transparent"
+            border.color: root.theme.contentAccent
+            border.width: 1 / root.viewportScale
+        }
+    }
+    Repeater {
+        model: root.preview ? root.preview.guides : []
+        delegate: Rectangle {
+            required property var modelData
+            objectName: "canvasGuide_" + modelData.axis
+            x: modelData.axis === 'x' ? modelData.value : modelData.start
+            y: modelData.axis === 'y' ? modelData.value : modelData.start
+            width: modelData.axis === 'x' ? 1 / root.viewportScale : modelData.end - modelData.start
+            height: modelData.axis === 'y' ? 1 / root.viewportScale : modelData.end - modelData.start
+            z: 250
+            color: root.theme.contentAccent
+        }
+    }
+    Rectangle {
+        visible: !!root.rubber
+        x: root.rubber?.x || 0
+        y: root.rubber?.y || 0
+        width: root.rubber?.width || 0
+        height: root.rubber?.height || 0
+        z: 260
+        color: root.theme.overlay("transparent", root.theme.contentAccent, .12)
+        border.color: root.theme.contentAccent
+        border.width: 1 / root.viewportScale
     }
     Repeater {
         model: root.boxes
@@ -102,8 +247,7 @@ FocusScope {
             }
             onReleased: mouse => root.finish(hit, mouse)
             onCanceled: {
-                root.gesture = null;
-                root.ghost = null;
+                root.cancel();
             }
             Rectangle {
                 anchors.fill: parent
@@ -142,8 +286,7 @@ FocusScope {
             }
             onReleased: mouse => root.finish(moveEdge, mouse)
             onCanceled: {
-                root.gesture = null;
-                root.ghost = null;
+                root.cancel();
             }
         }
         Controls.SelectableText {
@@ -151,12 +294,12 @@ FocusScope {
             activeFocusOnTab: false
             selectByMouse: false
             y: -20 / root.viewportScale
-            text: Math.round(outline.width) + " × " + Math.round(outline.height)
+            text: Math.round(outline.width) + " Г— " + Math.round(outline.height)
             color: root.theme.contentAccent
             font.pixelSize: Math.round(11 / root.viewportScale)
         }
         Repeater {
-            model: root.chosen?.canTransform === false ? [] : Canvas.handles
+            model: root.chosen?.canTransform === false || root.chosen?.group ? [] : Canvas.handles
             delegate: MouseArea {
                 id: handle
                 required property string modelData
@@ -175,8 +318,7 @@ FocusScope {
                 }
                 onReleased: mouse => root.finish(handle, mouse)
                 onCanceled: {
-                    root.gesture = null;
-                    root.ghost = null;
+                    root.cancel();
                 }
                 Rectangle {
                     anchors.centerIn: parent

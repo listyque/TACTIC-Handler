@@ -13,6 +13,7 @@ Item {
     property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     property bool saveActionsInHeader: false
     property var ui: State.initial()
+    property var canvasBoxes: []
     Keys.onPressed: event => {
         const focused = root.Window.window?.activeFocusItem;
         if (event.isAutoRepeat || (focused && focused.cursorPosition !== undefined))
@@ -60,6 +61,10 @@ Item {
         return UI.row(list, row, frameModel, ui, language);
     }
     function dispatch(event) {
+        if (event.type === "align")
+            event = Object.assign({}, event, {
+                boxes: canvasBoxes
+            });
         const result = State.transition(ui, frameModel, event);
         ui = result.ui;
         controller.set_presentation_dirty(Object.keys(ui.text).length > 0);
@@ -155,6 +160,14 @@ Item {
                 administration: typeof administrationController === "undefined" ? null : administrationController
                 editing: true
                 canvasViewport: root.ui.canvas
+                selectedBlocks: root.ui.selection
+                multiSelect: root.ui.multiSelect
+                snap: root.ui.snap
+                onSelectionEdited: keys => root.dispatch({
+                        type: "selection",
+                        keys
+                    })
+                onCanvasBoxesEdited: boxes => root.canvasBoxes = boxes
                 guides: !root.ui.preview
                 selectedBlock: root.ui.preview ? "" : root.ui.selected
                 onBlockSelected: key => root.dispatch({

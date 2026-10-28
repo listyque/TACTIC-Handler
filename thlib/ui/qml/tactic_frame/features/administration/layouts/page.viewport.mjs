@@ -25,8 +25,16 @@ function step(settings, width, direction) {
 export function describe(scene, settings, width, height) {
     const size = dimensions(settings, width, height);
     const scroll = scene.nodes.find((item) => item.id === 'customLayoutScroll');
-    const children = scroll ? scroll.children : scene.nodes;
+    const sourceChildren = scroll ? scroll.children : scene.nodes;
     const pageHeight = Math.max(size.height, (scroll?.contentHeight || 0) + 24);
+    const children = sourceChildren.map((child) =>
+        child.id === 'canvasOverlay'
+            ? Object.assign({}, child, {
+                  width: size.width - 24,
+                  height: pageHeight - 24
+              })
+            : child
+    );
     return Object.assign({}, scene, {
         nodes: [
             node('Scroll', 'pageViewportScroll', rect(0, 0, width, height), {
@@ -142,5 +150,56 @@ export function controls(ui, width, language, enabled) {
             { iconOnly: true }
         )
     );
-    return { nodes, height: narrow ? 72 : 32 };
+    let height = narrow ? 72 : 32;
+    if (!ui.preview) {
+        const y = height + 8;
+        nodes.push(
+            button(
+                'pageMultiSelect',
+                rect(0, y, 32, 32),
+                tr('Multiple selection'),
+                'select-all',
+                { type: 'multiSelect' },
+                enabled,
+                { iconOnly: true, highlighted: ui.multiSelect }
+            ),
+            label(
+                'pageSelectionCount',
+                rect(40, y, 72, 32),
+                String((ui.selection || []).length) + ' ' + tr('selected'),
+                muted
+            ),
+            node(
+                'Choice',
+                'pageAlign',
+                rect(120, y, Math.min(178, Math.max(1, width - 166)), 32),
+                {
+                    label: tr('Align selected elements'),
+                    value: '',
+                    enabled: enabled && (ui.selection || []).length > 1,
+                    options: [
+                        { value: '', label: tr('Align') },
+                        { value: 'left', label: tr('Left edges') },
+                        { value: 'centerX', label: tr('Horizontal centers') },
+                        { value: 'right', label: tr('Right edges') },
+                        { value: 'top', label: tr('Top edges') },
+                        { value: 'centerY', label: tr('Vertical centers') },
+                        { value: 'bottom', label: tr('Bottom edges') }
+                    ],
+                    action: { type: 'align' }
+                }
+            ),
+            button(
+                'pageSnap',
+                rect(Math.min(306, width - 32), y, 32, 32),
+                tr('Snap to guides'),
+                'grid-view',
+                { type: 'snap' },
+                enabled,
+                { iconOnly: true, highlighted: ui.snap }
+            )
+        );
+        height += 40;
+    }
+    return { nodes, height };
 }

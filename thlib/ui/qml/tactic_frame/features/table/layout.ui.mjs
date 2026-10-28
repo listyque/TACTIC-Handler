@@ -191,12 +191,20 @@ export function describe(
                     })
                 );
             } else if (item.kind === 'metric') {
-                extent = 104;
+                extent = Number.isFinite(item.height) ? item.height : 104;
+                const appearance = item.appearance;
+                const decorated =
+                    appearance &&
+                    (appearance.fill !== 'transparent' ||
+                        appearance.stroke_width ||
+                        appearance.radius ||
+                        appearance.shadow);
                 output.push(
                     node('Box', id, rect(x, top, available, extent), {
-                        background: 'panel',
-                        border: 'outlineVariant',
-                        radiusRole: 'surfaceRadius',
+                        background: decorated ? 'transparent' : 'panel',
+                        border: decorated ? '' : 'outlineVariant',
+                        radiusRole: decorated ? undefined : 'surfaceRadius',
+                        radius: decorated ? 0 : undefined,
                         children: [
                             label(
                                 id + '_label',
@@ -497,18 +505,73 @@ export function describe(
                     child.x -= originX + margin[3];
                     child.y -= outerTop + margin[0];
                 }
+                if (item.appearance?.shadow)
+                    for (const [index, dx, dy, grow, opacity] of [
+                        [0, -1, 1, 2, 0.28],
+                        [1, 1, 3, -2, 0.58]
+                    ])
+                        output.push(
+                            node(
+                                'Box',
+                                id + '_shadow' + index,
+                                rect(
+                                    originX +
+                                        margin[3] +
+                                        (item.offsetX || 0) +
+                                        dx,
+                                    outerTop +
+                                        margin[0] +
+                                        (item.offsetY || 0) +
+                                        dy,
+                                    Math.max(
+                                        0,
+                                        outerWidth -
+                                            margin[1] -
+                                            margin[3] +
+                                            grow
+                                    ),
+                                    Math.max(
+                                        0,
+                                        outerHeight - margin[0] - margin[2]
+                                    ) + (index === 0 ? 2 : 0)
+                                ),
+                                {
+                                    background: 'popupShadow',
+                                    radius:
+                                        (item.appearance.radius || 0) +
+                                        (index === 0 ? 1 : 0),
+                                    opacity,
+                                    pointerTransparent: true
+                                }
+                            )
+                        );
                 output.push(
                     node(
                         'Box',
                         id + '_block',
                         rect(
-                            originX + margin[3],
-                            outerTop + margin[0],
+                            originX + margin[3] + (item.offsetX || 0),
+                            outerTop + margin[0] + (item.offsetY || 0),
                             Math.max(0, outerWidth - margin[1] - margin[3]),
                             Math.max(0, outerHeight - margin[0] - margin[2])
                         ),
                         {
-                            background: 'transparent',
+                            background: item.appearance?.fill || 'transparent',
+                            border: item.appearance?.stroke_width
+                                ? item.appearance.stroke
+                                : '',
+                            borderWidth: item.appearance?.stroke_width || 0,
+                            radius: item.appearance?.radius || 0,
+                            motion:
+                                item.appearance?.animate &&
+                                !cell.layoutDesigning
+                                    ? {
+                                          x: 'clickMotionSlow',
+                                          y: 'clickMotionSlow',
+                                          width: 'clickMotionSlow',
+                                          height: 'clickMotionSlow'
+                                      }
+                                    : null,
                             editorPath: item.editorPath,
                             clip: Number.isFinite(item.height),
                             children: content
@@ -521,9 +584,25 @@ export function describe(
         return Math.max(0, top - originY - spacing);
     }
     children.push(...pageFilters.nodes);
-    const extent =
+    const flowExtent =
         pageFilters.height +
         draw(cell.layoutNodes, 0, pageFilters.height, Math.max(0, width - 24));
+    function visualBottom(nodes) {
+        return Math.max(
+            0,
+            ...nodes.map(
+                (item) =>
+                    item.y +
+                    Math.max(
+                        item.height,
+                        item.clip === false
+                            ? visualBottom(item.children || [])
+                            : 0
+                    )
+            )
+        );
+    }
+    const extent = Math.max(flowExtent, visualBottom(children));
     if (cell.layoutError)
         children.push(
             label(

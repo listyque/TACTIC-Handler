@@ -132,6 +132,129 @@ class PageCanvasTests(unittest.TestCase):
 
         AdministrationQmlTests.setUpClass()
 
+    def test_multiple_selection_alignment_marquee_guides_and_style(self):
+        from tests.test_administration_qml import AdministrationQmlTests
+        from tests.profile_ui_responsiveness import frame
+        from PySide6.QtCore import QPoint
+
+        fixture = AdministrationQmlTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.window.resize(1800, 1000)
+        editor = fixture.admin.dashboardEditor
+        children = [
+            dict(kind="text", text=name, width=120, height=50) for name in ("A", "B", "C")
+        ]
+        document = dict(
+            name="selection",
+            title="Selection",
+            blocks=[dict(kind="column", height=400, children=children)],
+        )
+        nodes = [
+            dict(
+                kind="text",
+                text=name,
+                width="120px",
+                height=50,
+                editorPath=[0, index],
+                offsetX=index * 140,
+            )
+            for index, name in enumerate(("A", "B", "C"))
+        ]
+        fixture.seed(
+            editor,
+            "selection",
+            document,
+            dict(
+                revision="R1",
+                checkedDocument=copy.deepcopy(document),
+                searchTypes=[],
+                compiled=dict(
+                    targetSearchKey="sthpw/project?code=demo",
+                    layoutNodes=[
+                        dict(kind="group", height=400, editorPath=[0], children=nodes)
+                    ],
+                ),
+            ),
+        )
+        fixture.admin.select_section("dashboards")
+        frame(fixture.window)
+
+        def center(key):
+            target = fixture.item("canvasTarget_" + key)
+            return target.mapToScene(
+                QPointF(target.width() / 2, target.height() / 2)
+            ).toPoint()
+
+        QTest.mouseClick(fixture.window, Qt.LeftButton, Qt.NoModifier, center("0.0"))
+        QTest.mouseClick(fixture.window, Qt.LeftButton, Qt.ControlModifier, center("0.1"))
+        frame(fixture.window)
+        self.assertTrue(
+            fixture.item("pageSelectionCount").property("text").startswith("2 ")
+        )
+        self.assertFalse(editor.dirty)
+        QTest.keyClick(fixture.window, Qt.Key_Right, Qt.ShiftModifier)
+        frame(fixture.window)
+        self.assertEqual(
+            [row.get("offset_x") for row in editor.document["blocks"][0]["children"][:2]],
+            [10, 10],
+        )
+        fixture.click("pageAction_undo")
+        self.assertEqual(editor.document, document)
+        fixture.item("pageAlign").forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(fixture.window, Qt.Key_Down)
+        frame(fixture.window)
+        self.assertEqual(editor.document["blocks"][0]["children"][1]["offset_x"], -140)
+        fixture.click("pageAction_undo")
+        # Style uses the same selected group and the ordinary document history.
+        field = fixture.item("pageAppearance_shadow")
+        scroll = fixture.item("pageProperties")
+        position = field.mapToItem(scroll, QPointF()).y()
+        scroll.setProperty("contentY", max(0, position - 40))
+        frame(fixture.window)
+        field = fixture.item("pageAppearance_shadow")
+        self.assertTrue(field.isEnabled())
+        field.forceActiveFocus(Qt.TabFocusReason)
+        frame(fixture.window)
+        point = field.mapToScene(QPointF(10, field.height() / 2)).toPoint()
+        QTest.mouseClick(fixture.window, Qt.LeftButton, Qt.NoModifier, point)
+        frame(fixture.window)
+        self.assertTrue(
+            all(
+                row["appearance"]["shadow"]
+                for row in editor.document["blocks"][0]["children"][:2]
+            )
+        )
+        fixture.click("pageAction_undo")
+        self.assertEqual(editor.document, document)
+        scroll.setProperty("contentY", 0)
+        # Shift drag over the existing canvas chooses children, not their container.
+        area = fixture.item("canvasMarqueeArea")
+        first = fixture.item("canvasTarget_0.0").mapToItem(area, QPointF())
+        second = fixture.item("canvasTarget_0.1")
+        end = second.mapToItem(area, QPointF(second.width() + 2, second.height() + 2))
+        start = area.mapToScene(first - QPointF(2, 2)).toPoint()
+        finish = area.mapToScene(end).toPoint()
+        QTest.mousePress(fixture.window, Qt.LeftButton, Qt.ShiftModifier, start)
+        QTest.mouseMove(fixture.window, finish, 30)
+        QTest.mouseRelease(fixture.window, Qt.LeftButton, Qt.ShiftModifier, finish)
+        frame(fixture.window)
+        self.assertTrue(
+            fixture.item("pageSelectionCount").property("text").startswith("2 ")
+        )
+        point = center("0.0")
+        QTest.mousePress(fixture.window, Qt.LeftButton, Qt.NoModifier, point)
+        QTest.mouseMove(fixture.window, point + QPoint(18, 1), 30)
+        frame(fixture.window)
+        self.assertIsNotNone(fixture.item("canvasGuide_x"))
+        QTest.keyClick(fixture.window, Qt.Key_Escape)
+        QTest.mouseRelease(
+            fixture.window, Qt.LeftButton, Qt.NoModifier, point + QPoint(18, 1)
+        )
+        self.assertEqual(editor.document, document)
+        self.assertEqual(fixture.fixture.warnings, [])
+
+
     def test_canvas_viewport_keeps_logical_resize_and_read_scopes(self):
         from tests.test_administration_qml import AdministrationQmlTests
         from tests.profile_ui_responsiveness import frame

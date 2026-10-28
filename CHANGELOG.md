@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.197 - 2026-10-28
+
+- Add page-canvas multiple selection, marquee, group movement, alignment and snap guides with atomic local Undo. Preserve container hierarchy with validated pixel offsets. Expose block fill, stroke, radius, shadow and opt-in layout animation through the same saved dashboard contract in Handler and Stream.
+
 ## 0.6.0.196 - 2026-10-28
 
 - Add page-editor viewport widths, custom pixel width, zoom and fit-to-width using native Frame rendering and scrollbars. Keep data/history independent of view settings and preserve logical resize coordinates at every scale.

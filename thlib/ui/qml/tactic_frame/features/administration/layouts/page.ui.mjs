@@ -60,7 +60,9 @@ export function row(list, record, model, ui, language) {
                     text: title,
                     normalColor: 'transparent',
                     selectedColor: 'contentSelection',
-                    selected: ui.selected === key,
+                    selected:
+                        (ui.selection || []).includes(key) ||
+                        ui.selected === key,
                     children: [
                         label(
                             'pageBlockLabel_' + record.key,
@@ -226,6 +228,7 @@ export function describe(model, ui, width, height, language) {
         const current = Document.fingerprint(model.document);
         const historyCurrent = ui.historyDocument === current;
         const ready = canEdit && !model.pendingText && !ui.confirmation;
+        const single = (ui.selection || []).length < 2;
         const p = Document.path(ui.selected),
             rows = p.length ? Document.siblings(model.document, p) : [];
         const actions = [
@@ -245,19 +248,19 @@ export function describe(model, ui, width, height, language) {
                 'Duplicate widget',
                 'content-copy',
                 { type: 'duplicate' },
-                ready && !!ui.selected
+                ready && single && !!ui.selected
             ],
             [
                 'Move up',
                 'arrow-upward',
                 { type: 'reorder', delta: -1 },
-                ready && p.length && p[p.length - 1] > 0
+                ready && single && p.length && p[p.length - 1] > 0
             ],
             [
                 'Move down',
                 'arrow-downward',
                 { type: 'reorder', delta: 1 },
-                ready && p.length && p[p.length - 1] < rows.length - 1
+                ready && single && p.length && p[p.length - 1] < rows.length - 1
             ]
         ];
         const separate = width < 700;
@@ -422,7 +425,7 @@ export function describe(model, ui, width, height, language) {
                     : String(value ?? ''),
                 action: { type: 'buffer', key },
                 commitAction: { type: 'commit', key, field: name, root },
-                enabled: canEdit
+                enabled: canEdit && (ui.selection || []).length < 2
             };
             fields.push({ id: 'pageProperty_' + name, title, kind, props });
         }
@@ -434,7 +437,13 @@ export function describe(model, ui, width, height, language) {
         );
         if (!item)
             fields.push(
-                ...Reports.fields(model, ui, right - 24, language, canEdit)
+                ...Reports.fields(
+                    model,
+                    ui,
+                    right - 24,
+                    language,
+                    canEdit && (ui.selection || []).length < 2
+                )
             );
         if (item) {
             const parent = Document.path(ui.selected).slice(0, -1).join('.');
@@ -444,7 +453,10 @@ export function describe(model, ui, width, height, language) {
                 title: 'Parent container',
                 props: {
                     value: parent,
-                    enabled: canEdit && !model.pendingText,
+                    enabled:
+                        canEdit &&
+                        (ui.selection || []).length < 2 &&
+                        !model.pendingText,
                     action: { type: 'reparent' }
                 },
                 options: [
@@ -477,10 +489,22 @@ export function describe(model, ui, width, height, language) {
                 )
             });
             fields.push(
-                ...Data.fields(model, ui, right - 24, language, canEdit)
+                ...Data.fields(
+                    model,
+                    ui,
+                    right - 24,
+                    language,
+                    canEdit && (ui.selection || []).length < 2
+                )
             );
             fields.push(
-                ...Reports.fields(model, ui, right - 24, language, canEdit)
+                ...Reports.fields(
+                    model,
+                    ui,
+                    right - 24,
+                    language,
+                    canEdit && (ui.selection || []).length < 2
+                )
             );
             if (
                 ['text', 'markdown'].includes(item.kind) &&
@@ -500,6 +524,8 @@ export function describe(model, ui, width, height, language) {
                 id: 'pageLayoutHeading',
                 title: 'Layout'
             });
+            field('offset_x', 'Horizontal offset', item.offset_x || 0);
+            field('offset_y', 'Vertical offset', item.offset_y || 0);
             field('width', 'Width', item.width);
             field('height', 'Height', item.height);
             field('weight', 'Flexible width', item.weight || 1);
@@ -514,10 +540,126 @@ export function describe(model, ui, width, height, language) {
                         ui.text,
                         { type: 'spacing', field: name },
                         language,
-                        canEdit,
+                        canEdit && (ui.selection || []).length < 2,
                         right - 72
                     )
                 );
+            fields.push({
+                kind: 'Heading',
+                id: 'pageAppearanceHeading',
+                title:
+                    (ui.selection || []).length > 1
+                        ? 'Appearance for selection'
+                        : 'Appearance'
+            });
+            const appearance = Object.assign(
+                {
+                    fill: 'transparent',
+                    stroke: 'outlineVariant',
+                    stroke_width: 0,
+                    radius: 0,
+                    shadow: false,
+                    animate: false
+                },
+                item.appearance || {}
+            );
+            for (const [name, title] of [
+                ['fill', 'Fill color'],
+                ['stroke', 'Stroke color'],
+                ['stroke_width', 'Stroke width'],
+                ['radius', 'Corner radius'],
+                ['shadow', 'Shadow'],
+                ['animate', 'Animate layout changes']
+            ]) {
+                if (['fill', 'stroke'].includes(name)) {
+                    const roles =
+                        name === 'fill'
+                            ? [
+                                  ['transparent', 'Transparent'],
+                                  ['panel', 'Panel'],
+                                  ['workspace', 'Workspace'],
+                                  ['surfaceContainerLow', 'Low surface']
+                              ]
+                            : [
+                                  ['outlineVariant', 'Outline'],
+                                  ['contentAccent', 'Accent'],
+                                  ['transparent', 'Transparent']
+                              ];
+                    fields.push({
+                        kind: 'Choice',
+                        id: 'pageAppearance_' + name,
+                        title,
+                        props: {
+                            value: appearance[name],
+                            enabled: canEdit,
+                            action: { type: 'appearance', field: name }
+                        },
+                        options: roles
+                            .map(([value, label]) => ({
+                                value,
+                                label: tr(label)
+                            }))
+                            .concat(
+                                appearance[name].startsWith('#')
+                                    ? [
+                                          {
+                                              value: appearance[name],
+                                              label: appearance[name]
+                                          }
+                                      ]
+                                    : []
+                            )
+                    });
+                    fields.push({
+                        kind: 'ColorChoice',
+                        id: 'pageColor_' + name,
+                        title:
+                            name === 'fill'
+                                ? 'Custom fill color'
+                                : 'Custom stroke color',
+                        props: {
+                            value: appearance[name].startsWith('#')
+                                ? appearance[name]
+                                : '#607D8B',
+                            enabled: canEdit,
+                            action: { type: 'appearance', field: name }
+                        }
+                    });
+                    continue;
+                }
+                const key = ui.selected + ':appearance:' + name,
+                    toggle = ['shadow', 'animate'].includes(name);
+                fields.push({
+                    id: 'pageAppearance_' + name,
+                    title,
+                    kind: toggle ? 'CheckBox' : 'Field',
+                    description:
+                        name === 'animate'
+                            ? 'Follows appearance motion settings. Disabled while editing.'
+                            : undefined,
+                    props: toggle
+                        ? {
+                              checked: appearance[name],
+                              action: { type: 'appearance', field: name },
+                              enabled: canEdit
+                          }
+                        : {
+                              text: Object.prototype.hasOwnProperty.call(
+                                  ui.text,
+                                  key
+                              )
+                                  ? ui.text[key]
+                                  : String(appearance[name]),
+                              action: { type: 'buffer', key },
+                              commitAction: {
+                                  type: 'appearanceCommit',
+                                  field: name,
+                                  key
+                              },
+                              enabled: canEdit
+                          }
+                });
+            }
             if (item.kind === 'items')
                 fields.push({
                     kind: 'Button',
@@ -535,12 +677,21 @@ export function describe(model, ui, width, height, language) {
                 title: 'Remove widget',
                 props: {
                     icon: 'delete',
-                    enabled: canEdit,
+                    enabled: canEdit && (ui.selection || []).length < 2,
                     action: { type: 'remove' }
                 }
             });
         }
-        const body = sections(fields, right - 24, language, canEdit);
+        const properties =
+            (ui.selection || []).length > 1
+                ? fields.filter(
+                      (field) =>
+                          field.id === 'pageAppearanceHeading' ||
+                          field.id.startsWith('pageAppearance_') ||
+                          field.id.startsWith('pageColor_')
+                  )
+                : fields;
+        const body = sections(properties, right - 24, language, canEdit);
         if (!ui.preview && (!narrow || ui.panel === 'properties'))
             nodes.push(
                 node(
