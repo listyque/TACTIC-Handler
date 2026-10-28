@@ -123,7 +123,7 @@ Item {
         visible: root.current && (root.compactRows || (root.effectiveViewMode !== "tiles" && root.effectiveViewMode !== "table"))
         clip: true
         spacing: 3
-        model: root.resultModel
+        model: initialResultPresentation.activated ? root.resultModel : null
         focus: root.current
         activeFocusOnTab: root.current
         boundsBehavior: Flickable.StopAtBounds
@@ -313,7 +313,7 @@ Item {
         opacity: initialTilePresentation.ready ? 1 : 0
         visible: tileViewport.visible
         clip: true
-        model: root.resultModel
+        model: initialTilePresentation.activated ? root.resultModel : null
         cellWidth: root.configuredTileHeight ? root.itemLayout.card_width + 18 : 230
         cellHeight: root.configuredTileHeight || (controller.card_compact_level ? 178 : 258)
         cacheBuffer: 280

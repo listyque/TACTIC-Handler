@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.213 - 2026-10-28
+
+- Populate search table, list and tile delegates only when each presentation is first opened. Retain already opened models, visible delegates and scroll positions across tab switches, and restore pending table scroll after the first layout.
+- Instantiate task-card date content only when the row is tall enough to display it. Extend the offline QML benchmark to cover the complete search surface and report the actual rendering API.
+
 ## 0.6.0.212 - 2026-10-28
 
 - Clip table text to its own cell so long multiline descriptions cannot paint over adjacent columns or rows. Keep one column resize grip per header and remove the duplicate marker in the drag area.

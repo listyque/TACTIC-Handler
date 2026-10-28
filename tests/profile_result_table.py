@@ -17,8 +17,8 @@ from tests.test_columns_table_view import (
     gui_test_application, _Application, _SType,
 )
 from tests.profile_ui_responsiveness import frame
-from PySide6.QtCore import QEvent, QMetaObject, QObject, QPointF, Qt, QUrl, Slot
-from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtCore import QEvent, QMetaObject, QObject, QPointF, Qt, QUrl, Slot, Property, Signal
+from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
 from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtTest import QTest
 from thlib.environment import env_mode
@@ -86,6 +86,54 @@ class GroupedTableController(_TableController):
         ResultTreeMixin.toggle_result_node(self, node_id)
 
 
+class SurfaceTableController(GroupedTableController):
+    viewModeChanged = Signal()
+
+    def __init__(self, model):
+        super().__init__(model)
+        self.mode = "table"
+
+    @Property(str, notify=viewModeChanged)
+    def results_view_mode(self):
+        return self.mode
+
+    @Property(float, constant=True)
+    def results_splitter_ratio(self):
+        return .58
+
+    @Property(bool, constant=True)
+    def card_can_go_back(self):
+        return False
+
+    @Property(bool, constant=True)
+    def card_compact_level(self):
+        return False
+
+    @Property(bool, constant=True)
+    def description_limit_enabled(self):
+        return False
+
+    @Property(int, constant=True)
+    def description_limit(self):
+        return 200
+
+    @Property(str, constant=True)
+    def selected_dcc_application(self):
+        return "standalone"
+
+    @Slot(str, result=str)
+    def get_acronym(self, value):
+        return value[:2].upper()
+
+    @Slot(str, result="QVariantList")
+    def item_quick_actions(self, node_id):
+        return []
+
+    @Slot(str)
+    def request_item_card_preview(self, node_id):
+        pass
+
+
 def projection_benchmark(count=2000):
     application = _Application(_SType())
     lookups = []
@@ -112,7 +160,7 @@ def projection_benchmark(count=2000):
             "identityReads": len(lookups)}
 
 
-def benchmark(app, width=1600, height=900, grouped=False):
+def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore_y=None):
     engine = QQmlEngine()
     warnings = []
     engine.warnings.connect(lambda errors: warnings.extend(
@@ -128,26 +176,42 @@ def benchmark(app, width=1600, height=900, grouped=False):
         for index in range(500)
     ])
     columns = TableColumns()
-    controller = GroupedTableController(model)
+    controller = SurfaceTableController(model) if surface else GroupedTableController(model)
+    engine.rootContext().setContextProperty("appController", controller)
     if grouped:
         model.set_organization(group_mode="column:category")
         model.show_table_rows()
     users = RecordListModel(("login", "displayName", "initials", "avatarUrl"))
-    component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / "SearchResultTable.qml")))
+    filename = "SearchResultSurface.qml" if surface else "SearchResultTable.qml"
+    component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / filename)))
     window = QQuickWindow()
     window.resize(width, height)
     window.show()
     frame(window)
     memory_before = working_set_bytes()
     started = time.perf_counter()
-    table = component.createWithInitialProperties({
+    properties = {
         "theme": theme, "controller": controller, "columnsController": columns,
         "resultModel": model, "userModel": users, "presentationActive": True,
-        "width": width, "height": height, "rowHeight": 100,
-    })
+        "width": width, "height": height,
+    }
+    properties.update({"current": False, "viewMode": "table", "splitterRatio": .58}
+                      if surface else {"rowHeight": 100})
+    table = component.createWithInitialProperties(properties)
     if table is None:
         raise RuntimeError([error.toString() for error in component.errors()])
     table.setParentItem(window.contentItem())
+    if surface:
+        hidden_create_ms = (time.perf_counter() - started) * 1000
+        hidden_rows = [table.findChild(QQuickItem, name).property("count") for name in (
+            "searchResultsListView", "searchResultsGridView", "searchResultsTableView")]
+        if restore_y is not None:
+            restore = QQmlExpression(QQmlEngine.contextForObject(table), table,
+                                     f"restoreContentY({float(restore_y)}, 0, true, false)")
+            restore.evaluate()
+            if restore.hasError():
+                raise RuntimeError(restore.error().toString())
+        table.setProperty("current", True)
     rows = table.findChild(QQuickItem, "searchResultsTableView")
     presentation = table.findChild(QObject, "initialTablePresentation")
     for _ in range(10):
@@ -162,12 +226,23 @@ def benchmark(app, width=1600, height=900, grouped=False):
     memory_after = working_set_bytes()
     items = _visual_items(window.contentItem())
     task_cells = [item for item in items if item.objectName() == "tableTaskCell"]
-    counts = {"visualItems": len(items), "rowDelegates": sum(
+    counts = {"graphicsApi": window.rendererInterface().graphicsApi().name,
+              "dateDisplays": sum(item.objectName().startswith("tableTaskDatesContent_")
+                                  for item in items),
+              "visualItems": len(items), "rowDelegates": sum(
         item.objectName() == "searchResultTableRow" for item in items),
         "dateEditors": sum(len(item.findChildren(QObject, "tableTaskDateEditor"))
                            for item in task_cells),
         "taskCards": sum(item.objectName().startswith("tableTaskRecord_")
                          for item in items)}
+    if surface:
+        alternatives = [table.findChild(QQuickItem, name) for name in (
+            "searchResultsListView", "searchResultsGridView")]
+        counts["restoredContentY"] = rows.property("contentY")
+        counts["hiddenCreateMs"] = round(hidden_create_ms, 2)
+        counts["hiddenViewRows"] = hidden_rows
+        counts["unopenedViewRows"] = [view.property("count") for view in alternatives]
+        counts["unopenedViewItems"] = [len(_visual_items(view)) for view in alternatives]
     if grouped:
         rows.setProperty("contentY", rows.property("originY"))
         QMetaObject.invokeMethod(rows, "forceLayout")
@@ -219,6 +294,32 @@ def benchmark(app, width=1600, height=900, grouped=False):
                   rowReads=columns.reads, previewRequests=len(controller.preview_requests))
     if grouped:
         result["groupClicks"] = group_clicks
+    if surface:
+        retained = []
+        for mode, view in (("continious", alternatives[0]), ("tiles", alternatives[1]), ("table", rows)):
+            controller.mode = mode
+            controller.viewModeChanged.emit()
+            for _ in range(3):
+                frame(window)
+            content = view.property("contentItem")
+            before_hide = {item for item in content.childItems()
+                           if item.property("nodeId") is not None
+                           and item.y() + item.height() > view.property("contentY")
+                           and item.y() < view.property("contentY") + view.height()}
+            old_y = view.property("contentY")
+            table.setProperty("current", False)
+            frame(window)
+            hidden_model = view.property("model")
+            table.setProperty("current", True)
+            for _ in range(3):
+                frame(window)
+            if hasattr(hidden_model, "toQObject"):
+                hidden_model = hidden_model.toQObject()
+            retained.append({"model": hidden_model is model,
+                             "delegates": before_hide <= {item for item in content.childItems()
+                                                         if item.property("nodeId") is not None},
+                             "scroll": abs(old_y - view.property("contentY")) < .5})
+        result["retainedViews"] = retained
     window.close()
     table.setParentItem(None)
     table.deleteLater()
@@ -238,5 +339,6 @@ if __name__ == "__main__":
     ):
         print(json.dumps({"projection": projection_benchmark(),
                           "frames": [benchmark(app) for _ in range(3)],
+                          "surface": [benchmark(app, surface=True) for _ in range(3)],
                           "grouped": benchmark(app, width=1800, height=1600, grouped=True)},
                          indent=2))

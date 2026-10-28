@@ -196,48 +196,52 @@ Item {
                         }
                     }
 
-                    Item {
+                    Loader {
                         id: taskDates
                         objectName: "tableTaskDates_" + taskCard.index
                         Layout.fillWidth: true
                         Layout.preferredHeight: visible ? 14 : 0
                         visible: taskCard.showDates
+                        active: taskCard.showDates
                         Accessible.role: Accessible.Button
                         Accessible.name: qsTr("Start date") + ": " + String(taskCard.modelData.bidStartFull || "—") + "; " + qsTr("Deadline") + ": " + String(taskCard.modelData.bidEndFull || "—")
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 7
-                            anchors.rightMargin: 7
-                            spacing: 4
+                        sourceComponent: Item {
+                            objectName: "tableTaskDatesContent_" + taskCard.index
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 7
+                                anchors.rightMargin: 7
+                                spacing: 4
 
-                            Controls.MaterialIcon {
-                                Layout.preferredWidth: 11
-                                Layout.preferredHeight: 11
-                                name: "calendar"
-                                size: 11
-                                color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
-                                Accessible.ignored: true
+                                Controls.MaterialIcon {
+                                    Layout.preferredWidth: 11
+                                    Layout.preferredHeight: 11
+                                    name: "calendar"
+                                    size: 11
+                                    color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
+                                    Accessible.ignored: true
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: taskCard.modelData.simpleDates === undefined ? String(taskCard.modelData.bidStartLabel || "—") + " – " + String(taskCard.modelData.bidEndLabel || "—") : Cells.taskDate(taskCard.modelData.bidStart, taskCard.modelData.simpleDates) + " – " + Cells.taskDate(taskCard.modelData.bidEnd, taskCard.modelData.simpleDates)
+                                    color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
+                                    font.family: root.theme.fontFamily
+                                    font.pointSize: Controls.Typography.caption
+                                    elide: Text.ElideRight
+                                    verticalAlignment: Text.AlignVCenter
+                                }
                             }
-                            Label {
-                                Layout.fillWidth: true
-                                text: taskCard.modelData.simpleDates === undefined ? String(taskCard.modelData.bidStartLabel || "—") + " – " + String(taskCard.modelData.bidEndLabel || "—") : Cells.taskDate(taskCard.modelData.bidStart, taskCard.modelData.simpleDates) + " – " + Cells.taskDate(taskCard.modelData.bidEnd, taskCard.modelData.simpleDates)
-                                color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.caption
-                                elide: Text.ElideRight
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
 
-                        HoverHandler {
-                            id: datesHover
-                            cursorShape: Qt.PointingHandCursor
-                        }
-                        Controls.ActivationHandler {
-                            enabled: Cells.taskEditable(taskCard.modelData, "bid_start_date", !root.columnsController.busy) && !root.scrolling
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onActivated: root.editDates(taskCard.modelData, taskDates)
+                            HoverHandler {
+                                id: datesHover
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                            Controls.ActivationHandler {
+                                enabled: Cells.taskEditable(taskCard.modelData, "bid_start_date", !root.columnsController.busy) && !root.scrolling
+                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                onActivated: root.editDates(taskCard.modelData, taskDates)
+                            }
                         }
                     }
                 }

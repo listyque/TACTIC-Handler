@@ -2682,6 +2682,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 if item.objectName()
             }
             self.assertEqual(named["searchResultTableRow"].height(), 128)
+            self.assertTrue(any(item.objectName().startswith("tableTaskDatesContent_")
+                                for item in _visual_items(table)))
             self.assertEqual(named["tableCellPreview"].width(), 120)
             preview = named["tableCellPreview"]
             self.assertTrue(preview.property("round"))
@@ -2733,6 +2735,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 if item.objectName()
             }
             self.assertEqual(named["searchResultTableRow"].height(), 52)
+            self.assertFalse(any(item.objectName().startswith("tableTaskDatesContent_")
+                                 for item in _visual_items(table)))
             status = named["tableTaskStatus_0"]
             assignee = named["tableTaskAssignee_0"]
             avatar = next((item for item in _visual_items(assignee)

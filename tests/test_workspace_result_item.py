@@ -3108,23 +3108,17 @@ Item {{
         item.deleteLater()
         theme.deleteLater()
 
-    def test_result_views_keep_the_workspace_model_while_hidden(self):
-        source = (
-            ROOT / "thlib" / "ui" / "qml" / "SearchResultSurface.qml"
-        ).read_text(encoding="utf-8")
-        results = source[source.index("id: results"):source.index(
-            "id: tileViewport"
-        )]
-        tiles = source[source.index("id: resultTiles"):source.index(
-            "id: initialTilePresentation"
-        )]
-        for view in (results, tiles):
-            self.assertIn("model: root.resultModel", view)
-            self.assertNotIn(
-                "model: visible ? root.resultModel : null", view
-            )
-            self.assertIn("cacheBuffer: 280", view)
-            self.assertIn("reuseItems: true", view)
+    def test_result_views_activate_once_and_keep_delegates_while_hidden(self):
+        from tests.profile_result_table import benchmark
+
+        result = benchmark(self.app, surface=True, restore_y=300)
+        self.assertEqual(result["hiddenViewRows"], [0, 0, 0])
+        self.assertEqual(result["restoredContentY"], 300)
+        self.assertEqual(result["unopenedViewRows"], [0, 0])
+        self.assertTrue(all(count < 20 for count in result["unopenedViewItems"]))
+        self.assertEqual(result["retainedViews"], [
+            {"model": True, "delegates": True, "scroll": True}
+        ] * 3)
 
     def test_process_delegate_reacts_to_completed_checkin_refresh(self):
         qml_dir = ROOT / "thlib" / "ui" / "qml"

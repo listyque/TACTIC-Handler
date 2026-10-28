@@ -5,6 +5,7 @@ Item {
 
     required property var view
     property bool blocked: false
+    property bool activated: false
     readonly property bool ready: !enabled || (!blocked && _presented)
     property bool _presented: false
     property bool _scheduled: false
@@ -25,7 +26,11 @@ Item {
     }
 
     function prepare() {
-        if (!enabled) {
+        if (!activated && view && view.visible) {
+            reset()
+            activated = true
+        }
+        if (!enabled && !activated) {
             _presented = true
             return
         }
@@ -73,7 +78,7 @@ Item {
         // Count can become non-zero before ListView has calculated the final
         // content height. Keep the coordinate pending until the same initial
         // two-pass layout used for first presentation has completed.
-        if (enabled && !_presented) {
+        if (!_presented) {
             prepare()
             return
         }
@@ -121,6 +126,7 @@ Item {
         }
 
         function onVisibleChanged() {
+            root.prepare()
             if (root._hasPendingContentY && root.view.visible)
                 root.applyPendingContentY()
         }

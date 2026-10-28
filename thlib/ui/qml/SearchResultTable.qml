@@ -69,7 +69,7 @@ Item {
                     __search_key__: key
                 })), cells, "bottom");
     }
-    readonly property real contentY: rows.contentY
+    readonly property real contentY: initialTablePresentation.retainedContentY
     readonly property int count: rows.count
     signal actionMenuRequested(string nodeId, var actions, var anchorItem, real localX, real localY, bool below)
     signal processCountMenuRequested(string nodeId, string panel, var anchorItem)
@@ -118,8 +118,7 @@ Item {
     }
 
     function restoreContentY(value, valid) {
-        if (valid)
-            rows.contentY = Math.max(rows.originY, Number(value || 0));
+        initialTablePresentation.restoreContentY(value, valid);
     }
 
     function positionViewAtIndex(row) {
@@ -227,7 +226,7 @@ Item {
         anchors.margins: 0
         anchors.topMargin: scrollBarFrame.y
         opacity: initialTablePresentation.ready ? 1 : 0
-        model: root.resultModel
+        model: initialTablePresentation.activated ? root.resultModel : null
         clip: true
         spacing: 0
         reuseItems: true
