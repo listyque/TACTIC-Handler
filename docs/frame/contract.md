@@ -26,6 +26,8 @@ this tool is not part of ordinary product builds.
 
 ## Single owners
 
+Table active rows and keyboard focus use the content-selection background across the whole row, without a separate row outline. Checked selection remains independent.
+
 Floating dock windows are the visual reference for floating windows: reuse their chrome, title bar, borders and controls. Keep resize grips quiet and integrated into the corner, without a filled circular button.
 
 Embedded table headers, data-row backgrounds, inline notices/errors and pending-change bars use square corners. Keep the

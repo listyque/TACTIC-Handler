@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.209 - 2026-10-28
+
+- Use a full-row selection fill for table keyboard focus and active records instead of a separate outline; keep checked selection independent.
+
 ## 0.6.0.208 - 2026-10-28
 
 - Let the shared search header omit reserved grip space in the browser while retaining native header geometry.

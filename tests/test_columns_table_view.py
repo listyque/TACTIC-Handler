@@ -3601,6 +3601,13 @@ class ColumnsTableViewTests(unittest.TestCase):
             surface = next(item for item in _visual_items(row)
                            if item.objectName() == "searchResultTableRowSurface")
             self.assertTrue(surface.property("selected"))
+            self.assertEqual(surface.property("baseColor"), theme.property("contentSelection"))
+            table_controller._focused = ""
+            table_controller.selected_node_changed.emit()
+            row.forceActiveFocus()
+            QTest.qWait(20)
+            self.assertTrue(surface.property("selected"))
+            self.assertFalse(row_selection.property("checked"))
             QTest.mouseClick(window, Qt.LeftButton, Qt.ShiftModifier, point)
             QTest.qWait(20)
             self.assertTrue(row.property("selected"))

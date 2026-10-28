@@ -452,17 +452,10 @@ Item {
                 anchors.fill: parent
                 anchors.bottomMargin: resultRow.nestedHeight
                 theme: root.theme
-                selected: resultRow.selected || resultRow.active
+                selected: resultRow.selected || resultRow.active || resultRow.activeFocus
                 normalColor: rowHover.hovered ? root.theme.rowHover : resultRow.isGroup ? root.theme.surfaceContainerHigh : root.theme.surfaceContainerLow
                 railVisible: false
                 animateStateChanges: !rows.moving
-            }
-            Rectangle {
-                anchors.fill: parent
-                anchors.bottomMargin: resultRow.nestedHeight
-                color: "transparent"
-                border.width: resultRow.activeFocus ? 1 : 0
-                border.color: root.theme.action
             }
 
             MouseArea {
