@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.208 - 2026-10-28
+
+- Let the shared search header omit reserved grip space in the browser while retaining native header geometry.
+
 ## 0.6.0.207 - 2026-10-28
 
 - Render the shelf toggle as a round unfilled icon action; indicate an open shelf through the icon color instead of a persistent filled button.

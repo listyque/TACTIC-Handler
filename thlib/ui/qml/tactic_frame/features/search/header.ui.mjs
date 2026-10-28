@@ -57,7 +57,8 @@ export function describe(model, width, language) {
         )
     );
     if (!compact && model.shelf !== false) right -= 3;
-    const left = compact ? 8 : 80;
+    const refreshLeft = model.reserveGrip === false ? 8 : 38;
+    const left = compact ? 8 : refreshLeft + 42;
     nodes.push(
         node('View', 'searchHeaderField', rect(left, 5, right - left - 8, 38), {
             view: 'field',
@@ -67,7 +68,7 @@ export function describe(model, width, language) {
     nodes.push(
         button(
             'searchRefreshButton',
-            rect(38, 5, 38, 38),
+            rect(refreshLeft, 5, 38, 38),
             text('Refresh'),
             'refresh',
             { type: 'refresh' },
