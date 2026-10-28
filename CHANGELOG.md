@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.219 - 2026-10-28
+
+- Keep expanded note attachment images decoded while resizing. Reuse the loaded image and rounded mask instead of re-requesting pixel sizes, preventing fallback flashes and aspect-ratio jumps. Preserve compact thumbnail decoding.
+
 ## 0.6.0.218 - 2026-10-28
 
 - Share plain JavaScript icon glyph dictionaries once per QML engine instead of repeatedly crossing the QVariantMap boundary in each icon. Preserve icon packs, aliases and live font-context updates.

@@ -180,7 +180,8 @@ Rectangle {
             outlined: true
             previewSize: 180
             fillMode: Image.PreserveAspectFit
-            decodeAtItemSize: !root.webPreview
+            // Keep one decoded image while the note/dock changes size, as in TS.
+            decodeAtItemSize: false
             preserveDecodeAspect: true
             animateAppearance: root.animatePreview
         }
