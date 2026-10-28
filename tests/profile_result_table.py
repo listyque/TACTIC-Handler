@@ -7,6 +7,7 @@ import json
 import ctypes
 import os
 import statistics
+import sys
 import time
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -28,6 +29,11 @@ from thlib.tactic_table_widgets import TacticTaskTableWidget
 from thlib.ui.workspace_models.records import RecordListModel
 from thlib.ui.workspace_models.results import WorkspaceItemModel
 from thlib.ui.workspace_models.results_types import WorkspaceNode
+
+
+def render_phase(name):
+    if os.environ.get("TH_TABLE_RENDER_TIMING") == "1":
+        print(f"TABLE_RENDER_PHASE {name}", file=sys.stderr, flush=True)
 
 
 def working_set_bytes():
@@ -189,6 +195,7 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
     window.show()
     frame(window)
     memory_before = working_set_bytes()
+    render_phase("initial")
     started = time.perf_counter()
     properties = {
         "theme": theme, "controller": controller, "columnsController": columns,
@@ -221,7 +228,8 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
     else:
         raise RuntimeError("Table never presented")
     initial_ms = (time.perf_counter() - started) * 1000
-    for _ in range(3):
+    render_phase("settle")
+    for _ in range(12 if os.environ.get("TH_TABLE_RENDER_TIMING") == "1" else 3):
         frame(window)
     memory_after = working_set_bytes()
     items = _visual_items(window.contentItem())
@@ -273,6 +281,7 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
                   "frames": [round(max(v), 2) for v in values]}
             for key, values in samples.items()
         }
+    render_phase("scroll")
     scroll = []
     for index in range(24):
         def advance():
@@ -282,8 +291,11 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
     def refresh():
         columns._cell_revision += 1
         columns.cellRevisionChanged.emit()
-    refresh_ms = [frame(window, refresh)[1] for _ in range(5)]
-    state_ms = [frame(window, columns.stateChanged.emit)[1] for _ in range(5)]
+    samples = 24 if os.environ.get("TH_TABLE_RENDER_TIMING") == "1" else 5
+    render_phase("refresh")
+    refresh_ms = [frame(window, refresh)[1] for _ in range(samples)]
+    render_phase("state")
+    state_ms = [frame(window, columns.stateChanged.emit)[1] for _ in range(samples)]
     result = dict(counts, initialMs=round(initial_ms, 2),
                   workingSetDeltaMiB=round((memory_after - memory_before) / 2**20, 2)
                   if memory_before is not None else None,
@@ -295,6 +307,7 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
     if grouped:
         result["groupClicks"] = group_clicks
     if surface:
+        render_phase("modes")
         retained = []
         for mode, view in (("continious", alternatives[0]), ("tiles", alternatives[1]), ("table", rows)):
             controller.mode = mode
@@ -320,6 +333,7 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
                                                          if item.property("nodeId") is not None},
                              "scroll": abs(old_y - view.property("contentY")) < .5})
         result["retainedViews"] = retained
+    render_phase("done")
     window.close()
     table.setParentItem(None)
     table.deleteLater()

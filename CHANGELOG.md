@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.216 - 2026-10-28
+
+- Add a native table-render diagnostic using Qt renderer logs and asynchronous GPU timestamps. Report rendering, synchronization, layout and presentation wait separately; retain end-to-end page timings as a different metric.
+
 ## 0.6.0.215 - 2026-10-28
 
 - Reuse the sidebar base tab for its assigned Saved Search instead of opening a duplicate preset tab. Retain personal tabs and other saved searches by their actual identity.
