@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.218 - 2026-10-28
+
+- Share plain JavaScript icon glyph dictionaries once per QML engine instead of repeatedly crossing the QVariantMap boundary in each icon. Preserve icon packs, aliases and live font-context updates.
+- Create task-card preview popups and hidden count-button surfaces on first use, retaining created controls for repeat interactions. Coalesce duplicate opening notifications for the same in-flight table layout while preserving explicit refreshes and context changes.
+- Benchmark actual bundled icon fonts and report synchronous component creation, table activation and row population separately from rendering and frame presentation.
+
 ## 0.6.0.217 - 2026-10-28
 
 - Render MCP permission captions, descriptions and read/write access as compact bounded rows, with explicit selection counts and a separated action footer. Align connection name/lifetime and reduce unused form space without changing access policy.

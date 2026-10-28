@@ -30,6 +30,42 @@ class IconFontCatalogTests(unittest.TestCase):
         cls.bindings = qml_icon_bindings(ROOT, cls.app)
         cls.catalog = cls.bindings["iconFontCatalog"]
 
+    def test_glyph_maps_are_shared_per_engine_and_update_without_crossing_engines(self):
+        source = b'''import QtQuick
+import "controls" as Controls
+Item {
+    readonly property bool sharedMaps: first.solidGlyphs === second.solidGlyphs
+        && first.regularGlyphs === second.regularGlyphs
+        && first.materialGlyphs === second.materialGlyphs
+    Controls.MaterialIcon { id: first; objectName: "first"; name: "calendar"; color: "white" }
+    Controls.MaterialIcon { id: second; name: "calendar"; color: "white" }
+}
+'''
+        engines, roots = [], []
+        for value in ("A", "B"):
+            engine = QQmlEngine()
+            engines.append(engine)
+            engine.rootContext().setContextProperty("fontAwesomeSolidGlyphs", {"calendar": value})
+            component = QQmlComponent(engine)
+            component.setData(source, QUrl.fromLocalFile(str(QML / "_SharedIconFontsTest.qml")))
+            root = component.create()
+            self.assertIsNotNone(root, component.errors())
+            root.setParent(engine)
+            roots.append(root)
+            self.assertTrue(root.property("sharedMaps"))
+            glyph = root.findChild(QObject, "first").findChild(QObject, "materialIconGlyph")
+            self.assertEqual(glyph.property("text"), value)
+        engines[0].rootContext().setContextProperty("fontAwesomeSolidGlyphs", {"calendar": "C"})
+        self.app.processEvents()
+        for root, expected in zip(roots, ("C", "B")):
+            self.assertTrue(root.property("sharedMaps"))
+            glyph = root.findChild(QObject, "first").findChild(QObject, "materialIconGlyph")
+            self.assertEqual(glyph.property("text"), expected)
+        for root in roots:
+            root.deleteLater()
+        for engine in engines:
+            engine.deleteLater()
+
     def test_complete_bundled_catalogs_are_available_to_pickers(self):
         self.assertEqual(len(self.catalog.search("material-design", "")), 7448)
         self.assertEqual(len(self.catalog.search("fluent-regular", "")), 2819)

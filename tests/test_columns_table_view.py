@@ -2275,6 +2275,50 @@ class ColumnsTableViewTests(unittest.TestCase):
                     controller.load_definition_catalog("other")
                     self.assertEqual(run.call_count, 1)
 
+    def test_opening_table_twice_shares_inflight_layout_only_for_same_context(self):
+        from thlib.environment import env_inst
+
+        class PausedWorker(_Worker):
+            def start(self):
+                pass
+
+        class PausedPool(_Pool):
+            def __init__(self):
+                self.workers = []
+
+            def add_task(self, operation):
+                worker = PausedWorker(operation)
+                self.workers.append(worker)
+                return worker
+
+        for change in ("same", "project", "type", "view", "refresh"):
+            with self.subTest(change=change):
+                application = _Application(_SType())
+                pool = PausedPool()
+                with patch.object(env_inst, "server_pool", pool), patch(
+                    "thlib.tactic_classes.get_table_layout",
+                    return_value=_layout_payload(),
+                ):
+                    controller = ColumnsEditorController(application)
+                    controller.begin_session()
+                    self.assertTrue(controller.busy)
+                    if change == "project":
+                        application._current_project_code = "other"
+                    elif change == "type":
+                        stype = _SType()
+                        stype.get_code = lambda: "demo/shot"
+                        application.tab.stype = stype
+                    elif change == "view":
+                        application.tab.table_view = "alternate"
+                    if change == "refresh":
+                        controller.reload()
+                    else:
+                        controller.begin_session()
+                    self.assertEqual(len(pool.workers), 1)
+                    _Worker.start(pool.workers[0])
+                    self.assertEqual(len(pool.workers), 1 if change == "same" else 2)
+                    controller.shutdown()
+
     def test_columns_editor_reloads_context_after_worker_finishes(self):
         application = _Application(_SType())
         from thlib.environment import env_inst
@@ -2770,8 +2814,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             task_preview = task_cell.findChild(
                 QObject, "tableTaskCardsPreview"
             )
-            self.assertIsNotNone(task_preview)
-            self.assertFalse(task_preview.property("opened"))
+            self.assertIsNone(task_preview)
             QTest.mouseMove(
                 window,
                 task_cell.mapToScene(QPointF(
@@ -2779,6 +2822,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 )).toPoint(),
             )
             QTest.qWait(550)
+            task_preview = task_cell.findChild(QObject, "tableTaskCardsPreview")
+            self.assertIsNotNone(task_preview)
             self.assertTrue(task_preview.property("opened"))
             QTest.mouseMove(
                 window,
@@ -2812,7 +2857,8 @@ class ColumnsTableViewTests(unittest.TestCase):
             QTest.qWait(650)
             for node_id, cell in task_cells.items():
                 self.assertEqual(
-                    cell.findChild(QObject, "tableTaskCardsPreview").property("opened"),
+                    bool(cell.findChild(QObject, "tableTaskCardsPreview")
+                         and cell.findChild(QObject, "tableTaskCardsPreview").property("opened")),
                     node_id in controller._selected, node_id,
                 )
             # Leaving for another cell in the same selected row closes all.
@@ -2820,8 +2866,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 QPointF(0, task_cells["asset"].height() / 2)).y()).toPoint())
             QTest.qWait(550)
             for cell in task_cells.values():
-                self.assertFalse(cell.findChild(
-                    QObject, "tableTaskCardsPreview").property("opened"))
+                popup = cell.findChild(QObject, "tableTaskCardsPreview")
+                self.assertFalse(popup and popup.property("opened"))
             model.set_organization(group_mode="column:code")
             model.show_table_rows()
             QMetaObject.invokeMethod(rows, "positionViewAtBeginning")
@@ -2901,6 +2947,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(first_card.width(), 107)
             self.assertTrue(dates.isVisible())
             self.assertFalse(menu.isVisible())
+            self.assertIsNone(menu.findChild(QObject, "itemCountCompactButton"))
 
             self.assertIsNone(cell.findChild(QObject, "tableTaskDateEditor"))
 
@@ -2938,6 +2985,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             first_card = named["tableTaskRecord_0"]
             menu = named["tableCellTasks"]
             self.assertTrue(menu.isVisible())
+            self.assertIsNotNone(menu.findChild(QObject, "itemCountCompactButton"))
             self.assertEqual(menu.property("iconName"), "tasks")
             self.assertEqual(menu.property("count"), 1)
             self.assertLessEqual(
@@ -2961,8 +3009,7 @@ class ColumnsTableViewTests(unittest.TestCase):
                 controller.process_details[-1], ("asset", "tasks", "")
             )
             preview = cell.findChild(QObject, "tableTaskCardsPreview")
-            self.assertIsNotNone(preview)
-            self.assertFalse(preview.property("opened"))
+            self.assertIsNone(preview)
             QTest.qWait(20)
             QTest.mouseMove(window, QPointF(290, 110).toPoint())
             QTest.qWait(20)
@@ -2972,6 +3019,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 cell.mapToScene(QPointF(10, cell.height() / 2)).toPoint(),
             )
             QTest.qWait(550)
+            preview = cell.findChild(QObject, "tableTaskCardsPreview")
+            self.assertIsNotNone(preview)
             self.assertTrue(
                 preview.property("opened"),
                 (cell.property("hoverActive"), warnings),

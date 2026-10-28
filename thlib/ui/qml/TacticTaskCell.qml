@@ -31,7 +31,9 @@ Item {
     readonly property real visibleCardsWidth: cellLayout.visibleWidth
     readonly property int effectiveCount: Math.max(taskCount, records ? records.filter(record => Boolean(record.hasTask)).length : 0)
     readonly property real previewCardsWidth: cellLayout.previewWidth
-    readonly property bool pointerHovered: cellHover.hovered || taskPreview.contentHovered
+    readonly property var preview: popupLoader.item
+    readonly property bool previewVisible: Boolean(preview && preview.visible)
+    readonly property bool pointerHovered: cellHover.hovered || Boolean(preview && preview.contentHovered)
     readonly property bool hoverActive: selectedPreviewActive || pointerHovered
     signal previewHoverChanged(bool hovered)
     onPointerHoveredChanged: previewHoverChanged(pointerHovered)
@@ -42,24 +44,26 @@ Item {
             return;
         previewOpenTimer.stop();
         previewCloseTimer.stop();
-        taskPreview.pinned = Boolean(pinned);
-        taskPreview.reopenAtItem(root, -taskPreview.leftPadding, -taskPreview.topPadding, false);
+        popupLoader.active = true;
+        preview.pinned = Boolean(pinned);
+        preview.reopenAtItem(root, -preview.leftPadding, -preview.topPadding, false);
     }
 
     function openTaskManager() {
         previewOpenTimer.stop();
         previewCloseTimer.stop();
-        taskPreview.close();
+        if (preview)
+            preview.close();
         controller.open_process_details(nodeId, "tasks", "");
     }
 
     function schedulePreviewClose() {
-        if (!hoverActive && !taskPreview.contentHovered && !taskPreview.pinned)
+        if (!hoverActive && preview && !preview.contentHovered && !preview.pinned)
             previewCloseTimer.restart();
     }
 
     onHoverActiveChanged: {
-        if (hoverActive && hoverPreviewEnabled && showMenuButton && recordCount > 0 && !scrolling && !taskPreview.visible) {
+        if (hoverActive && hoverPreviewEnabled && showMenuButton && recordCount > 0 && !scrolling && !previewVisible) {
             previewCloseTimer.stop();
             previewOpenTimer.restart();
         } else {
@@ -70,7 +74,8 @@ Item {
     onScrollingChanged: {
         if (scrolling) {
             previewOpenTimer.stop();
-            taskPreview.close();
+            if (preview)
+                preview.close();
         }
     }
 
@@ -82,7 +87,7 @@ Item {
 
     TacticTaskCards {
         objectName: "tableInlineTaskCards"
-        opacity: taskPreview.visible ? 0 : 1
+        opacity: previewVisible ? 0 : 1
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -104,13 +109,13 @@ Item {
         x: Math.round(root.visibleCardsWidth + (root.width - root.visibleCardsWidth - width) / 2)
         anchors.verticalCenter: parent.verticalCenter
         visible: root.showMenuButton
-        opacity: taskPreview.visible ? 0 : 1
+        opacity: previewVisible ? 0 : 1
         width: 28
         height: 28
         theme: root.theme
         iconName: "tasks"
         count: root.effectiveCount
-        toolTipsAllowed: !taskPreview.visible
+        toolTipsAllowed: !previewVisible
         toolTip: qsTr("Task Manager")
         onClicked: root.openTaskManager()
     }
@@ -128,86 +133,90 @@ Item {
         id: previewCloseTimer
         interval: 180
         onTriggered: {
-            if (!root.hoverActive && !taskPreview.contentHovered && !taskPreview.pinned)
-                taskPreview.close();
+            if (!root.hoverActive && preview && !preview.contentHovered && !preview.pinned)
+                preview.close();
         }
     }
 
-    Controls.Popup {
-        id: taskPreview
-        objectName: "tableTaskCardsPreview"
-        parent: Overlay.overlay
-        theme: root.theme
-        usePopupWindow: false
-        coordinateGlobally: false
-        modal: false
-        focus: false
-        padding: 8
-        width: Math.min(root.previewCardsWidth + leftPadding + rightPadding, parent && parent.width > 0 ? Math.max(180, parent.width - 8) : root.previewCardsWidth + leftPadding + rightPadding)
-        height: root.height + topPadding + bottomPadding + (root.previewCardsWidth > availableWidth ? 16 : 0)
-        settledClosePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        property bool pinned: false
-        property bool contentHovered: false
+    Loader {
+        id: popupLoader
+        active: false
+        sourceComponent: Controls.Popup {
+            id: taskPreview
+            objectName: "tableTaskCardsPreview"
+            parent: Overlay.overlay
+            theme: root.theme
+            usePopupWindow: false
+            coordinateGlobally: false
+            modal: false
+            focus: false
+            padding: 8
+            width: Math.min(root.previewCardsWidth + leftPadding + rightPadding, parent && parent.width > 0 ? Math.max(180, parent.width - 8) : root.previewCardsWidth + leftPadding + rightPadding)
+            height: root.height + topPadding + bottomPadding + (root.previewCardsWidth > availableWidth ? 16 : 0)
+            settledClosePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+            property bool pinned: false
+            property bool contentHovered: false
 
-        onContentHoveredChanged: {
-            if (contentHovered)
-                previewCloseTimer.stop();
-            else
-                root.schedulePreviewClose();
-        }
-        onClosed: {
-            pinned = false;
-            contentHovered = false;
-        }
+            onContentHoveredChanged: {
+                if (contentHovered)
+                    previewCloseTimer.stop();
+                else
+                    root.schedulePreviewClose();
+            }
+            onClosed: {
+                pinned = false;
+                contentHovered = false;
+            }
 
-        contentItem: Loader {
-            id: previewLoader
-            active: taskPreview.visible
+            contentItem: Loader {
+                id: previewLoader
+                active: taskPreview.visible
 
-            sourceComponent: Item {
-                id: previewSurface
+                sourceComponent: Item {
+                    id: previewSurface
 
-                HoverHandler {
-                    onHoveredChanged: taskPreview.contentHovered = hovered
-                }
-                TapHandler {
-                    onTapped: taskPreview.pinned = true
-                }
-
-                Flickable {
-                    id: previewFlick
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: previewBar.hasOverflow ? previewBar.reservedExtent + 4 : 0
-                    clip: true
-                    contentWidth: root.previewCardsWidth
-                    contentHeight: height
-                    boundsBehavior: Flickable.StopAtBounds
-                    flickableDirection: Flickable.HorizontalFlick
-
-                    TacticTaskCards {
-                        width: root.previewCardsWidth
-                        height: previewFlick.height
-                        theme: root.theme
-                        controller: root.controller
-                        columnsController: root.columnsController
-                        userModel: root.userModel
-                        nodeId: root.nodeId
-                        records: root.records || []
-                        cardWidth: root.cardWidth
-                        cardSpacing: root.cardSpacing
+                    HoverHandler {
+                        onHoveredChanged: taskPreview.contentHovered = hovered
                     }
-                }
+                    TapHandler {
+                        onTapped: taskPreview.pinned = true
+                    }
 
-                Controls.ScrollBar {
-                    id: previewBar
-                    objectName: "tableTaskCardsPreviewScrollBar"
-                    parent: previewSurface
-                    orientation: Qt.Horizontal
-                    theme: root.theme
-                    flickableTarget: previewFlick
+                    Flickable {
+                        id: previewFlick
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: previewBar.hasOverflow ? previewBar.reservedExtent + 4 : 0
+                        clip: true
+                        contentWidth: root.previewCardsWidth
+                        contentHeight: height
+                        boundsBehavior: Flickable.StopAtBounds
+                        flickableDirection: Flickable.HorizontalFlick
+
+                        TacticTaskCards {
+                            width: root.previewCardsWidth
+                            height: previewFlick.height
+                            theme: root.theme
+                            controller: root.controller
+                            columnsController: root.columnsController
+                            userModel: root.userModel
+                            nodeId: root.nodeId
+                            records: root.records || []
+                            cardWidth: root.cardWidth
+                            cardSpacing: root.cardSpacing
+                        }
+                    }
+
+                    Controls.ScrollBar {
+                        id: previewBar
+                        objectName: "tableTaskCardsPreviewScrollBar"
+                        parent: previewSurface
+                        orientation: Qt.Horizontal
+                        theme: root.theme
+                        flickableTarget: previewFlick
+                    }
                 }
             }
         }

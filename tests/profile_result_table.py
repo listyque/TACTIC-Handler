@@ -9,6 +9,7 @@ import os
 import statistics
 import sys
 import time
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -168,6 +169,11 @@ def projection_benchmark(count=2000):
 
 def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore_y=None):
     engine = QQmlEngine()
+    from thlib.ui.icon_font import qml_icon_bindings
+    if not hasattr(app, "_table_benchmark_fonts"):
+        app._table_benchmark_fonts = qml_icon_bindings(Path(__file__).resolve().parents[1], app)
+    for name, value in app._table_benchmark_fonts.items():
+        engine.rootContext().setContextProperty(name, value)
     warnings = []
     engine.warnings.connect(lambda errors: warnings.extend(
         error.toString() for error in errors))
@@ -205,6 +211,7 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
     properties.update({"current": False, "viewMode": "table", "splitterRatio": .58}
                       if surface else {"rowHeight": 100})
     table = component.createWithInitialProperties(properties)
+    component_create_ms = (time.perf_counter() - started) * 1000
     if table is None:
         raise RuntimeError([error.toString() for error in component.errors()])
     table.setParentItem(window.contentItem())
@@ -218,9 +225,14 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
             restore.evaluate()
             if restore.hasError():
                 raise RuntimeError(restore.error().toString())
+        activate_started = time.perf_counter()
         table.setProperty("current", True)
+        activate_ms = (time.perf_counter() - activate_started) * 1000
     rows = table.findChild(QQuickItem, "searchResultsTableView")
     presentation = table.findChild(QObject, "initialTablePresentation")
+    populate_started = time.perf_counter()
+    QMetaObject.invokeMethod(rows, "forceLayout")
+    populate_ms = (time.perf_counter() - populate_started) * 1000
     for _ in range(10):
         frame(window)
         if presentation.property("ready"):
@@ -234,7 +246,12 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
     memory_after = working_set_bytes()
     items = _visual_items(window.contentItem())
     task_cells = [item for item in items if item.objectName() == "tableTaskCell"]
-    counts = {"graphicsApi": window.rendererInterface().graphicsApi().name,
+    counts = {"createAndPopulateMs": round(component_create_ms + populate_ms + (activate_ms if surface else 0), 2),
+              "iconGlyphs": sum(item.objectName() == "materialIconGlyph" and bool(item.property("text"))
+                              for item in items),
+              "componentCreateMs": round(component_create_ms, 2),
+              "populateMs": round(populate_ms, 2),
+              "graphicsApi": window.rendererInterface().graphicsApi().name,
               "dateDisplays": sum(item.objectName().startswith("tableTaskDatesContent_")
                                   for item in items),
               "visualItems": len(items), "rowDelegates": sum(
@@ -246,6 +263,7 @@ def benchmark(app, width=1600, height=900, grouped=False, surface=False, restore
     if surface:
         alternatives = [table.findChild(QQuickItem, name) for name in (
             "searchResultsListView", "searchResultsGridView")]
+        counts["activationDispatchMs"] = round(activate_ms, 2)
         counts["restoredContentY"] = rows.property("contentY")
         counts["hiddenCreateMs"] = round(hidden_create_ms, 2)
         counts["hiddenViewRows"] = hidden_rows

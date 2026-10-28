@@ -1,5 +1,6 @@
 import "../tactic_frame/core/icons.mjs" as Icons
 import QtQuick
+import "." as Controls
 
 // Shared semantic icon renderer backed by the bundled icon-font catalog.
 Item {
@@ -11,12 +12,12 @@ Item {
     property bool forceSolid: false
     property bool nativeRendering: false
     readonly property string iconSet: typeof appController !== "undefined" ? String(appController.icon_set || "material-design") : "material-design"
-    readonly property var solidGlyphs: typeof fontAwesomeSolidGlyphs !== "undefined" ? fontAwesomeSolidGlyphs : ({})
-    readonly property var regularGlyphs: typeof fontAwesomeRegularGlyphs !== "undefined" ? fontAwesomeRegularGlyphs : ({})
-    readonly property string solidFontFamily: typeof fontAwesomeSolidFontFamily !== "undefined" ? fontAwesomeSolidFontFamily : "Segoe UI"
-    readonly property string regularFontFamily: typeof fontAwesomeRegularFontFamily !== "undefined" ? fontAwesomeRegularFontFamily : solidFontFamily
-    readonly property var materialGlyphs: typeof materialDesignIconGlyphs !== "undefined" ? materialDesignIconGlyphs : ({})
-    readonly property string materialFontFamily: typeof materialDesignIconFontFamily !== "undefined" ? materialDesignIconFontFamily : solidFontFamily
+    readonly property var solidGlyphs: Controls.IconFontData.solidGlyphs
+    readonly property var regularGlyphs: Controls.IconFontData.regularGlyphs
+    readonly property string solidFontFamily: Controls.IconFontData.solidFontFamily
+    readonly property string regularFontFamily: Controls.IconFontData.regularFontFamily
+    readonly property var materialGlyphs: Controls.IconFontData.materialGlyphs
+    readonly property string materialFontFamily: Controls.IconFontData.materialFontFamily
     implicitWidth: size
     implicitHeight: size
 

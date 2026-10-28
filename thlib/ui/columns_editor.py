@@ -81,6 +81,7 @@ class ColumnsEditorController(QObject):
         self._presentation_visible = False
         self._workers = set()
         self._reload_pending = False
+        self._loading_context = None
         self._requested_row = 0
         self._requested_name = ""
         self._requested_definition_target = "definition"
@@ -464,6 +465,16 @@ class ColumnsEditorController(QObject):
 
     @Slot()
     def begin_session(self):
+        if self._busy and self._loading_context is not None:
+            stype = self._current_stype()
+            tab = self._current_tab()
+            context = (
+                str(self._application._current_project_code or ""),
+                str(stype.get_code() or "") if stype else "",
+                str(getattr(tab, "table_view", "table") or "table"),
+            )
+            if context == self._loading_context:
+                return
         self.reload()
 
     @Slot(bool)
@@ -1058,10 +1069,13 @@ class ColumnsEditorController(QObject):
                 layout.setdefault("inputWidgets", [])
             return stype, layout
 
-        self._run(operation, self._loaded)
+        self._loading_context = (project_code, stype_code, table_view)
+        if not self._run(operation, self._loaded):
+            self._loading_context = None
 
     @Slot(object)
     def _loaded(self, result):
+        self._loading_context = None
         stype, payload = result
         current = self._current_stype()
         current_code = str(current.get_code() or "") if current else ""
@@ -1799,6 +1813,7 @@ class ColumnsEditorController(QObject):
             self._sync_table_rows()
 
     def _clear(self, error=""):
+        self._loading_context = None
         self._changed_row_keys.clear()
         self._row_request_id += 1
         self._row_sync_pending = False
@@ -2265,6 +2280,8 @@ class ColumnsEditorController(QObject):
     def _release(self, worker, reload_table=True):
         self._workers.discard(worker)
         self._busy = bool(self._workers)
+        if not self._busy:
+            self._loading_context = None
         self.stateChanged.emit()
         current = self._current_stype() if reload_table else None
         current_code = str(current.get_code() or "") if current else ""
@@ -2277,6 +2294,7 @@ class ColumnsEditorController(QObject):
 
     @Slot(object)
     def _failed(self, error):
+        self._loading_context = None
         if self._catalog_saving:
             self._catalog_uncertain = True
             self._catalog_saving = False
