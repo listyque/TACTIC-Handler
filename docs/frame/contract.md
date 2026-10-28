@@ -26,6 +26,8 @@ this tool is not part of ordinary product builds.
 
 ## Single owners
 
+Floating dock windows are the visual reference for floating windows: reuse their chrome, title bar, borders and controls. Keep resize grips quiet and integrated into the corner, without a filled circular button.
+
 Embedded table headers, data-row backgrounds, inline notices/errors and pending-change bars use square corners. Keep the
 existing theme radii and sizing on controls, dialogs and item cards; a local
 table styling correction must not change those shared defaults.
