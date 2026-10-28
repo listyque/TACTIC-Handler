@@ -139,7 +139,7 @@ Rectangle {
         objectName: "tableHeaderSurface"
         x: root.viewportContentX
         width: root.viewportWidth
-        height: root.height - 3
+        height: root.height
         radius: root.radius
         color: root.theme[TableHost.paint.header]
     }

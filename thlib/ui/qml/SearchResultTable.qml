@@ -225,8 +225,6 @@ Item {
         anchors.fill: parent
         anchors.margins: 0
         anchors.topMargin: scrollBarFrame.y
-        anchors.rightMargin: verticalBar.reservedExtent + 4
-        anchors.bottomMargin: 8 + horizontalBar.reservedExtent + 4
         opacity: initialTablePresentation.ready ? 1 : 0
         model: root.resultModel
         clip: true
@@ -757,6 +755,20 @@ Item {
             theme: root.theme
             flickableTarget: rows
         }
+    }
+
+    // Defer viewport-dependent insets until column layout has settled.
+    Binding {
+        target: rows
+        property: "anchors.rightMargin"
+        value: verticalBar.hasOverflow ? verticalBar.reservedExtent + 4 : 0
+        delayed: true
+    }
+    Binding {
+        target: rows
+        property: "anchors.bottomMargin"
+        value: horizontalBar.hasOverflow ? horizontalBar.reservedExtent + 4 : 0
+        delayed: true
     }
 
     Controls.InitialBatchPresentation {

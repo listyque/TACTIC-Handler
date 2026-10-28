@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.202 - 2026-10-28
+
+- Remove the dark strip beneath result table headers and reserve scrollbar space only while the corresponding scrollbar is needed.
+
 ## 0.6.0.201 - 2026-10-28
 
 - Keep table row focus separate from checked selection: use Shift-click or checkboxes to select, and clear checks directly from the selected-record bar.

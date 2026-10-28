@@ -2604,7 +2604,10 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(table.property("effectiveRowHeight"), 58)
             header = table.findChild(QObject, "searchResultTableHeader")
             header_surface = table.findChild(QQuickItem, "tableHeaderSurface")
-            self.assertEqual(header_surface.height(), 34)
+            self.assertEqual(header_surface.height(), 37)
+            vertical = table.findChild(QQuickItem, "tableVerticalScrollBar")
+            self.assertEqual(table.width() - rows.width(),
+                             vertical.property("reservedExtent") + 4 if vertical.property("hasOverflow") else 0)
             self.assertEqual(header_surface.property("radius"), 0)
             self.assertEqual(rows.x(), 0)
             self.assertEqual(rows.y(), 0)
@@ -3276,10 +3279,13 @@ class ColumnsTableViewTests(unittest.TestCase):
                 table.setWidth(width)
                 window.resize(width, 160)
                 QTest.qWait(20)
-                self.assertGreaterEqual(
-                    vertical.mapToScene(QPointF()).x(),
-                    rows.mapToScene(QPointF(rows.width(), 0)).x() + 4,
-                )
+                if vertical.property("hasOverflow"):
+                    self.assertGreaterEqual(
+                        vertical.mapToScene(QPointF()).x(),
+                        rows.mapToScene(QPointF(rows.width(), 0)).x() + 4,
+                    )
+                else:
+                    self.assertEqual(rows.width(), table.width())
                 self.assertGreaterEqual(
                     horizontal.mapToScene(QPointF()).y(),
                     rows.mapToScene(QPointF(0, rows.height())).y() + 4,
@@ -3288,7 +3294,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 self.assertTrue(button.isVisible())
                 self.assertTrue(button.isEnabled())
                 center = button.mapToScene(QPointF(button.width() / 2, button.height() / 2))
-                self.assertLess(center.x() + button.width() / 2, vertical.mapToScene(QPointF()).x())
+                self.assertLessEqual(center.x() + button.width() / 2,
+                                     vertical.mapToScene(QPointF()).x() if vertical.property("hasOverflow") else table.mapToScene(QPointF(table.width(), 0)).x())
                 button.clicked.emit()
                 QTest.qWait(20)
                 menu = table.findChild(QObject, "tableViewPresetsMenu") \
