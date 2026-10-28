@@ -142,6 +142,18 @@ class FrameControlsTests(unittest.TestCase):
                                 (style, dark, language, width, state, self.warnings),
                             )
 
+    def test_inline_notice_has_square_background(self):
+        view = self.item("area")
+        while view.property("scene") is None:
+            view = view.parentItem()
+        scene = view.property("scene").toVariant()
+        node = next(node for node in scene["nodes"] if node["id"] == "area")
+        view.setProperty("scene", {"nodes": [dict(node, notice=True)]})
+        frame(self.window)
+        area = self.item("area")
+        self.assertEqual(area.property("background").property("radius"), 0)
+        self.assertEqual(self.warnings, [])
+
     def test_area_text_has_one_padding_and_reserves_the_scrollbar(self):
         area = self.item("area")
         editor = next(

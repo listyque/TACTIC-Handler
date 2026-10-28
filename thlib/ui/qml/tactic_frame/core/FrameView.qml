@@ -820,7 +820,7 @@ Item {
                         }
                         background: Rectangle {
                             color: wrapper.node.flat ? "transparent" : root.effectiveTheme.surfaceContainerHigh
-                            radius: root.effectiveTheme.surfaceRadius
+                            radius: wrapper.node.notice ? 0 : root.effectiveTheme.surfaceRadius
                             border.width: wrapper.node.flat || wrapper.node.notice ? 0 : editor.activeFocus ? 2 : 1
                             border.color: wrapper.node.error ? root.effectiveTheme.error : editor.activeFocus ? root.effectiveTheme.action : root.effectiveTheme.outline
                         }

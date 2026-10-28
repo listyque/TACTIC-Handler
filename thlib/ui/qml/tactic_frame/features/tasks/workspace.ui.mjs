@@ -13,7 +13,8 @@ export function pending(model, width, language) {
     let textRight = discardX - 8;
     const nodes = [
         node('Box', 'taskPendingSurface', rect(0, 0, width, height), {
-            background: 'secondaryContainer'
+            background: 'secondaryContainer',
+            radius: 0
         }),
         node('Icon', 'taskPendingIcon', rect(12, 13, 16, 16), {
             icon: 'edit',
