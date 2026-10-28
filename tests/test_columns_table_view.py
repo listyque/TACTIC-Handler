@@ -3601,6 +3601,9 @@ class ColumnsTableViewTests(unittest.TestCase):
             QTest.qWait(20)
             self.assertTrue(row.property("selected"))
             clear = table.findChild(QQuickItem, "clearTableSelection")
+            self.assertEqual(clear.property("text"), "Deselect 1 item")
+            self.assertLessEqual(clear.height(), 28)
+            self.assertLessEqual(clear.mapToItem(table, QPointF()).x(), 8)
             QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
                              clear.mapToScene(QPointF(clear.width() / 2, clear.height() / 2)).toPoint())
             QTest.qWait(20)

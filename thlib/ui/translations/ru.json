@@ -1,4 +1,6 @@
 {
+  "Deselect %1 item": "Снять выделение: %1",
+  "Deselect %1 items": "Снять выделение: %1",
   "Group label (optional)": "Название группы (необязательно)",
   "New view": "Новый вид",
   "Add a widget to start this view.": "Добавьте виджет, чтобы начать этот вид.",

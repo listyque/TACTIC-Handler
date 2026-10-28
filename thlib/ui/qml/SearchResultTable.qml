@@ -159,18 +159,14 @@ Item {
                 anchors.rightMargin: 8
                 spacing: 8
 
-                Label {
-                    Layout.fillWidth: true
-                    text: qsTr("Selected") + ": " + root.controller.selected_result_node_ids.length
-                    color: root.theme.primaryText
-                    font.family: root.theme.fontFamily
-                }
                 Controls.Button {
                     objectName: "clearTableSelection"
                     theme: root.theme
-                    text: qsTr("Clear selection")
+                    implicitHeight: 28
+                    text: (root.controller.selected_result_node_ids.length === 1 ? qsTr("Deselect %1 item") : qsTr("Deselect %1 items")).arg(root.controller.selected_result_node_ids.length)
                     onClicked: root.controller.clear_result_selection()
                 }
+                Item { Layout.fillWidth: true }
             }
         }
     }
