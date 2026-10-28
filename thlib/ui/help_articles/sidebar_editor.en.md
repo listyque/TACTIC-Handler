@@ -88,6 +88,11 @@ empty list means no login groups were loaded from the server.
 
 ## Saving and discarding
 
+An assigned Saved Search initializes the item's first search tab; it is not
+opened again as an extra tab. Reopening the sidebar item retains its active tab,
+filters and drafts. Other saved searches remain separate even if their titles
+match. Use **+** to create an additional personal search.
+
 The footer says whether the draft is current. **Discard** returns all sidebar drafts to the loaded
 server state. **Save** commits them to TACTIC and refreshes project navigation. If a control is
 disabled, select a compatible element first or wait for the current request to finish.

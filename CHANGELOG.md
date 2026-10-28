@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.215 - 2026-10-28
+
+- Reuse the sidebar base tab for its assigned Saved Search instead of opening a duplicate preset tab. Retain personal tabs and other saved searches by their actual identity.
+
 ## 0.6.0.214 - 2026-10-28
 
 - Fit native Items/Details dashboard pairs to one viewport with independent scrolling and the existing mouse/keyboard splitter. Preserve the item tree when resizing.

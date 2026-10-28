@@ -607,6 +607,8 @@ class NavigationMixin:
             for preset in presets or []:
                 if not isinstance(preset, dict):
                     raise TypeError("Sidebar preset records must be mappings")
+                if preset.get("view") == section.search_view:
+                    continue
                 records = [
                     dict(record) for record in (preset.get("records") or [])
                 ]

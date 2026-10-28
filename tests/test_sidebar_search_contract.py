@@ -39,6 +39,9 @@ class _NavigationModel:
     def entry(self, key):
         return self._entry if self._entry.key == key else None
 
+    def entries_for_search_type(self, search_type):
+        return [self._entry] if self._entry.search_type == search_type else []
+
 
 class _SidebarHarness(NavigationMixin, AdvancedSearchMixin):
     def __init__(self, entry):
@@ -274,6 +277,37 @@ class SidebarSearchContractTests(unittest.TestCase):
             [("_expression", "in", "@SOBJECT(sthpw/task['assigned', '$LOGIN'])")],
         )
         self.assertEqual(reopened.base_filters, ())
+
+    def test_assigned_sidebar_search_is_not_added_again_as_a_preset(self):
+        records = records_from_config(SEARCH_CONFIG)
+        assigned = "link_search:assigned:demo/assets@my_assets"
+        entry = NavigationEntry(
+            key="demo/assets@my_assets", title="My Assets", glyph="sobject",
+            group="", command="open_sidebar_item", search_type="demo/assets",
+            search_view=assigned, filter_records=tuple(records),
+        )
+        controller = _SidebarHarness(entry)
+        section = controller._create_section(entry.key, entry.title)
+        original = section.tabs[0]
+        metadata = ("demo", entry.key, "request", "session-token")
+        controller._sidebar_preset_requests[entry.key] = (
+            "demo", "request", "session-token", section,
+        )
+        presets = [
+            dict(code="ASSIGNED", view=assigned, title=entry.title, records=records),
+            dict(code="OTHER", view="link_search:other:demo/assets@my_assets",
+                 title=entry.title, records=[]),
+        ]
+
+        controller._sidebar_presets_ready((presets, metadata))
+        controller._sidebar_presets_ready((presets, metadata))
+        reopened = controller._open_sidebar_section(entry.key, entry.title)
+
+        self.assertIs(reopened.tabs[0], original)
+        self.assertEqual(original.filter_records, records)
+        self.assertEqual(len(reopened.tabs), 2)
+        self.assertEqual(reopened.tabs[1].tab_id, entry.key + ":preset:OTHER")
+        self.assertEqual(reopened.tabs[1].title, entry.title)
 
     def test_changed_assignment_does_not_replace_a_personal_layout(self):
         entry = NavigationEntry(
