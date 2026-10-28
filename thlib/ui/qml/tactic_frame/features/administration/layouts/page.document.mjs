@@ -141,10 +141,12 @@ export function change(document, key, field, value) {
             'image_fit',
             'text_weight',
             'format',
-            'native_action'
+            'native_action',
+            'region'
         ].includes(field)
     ) {
         const choices = {
+            region: ['header', 'content', 'footer'],
             text_role: [
                 'auto',
                 'caption',
@@ -170,6 +172,8 @@ export function change(document, key, field, value) {
             native_action: ['details', 'edit', 'notes', 'copy_link', 'refresh'],
             text_weight: [400, 600, 700]
         };
+        if (field === 'region' && path(key).length !== 1 && value !== 'content')
+            throw Error('Page regions are only available for top-level blocks');
         if (field === 'text_weight') value = Number(value);
         if (!choices[field].includes(value))
             throw Error('Choose a supported component property');
@@ -362,6 +366,8 @@ export function reparent(document, key, parent) {
         ? container.children || (container.children = [])
         : result.blocks;
     siblings(result, p).splice(p[p.length - 1], 1);
+    if (container && item.region && item.region !== 'content')
+        item.region = 'content';
     target.push(item);
     checkStructure(result);
     return {
@@ -469,6 +475,8 @@ export function geometry(document, change, boxes) {
     let insertion = before ? targetPath[targetPath.length - 1] : target.length;
     if (old === target && index < insertion) insertion--;
     old.splice(index, 1);
+    if (parent.length && item.region && item.region !== 'content')
+        item.region = 'content';
     target.splice(insertion, 0, item);
     return {
         document: result,

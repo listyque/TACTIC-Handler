@@ -78,8 +78,8 @@ export function describe(
 ) {
     const tabOffset = cell.layoutTabs?.length ? 56 : 0;
     const children = [],
-        gap = 8,
-        tableHeight = Math.max(320, height - tabOffset - 48);
+        gap = 8;
+    let tableHeight = Math.max(320, height - tabOffset - 48);
     const controls = cell.layoutState?.controls || cell.layoutControls || [];
     function draw(
         items,
@@ -889,30 +889,122 @@ export function describe(
             )
         );
     }
-    function render(contentWidth) {
+    const viewportHeight = Math.max(0, height - tabOffset);
+    let headerNodes = [],
+        footerNodes = [],
+        headerHeight = 0,
+        footerHeight = 0;
+    function drawRegion(region, space, output, start = 0, capacity = null) {
+        const entries = (cell.layoutNodes || [])
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => (item.region || 'content') === region);
+        let top = start;
+        for (const [position, { item, index }] of entries.entries()) {
+            const slot =
+                capacity !== null &&
+                position === entries.length - 1 &&
+                item.sizing?.height_mode === 'fill'
+                    ? Math.max(0, capacity - top)
+                    : null;
+            top +=
+                draw(
+                    [item],
+                    0,
+                    top,
+                    space,
+                    'customLayout',
+                    index,
+                    output,
+                    capacity ?? Infinity,
+                    gap,
+                    slot
+                ) + gap;
+        }
+        return Math.max(
+            start,
+            top - (entries.length ? gap : 0),
+            visualBottom(output)
+        );
+    }
+    function header(space) {
         const filters = Filters.describe(
             cell.layoutFilters,
             cell.layoutFilterDraft || Filters.initial(cell.layoutFilters),
-            contentWidth,
+            Math.max(0, space - 24),
             language,
             editable &&
                 !cell.layoutBusy &&
                 !cell.layoutFilterBusy &&
                 !cell.layoutEditing
         );
+        const output = [];
+        const contextHeight = drawRegion(
+            'header',
+            Math.max(0, space - 24),
+            output
+        );
+        const filterTop =
+            contextHeight + (contextHeight && filters.height ? gap : 0);
+        for (const item of filters.nodes) {
+            item.y += filterTop;
+            output.push(item);
+        }
+        const extent = filterTop + filters.height;
+        for (const item of output) {
+            item.x += 12;
+            item.y += 12;
+        }
+        return { nodes: output, height: output.length ? extent + 24 : 0 };
+    }
+    let head = header(width);
+    let foot = [];
+    let footerExtent = drawRegion('footer', Math.max(0, width - 24), foot);
+    footerHeight = foot.length
+        ? Math.min(footerExtent + 24, viewportHeight * 0.3)
+        : 0;
+    headerHeight = Math.min(
+        head.height,
+        Math.max(
+            0,
+            viewportHeight - footerHeight - Math.min(180, viewportHeight * 0.45)
+        )
+    );
+    if (head.height > headerHeight)
+        head = header(Math.max(0, width - controlMetrics.scrollBar.extent - 4));
+    headerNodes = head.nodes;
+    if (footerExtent + 24 > footerHeight && footerHeight) {
+        foot = [];
+        footerExtent = drawRegion(
+            'footer',
+            Math.max(0, width - 24 - controlMetrics.scrollBar.extent - 4),
+            foot
+        );
+    }
+    for (const item of foot) {
+        item.x += 12;
+        item.y += 12;
+    }
+    footerNodes = foot;
+    const bodyHeight = Math.max(
+        0,
+        viewportHeight - headerHeight - footerHeight
+    );
+    if (headerHeight || footerHeight)
+        tableHeight = Math.max(160, bodyHeight - 32);
+    function render(contentWidth) {
         children.length = 0;
-        children.push(...filters.nodes);
-        const flowExtent =
-            filters.height +
-            draw(cell.layoutNodes, 0, filters.height, contentWidth);
+        const flowExtent = drawRegion(
+            'content',
+            contentWidth,
+            children,
+            0,
+            bodyHeight
+        );
         return Math.max(flowExtent, visualBottom(children));
     }
     let contentWidth = Math.max(0, width),
         extent = render(contentWidth);
-    if (
-        extent + (cell.layoutError ? 80 : 0) >
-        Math.max(0, height - tabOffset)
-    ) {
+    if (extent + (cell.layoutError ? 80 : 0) > bodyHeight) {
         contentWidth = Math.max(0, width - controlMetrics.scrollBar.extent - 4);
         extent = render(contentWidth);
     }
@@ -930,6 +1022,42 @@ export function describe(
             background: 'workspace'
         })
     ];
+    for (const [name, y, extent, content, contentHeight] of [
+        ['Header', tabOffset, headerHeight, headerNodes, head.height],
+        [
+            'Footer',
+            height - footerHeight,
+            footerHeight,
+            footerNodes,
+            footerExtent + 24
+        ]
+    ]) {
+        if (!extent) continue;
+        nodes.push(
+            node('Box', 'customLayout' + name, rect(0, y, width, extent), {
+                background: 'panel',
+                radius: 0,
+                children: [
+                    node(
+                        'Scroll',
+                        'customLayout' + name + 'Scroll',
+                        rect(0, 0, width, extent),
+                        {
+                            contentHeight,
+                            scrollbarId: 'customLayout' + name + 'ScrollBar',
+                            children: content
+                        }
+                    ),
+                    node(
+                        'Box',
+                        'customLayout' + name + 'Divider',
+                        rect(0, name === 'Header' ? extent - 1 : 0, width, 1),
+                        { background: 'outlineVariant', radius: 0 }
+                    )
+                ]
+            })
+        );
+    }
     if (tabOffset) {
         const tabs = [];
         let left = 0;
@@ -974,7 +1102,7 @@ export function describe(
         node(
             'Scroll',
             'customLayoutScroll',
-            rect(0, tabOffset, width, Math.max(0, height - tabOffset)),
+            rect(0, tabOffset + headerHeight, width, bodyHeight),
             {
                 contentHeight: extent + (cell.layoutError ? 80 : 0),
                 scrollbarId: 'customLayoutScrollBar',

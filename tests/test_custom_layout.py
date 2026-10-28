@@ -89,6 +89,44 @@ class CustomLayouts(unittest.TestCase):
     click = frames.FrameTableTests.click
     item = frames.FrameTableTests.item
 
+    def test_page_regions_keep_header_footer_and_scroll_content_independently(self):
+        from PySide6.QtCore import QPoint, QPointF, Qt
+        from PySide6.QtGui import QWheelEvent
+        from PySide6.QtTest import QTest
+
+        services = Services(dict(layoutView='dashboard.regions', layoutFilters=[
+            dict(name='filter'+str(i), title='Filter '+str(i), value='value', enabled=True, relation='=', dataType='text')
+            for i in range(4)], layoutNodes=[
+                dict(kind='text', text='Header instructions', region='header', editorPath=[0]),
+                dict(kind='metric', text='Scrollable report', value=25, height=1000, editorPath=[1]),
+                dict(kind='button', text='Open project', href='https://example.com/project', region='footer', editorPath=[2])]))
+        window, view = self.create('features/table/CustomLayoutView.qml', dict(
+            services=services, controller=_TableController(), columnsController=_TableColumns(),
+            users=None, administration=None), width=1000, height=650)
+        footer_button = self.item(view, 'customLayout_2')
+        for width, height in ((1000,650),(360,500),(700,800)):
+            window.resize(width,height);view.setWidth(width);view.setHeight(height);frames.frame(window)
+            header = self.item(view,'customLayoutHeader')
+            body = self.item(view,'customLayoutScroll')
+            footer = self.item(view,'customLayoutFooter')
+            self.assertAlmostEqual(body.mapToItem(view,QPointF()).y(), header.mapToItem(view,QPointF()).y()+header.height())
+            self.assertAlmostEqual(body.mapToItem(view,QPointF()).y()+body.height(), footer.mapToItem(view,QPointF()).y())
+            self.assertAlmostEqual(footer.mapToItem(view,QPointF()).y()+footer.height(),height)
+            self.assertEqual(self.item(view,'customLayout_2'), footer_button)
+            point = body.mapToScene(QPointF(body.width()/2,body.height()/2))
+            event = QWheelEvent(point, QPointF(window.mapToGlobal(point.toPoint())), QPoint(), QPoint(0,-1200), Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False)
+            self.app.sendEvent(window,event);QTest.qWait(150)
+            self.assertGreater(body.property('contentY'),0)
+            self.assertAlmostEqual(footer.mapToItem(view,QPointF()).y()+footer.height(),height)
+            self.click(window,footer_button)
+            self.assertEqual(services.events[-1]['name'],'layout-link')
+            footer_button.forceActiveFocus(); QTest.keyClick(window,Qt.Key_Space)
+            self.assertEqual(services.events[-1]['name'],'layout-link')
+            if width == 360:
+                scroll = self.item(view,'customLayoutHeaderScroll')
+                self.assertGreater(scroll.property('contentHeight'),scroll.height())
+                self.assertTrue(self.item(view,'customLayoutHeaderScrollBar').isVisible())
+
     def test_markdown_close_drops_queued_formatting(self):
         window, pane = self.create(
             'controls/DocumentPane.qml', dict(text='Original', summary='Summary'),

@@ -65,6 +65,24 @@ export function describe(model, width, extent, language) {
     );
     const nodes = [
         node(
+            'Box',
+            'nestedToolbarSurface',
+            rect(0, 0, width, 42 + quickHeight),
+            { background: 'panel', radius: 0 }
+        ),
+        node(
+            'Box',
+            'nestedFooterSurface',
+            rect(0, Math.max(0, extent - 40), width, 40),
+            { background: 'panel', radius: 0 }
+        ),
+        node(
+            'Box',
+            'nestedFooterDivider',
+            rect(0, Math.max(0, extent - 40), width, 1),
+            { background: 'outlineVariant', radius: 0 }
+        ),
+        node(
             'View',
             'nestedFilter',
             rect(
@@ -121,7 +139,9 @@ export function describe(model, width, extent, language) {
         label(
             'nestedState',
             rect(0, extent - 32, Math.max(0, width - 120), 28),
-            model.error ? t(model.error) : String((model.rows || []).length),
+            model.error
+                ? t(model.error)
+                : t('Results') + ': ' + (model.rows || []).length,
             { color: model.error ? 'error' : 'secondaryText' }
         ),
         button(

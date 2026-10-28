@@ -8,6 +8,14 @@ export function describe(model, width, height, language) {
             background: 'workspace',
             radius: 0
         }),
+        node('Box', 'workspacePageHeader', rect(0, 0, width, 52), {
+            background: 'panel',
+            radius: 0
+        }),
+        node('Box', 'workspacePageHeaderDivider', rect(0, 51, width, 1), {
+            background: 'outlineVariant',
+            radius: 0
+        }),
         label(
             'workspacePageTitle',
             rect(16, 12, Math.max(0, width - (model.canEdit ? 116 : 76)), 28),

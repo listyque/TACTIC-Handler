@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.230 - 2026-10-28
+
+- Separate configured pages into shared header, scrolling content and footer regions. Expose region placement in the page editor; retain stable widget paths and bounded header/footer scrollbars. Give nested tables clear toolbar and pagination surfaces, matching Stream.
+
 ## 0.6.0.229 - 2026-10-28
 
 - Stop readonly Markdown reports and Help articles from continuously reformatting and repainting while idle. Apply only changed paragraph/table formats and avoid empty QTextDocument edit blocks that emit textChanged. Check real idle readers and content updates. Restore Qt-compatible catch syntax so the Layout Editor loads.

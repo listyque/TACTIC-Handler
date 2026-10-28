@@ -1,5 +1,12 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    Results: 'Результаты',
+    'Page region': 'Область страницы',
+    Header: 'Шапка',
+    Footer: 'Футер',
+    'Page regions are only available for top-level blocks':
+        'Область страницы задаётся только для блоков верхнего уровня',
+
     Secondary: 'Вторичный',
     Surface: 'Поверхность',
 

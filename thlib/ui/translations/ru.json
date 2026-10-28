@@ -1,4 +1,8 @@
 {
+  "Page region": "Область страницы",
+  "Header": "Шапка",
+  "Footer": "Футер",
+  "Page regions are only available for top-level blocks": "Область страницы задаётся только для блоков верхнего уровня",
   "Secondary": "Вторичный",
   "Surface": "Поверхность",
   "Value color": "Цвет значения",

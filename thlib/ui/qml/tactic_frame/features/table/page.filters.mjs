@@ -35,7 +35,10 @@ export function describe(definitions, draft, width, language, enabled = true) {
     const tr = (text) => translate(text, language),
         nodes = [],
         gap = 12;
-    const columns = Math.max(1, Math.floor((width + gap) / 240)),
+    const maximum = Math.max(1, Math.floor((width + gap) / 240)),
+        columns = Math.ceil(
+            definitions.length / Math.ceil(definitions.length / maximum)
+        ),
         size = (width - gap * (columns - 1)) / columns;
     definitions.forEach((item, index) => {
         const x = (index % columns) * (size + gap),

@@ -458,6 +458,22 @@ export function describe(model, ui, width, height, language) {
             );
         if (item) {
             const parent = Document.path(ui.selected).slice(0, -1).join('.');
+            if (!parent)
+                fields.push({
+                    kind: 'Choice',
+                    id: 'pageProperty_region',
+                    title: 'Page region',
+                    props: {
+                        value: item.region || 'content',
+                        enabled: canEdit && (ui.selection || []).length < 2,
+                        action: { type: 'change', field: 'region' }
+                    },
+                    options: [
+                        ['header', 'Header'],
+                        ['content', 'Content'],
+                        ['footer', 'Footer']
+                    ].map(([value, label]) => ({ value, label: tr(label) }))
+                });
             fields.push({
                 kind: 'Choice',
                 id: 'pageParent',

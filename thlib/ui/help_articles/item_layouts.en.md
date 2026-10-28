@@ -538,3 +538,20 @@ actions use a square control with a separate corner count. Tasks and
 Notes still open their ordinary inspector. The same saved view renders in TH
 and TS, including the editor's clean preview. Native revision checks and
 transaction history apply to saves.
+
+## Header, content and footer
+
+Select a top-level block in **Page layouts** and choose **Page region**:
+**Header** for context and instructions, **Content** for records and reports,
+**Footer** for page actions and navigation. Shared page filters are in the
+header automatically. The title and filter zone, scrolling content and footer
+have distinct shared surfaces and dividers. Footer actions stay available while
+you scroll data. On a short/narrow page, an oversized header or footer gets its
+own visible scrollbar so controls remain reachable. Empty regions add no bar.
+
+Use **Height → Fill container** on the last content block to use the remaining
+working area, for example a full table. Use the region setting to move a block
+between these areas; canvas positioning works within its area. Nested containers
+inherit their parent's area; moving a header/footer block into one changes its
+region to Content. Filters, table search, selection and pagination keep their
+normal state and stable widget identity during resizing.

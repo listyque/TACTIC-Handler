@@ -228,3 +228,9 @@ accessibility requirements specific to UI work:
   resize disposal, ordinary window smoke and independent packaging checked.
   Releases also require affected workflows and fresh original/native/browser
   comparisons. Static inventory and matching declarations are not readiness.
+
+- New and touched screens must have a readable header (title/context/tools),
+  bounded scrolling content and a footer for actions/status/navigation when
+  present. Use shared surface/divider/padding rules; preserve the hierarchy on
+  resize. Do not float tools and footer actions among data rows without grouping,
+  or add an empty footer when the surface has no footer content.
