@@ -81,16 +81,6 @@ export function describe(
         gap = 8,
         tableHeight = Math.max(320, height - tabOffset - 48);
     const controls = cell.layoutState?.controls || cell.layoutControls || [];
-    const pageFilters = Filters.describe(
-        cell.layoutFilters,
-        cell.layoutFilterDraft || Filters.initial(cell.layoutFilters),
-        Math.max(0, width - 24),
-        language,
-        editable &&
-            !cell.layoutBusy &&
-            !cell.layoutFilterBusy &&
-            !cell.layoutEditing
-    );
     function draw(
         items,
         originX,
@@ -884,10 +874,6 @@ export function describe(
         }
         return Math.max(0, top - originY - spacing);
     }
-    children.push(...pageFilters.nodes);
-    const flowExtent =
-        pageFilters.height +
-        draw(cell.layoutNodes, 0, pageFilters.height, Math.max(0, width - 24));
     function visualBottom(nodes) {
         return Math.max(
             0,
@@ -903,12 +889,38 @@ export function describe(
             )
         );
     }
-    const extent = Math.max(flowExtent, visualBottom(children));
+    function render(contentWidth) {
+        const filters = Filters.describe(
+            cell.layoutFilters,
+            cell.layoutFilterDraft || Filters.initial(cell.layoutFilters),
+            contentWidth,
+            language,
+            editable &&
+                !cell.layoutBusy &&
+                !cell.layoutFilterBusy &&
+                !cell.layoutEditing
+        );
+        children.length = 0;
+        children.push(...filters.nodes);
+        const flowExtent =
+            filters.height +
+            draw(cell.layoutNodes, 0, filters.height, contentWidth);
+        return Math.max(flowExtent, visualBottom(children));
+    }
+    let contentWidth = Math.max(0, width),
+        extent = render(contentWidth);
+    if (
+        extent + (cell.layoutError ? 80 : 0) >
+        Math.max(0, height - tabOffset)
+    ) {
+        contentWidth = Math.max(0, width - controlMetrics.scrollBar.extent - 4);
+        extent = render(contentWidth);
+    }
     if (cell.layoutError)
         children.push(
             label(
                 'layoutError',
-                rect(0, extent + gap, Math.max(0, width - 24), 64),
+                rect(0, extent + gap, contentWidth, 64),
                 cell.layoutError,
                 { wrap: true, color: 'error' }
             )

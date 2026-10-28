@@ -79,3 +79,10 @@ In Stream, automatic note updates keep the current composer enabled. You can
 send with Enter while a background read is pending; a late older response cannot
 replace the freshly loaded reply. Opening another object or an explicit blocking
 reload still protects the new context before editing.
+
+
+The note field grows to fit wrapped placeholder text and ordinary input, up to
+the existing height limit; longer drafts scroll inside the field. Status events
+keep their tinted card and outline, using the theme accent if no workflow color
+is available. Dashboard pages use the full body width when they fit; overflowing
+pages retain room for their outer scrollbar.

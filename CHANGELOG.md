@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.224 - 2026-10-28
+
+- Fit dashboard content to the available body width and reserve the outer scrollbar gutter only when the page overflows. Verify both responsive grid thresholds; document bounded composer growth and status-card color fallback in Inspector Help, matching Stream's browser fixes.
+
 ## 0.6.0.223 - 2026-10-28
 
 - Verify configured item height and native action identity through repeated pane resizing. Document retained tree geometry; the Stream counterpart preserves measured custom-card heights while moving splitters instead of reverting to default estimates.
