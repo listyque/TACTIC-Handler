@@ -159,6 +159,26 @@ class FrameControlsTests(unittest.TestCase):
         self.assertEqual(button.property("backgroundColor").alpha(), 0)
         self.assertEqual(self.warnings, [])
 
+    def test_empty_branches_load_children_only_when_added(self):
+        view = self.item("area")
+        while view.property("scene") is None:
+            view = view.parentItem()
+        base = view.property("scene").toVariant()["nodes"][0]
+        box = dict(base, kind="Box", id="emptyBranch", x=0, y=0,
+                   width=200, height=40, children=[])
+        view.setProperty("scene", {"nodes": [box]})
+        frame(self.window)
+        branches = [item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(view)
+                    if item.objectName() == "frameBranch"]
+        self.assertTrue(branches)
+        self.assertTrue(all(not item.property("active") for item in branches))
+        child = dict(base, kind="Label", id="branchLabel", x=0, y=0,
+                     width=200, height=40, text="Loaded child", children=[])
+        view.setProperty("scene", {"nodes": [dict(box, children=[child])]})
+        frame(self.window)
+        self.assertEqual(self.item("branchLabel").property("text"), "Loaded child")
+        self.assertEqual(self.warnings, [])
+
     def test_inline_notice_has_square_background(self):
         view = self.item("area")
         while view.property("scene") is None:

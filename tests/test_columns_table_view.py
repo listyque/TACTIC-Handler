@@ -481,6 +481,7 @@ class _TableColumns(QObject):
         self._busy = False
         self._error = ""
         self._cell_revision = 0
+        self.summary_reads = 0
         self.selected_table_views = []
         self.saved_table_views = []
         self._table_views = [{
@@ -690,6 +691,7 @@ class _TableColumns(QObject):
 
     @Slot(int, result="QVariantMap")
     def all_cells(self, _revision=0):
+        self.summary_reads += 1
         return {}
 
     @Slot(str, str, result="QVariantMap")
@@ -2611,6 +2613,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             header = table.findChild(QObject, "searchResultTableHeader")
             header_surface = table.findChild(QQuickItem, "tableHeaderSurface")
             self.assertEqual(header_surface.height(), 37)
+            self.assertEqual(columns.summary_reads, 0)
             grips = [item for item in _visual_items(table) if item.objectName() == "columnHeaderGrip"]
             self.assertTrue(grips)
             self.assertTrue(all(item.width() == 1 and item.height() > 0 and item.opacity() > 0 for item in grips))
@@ -2782,6 +2785,13 @@ class ColumnsTableViewTests(unittest.TestCase):
                  if item.objectName()],
             )
             self.assertIn(group_title.property("text"), {"asset", "asset2", "asset3"})
+            columns._columns[1]["displayOptions"] = {"total_summary": "count"}
+            columns.stateChanged.emit()
+            QTest.qWait(20)
+            summary = table.property("summaryRow").toVariant()
+            self.assertTrue(summary["hasSummary"])
+            self.assertEqual(summary["values"][columns._columns[1]["name"]], "0")
+            self.assertGreater(columns.summary_reads, 0)
         finally:
             window.close()
             table.setParentItem(None)

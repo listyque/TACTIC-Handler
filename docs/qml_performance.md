@@ -5,6 +5,21 @@ late visual cleanup. The hot paths are recyclable search delegates, task rows,
 message timeline entries, retained dock content, and report pages with nested
 models.
 
+## Idle table cells
+
+`features/tasks/TaskCellDisplay.qml` draws the geometry from shared
+`tasks/cells.ui.mjs` with native text, rectangles and lazy avatar/indicator ports.
+Idle values do not instantiate a recursive Frame renderer; `TaskTableEditorCell`
+continues to own lazy editors, popup lifetime, mouse/touch input and pooling.
+Keep labels, font metrics, colors and avatar geometry tied to the shared scene.
+
+Empty `FrameBranch` scenes keep their renderer unloaded, including when a retained
+branch later receives children. Search tables request `all_cells` only when a
+column actually has a summary, and transfer that map once per recomputation.
+`tests.profile_result_table` measures cold creation, working set, scrolling,
+refresh and grouped expansion on isolated data. Object budgets and actual editor
+input tests are regressions; timings remain diagnostics for the measured host.
+
 ## Native resize and overdraw
 
 The desktop `Main.qml` disables `ApplicationWindow`'s automatic top safe-area

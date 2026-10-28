@@ -3,10 +3,12 @@ import QtQuick
 // A URL loader breaks QML's static recursive-type restriction for child scenes.
 Loader {
     id: root
+    objectName: "frameBranch"
     required property var theme
     property var scene: ({
             nodes: []
         })
+    active: !!scene.nodes && scene.nodes.length > 0
     property var views: ({})
     property var models: ({})
     property var describeRow: null

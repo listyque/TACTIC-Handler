@@ -60,12 +60,15 @@ Item {
     readonly property real actionColumnWidth: TableHost.metrics.actions
     readonly property real columnsWidth: TableColumnLayout.totalWidth(effectiveColumns, widthOverrides, fitWidthOverrides)
     readonly property real tableWidth: tableLayout.width
-    readonly property var summaryRow: columnsController && columnsController.all_cells && effectiveColumns.length ? TableHost.summarize(effectiveColumns, Object.keys(columnsController.all_cells(columnsController.cellRevision)).map(key => ({
-                __search_key__: key
-            })), columnsController.all_cells(columnsController.cellRevision), "bottom") : ({
-            hasSummary: false,
-            values: {}
-        })
+    readonly property var summaryRow: {
+        const empty = TableHost.summarize(effectiveColumns, []);
+        if (!empty.hasSummary || !columnsController || !columnsController.all_cells)
+            return empty;
+        const cells = columnsController.all_cells(columnsController.cellRevision);
+        return TableHost.summarize(effectiveColumns, Object.keys(cells).map(key => ({
+                    __search_key__: key
+                })), cells, "bottom");
+    }
     readonly property real contentY: rows.contentY
     readonly property int count: rows.count
     signal actionMenuRequested(string nodeId, var actions, var anchorItem, real localX, real localY, bool below)
@@ -166,7 +169,9 @@ Item {
                     text: (root.controller.selected_result_node_ids.length === 1 ? qsTr("Deselect %1 item") : qsTr("Deselect %1 items")).arg(root.controller.selected_result_node_ids.length)
                     onClicked: root.controller.clear_result_selection()
                 }
-                Item { Layout.fillWidth: true }
+                Item {
+                    Layout.fillWidth: true
+                }
             }
         }
     }

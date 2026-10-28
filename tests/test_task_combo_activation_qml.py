@@ -122,6 +122,12 @@ Item {
             QTest.qWait(10)
         self.assertTrue(predicate())
 
+    def test_idle_status_cell_keeps_a_small_visual_tree(self):
+        self.create_cell()
+        self.assertFalse(self.cell.property("editorLoaded"))
+        items = self.visual_items(self.cell)
+        self.assertLessEqual(len(items), 20)
+
     def test_cold_status_cell_opens_on_single_click(self):
         self.create_cell()
         self.assertFalse(self.cell.property("editorLoaded"))
