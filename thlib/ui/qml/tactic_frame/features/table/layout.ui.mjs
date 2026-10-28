@@ -6,7 +6,10 @@ import * as Report from './report.ui.mjs';
 import * as Filters from './page.filters.mjs';
 import * as PageLayout from './page.layout.mjs';
 import * as Parts from './record.parts.mjs';
-import { textStyles } from '../../core/foundation.mjs';
+import {
+    textStyles,
+    controls as controlMetrics
+} from '../../core/foundation.mjs';
 import {
     tab as workspaceTab,
     viewTabWidth
@@ -40,6 +43,19 @@ export function change(state, selector, value) {
                 ? Object.assign({}, item, { value, selectedValue: value })
                 : item
         )
+    });
+}
+export function resize(state = {}, action) {
+    if (
+        !Number.isFinite(action.value) ||
+        !Number.isFinite(action.extent) ||
+        action.extent <= 0
+    )
+        return state;
+    return Object.assign({}, state, {
+        splits: Object.assign({}, state.splits, {
+            [action.key]: Math.max(0, Math.min(1, action.value / action.extent))
+        })
     });
 }
 function plain(value) {
@@ -114,7 +130,18 @@ export function describe(
                     outerWidth - margin[1] - margin[3] - padding[1] - padding[3]
                 ),
                 firstOutput = output.length,
-                childGap = item.gap === undefined ? 8 : item.gap;
+                childGap = item.gap === undefined ? 8 : item.gap,
+                slotCapacity =
+                    slotHeight === null
+                        ? null
+                        : Math.max(
+                              0,
+                              slotHeight -
+                                  margin[0] -
+                                  margin[2] -
+                                  padding[0] -
+                                  padding[2]
+                          );
             top += margin[0] + padding[0];
             let extent = 0;
             if (item.children) {
@@ -143,22 +170,107 @@ export function describe(
                         );
                     extent = cells.height || item.row_height || 120;
                 } else if (horizontal) {
+                    const navigator =
+                        item.children.length === 2 &&
+                        item.children[0].kind === 'items' &&
+                        item.children[1].kind === 'details';
+                    const seam = navigator
+                        ? Math.max(childGap, controlMetrics.splitter.extent)
+                        : childGap;
                     const budget = Math.max(
                         0,
-                        available - childGap * (item.children.length - 1)
+                        available - seam * (item.children.length - 1)
                     );
                     const widths = PageLayout.rowWidths(
                         item.children,
                         budget,
                         measure
                     );
+                    const paneHeight = navigator
+                        ? Math.max(
+                              0,
+                              Math.min(
+                                  slotCapacity ?? Infinity,
+                                  Number.isFinite(item.height)
+                                      ? item.height
+                                      : height -
+                                            tabOffset -
+                                            top -
+                                            margin[2] -
+                                            padding[2]
+                              )
+                          )
+                        : null;
+                    if (navigator) {
+                        const minimum = Math.min(
+                            budget / 2,
+                            Math.max(
+                                160,
+                                item.children[0].sizing?.min_width || 0
+                            )
+                        );
+                        const maximum =
+                            budget -
+                            Math.min(
+                                budget / 2,
+                                Math.max(
+                                    240,
+                                    item.children[1].sizing?.min_width || 0
+                                )
+                            );
+                        const ratio = cell.layoutState?.splits?.[id];
+                        widths[0] = Math.max(
+                            minimum,
+                            Math.min(
+                                maximum,
+                                Number.isFinite(ratio)
+                                    ? ratio * budget
+                                    : widths[0]
+                            )
+                        );
+                        widths[1] = budget - widths[0];
+                        const action = {
+                            type: 'layout-split',
+                            key: id,
+                            extent: budget
+                        };
+                        output.push(
+                            node(
+                                'Splitter',
+                                id + '_split',
+                                rect(x + widths[0], top, seam, paneHeight),
+                                {
+                                    text: translate(
+                                        'Elements panel width',
+                                        language
+                                    ),
+                                    value: widths[0],
+                                    min: minimum,
+                                    max: maximum,
+                                    enabled: !cell.layoutEditing,
+                                    action,
+                                    cancelAction: action
+                                }
+                            )
+                        );
+                    }
                     let left = x;
                     for (const [column, child] of item.children.entries()) {
                         const part = widths[column];
                         extent = Math.max(
                             extent,
                             draw(
-                                [child],
+                                [
+                                    navigator
+                                        ? Object.assign({}, child, {
+                                              sizing: Object.assign(
+                                                  {},
+                                                  child.sizing,
+                                                  { height_mode: 'fill' }
+                                              )
+                                          })
+                                        : child
+                                ],
                                 left,
                                 top,
                                 part,
@@ -166,10 +278,11 @@ export function describe(
                                 column,
                                 output,
                                 bottom,
-                                childGap
+                                childGap,
+                                paneHeight
                             )
                         );
-                        left += part + childGap;
+                        left += part + seam;
                     }
                 } else
                     extent = draw(
@@ -426,7 +539,14 @@ export function describe(
                     })
                 );
             } else if (item.kind === 'details') {
-                extent = (item.height || tableHeight) + 32;
+                extent =
+                    PageLayout.height(
+                        item,
+                        item.height || tableHeight,
+                        slotCapacity === null
+                            ? null
+                            : Math.max(0, slotCapacity - 32)
+                    ) + 32;
                 const detail = cell.layoutDetail || {},
                     detailNodes = [];
                 const detailPadding = 24;
@@ -530,9 +650,13 @@ export function describe(
                     )
                 );
             } else if (item.kind === 'items') {
-                const itemsExtent = Number.isFinite(item.height)
-                    ? item.height
-                    : tableHeight;
+                const itemsExtent = PageLayout.height(
+                    item,
+                    Number.isFinite(item.height) ? item.height : tableHeight,
+                    slotCapacity === null
+                        ? null
+                        : Math.max(0, slotCapacity - 32)
+                );
                 extent = itemsExtent + 32;
                 output.push(
                     label(id + '_title', rect(x, top, available, 28), text)

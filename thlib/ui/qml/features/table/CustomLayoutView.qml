@@ -106,6 +106,10 @@ Frame.FrameView {
     onEvent: action => {
         if (editing)
             return;
+        if (action.type === 'layout-split') {
+            owner.set_state(Layout.resize(document.layoutState, action));
+            return;
+        }
         if (action.type === 'record-form') {
             try {
                 const result = Parts.change(recordForms, document, action);

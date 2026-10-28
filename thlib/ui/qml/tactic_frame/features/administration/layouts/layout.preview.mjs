@@ -70,7 +70,8 @@ function visible(item, sample, layout, width) {
 function tracks(value, count, width) {
     const tokens = String(value || '')
             .trim()
-            .split(/\s+/),
+            .split(/\s+/)
+            .filter(Boolean),
         sizes = [],
         weights = [];
     let fixed = 0,

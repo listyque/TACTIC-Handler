@@ -489,6 +489,19 @@ these named actions; custom script launch remains a separate native integration.
 
 ## Search inside dashboards
 
+A row containing Items followed directly by Details is a two-pane workspace.
+Both panes fill the remaining page height and scroll independently. Drag the
+divider, or focus it and use the arrow keys, to adjust their widths. The chosen
+ratio belongs to the open page, not the saved configuration. Narrow pages stack
+the panes. Other rows keep their ordinary layout behavior.
+
+For a narrow navigator, choose a dedicated item view with a readable title and
+one short secondary line. Use images only when those records have useful images.
+Avoid a table view that repeats column headings inside every item. Put record
+actions in Details; its Refresh updates the selected record without reloading
+the item tree. Set Details' outer padding to zero to align its own surface with
+the Items panel.
+
 Items and embedded tables use the ordinary search field with suggestions. Type a
 title, keyword or description fragment; use the mouse or arrow keys and Enter to
 choose a suggestion. Enter without a selected suggestion runs the typed search.

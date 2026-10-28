@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.214 - 2026-10-28
+
+- Fit native Items/Details dashboard pairs to one viewport with independent scrolling and the existing mouse/keyboard splitter. Preserve the item tree when resizing.
+- Keep implicit single-column item groups readable instead of assigning zero text width; document compact report cards without unused previews.
+
 ## 0.6.0.213 - 2026-10-28
 
 - Populate search table, list and tile delegates only when each presentation is first opened. Retain already opened models, visible delegates and scroll positions across tab switches, and restore pending table scroll after the first layout.
