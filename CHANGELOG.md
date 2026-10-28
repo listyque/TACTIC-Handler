@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.229 - 2026-10-28
+
+- Stop readonly Markdown reports and Help articles from continuously reformatting and repainting while idle. Apply only changed paragraph/table formats and avoid empty QTextDocument edit blocks that emit textChanged. Check real idle readers and content updates. Restore Qt-compatible catch syntax so the Layout Editor loads.
+
 ## 0.6.0.228 - 2026-10-28
 
 - Explain how configured pages display stored record fields, how Edit opens the native edit definition, and how to expose missing long-text fields without changing the page layout or record data.

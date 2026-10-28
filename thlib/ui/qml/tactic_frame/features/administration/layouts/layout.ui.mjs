@@ -122,7 +122,7 @@ export function model(raw, ui) {
                         Array.isArray(colors)
                     )
                         throw Error('Invalid field value colors');
-                } catch {
+                } catch (error) {
                     layoutError = 'Invalid field value colors';
                     break;
                 }

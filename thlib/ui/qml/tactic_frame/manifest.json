@@ -54,7 +54,7 @@
     "features/administration/layouts/layout.document.mjs": "f9a6a34a9d949e6a5c3e3cd6f424b0f43a5f3407ba9887dde45279cebf501edb",
     "features/administration/layouts/layout.preview.mjs": "f812c1eb6686780db225455a1194a2c808110c868e9b9ba8dc0a59708af4f966",
     "features/administration/layouts/layout.state.mjs": "eb87dd47d61437ab0c7f787b5ce57f443f79b7857b1630f6245ae55ece860be5",
-    "features/administration/layouts/layout.ui.mjs": "7b1f5f17b9fd3223da6cc16a2adfca3d7560a6399e05e125a93931266ed12852",
+    "features/administration/layouts/layout.ui.mjs": "e6a8f046632fe4db45b31fe9cddfac99564e0b58c5da859016e13dd7169884f0",
     "features/administration/layouts/page.components.mjs": "9632610da24e03b66d4b4c5d3e2112d1e47ee1b98261f1352df682700d85a78e",
     "features/administration/layouts/page.data.mjs": "482a118d60aeadde9b60d0aee1438813c96105375bfc35a07545f06565d3949b",
     "features/administration/layouts/page.document.mjs": "5c9107ca26790a19af5106f6701689003d562d69575f1fc6f8933da682952286",

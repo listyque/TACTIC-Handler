@@ -46,7 +46,7 @@ def format_readonly_document(text_document: QObject, style: dict | None = None) 
     document = text_document.textDocument()
     style = style or {}
     cursor = QTextCursor(document)
-    cursor.beginEditBlock()
+    editing = False
     block = document.begin()
     while block.isValid():
         block_format = block.blockFormat()
@@ -67,8 +67,13 @@ def format_readonly_document(text_document: QObject, style: dict | None = None) 
             heading = block_format.headingLevel() > 0
             block_format.setTopMargin(style["headingGap"] if heading else 0)
             block_format.setLineHeight(style["headingLineHeight"] if heading else style["lineHeight"], QTextBlockFormat.FixedHeight.value)
-        cursor.setPosition(block.position())
-        cursor.setBlockFormat(block_format)
+        # An unchanged write emits textChanged and re-enters the QML formatter.
+        if block_format != block.blockFormat():
+            if not editing:
+                cursor.beginEditBlock()
+                editing = True
+            cursor.setPosition(block.position())
+            cursor.setBlockFormat(block_format)
         block = next_block
     if style:
         for child in document.rootFrame().childFrames():
@@ -84,8 +89,14 @@ def format_readonly_document(text_document: QObject, style: dict | None = None) 
                     QTextLength(QTextLength.PercentageLength, 100 / child.columns())
                     for _ in range(child.columns())
                 ])
-                child.setFormat(table_format)
-    cursor.endEditBlock()
+                if table_format != child.format():
+                    if not editing:
+                        cursor.beginEditBlock()
+                        editing = True
+                    child.setFormat(table_format)
+    # Qt also emits contentsChanged for an empty edit block.
+    if editing:
+        cursor.endEditBlock()
 
 
 _IMAGE_MINIMUM_SIZE = 24.0
