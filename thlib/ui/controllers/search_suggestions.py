@@ -51,6 +51,10 @@ from .types import ActionRegistry, SearchTabSession, SectionSession
 
 
 class SearchSuggestionsMixin:
+    @Property(QObject, constant=True)
+    def searchSuggestions(self):
+        return self.workspace_state.search_suggestion_model
+
     @staticmethod
     def _resolve_search_key(value: str):
         import thlib.tactic_classes as tc
@@ -146,8 +150,17 @@ class SearchSuggestionsMixin:
             if env_inst.server_pool.is_stopped:
                 env_inst.server_pool.start()
             project = stype.get_project()
+            page = getattr(getattr(self, '_table_services', None), 'workspaceLayout', None)
+            scope = deepcopy(page.document_data.get('layoutItems')) if page and page.active and page.tab is self._current_tab() else None
 
             def query_suggestions():
+                if scope:
+                    from ..table.requests import read_nested_scope
+                    result = tc.execute_procedure_serverside(read_nested_scope, dict(
+                        parent_key=scope['parentKey'], search_type=scope['searchType'], view=scope['view'],
+                        project_scope=True, filters=scope['filters'], keyword=value, limit=50), project=project.get_code())
+                    result = json.loads(result) if isinstance(result, str) else result
+                    return (result['records'],)
                 return (tc.server_query(
                     filters=filters,
                     stype=stype.get_code(),

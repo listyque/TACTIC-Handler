@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.211 - 2026-10-28
+
+- Reuse native smart search and suggestions in dashboard item trees and embedded tables. Keep parent/page constraints and submitted-query paging, reject stale suggestions, and show matching disabled editor search. Match Stream's NULL-presence filters in native scoped tables.
+
 ## 0.6.0.210 - 2026-10-28
 
 - Render idle task values directly from shared cell geometry, without recursive Frame trees. Skip empty child scenes and avoid transferring all table cells when no summary is configured. Preserve lazy editors, avatars, scrolling and task-card interactions.

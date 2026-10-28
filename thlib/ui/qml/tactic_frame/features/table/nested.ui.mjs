@@ -65,7 +65,7 @@ export function describe(model, width, extent, language) {
     );
     const nodes = [
         node(
-            'Field',
+            'View',
             'nestedFilter',
             rect(
                 0,
@@ -74,9 +74,7 @@ export function describe(model, width, extent, language) {
                 36
             ),
             {
-                text: model.filter || '',
-                placeholder: t('Filter'),
-                action: { type: 'filter' }
+                view: 'tableSearch'
             }
         ),
         button(

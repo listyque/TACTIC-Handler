@@ -5,9 +5,12 @@ import { translate } from '../../core/strings.mjs';
 export function describe(model, width, height, language) {
     const tr = (text) => translate(text, language),
         status = model.error || (model.busy ? tr('Loading data…') : ''),
-        top = status ? 36 : 0,
+        top = 44 + (status ? 36 : 0),
         footer = model.hasMore ? 40 : 0;
     const nodes = [
+        node('View', 'dashboardItemSearch', rect(0, 0, width, 36), {
+            view: 'itemSearch'
+        }),
         node(
             'View',
             'dashboardItemResults',
@@ -19,7 +22,7 @@ export function describe(model, width, height, language) {
         nodes.push(
             label(
                 'dashboardItemStatus',
-                rect(0, 0, Math.max(0, width - 40), 32),
+                rect(0, 44, Math.max(0, width - 40), 32),
                 status,
                 { color: model.error ? 'error' : 'secondaryText' }
             )
@@ -28,7 +31,7 @@ export function describe(model, width, height, language) {
         nodes.push(
             button(
                 'dashboardItemRetry',
-                rect(width - 36, 0, 32, 32),
+                rect(width - 36, 44, 32, 32),
                 tr('Retry'),
                 'refresh',
                 { type: 'reload' },

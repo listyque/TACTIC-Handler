@@ -7,12 +7,38 @@ from tests.test_columns_table_view import _TableController, _TableColumns
 
 class Scope(QObject):
     changed = Signal()
+    search_text_changed = Signal()
     def __init__(self):
         super().__init__()
         self.state = dict(columns=[dict(name='name', title='Name', width=180, cell=dict(kind='text'))],
             rows=[dict(key='A', nodeId='nested:A', record=dict(name='Robot'), cells=dict(name=dict(text='Robot')))],
             selected=[], busy=False, offset=0, insert=True)
         self.events = []
+        from thlib.ui.workspace_models.records import RecordListModel
+        from thlib.ui.search_suggestion_data import SEARCH_SUGGESTION_ROLES
+        self.suggestions = RecordListModel(SEARCH_SUGGESTION_ROLES)
+        self.text = ''
+    @Property(QObject, constant=True)
+    def searchSuggestions(self):
+        return self.suggestions
+    @Property(str, notify=search_text_changed)
+    def current_search_text(self):
+        return self.text
+    @Slot(str)
+    def update_search_text(self, value):
+        self.text = value
+    @Slot(str)
+    def request_search_suggestions(self, value):
+        self.events.append(('suggest', value))
+    @Slot()
+    def clear_search_suggestions(self):
+        self.suggestions.clear()
+    @Slot(str)
+    def search(self, value):
+        self.events.append(('search', value))
+    @Slot(int)
+    def accept_search_suggestion(self, row):
+        self.events.append(('accept', row))
     @Property('QVariantMap', notify=changed)
     def model(self):
         return self.state
@@ -34,6 +60,93 @@ class NestedTableTests(unittest.TestCase):
         QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     click = frames.FrameTableTests.click
     item = frames.FrameTableTests.item
+
+    def test_nested_table_uses_the_native_suggestion_popup_and_enter(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QGuiApplication, QInputMethodEvent
+        from PySide6.QtTest import QTest
+        scope = Scope()
+        window, view = self.create('features/table/NestedTableView.qml', dict(controller=_TableController(),
+            columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
+            width=600, height=320)
+        self.click(window, self.item(view, 'tacticSearchInput'))
+        event = QInputMethodEvent()
+        event.setCommitString('Rob')
+        QGuiApplication.sendEvent(window.activeFocusItem(), event)
+        QTest.qWait(210)
+        self.assertIn(('suggest', 'Rob'), scope.events)
+        scope.suggestions.replace([dict(title='Robot', description='Reference', keyword='', code='A', values={}, selected=False)])
+        QTest.qWait(50)
+        self.assertTrue(self.item(view, 'tacticSearchInput').property('popupOpen'))
+        window.requestActivate()
+        QTest.qWait(20)
+        QTest.keyClick(window, Qt.Key_Down)
+        QTest.keyClick(window, Qt.Key_Return)
+        frames.frame(window)
+        self.assertIn(('accept', 0), scope.events)
+        scope.suggestions.clear()
+        QTest.qWait(30)
+        QTest.keyClick(window, Qt.Key_Return)
+        self.assertIn(('search', 'Robot'), scope.events)
+
+    def test_scoped_suggestions_run_off_thread_and_ignore_late_results(self):
+        import threading
+        import time
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from PySide6.QtTest import QTest
+        from thlib.pool import ThreadsPool
+        from thlib.ui.table.nested import NestedTableController
+        from thlib.ui.table.services import TableServicesController
+        import tests.test_table_service_workflows as workflows
+        app = workflows.Application()
+        services = TableServicesController(app)
+        pool = ThreadsPool(max_threads=2)
+        self.addCleanup(services.shutdown)
+        self.addCleanup(pool.exit)
+        scope = NestedTableController(services, 'A', dict(searchType='demo/asset', parentKey=app.node.search_key,
+            projectCode='demo', filters=[['status', '=', 'active']]))
+        scope.open = True
+        release = threading.Event()
+        self.addCleanup(release.set)
+        calls = []
+        def read(_procedure, arguments, **_kwargs):
+            calls.append((threading.get_ident(), arguments))
+            if arguments['keyword'] == 'Old':
+                release.wait(3)
+            return dict(searchColumn='name', records=[dict(name=arguments['keyword'], code=arguments['keyword'])])
+        with patch('thlib.environment.env_inst.server_pool', pool), \
+             patch('thlib.environment.env_inst.get_stype_by_code', side_effect=AssertionError('No client-side type discovery for scoped suggestions')), \
+             patch('thlib.tactic_classes.server_start', return_value=object()), \
+             patch('thlib.tactic_classes.execute_procedure_serverside', side_effect=read):
+            scope.request_search_suggestions('Old')
+            deadline = time.monotonic() + 3
+            while not calls and time.monotonic() < deadline:
+                QTest.qWait(10)
+            self.assertTrue(calls)
+            scope.request_search_suggestions('New')
+            self.assertEqual(scope._pending_suggestion, 'New')
+            release.set()
+            deadline = time.monotonic() + 3
+            while not scope.searchSuggestions._records and time.monotonic() < deadline:
+                QTest.qWait(10)
+            self.assertEqual([row['title'] for row in scope.searchSuggestions._records], ['New'])
+            deadline = time.monotonic() + 3
+            while scope._workers and time.monotonic() < deadline:
+                QTest.qWait(10)
+            self.assertFalse(scope._workers)
+            self.assertEqual([row['title'] for row in scope.searchSuggestions._records], ['New'])
+        self.assertEqual(len(calls), 2)
+        for thread, arguments in calls:
+            self.assertNotEqual(thread, threading.get_ident())
+            self.assertEqual(arguments['parent_key'], app.node.search_key)
+            self.assertEqual(arguments['filters'], [['status', '=', 'active']])
+        with patch.object(scope, 'reload'):
+            scope.accept_search_suggestion(0)
+        self.assertEqual(scope.current_search_text, 'New')
+        self.assertEqual(scope._keyword_relation, '=')
+        scope.suspend()
+        self.assertEqual(scope.searchSuggestions._records, [])
 
     def test_first_click_selection_and_editor_do_not_change_main_selection(self):
         scope = Scope()

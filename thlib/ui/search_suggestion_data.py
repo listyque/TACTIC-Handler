@@ -13,7 +13,7 @@ def search_suggestion_spec(stype, text: str) -> tuple[str, list[str], list]:
     columns_info = (stype.get_columns_info() or {}) if stype else {}
     suggest_column = "name"
     if suggest_column not in columns_info:
-        suggest_column = "title"
+        suggest_column = "title" if "title" in columns_info else "file_name"
         if suggest_column not in columns_info:
             suggest_column = "code"
     columns = [suggest_column]

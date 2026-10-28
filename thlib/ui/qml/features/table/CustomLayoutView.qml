@@ -168,24 +168,8 @@ Frame.FrameView {
         Item {
             property var frameNode: ({})
             Loader {
-                active: !!root.previewItems
                 anchors.fill: parent
-                sourceComponent: Shell.SearchResultSurface {
-                    enabled: !root.editing
-                    theme: root.theme
-                    controller: root.controller
-                    expansionOwner: root.previewItems
-                    resultModel: root.previewItems.previewModel
-                    configuredLayout: root.previewItems.model.liveInterface?.table?.item_layout || null
-                    viewMode: "continious"
-                    layoutEditing: true
-                    current: true
-                    presentationActive: visible
-                }
-            }
-            Loader {
-                anchors.fill: parent
-                active: !root.previewItems && !!root.itemSurfaces && !!root.itemVersions
+                active: !!root.previewItems || (!!root.itemSurfaces && !!root.itemVersions)
                 sourceComponent: DashboardItems {
                     theme: root.theme
                     owner: root.owner
@@ -194,6 +178,7 @@ Frame.FrameView {
                     users: root.users
                     surfacesModel: root.itemSurfaces
                     versionsModel: root.itemVersions
+                    previewItems: root.previewItems
                 }
             }
         }

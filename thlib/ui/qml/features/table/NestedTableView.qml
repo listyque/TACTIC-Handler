@@ -25,6 +25,7 @@ Item {
                 rows: UI.rows(root.scope.model)
             })
         views: ({
+                tableSearch: searchComponent,
                 nestedTable: {
                     component: detailComponent,
                     nodeProps: true
@@ -40,6 +41,16 @@ Item {
                 root.closed();
             else
                 root.scope.activate(action, value);
+        }
+    }
+    Component {
+        id: searchComponent
+        Tables.TacticSearchField {
+            anchors.fill: parent
+            theme: root.theme
+            controller: root.scope
+            suggestionModel: root.scope.searchSuggestions
+            placeholderText: qsTr("Search objects")
         }
     }
     Component {

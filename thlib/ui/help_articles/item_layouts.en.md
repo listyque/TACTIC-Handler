@@ -486,3 +486,17 @@ These invoke the existing native owners for the bound object; Edit record opens
 the full native editor. Copy link uses the object's actual TACTIC search key.
 Notes keep the record's process where configured. No generated script is run by
 these named actions; custom script launch remains a separate native integration.
+
+## Search inside dashboards
+
+Items and embedded tables use the ordinary search field with suggestions. Type a
+title, keyword or description fragment; use the mouse or arrow keys and Enter to
+choose a suggestion. Enter without a selected suggestion runs the typed search.
+Clear the text and press Enter to return to the page's original selection.
+Typing alone does not replace the executed query used by paging and refresh.
+
+Suggestions and results retain the source's parent, project, saved search and
+page conditions. Embedded suggestions refine that same table rather than opening
+an unrelated search tab. Short summary tables can hide Search in their controls;
+full lists retain it. The agent should reuse these controls, not add a second
+plain-text filter bar. In the editor, the Items search is shown disabled.

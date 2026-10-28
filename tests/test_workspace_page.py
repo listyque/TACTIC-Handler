@@ -20,6 +20,31 @@ class WorkspacePageTests(unittest.TestCase):
     click = frames.FrameTableTests.click
     item = frames.FrameTableTests.item
 
+    def test_item_search_keeps_mandatory_filters_and_survives_refresh(self):
+        app, services = self.owner()
+        app._current_section = Mock(return_value=SimpleNamespace())
+        app.refresh_current = Mock()
+        app._show_or_load_tab = Mock()
+        owner = services.workspaceLayout
+        owner.tab = app.tab
+        owner.current = 'dashboard-tab'
+        owner.pages[owner.current] = {}
+        scope = dict(searchType='demo/asset', view='items', filters=[['status', '=', 'active']],
+            orderBy='name', initialLimit=50)
+        owner.document_data = dict(layoutItems=scope)
+        owner.show_items()
+        self.assertEqual(app._current_section().base_filters, (['status', '=', 'active'],))
+        app.tab.extra_filters = [('name', 'EQI', 'Robot')]
+        app.tab.filter_records = [dict(column='name', value='Robot')]
+        app.tab.loaded = True
+        app.refresh_current.reset_mock()
+        owner.show_items()
+        app.refresh_current.assert_not_called()
+        owner.reload_item_results()
+        self.assertEqual(app.tab.extra_filters, [('name', 'EQI', 'Robot')])
+        self.assertEqual(app.tab.filter_records, [dict(column='name', value='Robot')])
+        app.refresh_current.assert_called_once()
+
     def owner(self):
         app = Application()
         app.tab.layout_view = 'dashboard.review'
@@ -121,7 +146,8 @@ class WorkspacePageTests(unittest.TestCase):
         app.refresh_current.assert_called_once_with()
         self.assertEqual(section.search_type,'demo/asset')
         self.assertEqual(app.tab.view_mode,'continious')
-        self.assertEqual(app.tab.extra_filters,[['code','=','A']])
+        self.assertEqual(section.base_filters, (['code', '=', 'A'],))
+        self.assertEqual(app.tab.extra_filters, [])
         self.assertFalse(app.tab.loaded)
         app.tab.loaded=True
         services.workspaceLayout.select_page(app.tab.tab_id)

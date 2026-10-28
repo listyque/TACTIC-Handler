@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, Property, Signal, Slot, Qt, QTimer
 
 class NestedTableController(QObject):
     changed = Signal()
+    search_text_changed = Signal()
 
     def __init__(self, services, node_id, descriptor):
         super().__init__(services)
@@ -19,6 +20,16 @@ class NestedTableController(QObject):
         self._workers = set()
         self._nodes = {}
         self._pending_reload = False
+        from ..workspace_models.records import RecordListModel
+        from ..search_suggestion_data import SEARCH_SUGGESTION_ROLES
+        self._suggestions = RecordListModel(SEARCH_SUGGESTION_ROLES)
+        self._suggestions.setParent(self)
+        self._suggestion_generation = 0
+        self._suggestion_worker = None
+        self._pending_suggestion = ''
+        self._search_text = ''
+        self._keyword = ''
+        self._keyword_relation = 'EQI'
         self._reload_timer = QTimer(self)
         self._reload_timer.setSingleShot(True)
         self._reload_timer.timeout.connect(self.reload)
@@ -36,6 +47,110 @@ class NestedTableController(QObject):
         model['children'] = {row['key']: dict(open=bool(self.services.nested_row(row['nodeId'])))
             for row in model['rows'] if row.get('nodeId')}
         return model
+
+    @Property(QObject, constant=True)
+    def searchSuggestions(self):
+        return self._suggestions
+
+    @Property(str, notify=search_text_changed)
+    def current_search_text(self):
+        return self._search_text
+
+    @Slot(str)
+    def update_search_text(self, value):
+        self._search_text = value
+        self._model['filter'] = value
+
+    @Slot()
+    def clear_search_suggestions(self):
+        self._suggestion_generation += 1
+        self._pending_suggestion = ''
+        if self._suggestion_worker is not None:
+            self._suggestion_worker.cancel()
+        self._suggestions.clear()
+
+    @Slot(str)
+    def request_search_suggestions(self, value):
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+        from ..search_suggestion_data import search_suggestion_records
+        from .requests import read_nested_scope
+        self.clear_search_suggestions()
+        if not value.strip() or not self.services.scope_visible(self):
+            return
+        if self._suggestion_worker is not None:
+            self._pending_suggestion = value
+            return
+        generation = self._suggestion_generation
+        project = self.descriptor.get('projectCode') or self.application._current_project_code
+        try:
+            server = tc.server_start(project=project)
+            descriptor = self.descriptor
+            arguments = dict(parent_key=descriptor['parentKey'], search_type=descriptor['searchType'],
+                view=descriptor.get('view') or 'table', expression=descriptor.get('expression') or '',
+                search_view=descriptor.get('searchView') or '', project_scope=descriptor.get('projectScope', False),
+                simple_view=descriptor.get('simpleSearchView') or '', simple_values=dict(self._model.get('simpleValues') or {}),
+                filters=list(descriptor.get('filters') or []), keyword=value, limit=50)
+            if env_inst.server_pool.is_stopped:
+                env_inst.server_pool.start()
+            worker = env_inst.server_pool.add_task(lambda: tc.execute_procedure_serverside(
+                read_nested_scope, arguments, project=project, server=server))
+            if worker is None:
+                raise RuntimeError(self.tr('Server worker is unavailable'))
+        except (PermissionError, RuntimeError) as error:
+            self._model['error'] = str(error)
+            self.changed.emit()
+            return
+        self._workers.add(worker)
+        self._suggestion_worker = worker
+        def loaded(result):
+            if generation != self._suggestion_generation or not self.services.scope_visible(self):
+                return
+            result = json.loads(result) if isinstance(result, str) else result
+            self._suggestions.replace(search_suggestion_records(result['records'], value, result['searchColumn']))
+        def failed(error):
+            if generation == self._suggestion_generation and self.services.scope_visible(self):
+                self._model['error'] = str(error[0].get('exception') or error)
+                self.changed.emit()
+        worker.result.connect(loaded, Qt.QueuedConnection)
+        worker.error.connect(failed, Qt.QueuedConnection)
+        worker.settled.connect(self._suggestions_settled, Qt.QueuedConnection)
+        worker.start()
+
+    @Slot(object)
+    def _suggestions_settled(self, worker):
+        self._workers.discard(worker)
+        if self._suggestion_worker is not worker:
+            return
+        self._suggestion_worker = None
+        pending, self._pending_suggestion = self._pending_suggestion, ''
+        if pending:
+            self.request_search_suggestions(pending)
+
+    @Slot(str)
+    def search(self, value):
+        self._keyword = self._search_text = value
+        self._keyword_relation = 'EQI'
+        self._model['offset'] = 0
+        self.clear_search_suggestions()
+        self.search_text_changed.emit()
+        self.reload()
+
+    @Slot(int)
+    def accept_search_suggestion(self, row):
+        if not 0 <= row < self._suggestions.count():
+            return
+        self._keyword = self._search_text = self._suggestions._records[row]['title']
+        self._keyword_relation = '='
+        self._model['offset'] = 0
+        self.clear_search_suggestions()
+        self.search_text_changed.emit()
+        self.reload()
+
+    @Slot(int)
+    def open_search_suggestion_in_new_tab(self, row):
+        # Embedded results must keep their mandatory parent/page scope.
+        self.accept_search_suggestion(row)
 
     @Property('QVariantList', notify=changed)
     def selected_result_node_ids(self):
@@ -62,6 +177,7 @@ class NestedTableController(QObject):
 
     @Slot()
     def reload(self):
+        self.clear_search_suggestions()
         from thlib import tactic_classes as tc, tactic_query as tq
         from thlib.environment import env_inst
         from .requests import read_nested_scope
@@ -85,8 +201,7 @@ class NestedTableController(QObject):
             project_scope=descriptor.get('projectScope', False),
             simple_view=descriptor.get('simpleSearchView') or '', simple_values=state.get('simpleValues') or {},
             offset=state['offset'], limit=int(descriptor.get('initialLimit') or 50), order_by=[state['order']] if state.get('order') else [], filters=list(descriptor.get('filters') or []))
-        if state['filter']:
-            arguments['filters'].append([state['filterField'], 'like', '%' + state['filter'] + '%'])
+        arguments.update(keyword=self._keyword, keyword_relation=self._keyword_relation)
         def read():
             scope = tc.execute_procedure_serverside(read_nested_scope, arguments, project=project_code, server=server)
             if isinstance(scope, str):
@@ -238,6 +353,7 @@ class NestedTableController(QObject):
         app.open_columns_editor()
 
     def suspend(self):
+        self.clear_search_suggestions()
         self._reload_timer.stop()
         if self._model['busy']:
             self._pending_reload = True
@@ -247,6 +363,7 @@ class NestedTableController(QObject):
                 worker.cancel()
 
     def shutdown(self):
+        self.clear_search_suggestions()
         self._reload_timer.stop()
         self._pending_reload = False
         self._generation += 1
