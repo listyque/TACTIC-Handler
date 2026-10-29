@@ -407,3 +407,8 @@ Object cards shade the preview behind their title and description, including
 light images. Text uses the theme foreground instead of muted caption color.
 Selected cards keep their selection tint; light themes use a light overlay with
 dark text. The image, preview actions and card layout remain available.
+
+Table column headers use a separate neutral theme surface and strong text,
+so they remain distinct from the search tabs, data rows and group bands.
+Grouped columns retain their group indicator with the same readable foreground.
+The main table and its expanded nested tables share the header colors.

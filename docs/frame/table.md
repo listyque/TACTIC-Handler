@@ -184,3 +184,10 @@ styles. Drag and context scripts are rejected. Other tile widget families are
 not qualified by this path. Tests: `test_table_snapshot_gallery` in each product
 and `frontend/tests/table_snapshot_gallery.mjs`; exact CG source options are
 exercised through Stream cell projection and Handler's server-side procedure.
+
+The `tableHeader` palette role mixes the toolbar surface toward the theme
+foreground to distinguish the column band from tabs, rows and group bands.
+Its CSS variable is `--table-header-surface`, separate from TableView's local
+`--table-header` alias. `table/host.ui.mjs::paint` owns header/background text
+roles for main and nested tables. Grouped labels and their indicator retain the
+header foreground; grouping stays explicit without sacrificing text contrast.

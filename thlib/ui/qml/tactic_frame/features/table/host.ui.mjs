@@ -17,8 +17,8 @@ export const metrics = {
 };
 
 export const paint = {
-    header: 'surfaceContainer',
-    headerText: 'secondaryText',
+    header: 'tableHeader',
+    headerText: 'primaryText',
     row: 'surfaceContainerLow',
     selected: 'contentSelection',
     group: 'surfaceContainerHigh'

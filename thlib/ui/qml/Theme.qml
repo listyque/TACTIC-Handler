@@ -103,6 +103,7 @@ QtObject {
     readonly property color workspace: frameColor("workspace")
     readonly property color topBar: frameColor("topBar")
     readonly property color toolBar: frameColor("toolBar")
+    readonly property color tableHeader: frameColor("tableHeader")
     readonly property color panel: frameColor("panel")
     readonly property color panelRaised: frameColor("panelRaised")
     readonly property color panelDeep: frameColor("panelDeep")

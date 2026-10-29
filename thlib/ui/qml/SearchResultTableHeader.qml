@@ -220,7 +220,7 @@ Rectangle {
                     verticalAlignment: Text.AlignVCenter
                     text: TableHost.headerAction(headerCell.modelData) ? "" : String(headerCell.modelData.label || headerCell.modelData.name || "").toUpperCase()
                     elide: Text.ElideRight
-                    color: headerCell.grouped ? root.theme.action : root.theme[TableHost.paint.headerText]
+                    color: root.theme[TableHost.paint.headerText]
                     font.family: root.theme.fontFamily
                     font.pointSize: Controls.Typography.caption
                     font.weight: Font.DemiBold
@@ -234,7 +234,7 @@ Rectangle {
                     visible: headerCell.grouped
                     name: "group-items"
                     size: 14
-                    color: root.theme.action
+                    color: root.theme[TableHost.paint.headerText]
                     Accessible.ignored: true
                 }
                 MouseArea {

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.244 - 2026-10-29
+
+- Give main and nested table headers a distinct neutral theme surface and strong foreground. Keep grouped labels and indicators readable in light/dark themes, preserve sorting and geometry, and match Stream. Update EN/RU Help.
+
 ## 0.6.0.243 - 2026-10-29
 
 - Keep object-card titles and descriptions readable over bright previews. Share the image-shading stops with Stream and use the theme primary/selection foreground for object-card captions. Verify real preview paint and contrast in light/dark and selected states; update EN/RU Help.

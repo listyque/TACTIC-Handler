@@ -434,6 +434,7 @@ export function palette(style, dark, base, accent) {
         dark ? 0.68 : 0.72
     );
     colors.primaryText = readableText(colors.workspace);
+    colors.tableHeader = blend(colors.toolBar, colors.primaryText, 0.14);
     colors.contentAccent = blend(
         accent,
         colors.primaryText,
@@ -518,6 +519,7 @@ export const cssRoles = {
     workspace: '--page',
     topBar: '--header',
     toolBar: '--surface-container',
+    tableHeader: '--table-header-surface',
     panel: '--surface',
     panelRaised: '--surface-high',
     panelDeep: '--surface-deep',
