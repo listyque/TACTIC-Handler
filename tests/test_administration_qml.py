@@ -251,25 +251,32 @@ class AdministrationQmlTests(unittest.TestCase):
         self.assertEqual(self.fixture.warnings, [])
 
     def test_collapsed_navigation_icons_fit_and_sections_remain_reachable(self):
-        self.window.resize(1400, 620)
+        self.window.resize(1400, 940)
+        self.click('adminToggleNavigation')
+        for height in (940, 500):
+            self.window.resize(1400, height)
+            frame(self.window)
+            navigation = self.item('administrationNavigation')
+            toggle = self.item('adminToggleNavigation')
+            overflow = navigation.property('contentHeight') > navigation.height()
+            for section in ('types', 'workflow', 'rules'):
+                self.click('adminSection_' + section)
+                action = self.item('adminSection_' + section)
+                icon = self.item('adminSectionIcon_' + section)
+                point = icon.mapToItem(action, QPointF())
+                self.assertEqual(action.width(), 40)
+                self.assertEqual(action.height(), 40)
+                self.assertGreaterEqual(point.x(), 8)
+                self.assertAlmostEqual(point.x() + icon.width() / 2, action.width() / 2)
+                center = icon.mapToScene(QPointF(icon.width()/2, 0)).x()
+                self.assertAlmostEqual(center, toggle.mapToScene(QPointF(toggle.width()/2, 0)).x())
+                if not overflow:
+                    self.assertAlmostEqual(center, navigation.mapToScene(QPointF(navigation.width()/2, 0)).x())
+                self.assertLessEqual(action.mapToItem(navigation, QPointF(action.width(), 0)).x(),
+                                     navigation.width() - (16 if overflow else 0))
+                self.assertEqual(self.admin.section, section)
         self.click('adminToggleNavigation')
         navigation = self.item('administrationNavigation')
-        toggle = self.item('adminToggleNavigation')
-        for section in ('types', 'workflow', 'rules'):
-            self.click('adminSection_' + section)
-            action = self.item('adminSection_' + section)
-            icon = self.item('adminSectionIcon_' + section)
-            point = icon.mapToItem(action, QPointF())
-            self.assertGreaterEqual(action.width(), 40)
-            self.assertGreaterEqual(point.x(), 8)
-            self.assertLessEqual(point.x() + icon.width(), action.width() - 8)
-            self.assertAlmostEqual(point.x() + icon.width() / 2, action.width() / 2)
-            self.assertAlmostEqual(icon.mapToScene(QPointF(icon.width()/2, 0)).x(),
-                                   toggle.mapToScene(QPointF(toggle.width()/2, 0)).x())
-            self.assertLessEqual(action.mapToItem(navigation, QPointF(action.width(), 0)).x(),
-                                 navigation.width() - 16)
-            self.assertEqual(self.admin.section, section)
-        self.click('adminToggleNavigation')
         navigation.setProperty('contentY', navigation.property('contentHeight') - navigation.height())
         frame(self.window)
         self.click('adminSection_rules')

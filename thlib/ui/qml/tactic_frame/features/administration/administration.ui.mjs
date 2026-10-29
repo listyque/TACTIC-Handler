@@ -102,6 +102,9 @@ export function geometry(width, height, collapsed) {
         pad,
         header,
         toolbar,
+        compactHeight: sections.length * 48 - 8,
+        compactWidth:
+            nav - (height - 88 - 12 < sections.length * 48 - 8 ? 16 : 0),
         content: rect(
             nav + pad,
             header + pad,
@@ -169,7 +172,7 @@ export function describe(model, ui, width, height, language) {
             button(
                 'adminToggleNavigation',
                 rect(
-                    ui.collapsed ? (g.nav - 16 - 34) / 2 : g.nav - 46,
+                    ui.collapsed ? (g.compactWidth - 34) / 2 : g.nav - 46,
                     12,
                     34,
                     34
@@ -204,25 +207,57 @@ export function describe(model, ui, width, height, language) {
             );
         }
         const top = ui.collapsed ? 88 : 170;
-        nav.push(
-            node(
-                'List',
-                'administrationNavigation',
-                rect(
-                    ui.collapsed ? 0 : 8,
-                    top,
-                    g.nav - (ui.collapsed ? 0 : 16),
-                    height - top - 12
-                ),
-                {
-                    source: 'sections',
-                    keyField: 'id',
-                    rowHeight: ui.collapsed ? 48 : 76,
-                    scrollbarId: 'administrationNavigationScrollBar',
-                    label: tr('Administration sections')
-                }
-            )
-        );
+        if (ui.collapsed) {
+            const children = [];
+            sections.forEach((record, index) => {
+                const scene = row(
+                    {
+                        width: g.nav,
+                        contentWidth: g.compactWidth,
+                        rowHeight: 48
+                    },
+                    record,
+                    model,
+                    ui,
+                    language
+                );
+                scene.nodes.forEach((item) => {
+                    item.y += index * 48;
+                    children.push(item);
+                });
+            });
+            nav.push(
+                node(
+                    'Scroll',
+                    'administrationNavigation',
+                    rect(0, top, g.nav, height - top - 12),
+                    {
+                        contentHeight: g.compactHeight,
+                        children,
+                        scrollbarId: 'administrationNavigationScrollBar'
+                    }
+                )
+            );
+        } else
+            nav.push(
+                node(
+                    'List',
+                    'administrationNavigation',
+                    rect(
+                        ui.collapsed ? 0 : 8,
+                        top,
+                        g.nav - (ui.collapsed ? 0 : 16),
+                        height - top - 12
+                    ),
+                    {
+                        source: 'sections',
+                        keyField: 'id',
+                        rowHeight: ui.collapsed ? 48 : 76,
+                        scrollbarId: 'administrationNavigationScrollBar',
+                        label: tr('Administration sections')
+                    }
+                )
+            );
         nodes.push(
             node('Box', 'administrationSidebar', rect(0, 0, g.nav, height), {
                 background: 'surfaceContainerLow',
@@ -365,8 +400,12 @@ export function describe(model, ui, width, height, language) {
 export function row(list, record, model, ui, language) {
     const tr = (text) => translate(text, language),
         compact = !!ui.collapsed,
-        w = list.width - 16,
-        h = list.rowHeight - 4;
+        available =
+            compact && list.contentWidth !== undefined
+                ? list.contentWidth
+                : list.width - 16,
+        w = compact ? 40 : available,
+        h = list.rowHeight - (compact ? 8 : 4);
     const children = [
         node(
             'Icon',
@@ -417,19 +456,25 @@ export function row(list, record, model, ui, language) {
         );
     return {
         nodes: [
-            node('Action', 'adminSection_' + record.id, rect(0, 0, w, h), {
-                text: tr(record.title),
-                description: tr(record.description),
-                selected: model.section === record.id,
-                normalColor: 'transparent',
-                selectedColor: 'selected',
-                rail: true,
-                action: {
-                    type: 'section',
-                    value: record.id
-                },
-                children
-            })
+            node(
+                'Action',
+                'adminSection_' + record.id,
+                rect(compact ? (available - w) / 2 : 0, 0, w, h),
+                {
+                    text: tr(record.title),
+                    description: tr(record.description),
+                    selected: model.section === record.id,
+                    normalColor: 'transparent',
+                    selectedColor: 'selected',
+                    rail: !compact && model.section === record.id,
+                    toolTip: compact ? tr(record.title) : '',
+                    action: {
+                        type: 'section',
+                        value: record.id
+                    },
+                    children
+                }
+            )
         ]
     };
 }

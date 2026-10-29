@@ -643,3 +643,6 @@ Application features uses a named feature selector, an explanation and Allow/Den
 
 
 Administration project selection opens a compact searchable list. Search by project title, code or category; the list shows a cached preview or initials, the title, code and project kind. The current project has a check mark. System projects, templates and archived projects stay available independently of the main project chooser filters. Type to filter, press Down/Up and Enter to select, or click/tap a row. Escape closes the list. Unsaved or uncertain editor changes keep project switching locked.
+
+
+Collapsed Administration navigation uses centered square section buttons. When all sections fit, no scrollbar gutter is reserved. Short windows retain the scrollbar and its own gutter. Only the current section is highlighted; hover/focus shows the section title. Expanding restores the full labels.

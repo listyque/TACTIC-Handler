@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.269 - 2026-10-30
+
+- Center collapsed administration navigation on the full rail when sections fit; reserve scrollbar space only when scrolling is needed.
+- Use square compact selection targets and remove inactive selection stripes; retain short-window scrolling and expanded section labels in both clients.
+
 ## 0.6.0.268 - 2026-10-30
 
 - Reduce warm QML creation by reusing task-field geometry/fonts, detaching table cell values once per revision, and skipping image/mask allocation for fallback avatars.
