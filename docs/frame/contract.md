@@ -259,3 +259,11 @@ menu. Undo/Redo and viewport tools share the next row. Both adapters keep the
 existing reducer, dirty guards and explicit draft/Check/Save boundary.
 Logical paper/content boxes allow resize handles and measurements to extend
 outside them; the viewport owns clipping and scrolling, including under zoom.
+
+Object-card image shading uses `search/card.ui.mjs::tileShade` in both native
+and browser adapters. The overlay covers the title and description from the top;
+object-card text uses primary/selection foreground, while other card kinds retain
+their secondary text. Regression checks cover actual white/black preview paint,
+light/dark and selected/unselected states, plus 4.5:1 contrast against extreme
+images across the three shipped themes. No image sampling or frame-time work is
+added to production rendering.

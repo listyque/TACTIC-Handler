@@ -402,3 +402,8 @@ Result and task table headers show a thin vertical column-boundary grip, highlig
 Custom sidebar pages open directly in the workspace, including on a fresh launch. Their content replaces Search and its drag grip. A section label revealed by the mouse collapses after the pointer leaves; keyboard navigation keeps the focused section available.
 
 Custom-card task and note icons show a count badge. Zero hides the badge; counts above 99 display 99+, while the tooltip keeps the exact count.
+
+Object cards shade the preview behind their title and description, including
+light images. Text uses the theme foreground instead of muted caption color.
+Selected cards keep their selection tint; light themes use a light overlay with
+dark text. The image, preview actions and card layout remain available.

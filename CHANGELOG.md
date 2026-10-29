@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.243 - 2026-10-29
+
+- Keep object-card titles and descriptions readable over bright previews. Share the image-shading stops with Stream and use the theme primary/selection foreground for object-card captions. Verify real preview paint and contrast in light/dark and selected states; update EN/RU Help.
+
 ## 0.6.0.242 - 2026-10-29
 
 - Restore the original CG Episode Storyboard and Renders hidden snapshot galleries. Preserve episode/project/process filters, use virtualized preview tiles with the existing checkout dialog, and show explicit empty results and bounded pagination. Match Stream and update EN/RU Help.

@@ -1,6 +1,13 @@
 import { node, rect, label } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
+export const tileShade = [
+    { position: 0, opacity: 0.82 },
+    { position: 0.58, opacity: 0.82 },
+    { position: 0.78, opacity: 0.86 },
+    { position: 1, opacity: 1 }
+];
+
 export function tileHeader(model, width, language) {
     const open =
             !!model.hasChildren ||
@@ -326,6 +333,11 @@ export function body(model, width, height) {
         available = Math.min(width, Math.max(48, width - reserve)),
         color = model.selected ? 'contentSelectionText' : 'secondaryText';
     if (model.tile) {
+        const tileText = object
+            ? model.selected
+                ? 'contentSelectionText'
+                : 'primaryText'
+            : 'secondaryText';
         let top = 0;
         nodes.push(
             node('View', 'resultTitle', rect(0, top, width, 18), {
@@ -350,7 +362,7 @@ export function body(model, width, height) {
                 model.technical || '',
                 {
                     fontRole: 'secondary',
-                    color: 'secondaryText',
+                    color: tileText,
                     visible: !!model.technical
                 }
             )
@@ -368,7 +380,7 @@ export function body(model, width, height) {
                 model.subtitle || '',
                 {
                     fontRole: 'caption',
-                    color: 'secondaryText',
+                    color: tileText,
                     visible: !!model.subtitle,
                     wrap: true
                 }

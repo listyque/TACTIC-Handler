@@ -305,26 +305,29 @@ Item {
         }
     }
     Rectangle {
+        id: cardImageShade
+        objectName: "workspaceCardImageShade"
+        readonly property color shadeColor: root.selected ? root.theme.contentSelection : root.theme.panelRaised
         anchors.fill: cardBackground
         visible: root.isSobject && !root.configured
         radius: cardBackground.radius
         gradient: Gradient {
             orientation: Gradient.Vertical
             GradientStop {
-                position: 0.32
-                color: Qt.rgba(root.theme.panelRaised.r, root.theme.panelRaised.g, root.theme.panelRaised.b, 0)
+                position: Card.tileShade[0].position
+                color: Qt.rgba(cardImageShade.shadeColor.r, cardImageShade.shadeColor.g, cardImageShade.shadeColor.b, Card.tileShade[0].opacity)
             }
             GradientStop {
-                position: 0.58
-                color: Qt.rgba((root.selected ? root.theme.contentSelection : root.theme.panelRaised).r, (root.selected ? root.theme.contentSelection : root.theme.panelRaised).g, (root.selected ? root.theme.contentSelection : root.theme.panelRaised).b, 0.34)
+                position: Card.tileShade[1].position
+                color: Qt.rgba(cardImageShade.shadeColor.r, cardImageShade.shadeColor.g, cardImageShade.shadeColor.b, Card.tileShade[1].opacity)
             }
             GradientStop {
-                position: 0.78
-                color: Qt.rgba((root.selected ? root.theme.contentSelection : root.theme.panelRaised).r, (root.selected ? root.theme.contentSelection : root.theme.panelRaised).g, (root.selected ? root.theme.contentSelection : root.theme.panelRaised).b, 0.86)
+                position: Card.tileShade[2].position
+                color: Qt.rgba(cardImageShade.shadeColor.r, cardImageShade.shadeColor.g, cardImageShade.shadeColor.b, Card.tileShade[2].opacity)
             }
             GradientStop {
-                position: 1
-                color: root.selected ? root.theme.contentSelection : root.theme.panelRaised
+                position: Card.tileShade[3].position
+                color: Qt.rgba(cardImageShade.shadeColor.r, cardImageShade.shadeColor.g, cardImageShade.shadeColor.b, Card.tileShade[3].opacity)
             }
         }
     }
@@ -650,7 +653,7 @@ Item {
             sourceComponent: Label {
                 anchors.fill: parent
                 text: root.bodyParts.resultTileTechnical.text
-                color: root.theme.secondaryText
+                color: root.theme[root.bodyParts.resultTileTechnical.color]
                 font.family: root.theme.fontFamily
                 font.pixelSize: root.bodyParts.resultTileTechnical.fontSize
                 elide: Text.ElideRight
@@ -672,7 +675,7 @@ Item {
                 rightPadding: 0
                 bottomPadding: 0
                 text: root.displayedSubtitle
-                color: root.theme.secondaryText
+                color: root.theme[root.bodyParts.resultTileDescription.color]
                 font.family: root.theme.fontFamily
                 font.pixelSize: root.bodyParts.resultTileDescription.fontSize
                 elide: Text.ElideRight
