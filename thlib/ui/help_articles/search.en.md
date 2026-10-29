@@ -20,6 +20,8 @@ In the CG project, Script shows the saved URL as a link. An empty Script field s
 
 Episode displays native previews, names and task controls. Related assets and shots open as tables scoped to that episode. The shots use the saved episode_shots view; asset categories remain visible as a column in the related-assets table.
 
+Task Workflow accepts the stock legacy edit flag without hiding the cell. Status and assignee changes still use their native editors and permissions. Expression columns with a standard DatabaseAction bound to an existing field remain readable; unknown callbacks and options are rejected.
+
 Table headers and rows fill the available width. Space for a scrollbar is reserved only while that scrollbar is needed.
 
 ## How a query is assembled

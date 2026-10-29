@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.258 - 2026-10-29
+
+- Document restored stock Task Workflow and expression-column availability from TACTIC Stream, retaining native edit permissions and rejecting unknown callbacks.
+
 ## 0.6.0.257 - 2026-10-29
 
 - Document the corrected shared CG Episode configuration: native previews, names and task controls, with scoped asset and saved shot tables.
