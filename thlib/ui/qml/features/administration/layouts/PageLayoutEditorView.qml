@@ -207,9 +207,9 @@ Item {
                 objectName: "pageEditorToolsButton"
                 anchors.fill: parent
                 theme: root.theme
-                compact: true
+                text: menuOwner.frameNode.label || ""
                 icon.name: "more-vert"
-                toolTip: menuOwner.frameNode.label || ""
+                toolTip: text
                 Accessible.name: toolTip
                 onClicked: toolsMenu.openBelow(toolsButton)
             }

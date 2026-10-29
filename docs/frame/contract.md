@@ -250,3 +250,12 @@ path. Both adapters retain the real result surface while samples are visible;
 native also retains the sample canvas owner while its scene clears on updates.
 Regressions exercise empty/typed scopes, real-data transitions, actual resize,
 configuration-only saves and absence of persisted synthetic records.
+
+Page editor document controls are grouped by `page.chrome.mjs` in a full-width
+toolbar above the editor panels. Page selection and explicit New page are always
+available; empty catalogs hide irrelevant canvas controls. Named pages expose
+preview and XML directly, with secondary operations behind a labelled Actions
+menu. Undo/Redo and viewport tools share the next row. Both adapters keep the
+existing reducer, dirty guards and explicit draft/Check/Save boundary.
+Logical paper/content boxes allow resize handles and measurements to extend
+outside them; the viewport owns clipping and scrolling, including under zoom.

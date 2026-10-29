@@ -99,15 +99,30 @@ export function describe(model, ui, width, height, language) {
     let y = notice.top;
     const geometry = Chrome.geometry(width, ui),
         { narrow, left, right, canvasX, canvasWidth } = geometry;
+    const tools = Chrome.canvasTools(model, ui, width - 16, language, canEdit);
+    nodes.push(
+        node(
+            'Box',
+            model.document.name ? 'pageCanvasTools' : 'pageEmptyTools',
+            rect(0, y, width, tools.height + 16),
+            {
+                background: 'surfaceContainerLow',
+                children: tools.nodes.map((item) =>
+                    Object.assign({}, item, { x: item.x + 8, y: item.y + 8 })
+                )
+            }
+        )
+    );
+    y += tools.height + 24;
     if (!model.document.name) {
-        const tools = Chrome.canvasTools(model, ui, width, language, canEdit);
-        return {
-            nodes: nodes.concat(
-                node('Box', 'pageEmptyTools', rect(0, y, width, tools.height), {
-                    children: tools.nodes
+        if (!ui.creating)
+            nodes.push(
+                node('Label', 'pageEmptyHint', rect(12, y, width - 24, 32), {
+                    text: tr('Choose a page or create a new page.'),
+                    color: 'secondaryText'
                 })
-            )
-        };
+            );
+        return { nodes };
     }
     if (narrow && !ui.preview && !ui.source) {
         nodes.push(
@@ -493,34 +508,16 @@ export function describe(model, ui, width, height, language) {
             );
     }
     if (ui.preview || ui.source || !narrow || ui.panel === 'canvas') {
-        const tools = Chrome.canvasTools(
-            model,
-            ui,
-            canvasWidth - 16,
-            language,
-            canEdit
-        );
         nodes.push(
             node('Box', 'pageCanvasPanel', rect(canvasX, y, canvasWidth, h), {
                 background: 'workspace',
                 border: 'outlineVariant',
                 children: [
-                    node(
-                        'Box',
-                        'pageCanvasTools',
-                        rect(8, 8, canvasWidth - 16, tools.height),
-                        { children: tools.nodes }
-                    ),
                     ui.source
                         ? node(
                               'Code',
                               'pageXmlSource',
-                              rect(
-                                  8,
-                                  tools.height + 16,
-                                  canvasWidth - 16,
-                                  Math.max(1, h - tools.height - 24)
-                              ),
+                              rect(8, 8, canvasWidth - 16, Math.max(1, h - 16)),
                               {
                                   text: model.checked
                                       ? model.sourceXml || ''
@@ -536,12 +533,7 @@ export function describe(model, ui, width, height, language) {
                         : node(
                               'View',
                               'pageCanvas',
-                              rect(
-                                  8,
-                                  tools.height + 16,
-                                  canvasWidth - 16,
-                                  Math.max(1, h - tools.height - 24)
-                              ),
+                              rect(8, 8, canvasWidth - 16, Math.max(1, h - 16)),
                               { view: 'pagePreview' }
                           )
                 ]

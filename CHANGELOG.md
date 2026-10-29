@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.238 - 2026-10-29
+
+- Regroup Page layout controls in a shared toolbar: explicit New page beside the picker, direct preview/XML actions, a labelled secondary Actions menu, and Undo/Redo beside canvas tools. Keep empty catalogs clear, preserve draft/save guards and keep paper-edge resize handles usable under zoom. Match Stream and update EN/RU Help.
+
 ## 0.6.0.237 - 2026-10-29
 
 - Read page editor documents, metadata and catalogs through detached presentation snapshots instead of repeatedly converting nested QVariant property references. Coalesce custom page and editor viewport dimensions within one event turn, preserving immediate data/actions, native input, drafts and the existing UI. Add native snapshot and nested resize regressions.

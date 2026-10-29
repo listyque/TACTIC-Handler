@@ -3,6 +3,7 @@ import { translate } from '../../../core/strings.mjs';
 import { listAction } from '../../../controls/lists/tree.ui.mjs';
 import * as Document from './page.document.mjs';
 import * as Viewport from './page.viewport.mjs';
+import { buttonWidth } from '../../../controls/buttons/metrics.mjs';
 
 export const icons = {
     page: 'dashboard',
@@ -244,7 +245,6 @@ export function actions(model, ui, language) {
     const p = Document.path(ui.selected),
         rows = p.length ? Document.siblings(model.document, p) : [];
     return [
-        ['new', 'New page', 'add', ready],
         [
             'open',
             'Open saved view',
@@ -272,13 +272,7 @@ export function actions(model, ui, language) {
                 p.length &&
                 p[p.length - 1] < rows.length - 1
         ],
-        ['canvasSettings', 'Canvas settings', 'tune', true],
-        [
-            'preview',
-            ui.preview ? 'Back to editing' : 'Clean preview',
-            ui.preview ? 'edit' : 'visibility',
-            !model.busy && !ui.creating && !model.pendingText
-        ]
+        ['canvasSettings', 'Canvas settings', 'tune', true]
     ].map(([command, title, icon, enabled]) => ({
         command,
         title: translate(title, language),
@@ -295,43 +289,106 @@ export function toolEvent(command) {
 export function canvasTools(model, ui, width, language, canEdit) {
     const tr = (text) => translate(text, language),
         nodes = [];
-    const sourceWidth = ui.source ? (language === 'ru' ? 148 : 104) : 80;
-    const pickerWidth = Math.max(
-        80,
-        Math.min(
-            260,
-            width - sourceWidth - (!ui.source && !ui.preview ? 126 : 48)
-        )
-    );
-    nodes.push(
-        node('Choice', 'pageLayoutChoice', rect(0, 0, pickerWidth, 32), {
+    const named = !!model.document.name,
+        ready = canEdit && !model.pendingText && !ui.confirmation;
+    const pages = model.catalog.map((row) => ({
+        value: row.identity,
+        label: row.label
+    }));
+    if (named && !pages.some((page) => page.value === model.document.name))
+        pages.unshift({
+            value: model.document.name,
+            label: model.document.title || model.document.name
+        });
+    let x = 0,
+        y = 0;
+    function place(item) {
+        item.width = Math.min(item.width, width);
+        if (x && x + item.width > width) {
+            x = 0;
+            y += 38;
+        }
+        item.x = x;
+        item.y = y;
+        nodes.push(item);
+        x += item.width + 8;
+    }
+    function action(id, title, icon, event, enabled, extra) {
+        const text = tr(title);
+        place(
+            button(
+                id,
+                rect(
+                    0,
+                    0,
+                    Math.max(80, buttonWidth(text.length * 8, true)),
+                    32
+                ),
+                text,
+                icon,
+                event,
+                enabled,
+                extra
+            )
+        );
+    }
+    place(
+        node('Choice', 'pageLayoutChoice', rect(0, 0, 260, 32), {
             label: tr('Page layout'),
             value: model.document.name || '',
-            options: model.catalog.map((row) => ({
-                value: row.identity,
-                label: row.label
-            })),
+            options: (named
+                ? []
+                : [{ value: '', label: tr('Page layout') }]
+            ).concat(pages),
             enabled: !model.busy && !model.uncertain,
             action: { type: 'load' }
-        }),
-        button(
-            'pageSourceXml',
-            rect(width - sourceWidth - 42, 0, sourceWidth, 32),
-            ui.source ? tr('Design') : 'XML',
-            ui.source ? 'dashboard' : 'code',
-            { type: 'sourceXml' },
-            !!model.document.name,
-            { highlighted: ui.source, toolTip: tr('Source XML') }
-        ),
-        node('View', 'pageToolsMenu', rect(width - 32, 0, 32, 32), {
-            view: 'pageTools',
-            actions: actions(model, ui, language),
-            label: tr('Editor tools')
         })
     );
-    let y = 40;
+    action(
+        'pageNew',
+        'New page',
+        'add',
+        { type: 'new' },
+        ready && !ui.creating,
+        { highlighted: !named }
+    );
+    if (named) {
+        action(
+            'pagePreviewToggle',
+            ui.preview ? 'Back to editing' : 'Clean preview',
+            ui.preview ? 'edit' : 'visibility',
+            { type: 'preview' },
+            !model.busy && !ui.creating && !model.pendingText,
+            { highlighted: ui.preview }
+        );
+        action(
+            'pageSourceXml',
+            ui.source ? 'Design' : 'XML',
+            ui.source ? 'dashboard' : 'code',
+            { type: 'sourceXml' },
+            true,
+            { highlighted: ui.source, toolTip: tr('Source XML') }
+        );
+        place(
+            node(
+                'View',
+                'pageToolsMenu',
+                rect(0, 0, buttonWidth(tr('Actions').length * 8, true), 32),
+                {
+                    view: 'pageTools',
+                    actions: actions(model, ui, language),
+                    label: tr('Actions')
+                }
+            )
+        );
+    }
+    y += 40;
     if (ui.creating) {
-        const w = Math.max(80, (width - 8) / 2);
+        const inline = width >= 760,
+            createWidth = buttonWidth(tr('Create draft').length * 8, true),
+            w = inline
+                ? Math.min(240, (width - createWidth - 144) / 2)
+                : (width - 8) / 2;
         nodes.push(
             node('Field', 'pageLayoutName', rect(0, y, w, 32), {
                 label: tr('Page name'),
@@ -341,12 +398,18 @@ export function canvasTools(model, ui, width, language, canEdit) {
             }),
             node('Field', 'pageLayoutTitle', rect(w + 8, y, w, 32), {
                 label: tr('Title'),
+                placeholder: tr('Title'),
                 text: ui.newTitle,
                 action: { type: 'newTitle' }
             }),
             button(
                 'pageLayoutCreate',
-                rect(0, y + 40, 160, 32),
+                rect(
+                    inline ? 2 * w + 16 : 0,
+                    inline ? y : y + 40,
+                    createWidth,
+                    32
+                ),
                 tr('Create draft'),
                 'add',
                 { type: 'create' },
@@ -354,23 +417,22 @@ export function canvasTools(model, ui, width, language, canEdit) {
             ),
             button(
                 'pageLayoutCancelNew',
-                rect(168, y + 40, 120, 32),
+                rect(
+                    inline ? 2 * w + createWidth + 24 : createWidth + 8,
+                    inline ? y : y + 40,
+                    120,
+                    32
+                ),
                 tr('Cancel'),
                 'close',
                 { type: 'cancelNew' },
                 true
             )
         );
-        y += 80;
+        y += inline ? 40 : 80;
     }
-    if (!ui.source) {
-        const tools = Viewport.controls(ui, width, language, !model.busy);
-        nodes.push(
-            node('Box', 'pageViewportTools', rect(0, y, width, tools.height), {
-                children: tools.nodes
-            })
-        );
-        y += tools.height + 6;
+    if (named && !ui.source) {
+        let offset = 0;
         if (!ui.preview) {
             const current = Document.fingerprint(model.document),
                 ready =
@@ -382,7 +444,7 @@ export function canvasTools(model, ui, width, language, canEdit) {
                 nodes.push(
                     button(
                         'pageAction_' + type,
-                        rect(width - sourceWidth - 120 + index * 38, 0, 32, 32),
+                        rect(index * 38, y, 32, 32),
                         tr(type === 'undo' ? 'Undo' : 'Redo'),
                         type,
                         { type },
@@ -393,7 +455,23 @@ export function canvasTools(model, ui, width, language, canEdit) {
                         { iconOnly: true }
                     )
                 );
+            offset = 84;
         }
+        const tools = Viewport.controls(
+            ui,
+            width - offset,
+            language,
+            !model.busy
+        );
+        nodes.push(
+            node(
+                'Box',
+                'pageViewportTools',
+                rect(offset, y, width - offset, tools.height),
+                { children: tools.nodes }
+            )
+        );
+        y += tools.height + 6;
     }
     return { nodes, height: y };
 }

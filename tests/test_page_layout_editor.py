@@ -199,6 +199,52 @@ class PageChromeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = gui_test_application()
 
+    def test_empty_catalog_has_direct_creation_and_no_irrelevant_canvas_tools(self):
+        from PySide6.QtCore import QCoreApplication
+        from PySide6.QtGui import QInputMethodEvent
+        from tests.profile_ui_responsiveness import frame
+        from tests.test_columns_table_view import _visual_items
+        host = DashboardEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        self.addCleanup(host.shutdown)
+        pool = Pool()
+        self.enterContext(patch.object(env_inst, 'server_pool', pool))
+        host._project = 'demo'
+        host._can_write = host._loaded = True
+        host._metadata = dict(revision='R1')
+        window, view = self.create('features/administration/layouts/PageLayoutEditorView.qml', dict(controller=host), width=1100, height=740)
+        self.assertIsNotNone(self.item(view, 'pageEmptyHint'))
+        self.assertFalse(any(item.objectName() == 'pageCanvasSize' for item in _visual_items(view)))
+        self.assertEqual(self.item(view, 'pageNew').property('text'), 'New page')
+        for name in ['pageNew']:
+            button = self.item(view, name)
+            label = next(item for item in _visual_items(button) if item.objectName() == 'buttonLabel')
+            self.assertFalse(label.property('truncated'), (name, label.width(), label.property('implicitWidth')))
+        self.click(window, self.item(view, 'pageNew'))
+        for name, value in [('pageLayoutName', 'new_page'), ('pageLayoutTitle', 'New page title')]:
+            field = self.item(view, name)
+            field.forceActiveFocus()
+            frame(window)
+            event = QInputMethodEvent()
+            event.setCommitString(value)
+            QCoreApplication.sendEvent(window.activeFocusItem(), event)
+        self.click(window, self.item(view, 'pageLayoutCreate'))
+        host._timer.stop()
+        frame(window)
+        self.assertEqual(host.document, dict(name='new_page', title='New page title', blocks=[]))
+        self.assertTrue(host.dirty)
+        self.assertEqual(self.item(view, 'pageLayoutChoice').property('displayText'), 'New page title')
+        self.assertIsNone(host._pending_save)
+        self.assertEqual(pool.workers, [])
+        self.assertEqual(self.item(view, 'pageEditorToolsButton').property('text'), 'Actions')
+        self.assertIsNotNone(self.item(view, 'pagePreviewToggle'))
+        for language in ['en', 'ru']:
+            view.setProperty('language', language)
+            frame(window)
+            for name in ['pageNew', 'pagePreviewToggle', 'pageSourceXml']:
+                button = self.item(view, name)
+                label = next(item for item in _visual_items(button) if item.objectName() == 'buttonLabel')
+                self.assertFalse(label.property('truncated'), (language, name, label.width(), label.property('implicitWidth')))
+
     def test_item_preview_initializes_the_result_surface(self):
         from tests.test_workspace_result_item import _WorkspaceAppController
         from thlib.ui.layout_editor import LayoutEditorHost
@@ -227,7 +273,7 @@ class PageChromeTests(unittest.TestCase):
         host._catalog = [dict(identity='review',label='Review')]
         window,view = self.create('features/administration/layouts/PageLayoutEditorView.qml',dict(controller=host),width=1400,height=900)
         self.assertEqual(self.item(view,'pageLayersPanel').width(),180)
-        self.assertEqual(self.item(view,'pageLayersPanel').y(),0)
+        self.assertGreater(self.item(view,'pageLayersPanel').mapToItem(view,QPointF()).y(),self.item(view,'pageCanvasTools').height())
         self.assertTrue(any(item.objectName()=='pageBlock_0.0' for item in _visual_items(view)))
         self.click(window,self.item(view,'pageTreeToggle_0'))
         self.assertFalse(any(item.objectName()=='pageBlock_0.0' and item.isVisible() for item in _visual_items(view)))
@@ -554,13 +600,13 @@ class PageCanvasTests(unittest.TestCase):
         target = fixture.item("canvasTarget_0.0")
         fixture.fixture.click(fixture.window, target)
         frame(fixture.window)
-        page_menu(fixture, 'preview')
+        fixture.click('pagePreviewToggle')
         with self.assertRaises(StopIteration):
             fixture.item("canvasTarget_0.0")
         with self.assertRaises(StopIteration):
             fixture.item("pageLayersPanel")
         self.assertFalse(editor.dirty)
-        page_menu(fixture, 'preview')
+        fixture.click('pagePreviewToggle')
         target = fixture.item("canvasTarget_0.0")
         fixture.fixture.click(fixture.window, target)
         handle = fixture.item("canvasHandle_se")

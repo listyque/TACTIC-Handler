@@ -53,6 +53,8 @@ export function describe(scene, settings, width, height) {
                         ),
                         {
                             scale: size.scale,
+                            // Resize handles and measurements extend beyond the paper.
+                            clip: false,
                             background: 'workspace',
                             border: 'outlineVariant',
                             children: [
@@ -65,7 +67,7 @@ export function describe(scene, settings, width, height) {
                                         size.width - 24,
                                         pageHeight - 24
                                     ),
-                                    { children }
+                                    { children, clip: false }
                                 )
                             ]
                         }

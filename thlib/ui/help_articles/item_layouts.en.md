@@ -19,7 +19,7 @@ original SObject Item remain separate.
 ## Page and card are separate documents
 
 **Administration → Page layouts** edits the whole dashboard linked from navigation.
-Choose a saved page or **⋮ → New page** to start an empty draft. The ordinary sidebar
+Choose a saved page or **New page** beside the page picker to start an empty draft. The ordinary sidebar
 editor also has **Edit page layout** for a saved dashboard link. On a dashboard,
 **Edit layouts** opens its page document. Select a block on the canvas or in
 **Page blocks**. Drag it to reorder or move it into a row/column; resize with the
@@ -569,10 +569,14 @@ or properties; the header chevrons collapse and restore each panel at its last
 width. The tree starts narrower, and collapsed Administration navigation uses a
 compact icon rail. Narrow windows keep the labelled panel selector.
 
-The toolbar above the canvas contains the page picker, Undo/Redo, **XML** and
-**⋮**. The menu holds New page, Open saved view, Duplicate widget, Move up/down,
-Canvas settings and Clean preview. Canvas settings reveals a custom pixel width;
-the usual size preset, zoom and selection tools remain above the canvas.
+The page editor has one toolbar above the tree, canvas and properties. The
+first row groups the page picker, **New page**, **Clean preview**, **XML** and the
+labelled **Actions** menu. **New page** opens name/title fields and **Create draft**;
+it does not save automatically. With no selected page, the toolbar shows only
+page selection and creation, with a hint below. The second row groups Undo/Redo,
+size presets, zoom and selection tools. Actions holds Open saved view, Duplicate
+widget, Move up/down and Canvas settings. Controls wrap together on narrow
+windows. Canvas settings reveals a custom pixel width.
 **XML** shows the current validated draft's server configuration in a read-only
 source viewer with selection, copy and search. **Design** returns to the canvas.
 This is the XML generated for Save, including the dashboard definition. Viewing
