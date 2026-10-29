@@ -46,6 +46,7 @@ class DialogFrameTests(unittest.TestCase):
                 self.assertEqual(title.property('font').pixelSize(), 13)
                 self.assertEqual(title.property('x'), 12)
                 panel = dialog.findChild(QObject, 'dialogSurface')
+                self.assertEqual(panel.property('radius'), 8)
                 border_width = QQmlExpression(surface.engine.rootContext(), panel, 'border.width').evaluate()[0]
                 border_color = QQmlExpression(surface.engine.rootContext(), panel, 'border.color').evaluate()[0]
                 self.assertEqual(border_width, 1)

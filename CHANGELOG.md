@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.261 - 2026-10-29
+
+- Use the common small dialog radius in every theme and the standard themed native frame for sign-in. Document shared window chrome, while preserving native controls and editor close guards.
+
 ## 0.6.0.260 - 2026-10-29
 
 - Keep a consistent icon-to-label gap in Sidebar Editor tree rows, including nested entries and secondary text, without reducing the folder-toggle clearance.

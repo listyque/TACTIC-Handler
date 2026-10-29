@@ -5,6 +5,8 @@ order: 25
 ---
 # Windows and modal editors
 
+All floating windows use the common outer frame, shadow and compact title controls. Floating corners use the same small radius in every theme; maximized windows have square corners. Page-specific tools stay inside the window. Close and Escape preserve each editor's save/discard guard.
+
 > Functional tools open in native windows with themed content. Ordinary utility windows can stay
 > beside the workspace; modal editors block their owner until their prepared operation is applied or cancelled.
 

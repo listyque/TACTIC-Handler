@@ -7,7 +7,7 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 
-from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem, QQuickWindow
@@ -89,6 +89,9 @@ class LoginLocalizationQmlTests(unittest.TestCase):
         engine.addImportPath(str(QML))
         controller = _LoginController()
         engine.rootContext().setContextProperty("appController", controller)
+        from thlib.ui.window_appearance import WindowAppearanceController
+        appearance = WindowAppearanceController(engine)
+        engine.rootContext().setContextProperty("windowAppearanceController", appearance)
         theme_component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
         )
@@ -107,6 +110,8 @@ class LoginLocalizationQmlTests(unittest.TestCase):
             dialog,
             "\n".join(error.toString() for error in component.errors()),
         )
+        self.assertFalse(dialog.flags() & Qt.FramelessWindowHint)
+        self.assertTrue(dialog.flags() & Qt.WindowTitleHint)
 
         try:
             QTest.qWait(30)

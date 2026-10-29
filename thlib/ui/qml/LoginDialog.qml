@@ -25,14 +25,27 @@ Window {
     readonly property var preferredScene: UI.describe(root.frameModel, root.width, 0, root.language)
     transientParent: ownerWindow
     modality: blocksMainWindow ? Qt.ApplicationModal : Qt.NonModal
-    flags: Qt.Dialog | Qt.FramelessWindowHint
-    color: "transparent"
+    flags: Qt.Dialog | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowCloseButtonHint
+    color: root.theme.workspace
     visible: appController.authentication_dialog_visible
     width: 440
     height: preferredScene && preferredScene.contentHeight ? preferredScene.contentHeight : 376
     minimumWidth: 400
     minimumHeight: 350
     title: qsTr("Sign in to TACTIC")
+    function syncNativeFrame() {
+        windowAppearanceController.apply(root, root.theme.dark, root.theme.topBar, root.theme.primaryText);
+    }
+    Component.onCompleted: syncNativeFrame()
+    Connections {
+        target: root.theme
+        function onDarkChanged() {
+            root.syncNativeFrame();
+        }
+        function onTopBarChanged() {
+            root.syncNativeFrame();
+        }
+    }
     x: ownerWindow ? ownerWindow.x + (ownerWindow.width - width) / 2 : 100
     y: ownerWindow ? ownerWindow.y + (ownerWindow.height - height) / 2 : 100
     onVisibleChanged: Qt.callLater(function () {

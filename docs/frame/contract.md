@@ -37,6 +37,16 @@ Table active rows and keyboard focus use the content-selection background across
 
 Floating dock windows are the visual reference for floating windows: reuse their chrome, title bar, borders and controls. Keep resize grips quiet and integrated into the corner, without a filled circular button.
 
+Window/dialog outer corners use an 8-DIP radius across themes. Browser legacy
+headers are normalized by the window host; Frame page headers remain content
+toolbars beneath a common outer title bar. The host forwards Close to the
+feature's existing close action (including its disabled state), or dispatches
+its cancellable cancel event. Compact confirmations retain their existing
+buttons and modality. Native functional windows and sign-in use the same
+operating-system frame as detached docks; embedded dialogs use Controls.Dialog.
+Menus, navigation drawers, toast notifications and OS file pickers keep their
+separate roles. Window hosts never rewrite a draft or authorize a save.
+
 Embedded table headers, data-row backgrounds, inline notices/errors and pending-change bars use square corners. Keep the
 existing theme radii and sizing on controls, dialogs and item cards; a local
 table styling correction must not change those shared defaults.
