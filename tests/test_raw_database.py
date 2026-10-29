@@ -483,6 +483,15 @@ Window {
                     self.assertEqual(combo.width(), width - 28)
                     self.assertEqual(field.width(), width - 28)
                     self.assertEqual(window.title(), 'Cell editor' if language == 'en' else 'Редактор ячейки')
+                    self.assertFalse(any(
+                        item.objectName() == 'rawCellTitle'
+                        for item in admin_fixture.windows_fixture.SidebarEditorQmlTests.descendants(window.contentItem())
+                    ))
+                    for name in ('rawCellApply', 'rawCellCancel'):
+                        action = self.cell_item(name)
+                        bottom = action.mapToScene(QPointF(0, action.height())).y()
+                        self.assertLessEqual(bottom, window.height() - 8)
+
                     measurements.append(dict(language=language, width=width, dark=dark,
                                              fieldWidth=field.width(), fieldHeight=field.height(),
                                              comboWidth=combo.width(), comboHeight=combo.height()))

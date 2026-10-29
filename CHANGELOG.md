@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.274 - 2026-10-30
+
+- Let the native window own the Cell editor title; remove the duplicate title row from the shared content layout.
+- Keep column context, value input and Apply/Cancel inside the available content area; preserve typed-value, NULL, default and draft-save behavior.
+
 ## 0.6.0.273 - 2026-10-30
 
 - Reuse the task value display as the inline editor base, removing its duplicate host and property forwarding while preserving popup and pointer lifetime.

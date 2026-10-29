@@ -453,39 +453,11 @@ export function cellDescribe(model, ui, width, height, language) {
         footer = height - 52,
         errorHeight = model.error ? 48 : 0,
         helpY = footer - 44;
-    const narrow = width < 600;
-    const header = [
-        label(
-            'rawCellTitle',
-            rect(narrow ? 42 : 0, 0, inner - (narrow ? 42 : 100), 38),
-            tr('Cell editor'),
-            {
-                fontRole: 'heading'
-            }
-        ),
-        button(
-            narrow ? 'rawCellBack' : 'rawCellClose',
-            rect(narrow ? 0 : inner - 38, 0, 38, 38),
-            tr(narrow ? 'Back' : 'Close'),
-            narrow ? 'chevron-left' : 'close',
-            {
-                type: 'cancel'
-            },
-            true,
-            {
-                iconOnly: true
-            }
-        )
-    ];
+    // The browser/native window host owns the single title bar.
     const nodes = [
-        node('Box', 'rawCellHeader', rect(pad, pad, inner, 38), {
-            titlebar: true,
-            chromeRight: 46,
-            children: header
-        }),
         label(
             'rawCellDescription',
-            rect(pad, 64, inner, 34),
+            rect(pad, 14, inner, 34),
             (model.name || '') +
                 ' · ' +
                 (model.type || '') +
@@ -497,7 +469,7 @@ export function cellDescribe(model, ui, width, height, language) {
                 wrap: true
             }
         ),
-        node('Choice', 'rawCellMode', rect(pad, 110, inner, 38), {
+        node('Choice', 'rawCellMode', rect(pad, 60, inner, 38), {
             value: ui.mode,
             label: tr('Value mode'),
             enabled: !model.readonly && !model.busy,
@@ -517,7 +489,7 @@ export function cellDescribe(model, ui, width, height, language) {
         node(
             'Area',
             'rawCellValue',
-            rect(pad, 160, inner, Math.max(1, helpY - errorHeight - 172)),
+            rect(pad, 110, inner, Math.max(1, helpY - errorHeight - 122)),
             {
                 text: ui.text,
                 label: tr('Cell value'),
