@@ -101,7 +101,7 @@ export function describe(
                         ? 'loading'
                         : expanded.__nested?.open
                           ? 'expand-more'
-                          : 'chevron-right'
+                          : action.icon || 'chevron-right'
                     : action.icon,
                 { type: 'service', name: action.name, view: action.view || '' },
                 editable && action.enabled !== false,

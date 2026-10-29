@@ -168,3 +168,19 @@ CustomLayout compiles declarative rows, fields, read-only snapshot previews and 
 Configured JavaScript runs in the existing isolated table-action worker. Logical form values and root data are JSON state; no HTML or browser engine enters QML. Retained document tabs, picker changes and shared geometry are described in `features/table/layout.ui.mjs`. Review uses Stream's transactional ReviewSubmissionCmd with authoritative actor, captured version/context and duplicate protection. Printing uses CustomLayoutReportCmd for a complete scoped data snapshot; Qt prints a native QTextDocument and the browser invokes its own printer. These commands require the corresponding Stream server and do not restore old production Submission/Bin or applet execution.
 
 Regression entry points: Stream `test_vfx_composition` and `test_vfx_browser.VfxBrowser`, frontend `vfx_composition.mjs`, and Handler `tests.test_custom_layout` plus sidebar target, table-script and nested-table suites. Existing project configurations require explicit reviewed repair; installing a prepared template never rewrites another project.
+
+## Episode snapshot galleries
+
+HiddenRow `ViewPanelWdg` with `search_type=sthpw/snapshot` and `layout=tile`
+projects the original CG Storyboard/Renders declarations into a gallery on the
+existing nested-table owner. It validates the parent search key, scale and flags,
+and retains process/context filters alongside the mandatory parent/project query.
+`nested.ui.mjs` groups tiles into the existing virtualized Frame List. Tiles
+dispatch to the existing snapshot checkout session; no raw legacy HTML or new
+file-transfer owner is introduced. A process filter participates in scope identity.
+Pages stay bounded at 50 and remain reachable when legacy search-limit controls
+are hidden. Legacy decoration flags use shared native controls rather than DOM
+styles. Drag and context scripts are rejected. Other tile widget families are
+not qualified by this path. Tests: `test_table_snapshot_gallery` in each product
+and `frontend/tests/table_snapshot_gallery.mjs`; exact CG source options are
+exercised through Stream cell projection and Handler's server-side procedure.

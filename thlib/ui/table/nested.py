@@ -35,6 +35,7 @@ class NestedTableController(QObject):
         self._reload_timer.timeout.connect(self.reload)
         self._identity = 'nested:' + uuid.uuid4().hex + ':'
         self._model = dict(searchType=descriptor.get('searchType') or '', embedded=descriptor.get('embedded', False), columns=[], rows=[], selected=[], offset=0, filter='', filterField='code',
+                           gallery=descriptor.get('gallery'), refresh=descriptor.get('refresh', True),
                            insert=False, gear=False, selection=descriptor.get('selection', True), shelf=descriptor.get('shelf', True),
                            search=descriptor.get('search', True), searchLimit=descriptor.get('searchLimit', True), busy=False, error='')
         self.services.nestedChanged.connect(self.changed)
@@ -287,6 +288,16 @@ class NestedTableController(QObject):
     @Slot('QVariantMap', 'QVariant')
     def activate(self, action, value=None):
         kind = action.get('type')
+        if kind == 'gallery-open':
+            node = next((node for node in self._nodes.values()
+                         if node.search_key == action.get('key')), None)
+            if (node is not None and self.descriptor.get('gallery')
+                    and self.services.scope_visible(self)):
+                self.services.open_checkout(node.node_id, dict(
+                    targetSearchKey=node.search_key,
+                    projectCode=self.descriptor.get('projectCode')
+                    or self.application._current_project_code))
+            return
         if kind == 'filter':
             self._model['filter'] = str(action.get('value') or '')
             return

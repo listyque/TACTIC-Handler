@@ -7,6 +7,21 @@ order: 36
 # Table View: B07 typed cells
 
 
+## CG Episode snapshot galleries
+
+The original **Storyboard** and **Renders** cells expand into snapshot galleries.
+Storyboard keeps the `storyboard` process; Renders keeps `publish`. Each gallery
+also keeps its episode, project and any configured context filter. A tile shows
+the snapshot preview, context and version. Click, tap or focus it and press Space
+to open the existing **Check out** file dialog. An empty gallery says **No
+snapshots found**. Results load in pages of 50; page buttons appear when another
+page is available. Only visible tile rows are rendered.
+
+This supports the original read-only `ViewPanelWdg` snapshot/tile declarations.
+Their legacy decoration flags use the shared native styling. Dragging, legacy
+context-menu scripts and other tile widget families are not enabled. The project
+XML is preserved; installing the application does not rewrite Episode columns.
+
 ## Standard VFX forms and cells
 
 `TextInputWdg` now opens the ordinary native text editor in Handler and Stream.

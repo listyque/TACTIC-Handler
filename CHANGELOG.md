@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.242 - 2026-10-29
+
+- Restore the original CG Episode Storyboard and Renders hidden snapshot galleries. Preserve episode/project/process filters, use virtualized preview tiles with the existing checkout dialog, and show explicit empty results and bounded pagination. Match Stream and update EN/RU Help.
+
 ## 0.6.0.241 - 2026-10-29
 
 - Keep Refresh visible beside the search field in narrow docks and reserve its space before the field. Preserve collapsed phone search behavior and verify resizing, mouse and keyboard activation with the normal refresh command.

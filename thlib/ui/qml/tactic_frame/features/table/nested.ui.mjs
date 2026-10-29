@@ -17,11 +17,26 @@ export function identity(scope = {}, project = '') {
         scope.searchType,
         scope.view || 'table',
         scope.parentKey,
-        scope.expression || ''
+        scope.expression || '',
+        scope.filters || []
     ]);
 }
 
-export function rows(model) {
+export function rows(model, width = 0) {
+    if (model.gallery) {
+        const count = Math.max(
+            1,
+            Math.floor(Math.max(0, width - 16) / (model.gallery.scale + 12))
+        );
+        const result = [];
+        for (let index = 0; index < (model.rows || []).length; index += count)
+            result.push({
+                key: model.rows[index].key,
+                items: model.rows.slice(index, index + count),
+                extent: model.gallery.scale + 64
+            });
+        return result;
+    }
     return (model.rows || []).map((record) =>
         Object.assign({}, record, {
             detailOpen: !!model.children?.[record.key]?.open,
@@ -172,6 +187,60 @@ export function describe(model, width, extent, language) {
             { iconOnly: true }
         )
     ];
+    if (model.gallery) {
+        const toolbar =
+            model.search !== false ||
+            model.refresh !== false ||
+            model.gear ||
+            model.insert !== false ||
+            !model.embedded;
+        const top = toolbar ? 42 : 0;
+        nodes.push(
+            node(
+                'List',
+                'nestedGallery',
+                rect(0, top, width, Math.max(0, extent - top - 40)),
+                {
+                    source: 'rows',
+                    scrollbarId: 'nestedGalleryScrollBar',
+                    keyField: 'key',
+                    fields: ['key', 'items', 'extent'],
+                    rowHeightField: 'extent',
+                    rowHeight: model.gallery.scale + 64,
+                    rowGap: 0,
+                    label: t('Snapshots'),
+                    role: 'list'
+                }
+            )
+        );
+        if (!(model.rows || []).length && !model.busy && !model.error)
+            nodes.push(
+                label(
+                    'nestedGalleryEmpty',
+                    rect(8, top + 12, Math.max(0, width - 16), 30),
+                    t('No snapshots found'),
+                    { color: 'secondaryText' }
+                )
+            );
+        return {
+            nodes: nodes.filter((item) => {
+                if (item.id === 'nestedToolbarSurface') return toolbar;
+                if (item.id === 'nestedFilter')
+                    return model.shelf !== false && model.search !== false;
+                if (item.id === 'nestedReload')
+                    return model.shelf !== false && model.refresh !== false;
+                if (item.id === 'nestedColumns')
+                    return model.shelf !== false && !!model.gear;
+                if (item.id === 'nestedCreate')
+                    return model.shelf !== false && model.insert !== false;
+                if (item.id === 'nestedClose') return !model.embedded;
+                if (item.id === 'nestedClearSelection') return false;
+                if (['nestedPrevious', 'nestedNext'].includes(item.id))
+                    return !!model.hasNext || model.offset > 0;
+                return true;
+            })
+        };
+    }
     const children = [
         node(
             'Box',
@@ -316,6 +385,66 @@ export function describe(model, width, extent, language) {
 }
 
 export function row(model, record, language, viewportWidth = 0) {
+    if (model.gallery) {
+        const size = Math.min(
+            model.gallery.scale,
+            Math.max(0, viewportWidth - 12)
+        );
+        return {
+            nodes: (record.items || []).map((item, index) => {
+                const values = item.record;
+                const title = values.context || values.code || '';
+                const image =
+                    Object.values(item.cells || {}).find((cell) => cell.image)
+                        ?.image || '';
+                return node(
+                    'Action',
+                    'nestedSnapshot_' + item.key,
+                    rect(
+                        index * (model.gallery.scale + 12) + 6,
+                        6,
+                        size,
+                        size + 50
+                    ),
+                    {
+                        text: translate('Check out', language) + ': ' + title,
+                        normalColor: 'transparent',
+                        radius: 0,
+                        action: { type: 'gallery-open', key: item.key },
+                        children: [
+                            node(
+                                'Preview',
+                                'nestedSnapshotPreview_' + item.key,
+                                rect(0, 0, size, size),
+                                {
+                                    source: image,
+                                    icon: 'snapshot',
+                                    round: false,
+                                    fit: 'contain',
+                                    outlined: model.gallery.border
+                                }
+                            ),
+                            label(
+                                'nestedSnapshotContext_' + item.key,
+                                rect(0, size + 4, size, 22),
+                                title
+                            ),
+                            label(
+                                'nestedSnapshotVersion_' + item.key,
+                                rect(0, size + 26, size, 20),
+                                String(
+                                    item.cells.version?.text ??
+                                        values.version ??
+                                        ''
+                                ),
+                                { color: 'secondaryText' }
+                            )
+                        ]
+                    }
+                );
+            })
+        };
+    }
     const fields = columns(model),
         nodes = [];
     const width = Math.max(
