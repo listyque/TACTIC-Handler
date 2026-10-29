@@ -179,17 +179,7 @@ class UserController(QObject):
 
     @Property(bool, notify=stateChanged)
     def canManageUsers(self) -> bool:
-        current = self._current_login()
-        if current.lower() == "admin":
-            return True
-        login_object = self._login_object(current)
-        return any(
-            code == "admin" or "supervisor" in code
-            for code in (
-                str(group.get("code") or "").lower()
-                for group in self._group_records(login_object)
-            )
-        )
+        return bool(self._application.can_administer)
 
     @Property(bool, notify=stateChanged)
     def canEdit(self) -> bool:

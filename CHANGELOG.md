@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.263 - 2026-10-29
+
+- Require authenticated native administrator authority for administration, account/group writes and privileged directory reads; group/login names no longer grant these operations.
+- Add a shared group-inheritance editor with project/group choices, transitive cycle guards, preserved external entries and native revision-checked saves.
+- Document additive TACTIC access semantics and verify inherited permission revocation with the same ticket on private data.
+
 ## 0.6.0.262 - 2026-10-29
 
 - Verify that stock preview upload fields with icon_size display metadata retain the native image picker. Document staged selection and the existing shared check-in path alongside the Stream preview fix.

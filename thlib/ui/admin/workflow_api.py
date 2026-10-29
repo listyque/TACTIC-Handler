@@ -22,12 +22,7 @@ def workflow_request(action: str, project_code: str, identity: str = '',
         Pipeline.clear_cache()
 
     if not Environment.get_security().is_admin():
-        memberships = Search('sthpw/login_in_group')
-        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
-        if not any(group == 'admin' or 'supervisor' in group for group in (
-                str(row.get_value('login_group') or '').lower()
-                for row in memberships.get_sobjects())):
-            raise PermissionError('TACTIC administrator or supervisor access is required')
+        raise PermissionError('TACTIC administrator access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing workflows')
     if action not in ('list', 'new', 'load', 'save'):

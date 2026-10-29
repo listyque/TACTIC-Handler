@@ -32,6 +32,7 @@ Item {
             group: controller.selectedGroup,
             groups: controller.groupCatalog,
             groupDocument: controller.groupDocument,
+            groupDocuments: controller.document.groups || {},
             records: controller.rules,
             attributes: controller.selectedAttributes,
             selected: controller.selectedRule,
@@ -192,6 +193,7 @@ Item {
                 matrix: root.controller.matrix,
                 rules: root.rows.rules,
                 allRules: root.rows.allRules,
+                inheritance: root.rows.inheritance,
                 targets: root.rows.targets
             })
         describeRow: root.rowScene

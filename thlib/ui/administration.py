@@ -380,7 +380,7 @@ class AdministrationController(QObject):
         if self.canManage:
             self._application.window_model.show_window('administration')
         else:
-            self._application._notify(self.tr('Administration requires administrator or supervisor access'))
+            self._application._notify(self.tr('TACTIC administrator access is required'))
 
     @Slot(str)
     def open_group_security(self, group_code):

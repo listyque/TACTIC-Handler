@@ -5,7 +5,10 @@ def query_security_groups() -> str:
     import hashlib
     import json
     from pyasm.search import Search
+    from pyasm.common import Environment
 
+    if not Environment.get_security().is_admin():
+        raise PermissionError('TACTIC administrator access is required')
     objects = Search('sthpw/login_group').get_sobjects()
     markers = {}
     if objects:
@@ -54,12 +57,7 @@ def save_security_group(
     from pyasm.search import Search, SearchType
 
     if not Environment.get_security().is_admin():
-        memberships = Search('sthpw/login_in_group')
-        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
-        if not any(group == 'admin' or 'supervisor' in group for group in (
-                str(row.get_value('login_group') or '').lower()
-                for row in memberships.get_sobjects())):
-            raise PermissionError('Only administrators and supervisors can manage user groups')
+        raise PermissionError('TACTIC administrator access is required')
     if not all(isinstance(value, str) for value in (group_code, login_group, description, expected_revision)):
         raise ValueError('Invalid group details')
     if len(group_code) > 256 or len(description.encode()) > 65536:

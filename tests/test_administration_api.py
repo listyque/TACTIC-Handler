@@ -306,18 +306,17 @@ class AdministrationApiTests(unittest.TestCase):
                 endpoint('list', 'demo')
         self.assertEqual(self.calls, [])
 
-    def test_supervisor_membership_authorizes_every_admin_endpoint(self):
+    def test_group_names_cannot_grant_administrative_authority(self):
         self.admin = False
-        self.tables['sthpw/login_in_group'].append({
-            'login': 'operator', 'login_group': 'supervisor'})
-        for endpoint, action in ((search_types_request, 'list'),
-                                 (schema_request, 'list'),
-                                 (workflow_request, 'list'),
-                                 (security_request, 'load')):
-            with self.subTest(endpoint=endpoint.__name__):
-                self.assertIsInstance(
-                    json.loads(endpoint(action, 'demo', 'demo' if action == 'load' else '')),
-                    dict)
+        for name in ('supervisor', 'not_a_supervisor', 'admin'):
+            self.tables['sthpw/login_in_group'][:] = [dict(login='operator', login_group=name)]
+            for endpoint, action in ((search_types_request, 'list'),
+                                     (schema_request, 'list'),
+                                     (workflow_request, 'list'),
+                                     (security_request, 'load')):
+                with self.subTest(group=name, endpoint=endpoint.__name__), self.assertRaises(PermissionError):
+                    endpoint(action, 'demo', 'demo' if action == 'load' else '')
+        self.assertEqual(self.calls, [])
 
     def test_workflow_form_catalogs_use_server_groups_users_and_scoped_pipelines(self):
         self.tables['sthpw/search_object'][0]['color']='#9bad77'

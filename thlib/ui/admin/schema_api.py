@@ -13,12 +13,7 @@ def schema_request(action: str, project_code: str, identity: str = '',
     from pyasm.search import Search, SearchType
 
     if not Environment.get_security().is_admin():
-        memberships = Search('sthpw/login_in_group')
-        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
-        if not any(group == 'admin' or 'supervisor' in group for group in (
-                str(row.get_value('login_group') or '').lower()
-                for row in memberships.get_sobjects())):
-            raise PermissionError('TACTIC administrator or supervisor access is required')
+        raise PermissionError('TACTIC administrator access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing its schema')
     if action not in ('list', 'load', 'save'):
@@ -191,12 +186,7 @@ def schema_columns_request(project_code: str, search_types: list) -> str:
     from pyasm.search import Search, SearchType
 
     if not Environment.get_security().is_admin():
-        memberships = Search('sthpw/login_in_group')
-        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
-        if not any(group == 'admin' or 'supervisor' in group for group in (
-                str(row.get_value('login_group') or '').lower()
-                for row in memberships.get_sobjects())):
-            raise PermissionError('TACTIC administrator or supervisor access is required')
+        raise PermissionError('TACTIC administrator access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing its schema')
     if not isinstance(search_types, list) or not 1 <= len(search_types) <= 2:

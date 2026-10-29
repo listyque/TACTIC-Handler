@@ -8,12 +8,7 @@ def query_admin_users() -> str:
     from pyasm.biz import Snapshot
 
     if not Environment.get_security().is_admin():
-        memberships = Search('sthpw/login_in_group')
-        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
-        if not any(group == 'admin' or 'supervisor' in group for group in (
-                str(row.get_value('login_group') or '').lower()
-                for row in memberships.get_sobjects())):
-            raise PermissionError('Only administrators and supervisors can manage users')
+        raise PermissionError('TACTIC administrator access is required')
 
     search = Search('sthpw/login')
     search.set_show_retired(True)

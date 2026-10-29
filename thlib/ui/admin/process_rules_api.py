@@ -13,12 +13,7 @@ def process_rules_request(action: str, project_code: str, identity: str = '',
     from tactic.ui.tools import trigger_wdg
 
     if not Environment.get_security().is_admin():
-        memberships = Search('sthpw/login_in_group')
-        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
-        if not any(group == 'admin' or 'supervisor' in group for group in (
-                str(row.get_value('login_group') or '').lower()
-                for row in memberships.get_sobjects())):
-            raise PermissionError('Administration requires administrator or supervisor access')
+        raise PermissionError('TACTIC administrator access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing workflows')
     if action not in ('load', 'save'):

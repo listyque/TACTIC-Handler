@@ -75,7 +75,7 @@ inside the editor; its arrow, search and width divider are independent of the ma
 The library remains available beside Technical XML in wide windows. Narrow windows use the
 editor's labelled panel tabs. Search and expanded groups survive navigation/panel changes.
 
-Administration is available to TACTIC administrators and supervisors. Permission is checked
+Administration requires the administrator authority confirmed by the current TACTIC session. Group names and cached profile labels do not grant administrative access. Permission is checked
 at sign-in. An unsaved or busy editor temporarily locks project selection so its draft cannot be
 applied to another context. Save or discard the edit before switching.
 
@@ -347,6 +347,21 @@ Discard, and Save to server are in the editor command bar.
 - This also works for new and retired accounts.
 
 ## Access rules
+
+Open **Group inheritance**, select a group, and choose its native access level,
+project scope and the groups whose permissions it inherits. Selected groups are
+sources of permissions, not users added to the group. Self-inheritance is omitted;
+choices that would introduce a cycle are disabled. The server validates the complete
+graph again when saving. Existing inheritance entries outside the editable catalog
+remain visible and preserved; use the native XML editor for those entries.
+
+For the same native rule key, TACTIC combines groups using the highest access level.
+A deny does not cancel another grant for that key. Ordered specific/wildcard lookups
+still apply. The group matrix is not an effective-user permission report: other
+memberships can grant access. A high access level does not make a user administrator.
+Group, account and permission administration requires native administrator authority.
+The same rule applies through Handler procedures and Stream endpoints.
+
 
 - Group-wide access levels remain in Access rules.
 - Access rules uses checkbox matrices for projects, sidebar links, menu actions, Search Types,

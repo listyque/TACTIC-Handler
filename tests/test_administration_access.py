@@ -35,8 +35,6 @@ class AdministrationAccessTests(unittest.TestCase):
         self.addCleanup(self.application.shutdown)
         self.users = UserController(self.application)
         self.application.attach_user_controller(self.users)
-        self.enterContext(patch.object(type(self.users), 'canManageUsers', return_value=True,
-                                       new_callable=unittest.mock.PropertyMock))
         self.admin = AdministrationController(self.application, self.users)
         self.addCleanup(self.admin.shutdown)
         self.sidebar = SidebarEditorController(self.application, self.users)
@@ -67,12 +65,20 @@ class AdministrationAccessTests(unittest.TestCase):
                 self.application, '_write_search_cache_config'):
             self.application._async_bootstrap_result((*result, 'current-request'))
 
-    def test_supervisor_can_open_entire_administration(self):
+    def test_cached_supervisor_capability_cannot_open_administration(self):
         self.bootstrap(native_admin=False)
         self.assertFalse(self.application.can_administer)
-        self.assertTrue(self.admin.canManage)
-        self.assertTrue(self.sidebar.canEdit)
-        self.assertTrue(self.sidebar.canManageGroups)
+        self.assertFalse(self.application.can_manage_tools)
+        self.assertFalse(self.admin.canManage)
+        self.assertFalse(self.sidebar.canEdit)
+        self.assertFalse(self.sidebar.canManageGroups)
+        self.assertNotIn('show_administration', [
+            action.get('command') for action in self.application.menu_actions('configuration')])
+        self.admin.open()
+        self.assertFalse(self.application.window_model.is_window_visible('administration'))
+
+    def test_authenticated_admin_can_open_administration_and_groups(self):
+        self.bootstrap(native_admin=True)
         self.assertIn('show_administration', [
             action.get('command') for action in self.application.menu_actions('configuration')])
         self.application._registry.invoke('show_administration')
@@ -97,7 +103,7 @@ class AdministrationAccessTests(unittest.TestCase):
         self.assertFalse(self.application.can_administer)
 
     def test_sidebar_editor_uses_administration_project_and_locks_dirty_draft(self):
-        self.bootstrap(native_admin=False)
+        self.bootstrap(native_admin=True)
         record = {
             'search_type': 'SideBarWdg', 'view': 'tactic_handler',
             'config': '<config/>',

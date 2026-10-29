@@ -14,12 +14,7 @@ def security_request(action: str, project_code: str, identity: str = '',
 
     security = Environment.get_security()
     if not security.is_admin():
-        memberships = Search('sthpw/login_in_group')
-        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
-        if not any(group == 'admin' or 'supervisor' in group for group in (
-                str(row.get_value('login_group') or '').lower()
-                for row in memberships.get_sobjects())):
-            raise PermissionError('Only administrators and supervisors can change access rules')
+        raise PermissionError('TACTIC administrator access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing access rules')
     if action not in ('load', 'save'):

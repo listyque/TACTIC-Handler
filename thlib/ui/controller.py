@@ -1087,10 +1087,7 @@ class ApplicationController(
 
     @Property(bool, notify=server_state_changed)
     def can_manage_tools(self) -> bool:
-        users = self._user_controller
-        return self.can_administer or bool(
-            self._server_state == "online" and self.has_ticket
-            and users and users.canManageUsers)
+        return self.can_administer
 
     def attach_user_controller(self, users) -> None:
         self._user_controller = users

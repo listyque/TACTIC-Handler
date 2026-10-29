@@ -128,7 +128,7 @@ class AdminDocumentEditor(QObject):
         if self.busy or self._closed or (action == 'save' and (self._write_uncertain or self._presentation_dirty)):
             return
         if not self._application.can_manage_tools:
-            self.fail(self.tr('Administration requires administrator or supervisor access'))
+            self.fail(self.tr('TACTIC administrator access is required'))
             return
         self._generation += 1
         generation = self._generation

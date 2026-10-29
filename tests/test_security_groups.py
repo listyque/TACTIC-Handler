@@ -144,12 +144,16 @@ class SecurityStoreTests(unittest.TestCase):
             self.save('G1', 'artists', 'Changed', [], ['alice'])
         self.assertEqual(self.tables, original)
 
-    def test_supervisor_can_manage_groups(self):
+    def test_group_name_cannot_grant_membership_management(self):
         self.server.get_login = lambda: 'bob'
         self.tables['sthpw/login_in_group'].append(
             dict(login='bob', login_group='supervisor'))
-        self.save('G1', 'artists', 'Updated', [], [])
-        self.assertEqual(self.tables['sthpw/login_group'][0]['description'], 'Updated')
+        original = deepcopy(self.tables)
+        with self.assertRaises(PermissionError):
+            security_store.query_security_groups()
+        with self.assertRaises(PermissionError):
+            security_store.save_security_group('G1', 'artists', 'Updated', [], [], 'revision')
+        self.assertEqual(self.tables, original)
 
     def test_catalog_never_returns_login_passwords(self):
         payload = json.loads(security_store.query_security_groups())

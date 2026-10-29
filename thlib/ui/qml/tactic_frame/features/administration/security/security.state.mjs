@@ -25,6 +25,31 @@ export function initial() {
 export function pending(ui) {
     return ui.text !== ui.baseline;
 }
+export function inheritanceChoices(model) {
+    const documents = model.groupDocuments || {},
+        groups = model.groups || [],
+        byName = new Map(groups.map((group) => [group.label, group.identity])),
+        selected = (model.groupDocument.subGroups || '').split('|');
+    function reaches(identity, visited) {
+        if (identity === model.group) return true;
+        if (visited.has(identity)) return false;
+        visited.add(identity);
+        return (documents[identity]?.subGroups || '')
+            .split('|')
+            .some((name) => {
+                const child = byName.get(name);
+                return child && reaches(child, visited);
+            });
+    }
+    return groups
+        .filter((group) => group.identity !== model.group)
+        .map((group) =>
+            Object.assign({}, group, {
+                checked: selected.includes(group.label),
+                cycle: reaches(group.identity, new Set())
+            })
+        );
+}
 export function source(model, ui) {
     return ui.page === 'inherited'
         ? model.inheritedSource || ''
@@ -187,6 +212,30 @@ export function transition(ui, model, event) {
             if (allow.editable && !pending(ui))
                 commands.push(Object.assign({}, event));
             break;
+        case 'inheritGroup': {
+            const choice = inheritanceChoices(model).find(
+                (group) => group.identity === event.identity
+            );
+            if (
+                allow.editable &&
+                !pending(ui) &&
+                choice &&
+                (choice.checked || !choice.cycle)
+            ) {
+                const names = (model.groupDocument.subGroups || '')
+                        .split('|')
+                        .filter(Boolean),
+                    value = choice.checked
+                        ? names.filter((name) => name !== choice.label)
+                        : [...names, choice.label];
+                commands.push({
+                    type: 'groupField',
+                    field: 'subGroups',
+                    value: value.join('|')
+                });
+            }
+            break;
+        }
         case 'text':
             if (allow.editable && ui.page !== 'inherited')
                 next.text = String(event.value);

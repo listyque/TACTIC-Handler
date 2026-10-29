@@ -10,10 +10,15 @@ import {
     tabs
 } from '../admin.document.mjs';
 import { translate } from '../../../core/strings.mjs';
-import { matrixScopes, pending } from './security.state.mjs';
+import {
+    inheritanceChoices,
+    matrixScopes,
+    pending
+} from './security.state.mjs';
 export { toolbar };
 
 export const scopes = [
+    ['defaults', 'Group inheritance'],
     ['project', 'Projects'],
     ['link', 'Sidebar links'],
     ['gear_menu', 'Menu actions'],
@@ -112,6 +117,7 @@ export function models(model, ui, language) {
                 )
         ),
         allRules: model.records,
+        inheritance: inheritanceChoices(model),
         targets: targets(model, editorScope)
             .map((target, index) =>
                 Object.assign(
@@ -345,7 +351,16 @@ export function describe(model, ui, width, height, language) {
                 )
             )
         );
-    } else if (ui.scope === 'technical')
+    } else if (ui.scope === 'defaults')
+        groupSettings(
+            nodes,
+            model,
+            ui,
+            rect(0, y, width, height - y),
+            language,
+            edit
+        );
+    else if (ui.scope === 'technical')
         technical(
             nodes,
             model,
@@ -709,13 +724,41 @@ function technical(nodes, model, ui, bounds, language, edit, navigate) {
             );
         return;
     }
-    const formWidth = Math.max(1, width - 16),
-        columns = width >= 800 ? 3 : 1,
+    groupSettings(
+        nodes,
+        model,
+        ui,
+        rect(0, top, width, remaining),
+        language,
+        edit
+    );
+}
+
+function groupSettings(nodes, model, ui, bounds, language, edit) {
+    const content = [],
+        inner = rect(12, 12, bounds.width - 24, bounds.height - 24);
+    nodes.push(
+        node('Box', 'adminSecurityGroupSettingsPanel', bounds, {
+            background: 'surfaceContainerLow',
+            border: 'outlineVariant',
+            radius: 8,
+            children: [
+                node('Box', 'adminSecurityGroupSettingsContent', inner, {
+                    children: content
+                })
+            ]
+        })
+    );
+    nodes = content;
+    bounds = rect(0, 0, inner.width, inner.height);
+    const tr = (text) => translate(text, language),
+        width = bounds.width,
+        formWidth = Math.max(1, width - 16),
+        columns = width >= 600 ? 2 : 1,
         fieldWidth = (formWidth - (columns - 1) * 12) / columns;
     const fields = [
             ['accessLevel', 'Access level'],
-            ['project', 'Project'],
-            ['subGroups', 'Subgroups']
+            ['project', 'Project']
         ],
         form = [];
     fields.forEach(([field, text], index) => {
@@ -730,19 +773,30 @@ function technical(nodes, model, ui, bounds, language, edit, navigate) {
         );
         form.push(
             node(
-                field === 'accessLevel' ? 'Choice' : 'Field',
+                'Choice',
                 'adminSecurityGroup_' + field,
                 rect(x, fy + 28, fieldWidth, 38),
                 {
                     text: model.groupDocument[field] || '',
                     value: model.groupDocument[field] || '',
                     label: tr(text),
-                    options: (model.metadata.accessLevels || []).map(
-                        (value) => ({
-                            value,
-                            label: value
-                        })
-                    ),
+                    options:
+                        field === 'project'
+                            ? [
+                                  { value: '', label: tr('All projects') },
+                                  ...(model.metadata.targets?.project || [])
+                                      .filter((target) => !target.all)
+                                      .map((target) => ({
+                                          value: target.attributes.code,
+                                          label: target.label
+                                      }))
+                              ]
+                            : (model.metadata.accessLevels || []).map(
+                                  (value) => ({
+                                      value,
+                                      label: value
+                                  })
+                              ),
                     enabled: edit,
                     action: {
                         type: 'groupField',
@@ -752,27 +806,76 @@ function technical(nodes, model, ui, bounds, language, edit, navigate) {
             )
         );
     });
-    const formHeight = Math.ceil(fields.length / columns) * 76;
+    const formHeight = Math.ceil(fields.length / columns) * 76,
+        helpHeight = width >= 900 ? 48 : width >= 600 ? 64 : 112;
+    form.push(
+        label(
+            'adminSecurityInheritanceHelp',
+            rect(0, formHeight + 4, formWidth, helpHeight),
+            tr(
+                'This group inherits permissions from the selected groups. For the same rule key, the highest access wins; a deny does not cancel another grant.'
+            ),
+            Object.assign({ wrap: true }, muted)
+        )
+    );
+    const known = new Set(model.groups.map((group) => group.label)),
+        other = (model.groupDocument.subGroups || '')
+            .split('|')
+            .filter((name) => name && !known.has(name));
+    let contentHeight = formHeight + helpHeight + 12;
+    if (other.length) {
+        form.push(
+            label(
+                'adminSecurityOtherInheritance',
+                rect(0, contentHeight, formWidth, 48),
+                tr('Other inherited groups: {groups}').replace(
+                    '{groups}',
+                    other.join(', ')
+                ),
+                { wrap: true }
+            )
+        );
+        contentHeight += 56;
+    }
+    const headerHeight = Math.min(contentHeight, bounds.height * 0.58);
     nodes.push(
         node(
             'Scroll',
             'adminSecurityDefaults',
-            rect(0, top, width, Math.min(formHeight, remaining * 0.55)),
+            rect(0, bounds.y, width, headerHeight),
             {
                 children: form,
-                contentHeight: formHeight,
+                contentHeight,
                 scrollbarId: 'adminSecurityDefaultsScrollBar'
             }
         )
     );
-    const listY = top + Math.min(formHeight, remaining * 0.55) + 8;
+    const listY = bounds.y + headerHeight + 8;
+    nodes.push(
+        label(
+            'adminSecurityInheritanceCaption',
+            rect(0, listY, width, 24),
+            tr(
+                ui.scope === 'technical'
+                    ? 'Access rules'
+                    : 'Inherit permissions from'
+            )
+        )
+    );
     nodes.push(
         list(
-            'adminSecurityAllRules',
-            rect(0, listY, width, Math.max(1, top + remaining - listY)),
-            'allRules',
-            62,
-            'ruleIndex'
+            ui.scope === 'technical'
+                ? 'adminSecurityAllRules'
+                : 'adminSecurityInheritanceList',
+            rect(
+                0,
+                listY + 32,
+                width,
+                Math.max(1, bounds.y + bounds.height - listY - 32)
+            ),
+            ui.scope === 'technical' ? 'allRules' : 'inheritance',
+            ui.scope === 'technical' ? 62 : 42,
+            ui.scope === 'technical' ? 'ruleIndex' : 'identity'
         )
     );
 }
@@ -784,6 +887,37 @@ export function row(listNode, record, model, ui, language) {
         edit = policy(model).editable && !pending(ui),
         navigate = !model.busy && !pending(ui),
         nodes = [];
+    if (listNode.source === 'inheritance')
+        return {
+            nodes: [
+                node(
+                    'CheckBox',
+                    'adminSecurityInheritance_' + record.identity,
+                    rect(0, 0, width, height),
+                    {
+                        text: record.label,
+                        description: record.cycle
+                            ? tr('This inheritance would create a cycle.')
+                            : tr('Inherit permissions from'),
+                        checked: record.checked,
+                        enabled: edit && (!record.cycle || record.checked),
+                        indicatorX: 8,
+                        action: {
+                            type: 'inheritGroup',
+                            identity: record.identity
+                        },
+                        children: [
+                            label(
+                                'adminSecurityInheritanceName_' +
+                                    record.identity,
+                                rect(40, 0, width - 48, height),
+                                record.label
+                            )
+                        ]
+                    }
+                )
+            ]
+        };
     if (listNode.source === 'targets')
         return {
             nodes: [

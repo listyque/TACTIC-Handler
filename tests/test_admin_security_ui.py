@@ -56,6 +56,22 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.assertFalse(self.editor.dirty)
         self.assertEqual(self.fixture.warnings, [])
 
+    def test_inheritance_uses_named_choices_and_updates_the_existing_draft(self):
+        self.click('adminSecurityTab_defaults')
+        self.click('adminSecurityInheritance_G1')
+        self.assertEqual(self.editor.groupDocument['subGroups'], 'Artists 1')
+        self.assertTrue(self.editor.dirty)
+        self.assertFalse(any(item.objectName() == 'adminSecurityGroup_subGroups'
+                             and item.isVisible() for item in self.items()))
+        # A group that already inherits this group must not become its parent.
+        self.editor.document['groups']['G2']['subGroups'] = 'Artists 0'
+        self.editor.stateChanged.emit()
+        frame(self.window)
+        self.assertFalse(self.item('adminSecurityInheritance_G2').isEnabled())
+        self.click('adminSecurityInheritance_G1')
+        self.assertEqual(self.editor.groupDocument['subGroups'], '')
+        self.assertEqual(self.fixture.warnings, [])
+
     def test_mouse_keyboard_and_touch_update_only_one_cell_without_rpc_or_reset(self):
         resets = QSignalSpy(self.editor.matrix.modelReset)
         with patch('thlib.tactic_classes.execute_procedure_serverside') as rpc:
@@ -116,6 +132,8 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.click('adminDiscardDocument')
         self.click('adminConfirmSave')
         self.click('adminSecurityTab_technical')
+        self.item('adminSecurityAllRules').setProperty('contentY', 124)
+        frame(self.window)
         self.click('adminAccessRule_5')
         self.assertEqual(json.loads(self.item('adminSecuritySource').property('text'))['extra'], 'keep')
         self.editor.apply_rule(self.editor.ruleText.replace('"keep"', '"updated"'))

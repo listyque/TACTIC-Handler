@@ -90,12 +90,16 @@ class AdminUserApiTests(groups_fixture.SecurityStoreTests):
                 tq.create_user_profile('new', require_admin=True)
         self.assertEqual(self.tables, original)
 
-    def test_supervisor_can_read_admin_directory(self):
+    def test_group_name_cannot_grant_privileged_directory_access(self):
         self.server.get_login = lambda: 'alice'
         self.tables['sthpw/login_in_group'].append(
             dict(login='alice', login_group='supervisor'))
-        result = json.loads(query_admin_users())
-        self.assertIn('retired_artist', [row['identity'] for row in result['catalog']])
+        with self.assertRaises(PermissionError):
+            query_admin_users()
+        with self.assertRaises(PermissionError):
+            tq.mutate_user_profile('bob', {'first_name': 'Changed'})
+        with self.assertRaises(PermissionError):
+            tq.create_user_profile('new')
 
     def test_directory_carries_available_groups_not_only_selected_memberships(self):
         self.tables['sthpw/login_group'].append(dict(
