@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.254 - 2026-10-29
+
+- Verify that the native Name-column resize materializes a missing schema column while retaining existing options and column order. Document matching first-resize and retry behavior alongside the Stream fix.
+
 ## 0.6.0.253 - 2026-10-29
 
 - Document that existing table column widths persist without adding Undo or activity-history entries on TACTIC Stream. Creating views and changing other definition settings remain audited; the server owns this rule for both clients.

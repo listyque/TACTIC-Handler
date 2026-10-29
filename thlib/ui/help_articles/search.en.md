@@ -14,6 +14,8 @@ type. Other panels can be opened from the workspace panel menu when needed.
 
 When connected to TACTIC Stream, resizing columns in an existing table definition remembers the sizes without adding Undo or activity-history entries. Creating a view or changing columns, titles or widgets remains in the history.
 
+You can resize a table generated from object fields immediately. The first change remembers its displayed columns and their order; the width remains after reopening the table.
+
 ## How a query is assembled
 
 A query can be built in layers. Every layer eventually appears as a condition in **Advanced
