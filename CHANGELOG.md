@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.270 - 2026-10-30
+
+- Compact Access rules navigation with 30 px rows, smaller group gaps and centered icons while retaining the text size and scrolling.
+- Align Administration content and headers with consistent 12 px outer padding in both clients.
+
 ## 0.6.0.269 - 2026-10-30
 
 - Center collapsed administration navigation on the full rail when sections fit; reserve scrollbar space only when scrolling is needed.

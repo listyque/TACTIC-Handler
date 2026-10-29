@@ -67,6 +67,11 @@ class AdminSecurityUiTests(unittest.TestCase):
         frame(self.window)
         self.assertTrue(self.item('adminSecurityNavigation').isVisible())
         self.assertTrue(self.item('adminSecurityTabIcon_project').isVisible())
+        self.assertEqual(self.item('adminSecurityTab_project').height(), 30)
+        self.assertEqual(self.item('adminSecurityTabIcon_project').width(), 18)
+        self.assertEqual(self.item('adminSecurityTabTitle_project').height(), 30)
+        self.assertEqual(self.item('adminSecurityTab_builtin').mapToScene(QPointF()).y() -
+                         self.item('adminSecurityTab_project').mapToScene(QPointF()).y(), 32)
         self.assertTrue(self.item('adminSecurityContextDescription').property('text'))
         self.assertEqual(self.item('adminSecurityAccess_0_0').property('text'), 'Allowed')
         self.assertEqual(self.item('adminSecurityCell_0_0').property('background').property('cornerRadius'), 0)

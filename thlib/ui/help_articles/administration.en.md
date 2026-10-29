@@ -646,3 +646,5 @@ Administration project selection opens a compact searchable list. Search by proj
 
 
 Collapsed Administration navigation uses centered square section buttons. When all sections fit, no scrollbar gutter is reserved. Short windows retain the scrollbar and its own gutter. Only the current section is highlighted; hover/focus shows the section title. Expanding restores the full labels.
+
+Administration uses consistent 12 px content margins. Access rules categories use compact 30 px navigation rows with unchanged text size and a separate scrollbar when needed.

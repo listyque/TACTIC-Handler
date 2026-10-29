@@ -278,7 +278,7 @@ export function describe(model, ui, width, height, language) {
         nodes = notice.nodes,
         rail = width >= 900,
         railWidth = rail ? (language === 'ru' ? 232 : 212) : 0,
-        offset = rail ? railWidth + 12 : 0,
+        offset = rail ? railWidth + 8 : 0,
         contentWidth = width - offset,
         details = scopeDetails[ui.scope] || scopeDetails.project,
         selected = scopes.find((entry) => entry[0] === ui.scope) || scopes[1];
@@ -314,17 +314,17 @@ export function describe(model, ui, width, height, language) {
                 ],
                 ['Advanced', ['technical']]
             ];
-        let y = 8;
+        let y = 4;
         groups.forEach(([caption, values]) => {
             entries.push(
                 label(
                     'adminSecurityCategory_' + values[0],
-                    rect(12, y, railWidth - 40, 24),
+                    rect(8, y, railWidth - 32, 20),
                     tr(caption),
                     muted
                 )
             );
-            y += 28;
+            y += 22;
             values.forEach((value) => {
                 const entry = scopes.find((item) => item[0] === value),
                     current = scopes.findIndex((item) => item[0] === ui.scope),
@@ -338,7 +338,7 @@ export function describe(model, ui, width, height, language) {
                     node(
                         'Action',
                         'adminSecurityTab_' + value,
-                        rect(8, y, railWidth - 32, 38),
+                        rect(4, y, railWidth - 24, 30),
                         {
                             text: tr(entry[1]),
                             description: tr(scopeDetails[value][1]),
@@ -359,7 +359,7 @@ export function describe(model, ui, width, height, language) {
                                 node(
                                     'Icon',
                                     'adminSecurityTabIcon_' + value,
-                                    rect(12, 9, 20, 20),
+                                    rect(8, 6, 18, 18),
                                     {
                                         icon: scopeDetails[value][0],
                                         color:
@@ -370,7 +370,7 @@ export function describe(model, ui, width, height, language) {
                                 ),
                                 label(
                                     'adminSecurityTabTitle_' + value,
-                                    rect(42, 0, railWidth - 86, 38),
+                                    rect(34, 0, railWidth - 66, 30),
                                     tr(entry[1]),
                                     { fontRole: 'secondary' }
                                 )
@@ -378,9 +378,9 @@ export function describe(model, ui, width, height, language) {
                         }
                     )
                 );
-                y += 40;
+                y += 32;
             });
-            y += 8;
+            y += 6;
         });
         nodes.push(
             node(

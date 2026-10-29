@@ -92,7 +92,7 @@ export function geometry(width, height, collapsed) {
     const mobile = width < 1000,
         nav = mobile ? 0 : collapsed ? 56 : 250,
         body = width - nav,
-        pad = mobile ? 12 : 20;
+        pad = 12;
     const header = mobile ? 166 : Header.desktopHeight,
         toolbar = Math.max(0, Math.min(body - (mobile ? 24 : 434), 620));
     return {
@@ -270,7 +270,7 @@ export function describe(model, ui, width, height, language) {
         label(
             'administrationSectionTitle',
             rect(
-                linked ? 66 : 20,
+                linked ? 58 : 12,
                 11,
                 g.mobile
                     ? g.body - (width > 700 ? 200 : 120) - (linked ? 46 : 0)
@@ -285,7 +285,7 @@ export function describe(model, ui, width, height, language) {
         ),
         label(
             'administrationSectionDescription',
-            rect(20, 46, g.mobile ? g.body - 40 : Math.max(0, g.body - 40), 22),
+            rect(12, 46, Math.max(0, g.body - 24), 22),
             ui.error && model.locked ? ui.error : current.description,
             {
                 fontRole: 'secondary',
@@ -295,7 +295,7 @@ export function describe(model, ui, width, height, language) {
     ];
     if (linked)
         head.push(
-            node('Button', 'adminReturnToLayout', rect(20, 11, 38, 38), {
+            node('Button', 'adminReturnToLayout', rect(12, 11, 38, 38), {
                 text:
                     tr(
                         model.layoutParent.kind === 'item'
