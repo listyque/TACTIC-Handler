@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.241 - 2026-10-29
+
+- Keep Refresh visible beside the search field in narrow docks and reserve its space before the field. Preserve collapsed phone search behavior and verify resizing, mouse and keyboard activation with the normal refresh command.
+
 ## 0.6.0.240 - 2026-10-29
 
 - Avoid blocking Windows OpenGL resize synchronization on VSync, preserving the existing renderer and explicit environment overrides. Reuse notified item-layout document snapshots during resizing instead of repeatedly copying the XML tree. Add native read-budget and rendering-policy regressions.

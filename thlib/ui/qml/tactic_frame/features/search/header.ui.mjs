@@ -58,7 +58,7 @@ export function describe(model, width, language) {
     );
     if (!compact && model.shelf !== false) right -= 3;
     const refreshLeft = model.reserveGrip === false ? 8 : 38;
-    const left = compact ? 8 : refreshLeft + 42;
+    const left = refreshLeft + 42;
     nodes.push(
         node('View', 'searchHeaderField', rect(left, 5, right - left - 8, 38), {
             view: 'field',
@@ -73,7 +73,10 @@ export function describe(model, width, language) {
             'refresh',
             { type: 'refresh' },
             !model.busy,
-            { iconOnly: true, visible: !compact }
+            {
+                iconOnly: true,
+                visible: !compact || !model.collapseSearch || !!model.searchOpen
+            }
         )
     );
     return { nodes };

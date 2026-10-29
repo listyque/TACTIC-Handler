@@ -45,8 +45,8 @@ Advanced Search.
 | **Help** | Opens this topic. |
 | **Workspace panels** | Opens the panel menu for the current workspace. |
 
-In a narrow dock, Search keeps its width. **More search actions** holds Refresh, Script shelf,
-Tags, Help, and Workspace panels; Quick filters stay beside the field.
+In a narrow dock, **Refresh** stays visible to the left of Search; Quick filters stay beside
+the field. **More search actions** also provides Refresh, Script shelf, Tags, Help, and Workspace panels.
 
 ### Text search and suggestions
 

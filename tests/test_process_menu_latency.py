@@ -531,19 +531,42 @@ class ProcessMenuLatencyTests(unittest.TestCase):
                 field = visual_control(view, "searchField")
                 refresh_position = refresh.mapToItem(view, QPointF())
                 field_position = field.mapToItem(view, QPointF())
-                if refresh.isVisible():
-                    self.assertGreaterEqual(refresh_position.x(), 38)
-                    self.assertLessEqual(refresh_position.x() + refresh.width(), field_position.x())
+                self.assertTrue(refresh.isVisible())
+                self.assertGreaterEqual(refresh_position.x(), 38)
+                self.assertLessEqual(refresh_position.x() + refresh.width(), field_position.x())
                 if width < 720:
-                    self.assertFalse(refresh.isVisible())
                     self.assertGreaterEqual(field.width(), 230)
-                else:
-                    self.assertTrue(refresh.isVisible())
-                    self.assertAlmostEqual(
-                        refresh_position.y() + refresh.height() / 2,
-                        field_position.y() + field.height() / 2,
-                        delta=1,
+                self.assertAlmostEqual(
+                    refresh_position.y() + refresh.height() / 2,
+                    field_position.y() + field.height() / 2,
+                    delta=1,
+                )
+
+    def test_refresh_stays_visible_and_calls_the_current_query_after_resize(self):
+        with self.scene(width=900, animated=False) as (window, view):
+            with patch.object(self.controller, '_capture_current_tree_state'), patch.object(
+                self.controller, '_load_tab'
+            ) as load:
+                for width in (430, 719, 720, 900, 430):
+                    frame(window, lambda: (window.resize(width, 650), view.setWidth(width)))
+                    refresh = visual_control(view, 'searchRefreshButton')
+                    field = visual_control(view, 'searchField')
+                    self.assertTrue(refresh.isVisible(), width)
+                    right = refresh.mapToScene(QPointF(refresh.width(), 0)).x()
+                    self.assertLessEqual(right, field.mapToScene(QPointF()).x())
+                    point = refresh.mapToScene(QPointF(
+                        refresh.width() / 2, refresh.height() / 2
+                    )).toPoint()
+                    QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, point)
+                    load.assert_called_once_with(
+                        self.controller._current_tab(), append=False, bypass_cache=True
                     )
+                    load.reset_mock()
+                refresh.forceActiveFocus()
+                QTest.keyClick(window, Qt.Key_Space)
+                load.assert_called_once_with(
+                    self.controller._current_tab(), append=False, bypass_cache=True
+                )
 
     def test_narrow_search_overflow_and_tabs_keep_room_for_titles(self):
         self.enterContext(patch.object(self.controller, "_sync_search_tabs"))
