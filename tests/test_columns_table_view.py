@@ -816,7 +816,7 @@ class ColumnsTableViewTests(unittest.TestCase):
                 frame(window)
                 image = window.grabWindow()
                 self.assertFalse(image.isNull())
-                scale = image.devicePixelRatio()
+                scale = image.width() / window.width()
                 inside = image.copy(int(20 * scale), int(20 * scale), int(120 * scale), int(60 * scale))
                 self.assertTrue(any(inside.pixelColor(x, y) != background
                                     for x in range(inside.width()) for y in range(inside.height())))
@@ -2715,7 +2715,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(header_surface.property("radius"), 0)
             self.assertEqual(rows.x(), 0)
             self.assertEqual(rows.y(), 0)
-            self.assertEqual(header_surface.property("color"), theme.property("surfaceContainer"))
+            self.assertEqual(header_surface.property("color"), theme.property("tableHeader"))
             for item in _visual_items(table):
                 if item.objectName() in {"tableSelectionSurface", "tableActionSurface"}:
                     self.assertEqual(QQmlProperty(item, "border.width").read(), 0)

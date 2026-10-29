@@ -62,6 +62,7 @@ class ColumnsEditorController(QObject):
         self._catalog_saving = False
         self._catalog_loading_project = ""
         self._cells = {}
+        self._cell_context = None
         self._task_drafts = {}
         self._cell_revision = 0
         self._table_widgets = {}
@@ -1078,6 +1079,7 @@ class ColumnsEditorController(QObject):
 
     @Slot(object)
     def _loaded(self, result):
+        requested_context = self._loading_context
         self._loading_context = None
         stype, payload = result
         current = self._current_stype()
@@ -1101,6 +1103,16 @@ class ColumnsEditorController(QObject):
             self._error = str(error)
             self.stateChanged.emit()
             return
+        context = (str(self._application._current_project_code or ""),
+                   str(stype.get_code() or ""), loaded_view)
+        if requested_context is not None and requested_context != context:
+            self._reload_pending = True
+            return
+        retained = (
+            self._cells
+            if context == self._cell_context and records == self._source_records
+            else {}
+        )
         self._stype_code = str(stype.get_code() or "")
         self._view = loaded_view
         self._table_views = [
@@ -1126,7 +1138,14 @@ class ColumnsEditorController(QObject):
         self._data_types = {
             record["name"]: record["dataType"] for record in records
         }
-        self._cells = self._map_rows(payload)
+        # Keep ready cells visible while the refreshed row request is in flight.
+        current_keys = set(self._current_search_keys())
+        self._cells = {key: cells for key, cells in retained.items() if key in current_keys}
+        self._changed_row_keys.update(self._cells)
+        mapped = self._map_rows(payload)
+        self._cells.update(mapped)
+        self._changed_row_keys.difference_update(mapped)
+        self._cell_context = context
         self._cell_revision += 1
         self.cellRevisionChanged.emit()
         self._source_records = [dict(record) for record in records]
@@ -1816,6 +1835,7 @@ class ColumnsEditorController(QObject):
             self._sync_table_rows()
 
     def _clear(self, error=""):
+        self._cell_context = None
         self._loading_context = None
         self._changed_row_keys.clear()
         self._row_request_id += 1

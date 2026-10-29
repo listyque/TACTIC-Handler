@@ -168,8 +168,43 @@ class NestedTableTests(unittest.TestCase):
         window, view = self.create('features/table/NestedTableView.qml', dict(controller=_TableController(),
             columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
             width=320, height=320)
-        self.assertEqual(self.item(view, 'nestedRows').height(), 197)
+        self.assertEqual(self.item(view, 'nestedRows').height(), 181)
         self.assertIsNotNone(self.item(view, 'nestedHorizontalBar'))
+
+    def test_expanded_content_has_symmetric_breathing_room(self):
+        import json
+        import os
+        from pathlib import Path
+        from PySide6.QtCore import QPointF
+        from thlib.ui.icon_font import qml_icon_bindings
+        captures = []
+        for width in (320, 1000):
+            scope = Scope()
+            scope.state['columns'] = [dict(name='code', title='Code', width=160, cell=dict(kind='text')),
+                dict(name='expand', title='Details', width=100, cell=dict(kind='commands'))]
+            scope.state['rows'] = [dict(key='demo/asset?code=A', nodeId='A', record=dict(code='A'), cells=dict(
+                code=dict(text='A'), expand=dict(actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])))]
+            window, view = self.create('features/table/NestedTableView.qml', dict(controller=_TableController(),
+                columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
+                width=width, height=320, context=qml_icon_bindings(Path(__file__).resolve().parents[1], self.app))
+            window.setColor(view.property('theme').property('workspace'))
+            frames.frame(window)
+            bounds = {}
+            for name in ('nestedFilter', 'nestedReload', 'nestedClose', 'nestedHorizontal', 'nestedFooterSurface'):
+                item = self.item(view, name)
+                position = item.mapToItem(view, QPointF())
+                self.assertGreaterEqual(position.x(), 8, name)
+                self.assertGreaterEqual(position.y(), 8, name)
+                self.assertLessEqual(position.x() + item.width(), width - 8, name)
+                self.assertLessEqual(position.y() + item.height(), 312, name)
+                bounds[name] = dict(x=position.x(), y=position.y(), width=item.width(), height=item.height())
+            captures.append(dict(width=width, bounds=bounds))
+            if os.environ.get('TABLE_NESTED_OUTPUT'):
+                output = Path(os.environ['TABLE_NESTED_OUTPUT'])
+                output.mkdir(parents=True, exist_ok=True)
+                window.grabWindow().save(str(output/f'native-{width}.png'))
+        if os.environ.get('TABLE_NESTED_OUTPUT'):
+            (output/'native.json').write_text(json.dumps(captures), encoding='utf-8')
 
     def test_disclosure_responds_to_first_click_and_uses_its_loading_icon(self):
         from unittest.mock import patch
@@ -195,6 +230,20 @@ class NestedTableTests(unittest.TestCase):
             self.assertIsNone(owner.nested_row('A',owner.nestedRevision))
             owner.shutdown()
             self.app.processEvents()
+
+    def test_disclosure_survives_repeated_cell_updates(self):
+        import shiboken6
+        cell = dict(text='', actions=[dict(name='nested-table', label='History', icon='chevron-right')])
+        window, view = self.create('features/table/ServiceCell.qml', dict(controller=_TableController(),
+            nodeId='A', services=None, administration=None, cell=cell), width=100, height=58)
+        button = self.item(view, 'tableServiceAction_0')
+        button.forceActiveFocus()
+        for index in range(10):
+            view.setProperty('cell', dict(cell, revision=index))
+            frames.frame(window)
+            self.assertTrue(shiboken6.isValid(button), 'A data refresh recreated the disclosure button')
+            self.assertIs(self.item(view, 'tableServiceAction_0'), button)
+            self.assertTrue(button.hasActiveFocus())
 
     def test_script_context_uses_the_nested_selection_and_view(self):
         from unittest.mock import patch, Mock

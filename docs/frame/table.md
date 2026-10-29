@@ -191,3 +191,12 @@ Its CSS variable is `--table-header-surface`, separate from TableView's local
 `--table-header` alias. `table/host.ui.mjs::paint` owns header/background text
 roles for main and nested tables. Grouped labels and their indicator retain the
 header foreground; grouping stays explicit without sacrificing text contrast.
+
+Expanded nested tables use `host.ui.mjs::metrics.margin` as a symmetric
+content inset in `nested.ui.mjs::describe`; toolbar, scroll viewport and footer
+share the same reduced bounds in both engines. Row/column heights stay unchanged.
+Handler retains current-key cells while reloading the same project/type/view and
+column definitions. Retained keys still request fresh data; fresh/stale request
+generations remain enforced. A changed context/definition clears retained cells.
+Tests: `test_table_refresh_presentation`, `test_table_nested` and browser
+`frontend/tests/table_nested.mjs` (real actions and paired narrow/wide bounds).

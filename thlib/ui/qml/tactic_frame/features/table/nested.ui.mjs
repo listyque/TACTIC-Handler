@@ -66,6 +66,21 @@ export function columns(model) {
 }
 
 export function describe(model, width, extent, language) {
+    const margin = metrics.margin;
+    const scene = content(
+        model,
+        Math.max(0, width - margin * 2),
+        Math.max(0, extent - margin * 2),
+        language
+    );
+    for (const item of scene.nodes) {
+        item.x += margin;
+        item.y += margin;
+    }
+    return scene;
+}
+
+function content(model, width, extent, language) {
     const t = (value) => translate(value, language);
     const toolOffset = model.embedded ? 36 : 0;
     const quick = quickLayout(model, width),

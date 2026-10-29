@@ -412,3 +412,5 @@ Table column headers use a separate neutral theme surface and strong text,
 so they remain distinct from the search tabs, data rows and group bands.
 Grouped columns retain their group indicator with the same readable foreground.
 The main table and its expanded nested tables share the header colors.
+
+Expanded related tables, including History, leave an equal inset around the search tools, table and footer. Handler keeps ready cells visible during a refresh of the same table definition, replacing them when the new rows arrive. Switching project, view or definition clears the previous presentation.
