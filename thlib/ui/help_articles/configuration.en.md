@@ -50,3 +50,5 @@ Configuration now uses the same Tactic Frame navigation and explained settings r
 On narrow repository editors, Reset and Sync use icon buttons with full tooltips; Save remains labelled. Project Save and template installation keep their complete captions in English and Russian.
 
 The Projects page separates the catalogue and project actions into bordered surfaces. Filters stay in the catalogue header, the project count stays in its footer, and only the list scrolls. On narrow windows the actions appear above the catalogue.
+
+AI providers opens the connection editor directly inside Configuration. Select or create a connection, edit its settings and use its own Save or Check connection actions. Switching configuration pages preserves the connection draft; hidden editors stop connection polling. Account changes clear the draft. The agent chat can still open the same editor as a separate window.

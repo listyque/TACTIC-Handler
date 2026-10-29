@@ -14,26 +14,22 @@ Item {
 
     Loader {
         anchors.fill: parent
-        sourceComponent: page.pageId === "ai" ? agentProvidersForm
-            : page.pageId === "server" ? serverForm
-            : page.pageId === "repository" ? repositoryForm
-            : page.pageId === "project" ? projectForm
-            : page.pageId === "checkin_preferences" ? checkinOptionsPageForm
-            : page.pageId === "global_preferences" ? globalPreferencesForm
-            : page.pageId === "appearance" ? appearanceForm
-            : page.pageId === "cache" ? cacheForm
-            : page.pageId === "tasks_preferences" ? taskPreferencesForm
-            : Object.keys(page.dccSchema).length ? dccPreferencesForm
-            : null
+        sourceComponent: page.pageId === "ai" ? agentProvidersForm : page.pageId === "server" ? serverForm : page.pageId === "repository" ? repositoryForm : page.pageId === "project" ? projectForm : page.pageId === "checkin_preferences" ? checkinOptionsPageForm : page.pageId === "global_preferences" ? globalPreferencesForm : page.pageId === "appearance" ? appearanceForm : page.pageId === "cache" ? cacheForm : page.pageId === "tasks_preferences" ? taskPreferencesForm : Object.keys(page.dccSchema).length ? dccPreferencesForm : null
     }
 
     Component {
         id: agentProvidersForm
-        Configuration.SettingsPage { theme: page.theme; pageId: "ai"; managed: page.managed }
+        Configuration.AgentProvidersView {
+            theme: page.theme
+            embedded: true
+        }
     }
     Component {
         id: checkinOptionsPageForm
-        CheckinOptionsPage { theme: page.theme; managed: page.managed }
+        CheckinOptionsPage {
+            theme: page.theme
+            managed: page.managed
+        }
     }
 
     Component {
@@ -45,7 +41,9 @@ Item {
     }
     Component {
         id: repositoryForm
-        ConfigurationRepositoryPage { theme: page.theme }
+        ConfigurationRepositoryPage {
+            theme: page.theme
+        }
     }
     Component {
         id: projectForm

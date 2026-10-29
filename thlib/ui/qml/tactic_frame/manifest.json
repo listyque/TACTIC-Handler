@@ -86,7 +86,7 @@
     "features/administration/workflow/process_rules.state.mjs": "47edb398eff284558f80f5a23145e1b388f7db7a23fb84816d49eff9b9b79c23",
     "features/administration/workflow/process_rules.ui.mjs": "17c0d18afefc1954725c1d17c89684e4ccecfd5093a5d3c1764a394cd7321ddb",
     "features/administration/workflow/workflow.fields.mjs": "222da521eeba55ef77b59a9f1c4113b85a8ab93ce376b3e45a27ea0156c8220d",
-    "features/configuration/configuration.ui.mjs": "7625e1bffb9d49513a7f2d4a1f687624e92c75e2395fc7a1e81fb5efc2daad03",
+    "features/configuration/configuration.ui.mjs": "6507651c40464318265282da085bfea162b3ffcdeef7ae76a12efeed72420b82",
     "features/configuration/mcp.ui.mjs": "0fbc3a480f916b0c9726a9fe901038922c34c327c6d8c658167b653ba14b4371",
     "features/configuration/providers.ui.mjs": "fa6153b74428320ccc2e39866893c36882959c7bdabbf92e4250c737068aa69c",
     "features/configuration/repository.ui.mjs": "7bcb7ddd303329f6dff79d3e110b95e7ced10099686199f569fe26d629ece90d",

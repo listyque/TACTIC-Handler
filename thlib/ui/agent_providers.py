@@ -15,6 +15,7 @@ class AgentProvidersController(QObject):
         self.application, self.pool = application, pool
         self._generation, self._server, self._project, self._worker = 0, None, '', None
         self._model = self.initial()
+        self._embedded_active = False
         self._timer = QTimer(self)
         self._timer.setInterval(2000)
         self._timer.timeout.connect(self._poll)
@@ -43,12 +44,18 @@ class AgentProvidersController(QObject):
 
     @Slot()
     def open(self):
+        if self.activate():
+            self.application.window_model.show_window('agent_providers')
+
+    def activate(self):
         if not self.application.can_administer:
-            return
+            self._model['error'] = 'Administrator access required'
+            self.changed.emit()
+            return False
         project = self.application.current_project_code
         if not project:
             self.application.notification_changed.emit('Select a project before configuring the agent')
-            return
+            return False
         if not self._server:
             from thlib import tactic_classes as tc
             try:
@@ -56,14 +63,24 @@ class AgentProvidersController(QObject):
                 self._project = project
             except PermissionError as error:
                 self._model['error'] = str(error)
-        self.application.window_model.show_window('agent_providers')
-        if not self.dirty() or not self._model['revision']:
+                self.changed.emit()
+        if not self._model['busy'] and (not self.dirty() or not self._model['revision']):
             self.request('state')
+        return True
+
+    @Slot(bool)
+    def set_embedded_active(self, active):
+        self._embedded_active = active
+        if active:
+            self.activate()
+        elif not self.application.window_model.is_window_visible('agent_providers'):
+            self._timer.stop()
 
     @Slot()
     def reset(self):
         self._generation += 1
         self._timer.stop()
+        self._embedded_active = False
         self._server, self._project = None, ''
         self._model = self.initial()
         self.application.window_model.close_window('agent_providers')
@@ -71,7 +88,7 @@ class AgentProvidersController(QObject):
 
     @Slot(str, bool)
     def visibility(self, code, visible):
-        if code=='agent_providers' and not visible:
+        if code=='agent_providers' and not visible and not self._embedded_active:
             self._timer.stop()
 
     @Slot('QVariantMap')
@@ -142,7 +159,7 @@ class AgentProvidersController(QObject):
             self.select(selected if any(row['id']==selected for row in info['profiles']) else info['default'])
             if result['action']=='check':
                 self._model['notice']='Waiting for the external host'
-            if self.application.window_model.is_window_visible('agent_providers') and any(row['status']=='waiting' for row in info['profiles']):
+            if (self._embedded_active or self.application.window_model.is_window_visible('agent_providers')) and any(row['status']=='waiting' for row in info['profiles']):
                 self._timer.start()
         self.changed.emit()
 

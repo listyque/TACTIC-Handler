@@ -236,13 +236,17 @@ export function describe(model, width, height, language) {
                 }
             )
         );
-    const actions = model.actions || [
-        ['Reset', 'undo', 'reset', model.canReset && model.currentDirty],
-        ['Apply', 'check', 'apply', model.currentDirty],
-        ['Save', 'save', 'save', model.dirty],
-        ['Configuration help', 'help', 'help', true],
-        ['Close', 'close', 'close', true]
-    ];
+    const actions = (
+        model.actions || [
+            ['Reset', 'undo', 'reset', model.canReset && model.currentDirty],
+            ['Apply', 'check', 'apply', model.currentDirty],
+            ['Save', 'save', 'save', model.dirty],
+            ['Configuration help', 'help', 'help', true],
+            ['Close', 'close', 'close', true]
+        ]
+    ).filter(
+        (action) => current.id !== 'ai' || ['help', 'close'].includes(action[2])
+    );
     let actionX = width - 14;
     const actionNodes = [];
     for (let index = actions.length - 1; index >= 0; index--) {

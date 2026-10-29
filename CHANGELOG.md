@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.272 - 2026-10-30
+
+- Embed the existing AI connection editor directly in Configuration; remove the intermediate launch button and unrelated header save actions on that page.
+- Preserve provider drafts while navigating, stop hidden polling and retain the standalone editor from the agent chat, including credential and revision checks.
+
 ## 0.6.0.271 - 2026-10-30
 
 - Give Configuration projects a bounded catalogue surface with filter header and count footer, alongside a separate project action surface.
