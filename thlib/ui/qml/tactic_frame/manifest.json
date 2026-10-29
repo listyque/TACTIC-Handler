@@ -157,7 +157,7 @@
     "features/objects/snapshot.ui.mjs": "d754547b99e10e38a1a67dbeb94209a12c4d7728c539063977d79f7dd0569e7e",
     "features/objects/snapshot_tree.ui.mjs": "375fda91134306b8be2c50c0a24da7dac03874d53294db4e9af178db8eb52449",
     "features/objects/watch.ui.mjs": "29f3fa6ebc4dcb7ab2df52489f51c8b739b971abd84222127662548a12e44aa8",
-    "features/projects/catalog.ui.mjs": "fde00726cb010093fcbed49d1b56eb3c62ed87a4c30222aa19d12a8d0d2bb24e",
+    "features/projects/catalog.ui.mjs": "ae8e136e7f26febaa5f1cf76b8d09355585f3698b076ff7e33a7fb93352d180e",
     "features/projects/editor.ui.mjs": "ba935826e023a411937719956783e9ca6cadb1ade7b79c52f1cc7a218e4ff666",
     "features/projects/project.ui.mjs": "4cd5bf68fc773ccbe71cd76f69586d9ccc12e27c3b0093ce1c42cedb4a5ccf3f",
     "features/projects/templates.ui.mjs": "23b7cd6b2c65f65531e91ea24caba875aef3cd11e54fbe03174887e5659cad71",

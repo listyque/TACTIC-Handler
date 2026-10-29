@@ -330,6 +330,19 @@ class ConfigurationLayoutTests(unittest.TestCase):
         self.click(surface, "configurationProjectAction_edit")
         self.assertEqual(surface.evaluate("selected.code"), "cg")
         self.assertGreater(surface.item("configurationProjects").width(), 300)
+        for width in (360, 1100):
+            surface.window.setWidth(width)
+            surface.view.setWidth(width)
+            surface.settle()
+            panel = surface.item("configurationProjectsPanel")
+            listing = surface.item("configurationProjects")
+            details = surface.item("configurationProjectDetailsPanel")
+            self.assertEqual(listing.mapToScene(QPointF()).x() -
+                             panel.mapToScene(QPointF()).x(), 12)
+            self.assertEqual(panel.width() - listing.width(), 24)
+            self.assertGreaterEqual(panel.height(), listing.height() + 48)
+            self.assertTrue(details.isVisible())
+            self.assertTrue(surface.item("configurationProjectsFooterDivider").isVisible())
 
     def test_missing_repository_opens_one_modal_setup_prompt(self):
         engine = QQmlEngine()

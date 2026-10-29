@@ -48,3 +48,5 @@ separately from user-facing preferences.
 Configuration now uses the same Tactic Frame navigation and explained settings rows in Handler and Stream. Long pages reserve space for a visible scrollbar; on phones the page selector replaces the sidebar. The current page keeps its own draft. Native preset saves preserve drafts on other pages. Local/DCC/tray/GPU options belong to Handler; browser XML, web paths and browser preferences remain Stream capabilities. No embedded browser is used by Handler.
 
 On narrow repository editors, Reset and Sync use icon buttons with full tooltips; Save remains labelled. Project Save and template installation keep their complete captions in English and Russian.
+
+The Projects page separates the catalogue and project actions into bordered surfaces. Filters stay in the catalogue header, the project count stays in its footer, and only the list scrolls. On narrow windows the actions appear above the catalogue.

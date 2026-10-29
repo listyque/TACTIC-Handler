@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.271 - 2026-10-30
+
+- Give Configuration projects a bounded catalogue surface with filter header and count footer, alongside a separate project action surface.
+- Keep both panels aligned with 12 px padding and stack them on narrow windows without changing project operations.
+
 ## 0.6.0.270 - 2026-10-30
 
 - Compact Access rules navigation with 30 px rows, smaller group gaps and centered icons while retaining the text size and scrolling.

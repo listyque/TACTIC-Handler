@@ -63,21 +63,63 @@ export function row(model, record, width, language) {
 export function describe(model, width, height, language) {
     const text = (key) => translate(key, language),
         compact = width < 900,
-        margin = 20;
+        margin = 12;
     const selected = model.selected || {},
-        actionsWidth = compact ? width - margin * 2 : 280;
+        actionsWidth = compact ? width - margin * 2 - 24 : 280;
     const catalogWidth = compact
-        ? width - margin * 2
-        : width - actionsWidth - margin * 2 - 14;
+        ? width - margin * 2 - 24
+        : width - actionsWidth - margin * 2 - 14 - 48;
+    const catalogX = margin + 12,
+        catalogTop = compact ? 148 : margin,
+        bottom = height - margin - (model.error ? 54 : 0),
+        actionsX = compact ? margin + 12 : width - actionsWidth - margin - 12,
+        actionsY = margin + 12;
     const nodes = [
+        node(
+            'Box',
+            'configurationProjectsPanel',
+            rect(margin, catalogTop, catalogWidth + 24, bottom - catalogTop),
+            {
+                background: 'surfaceContainerLow',
+                border: 'outlineVariant',
+                radius: 8
+            }
+        ),
+        node(
+            'Box',
+            'configurationProjectDetailsPanel',
+            rect(
+                actionsX - 12,
+                margin,
+                actionsWidth + 24,
+                compact ? 124 : bottom - margin
+            ),
+            {
+                background: 'surfaceContainerLow',
+                border: 'outlineVariant',
+                radius: 8
+            }
+        ),
+        node(
+            'Box',
+            'configurationProjectsHeaderDivider',
+            rect(catalogX, catalogTop + 80, catalogWidth, 1),
+            { background: 'outlineVariant' }
+        ),
+        node(
+            'Box',
+            'configurationProjectsFooterDivider',
+            rect(catalogX, bottom - 40, catalogWidth, 1),
+            { background: 'outlineVariant' }
+        ),
         label(
             'configurationProjectsTitle',
-            rect(margin, 14, width - margin * 2, 24),
+            rect(catalogX, catalogTop + 12, catalogWidth, 24),
             text('Available projects'),
             { fontRole: 'bodyLarge', weight: 600, role: 'heading' }
         )
     ];
-    let x = margin;
+    let x = catalogX;
     for (const [key, title] of [
         ['retired', 'Retired'],
         ['templates', 'Templates'],
@@ -88,7 +130,7 @@ export function describe(model, width, height, language) {
             node(
                 'CheckBox',
                 'projectFilter_' + key,
-                rect(x, 46, fieldWidth, 32),
+                rect(x, catalogTop + 42, fieldWidth, 32),
                 {
                     text:
                         text(title) +
@@ -101,8 +143,6 @@ export function describe(model, width, height, language) {
         );
         x += fieldWidth;
     }
-    const actionsX = compact ? margin : width - actionsWidth - margin;
-    const actionsY = compact ? 104 : 46;
     const controls = [
         [
             'Activate selected project',
@@ -137,7 +177,7 @@ export function describe(model, width, height, language) {
                 'configurationProjectAction_' + type,
                 rect(
                     compact ? actionsX + index * 42 : actionsX,
-                    compact ? actionsY : actionsY + 112 + index * 44,
+                    compact ? actionsY + 46 : actionsY + 112 + index * 44,
                     compact ? 34 : actionsWidth,
                     36
                 ),
@@ -152,7 +192,7 @@ export function describe(model, width, height, language) {
     nodes.push(
         label(
             'configurationCurrentProject',
-            rect(actionsX, compact ? 146 : actionsY, actionsWidth, 28),
+            rect(actionsX, actionsY, actionsWidth, 28),
             model.currentTitle || text('No active project'),
             { weight: 600, role: 'heading' }
         )
@@ -178,7 +218,7 @@ export function describe(model, width, height, language) {
     nodes.push(
         label(
             'configurationProjectsCount',
-            rect(margin, 80, catalogWidth, 20),
+            rect(catalogX, bottom - 30, catalogWidth, 20),
             translate('{visible} of {total} projects shown', language, {
                 visible: model.visibleCount || 0,
                 total: model.totalCount || 0
@@ -186,13 +226,12 @@ export function describe(model, width, height, language) {
             muted
         )
     );
-    const top = compact ? 184 : 110,
-        bottom = model.error ? 70 : 16;
+    const top = catalogTop + 88;
     nodes.push(
         node(
             'List',
             'configurationProjects',
-            rect(margin, top, catalogWidth, Math.max(0, height - top - bottom)),
+            rect(catalogX, top, catalogWidth, Math.max(0, bottom - 48 - top)),
             {
                 source: 'projects',
                 fields,
