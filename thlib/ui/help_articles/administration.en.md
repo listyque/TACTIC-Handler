@@ -348,6 +348,19 @@ Discard, and Save to server are in the editor command bar.
 
 ## Access rules
 
+The wide Access rules editor has grouped navigation with action icons. On smaller
+windows the same sections are available in a selector. The section header explains
+what is being controlled. Matrix rows identify permissions and columns identify
+groups; cells show readable Allowed/Denied labels or a custom native access level.
+The legend distinguishes inheritance and grants controlled by another rule. Matrix
+cells use square surfaces and row dividers. Group and record names remain server data.
+
+Use Up/Down in the section list, arrow keys inside the matrix and Space to toggle
+an editable cell. Icon-only rule shortcuts retain their named tooltips and keyboard
+access. Technical views have a back button to the group defaults; unapplied source
+text continues to block navigation. Save and Reset still operate on the same draft.
+
+
 Open **Group inheritance**, select a group, and choose its native access level,
 project scope and the groups whose permissions it inherits. Selected groups are
 sources of permissions, not users added to the group. Self-inheritance is omitted;

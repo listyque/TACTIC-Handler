@@ -39,11 +39,47 @@ class AdminSecurityUiTests(unittest.TestCase):
         return windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())
 
     def item(self, name):
+        if name.startswith(('adminSecurityTab_', 'adminSecurityTechnicalPages_')):
+            matches = [item for item in self.items() if item.objectName() == name and item.isVisible()]
+            if not matches:
+                name = 'adminSecurityScope' if name.startswith('adminSecurityTab_') else 'adminSecurityTechnicalPages'
         return next(item for item in self.items() if item.objectName() == name and item.isVisible())
 
     def click(self, name):
+        if name.startswith(('adminSecurityTab_', 'adminSecurityTechnicalPages_')) and self.item(name).objectName() in ('adminSecurityScope', 'adminSecurityTechnicalPages'):
+            control = self.item(name)
+            options = control.property('model')
+            if hasattr(options, 'toVariant'):
+                options = options.toVariant()
+            value = name.removeprefix('adminSecurityTab_').removeprefix('adminSecurityTechnicalPages_')
+            target = next(index for index, row in enumerate(options) if row['value'] == value)
+            control.forceActiveFocus()
+            for _ in range((target - control.property('currentIndex')) % len(options)):
+                QTest.keyClick(self.window, Qt.Key_Down)
+                frame(self.window)
+            return
         self.fixture.click(self.window, self.item(name))
         frame(self.window)
+
+    def test_scope_navigation_icons_and_readable_square_matrix_cells(self):
+        self.window.resize(1500, 900)
+        frame(self.window)
+        self.assertTrue(self.item('adminSecurityNavigation').isVisible())
+        self.assertTrue(self.item('adminSecurityTabIcon_project').isVisible())
+        self.assertTrue(self.item('adminSecurityContextDescription').property('text'))
+        self.assertEqual(self.item('adminSecurityAccess_0_0').property('text'), 'Allowed')
+        self.assertEqual(self.item('adminSecurityCell_0_0').property('background').property('cornerRadius'), 0)
+        self.assertFalse(next(item for item in self.items()
+                              if item.objectName() == 'frameCheckBoxCaption_adminSecurityCell_0_0').isVisible())
+        self.item('adminSecurityTab_project').forceActiveFocus()
+        QTest.keyClick(self.window, Qt.Key_Down)
+        frame(self.window)
+        self.assertTrue(self.item('adminSecurityTab_builtin').property('selected'))
+        self.window.resize(900, 740)
+        frame(self.window)
+        self.assertTrue(self.item('adminSecurityScope').isVisible())
+        self.assertFalse(self.editor.dirty)
+        self.assertEqual(self.fixture.warnings, [])
 
     def test_all_six_scopes_are_matrices_with_group_columns(self):
         for scope in ('project', 'link', 'gear_menu', 'search_type', 'process', 'tasks'):
@@ -132,7 +168,8 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.click('adminDiscardDocument')
         self.click('adminConfirmSave')
         self.click('adminSecurityTab_technical')
-        self.item('adminSecurityAllRules').setProperty('contentY', 124)
+        rules_list = self.item('adminSecurityAllRules')
+        rules_list.setProperty('contentY', max(0, rules_list.property('contentHeight') - rules_list.height()))
         frame(self.window)
         self.click('adminAccessRule_5')
         self.assertEqual(json.loads(self.item('adminSecuritySource').property('text'))['extra'], 'keep')
@@ -153,6 +190,7 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.assertTrue(self.editor.dirty)
         self.assertFalse(self.item('adminSaveDocument').isEnabled())
         self.assertFalse(self.item('adminSecurityTab_project').isEnabled())
+        self.assertFalse(self.item('adminSecurityBackToRules').isEnabled())
         self.click('adminSecurityApplyText')
         self.assertTrue(self.editor.error)
         self.assertEqual(self.item('adminSecuritySource').property('text'), 'broken')

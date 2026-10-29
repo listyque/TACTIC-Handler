@@ -734,7 +734,7 @@ Item {
                             selectedColor: root.color(wrapper.node.selectedColor)
                             railVisible: false
                             separatorVisible: false
-                            cornerRadius: 10
+                            cornerRadius: wrapper.node.radius === undefined ? 10 : wrapper.node.radius
                             inset: 0
                         }
                         contentItem: Item {

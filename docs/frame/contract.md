@@ -284,3 +284,7 @@ their secondary text. Regression checks cover actual white/black preview paint,
 light/dark and selected/unselected states, plus 4.5:1 contrast against extreme
 images across the three shipped themes. No image sampling or frame-time work is
 added to production rendering.
+
+The CheckBox primitive accepts an optional `radius` for its row surface; omission
+keeps the existing 10 DIP corner. The access matrix requests zero while retaining
+the ordinary native checkbox indicator, keyboard behavior and accessible name.

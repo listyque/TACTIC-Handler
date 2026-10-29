@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.264 - 2026-10-29
+
+- Modernize the Access rules editor with grouped icon navigation, section explanations, bounded work panels and a readable permission legend.
+- Replace clipped checkbox captions with explicit access labels, square matrix surfaces and row dividers; add icons to rule actions and guarded navigation back from technical views.
+- Preserve native permission semantics and drafts across wide/compact layouts, keyboard and touch input.
+
 ## 0.6.0.263 - 2026-10-29
 
 - Require authenticated native administrator authority for administration, account/group writes and privileged directory reads; group/login names no longer grant these operations.

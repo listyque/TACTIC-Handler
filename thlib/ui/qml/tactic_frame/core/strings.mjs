@@ -1,5 +1,37 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    Interface: 'Интерфейс',
+    Advanced: 'Дополнительно',
+    'Other rule': 'Другое правило',
+    'Choose the groups whose permissions are inherited.':
+        'Выберите группы, от которых наследуются права.',
+    'Choose which projects each group can open.':
+        'Настройте, какие проекты доступны каждой группе.',
+    'Choose which sidebar links each group can see.':
+        'Настройте видимость пунктов навигации для каждой группы.',
+    'Choose which menu actions each group can use.':
+        'Выберите доступные каждой группе действия меню.',
+    'Control access to entity types in this project.':
+        'Настройте доступ к типам объектов этого проекта.',
+    'Control access to the project workflow processes.':
+        'Настройте доступ к процессам пайплайнов проекта.',
+    'Control access to task workflow statuses.':
+        'Настройте доступ к статусам пайплайнов задач.',
+    'Set permissions for individual records or record keys.':
+        'Настройте права на отдельные записи или ключи объектов.',
+    'Control access to individual entity fields.':
+        'Настройте доступ к отдельным полям объектов.',
+    'Configure the native built-in application permissions.':
+        'Настройте штатные разрешения приложения.',
+    'Limit the records a group can find using native search rules.':
+        'Ограничьте доступные группе записи штатными правилами поиска.',
+    'Inspect and edit native rules, defaults and custom XML.':
+        'Просматривайте и редактируйте правила, значения по умолчанию и XML.',
+    'Groups and projects': 'Группы и проекты',
+    'Data and workflow': 'Данные и процессы',
+    Allowed: 'Разрешено',
+    Denied: 'Запрещено',
+    Inherited: 'Наследуется',
     'Group inheritance': 'Наследование прав',
     'Inherit permissions from': 'Наследовать права от групп',
     'This inheritance would create a cycle.':

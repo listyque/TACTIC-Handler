@@ -5,7 +5,7 @@ import {
     label,
     muted,
     policy,
-    toolbar,
+    toolbar as documentToolbar,
     notices,
     tabs
 } from '../admin.document.mjs';
@@ -15,11 +15,20 @@ import {
     matrixScopes,
     pending
 } from './security.state.mjs';
-export { toolbar };
+export function toolbar(model, ui, width, language) {
+    const scene = documentToolbar(model, ui, width, language),
+        discard = scene.nodes.find(
+            (item) => item.id === 'adminDiscardDocument'
+        );
+    discard.text = translate('Reset', language);
+    discard.toolTip = translate('Discard changes', language);
+    return scene;
+}
 
 export const scopes = [
     ['defaults', 'Group inheritance'],
     ['project', 'Projects'],
+    ['builtin', 'Global permissions'],
     ['link', 'Sidebar links'],
     ['gear_menu', 'Menu actions'],
     ['search_type', 'Search Types'],
@@ -27,7 +36,6 @@ export const scopes = [
     ['tasks', 'Task statuses'],
     ['sobject', 'Search Objects'],
     ['sobject_column', 'Field access'],
-    ['builtin', 'Global permissions'],
     ['search_filter', 'Search restrictions'],
     ['technical', 'Advanced rules']
 ];
@@ -40,6 +48,44 @@ export const levels = [
     ['delete', 'Delete'],
     ['allow', 'Full access']
 ];
+const levelIcons = {
+    deny: 'close',
+    view: 'visibility',
+    edit: 'edit',
+    insert: 'add',
+    retire: 'inventory-2',
+    delete: 'delete',
+    allow: 'check'
+};
+export const scopeDetails = {
+    defaults: ['groups', 'Choose the groups whose permissions are inherited.'],
+    project: ['folder', 'Choose which projects each group can open.'],
+    link: ['link', 'Choose which sidebar links each group can see.'],
+    gear_menu: ['menu', 'Choose which menu actions each group can use.'],
+    search_type: ['sobject', 'Control access to entity types in this project.'],
+    process: ['workflow', 'Control access to the project workflow processes.'],
+    tasks: ['tasks', 'Control access to task workflow statuses.'],
+    sobject: [
+        'sobject',
+        'Set permissions for individual records or record keys.'
+    ],
+    sobject_column: [
+        'table-view',
+        'Control access to individual entity fields.'
+    ],
+    builtin: [
+        'security',
+        'Configure the native built-in application permissions.'
+    ],
+    search_filter: [
+        'filter-alt',
+        'Limit the records a group can find using native search rules.'
+    ],
+    technical: [
+        'code',
+        'Inspect and edit native rules, defaults and custom XML.'
+    ]
+};
 const names = {
     project: ['code'],
     search_type: ['code'],
@@ -141,24 +187,144 @@ const list = (id, bounds, source, rowHeight, keyField) =>
 
 export function describe(model, ui, width, height, language) {
     const tr = (text) => translate(text, language),
-        allow = policy(model),
-        edit = allow.editable && !pending(ui),
-        navigate = !model.busy && !pending(ui);
-    const notice = notices(
+        navigate = !model.busy && !pending(ui),
+        notice = notices(
             model,
             ui,
             width,
             language,
             'Discard unsaved access changes?'
         ),
-        nodes = notice.nodes;
-    let y = notice.top;
-    const matrix = matrixScopes.indexOf(ui.scope) >= 0,
-        narrow = width < 600,
-        scopeWidth = matrix ? width : narrow ? width : (width - 12) / 2;
-    if (width < 700) {
+        nodes = notice.nodes,
+        rail = width >= 900,
+        railWidth = rail ? (language === 'ru' ? 232 : 212) : 0,
+        offset = rail ? railWidth + 12 : 0,
+        contentWidth = width - offset,
+        details = scopeDetails[ui.scope] || scopeDetails.project,
+        selected = scopes.find((entry) => entry[0] === ui.scope) || scopes[1];
+    const confirmation = nodes.find(
+        (item) => item.id === 'adminDocumentConfirmation'
+    );
+    if (confirmation)
+        confirmation.children.forEach((item) => {
+            if (item.id === 'adminCancelSave') item.icon = 'close';
+            if (item.id === 'adminConfirmSave')
+                item.icon = ui.confirmation === 'save' ? 'save' : 'undo';
+        });
+    let top = notice.top;
+    if (rail) {
+        const entries = [],
+            groups = [
+                ['Groups and projects', ['defaults', 'project', 'builtin']],
+                ['Interface', ['link', 'gear_menu']],
+                [
+                    'Data and workflow',
+                    [
+                        'search_type',
+                        'process',
+                        'tasks',
+                        'sobject',
+                        'sobject_column',
+                        'search_filter'
+                    ]
+                ],
+                ['Advanced', ['technical']]
+            ];
+        let y = 8;
+        groups.forEach(([caption, values]) => {
+            entries.push(
+                label(
+                    'adminSecurityCategory_' + values[0],
+                    rect(12, y, railWidth - 40, 24),
+                    tr(caption),
+                    muted
+                )
+            );
+            y += 28;
+            values.forEach((value) => {
+                const entry = scopes.find((item) => item[0] === value),
+                    current = scopes.findIndex((item) => item[0] === ui.scope),
+                    action = (index) => ({
+                        type: 'scope',
+                        value: scopes[
+                            (index + scopes.length) % scopes.length
+                        ][0]
+                    });
+                entries.push(
+                    node(
+                        'Action',
+                        'adminSecurityTab_' + value,
+                        rect(8, y, railWidth - 32, 38),
+                        {
+                            text: tr(entry[1]),
+                            description: tr(scopeDetails[value][1]),
+                            selected: ui.scope === value,
+                            enabled: navigate,
+                            normalColor: 'transparent',
+                            selectedColor: 'selected',
+                            radius: 4,
+                            rail: ui.scope === value,
+                            keys: {
+                                ArrowDown: action(current + 1),
+                                ArrowUp: action(current - 1),
+                                Home: action(0),
+                                End: action(scopes.length - 1)
+                            },
+                            action: { type: 'scope', value },
+                            children: [
+                                node(
+                                    'Icon',
+                                    'adminSecurityTabIcon_' + value,
+                                    rect(12, 9, 20, 20),
+                                    {
+                                        icon: scopeDetails[value][0],
+                                        color:
+                                            ui.scope === value
+                                                ? 'action'
+                                                : 'secondaryText'
+                                    }
+                                ),
+                                label(
+                                    'adminSecurityTabTitle_' + value,
+                                    rect(42, 0, railWidth - 86, 38),
+                                    tr(entry[1]),
+                                    { fontRole: 'secondary' }
+                                )
+                            ]
+                        }
+                    )
+                );
+                y += 40;
+            });
+            y += 8;
+        });
         nodes.push(
-            node('Choice', 'adminSecurityScope', rect(0, y, width, 38), {
+            node(
+                'Box',
+                'adminSecurityNavigationPanel',
+                rect(0, top, railWidth, height - top),
+                {
+                    background: 'surfaceContainerLow',
+                    border: 'outlineVariant',
+                    radius: 8,
+                    children: [
+                        node(
+                            'Scroll',
+                            'adminSecurityNavigation',
+                            rect(0, 0, railWidth, height - top),
+                            {
+                                children: entries,
+                                contentHeight: y,
+                                scrollbarId: 'adminSecurityNavigationScrollBar'
+                            }
+                        )
+                    ]
+                }
+            )
+        );
+    } else {
+        nodes.push(
+            node('Choice', 'adminSecurityScope', rect(0, top, width, 38), {
                 value: ui.scope,
                 label: tr('Access rules'),
                 options: scopes.map(([value, text]) => ({
@@ -166,72 +332,102 @@ export function describe(model, ui, width, height, language) {
                     label: tr(text)
                 })),
                 enabled: navigate,
-                action: {
-                    type: 'scope'
-                }
+                action: { type: 'scope' }
             })
         );
-        y += 46;
-    } else {
-        const columns = Math.max(
-                1,
-                Math.floor(width / (language === 'ru' ? 190 : 150))
-            ),
-            cellWidth = width / columns;
-        const current = scopes.findIndex((scope) => scope[0] === ui.scope),
-            keys = {
-                Home: {
-                    type: 'scope',
-                    value: scopes[0][0]
-                },
-                End: {
-                    type: 'scope',
-                    value: scopes[scopes.length - 1][0]
-                },
-                ArrowLeft: {
-                    type: 'scope',
-                    value: scopes[
-                        (current + scopes.length - 1) % scopes.length
-                    ][0]
-                },
-                ArrowRight: {
-                    type: 'scope',
-                    value: scopes[(current + 1) % scopes.length][0]
-                }
-            };
-        scopes.forEach(([value, text], index) =>
-            nodes.push(
-                button(
-                    'adminSecurityTab_' + value,
-                    rect(
-                        (index % columns) * cellWidth,
-                        y + Math.floor(index / columns) * 40,
-                        cellWidth - 6,
-                        34
-                    ),
-                    tr(text),
-                    '',
-                    {
-                        type: 'scope',
-                        value
-                    },
-                    navigate,
-                    {
-                        radio: true,
-                        selected: ui.scope === value,
-                        keys
-                    }
-                )
-            )
-        );
-        y += Math.ceil(scopes.length / columns) * 40 + 6;
+        top += 46;
     }
+    const headerHeight = contentWidth < 520 ? 112 : 80;
+    nodes.push(
+        node(
+            'Box',
+            'adminSecurityContext',
+            rect(offset, top, contentWidth, headerHeight),
+            {
+                background: 'surfaceContainerLow',
+                border: 'outlineVariant',
+                radius: 8,
+                children: [
+                    node(
+                        'Icon',
+                        'adminSecurityContextIcon',
+                        rect(14, 14, 24, 24),
+                        { icon: details[0], color: 'action' }
+                    ),
+                    label(
+                        'adminSecurityContextTitle',
+                        rect(50, 10, contentWidth - 64, 26),
+                        tr(selected[1]),
+                        { fontRole: 'section', weight: 600 }
+                    ),
+                    label(
+                        'adminSecurityContextDescription',
+                        rect(50, 38, contentWidth - 64, headerHeight - 46),
+                        tr(details[1]),
+                        Object.assign({ wrap: true }, muted)
+                    )
+                ]
+            }
+        )
+    );
+    const bodyY = top + headerHeight + 12,
+        bodyWidth = Math.max(1, contentWidth - 24),
+        bodyHeight = Math.max(1, height - bodyY - 24);
+    nodes.push(
+        node(
+            'Box',
+            'adminSecurityWorkspacePanel',
+            rect(offset, bodyY, contentWidth, height - bodyY),
+            {
+                background: 'surfaceContainerLow',
+                border: 'outlineVariant',
+                radius: 8,
+                children: [
+                    node(
+                        'Box',
+                        'adminSecurityWorkspace',
+                        rect(12, 12, bodyWidth, bodyHeight),
+                        {
+                            children: workspace(
+                                model,
+                                ui,
+                                bodyWidth,
+                                bodyHeight,
+                                language
+                            ).nodes
+                        }
+                    )
+                ]
+            }
+        )
+    );
+    return { nodes };
+}
+
+function workspace(model, ui, width, height, language) {
+    const tr = (text) => translate(text, language),
+        allow = policy(model),
+        edit = allow.editable && !pending(ui),
+        navigate = !model.busy && !pending(ui),
+        matrix = matrixScopes.indexOf(ui.scope) >= 0,
+        nodes = [];
+    let y = 0;
     if (!matrix) {
         nodes.push(
+            node('Icon', 'adminSecurityGroupIcon', rect(0, y + 9, 20, 20), {
+                icon: 'groups',
+                color: 'secondaryText'
+            }),
+            label(
+                'adminSecurityGroupCaption',
+                rect(28, y, 64, 38),
+                tr('Group'),
+                muted
+            ),
             node(
                 'Choice',
                 'adminSecurityAdvancedGroup',
-                rect(0, y, width, 38),
+                rect(98, y, width - 98, 38),
                 {
                     label: tr('Group'),
                     options: model.groups.map((group) => ({
@@ -297,14 +493,15 @@ export function describe(model, ui, width, height, language) {
             )
         );
         y += 46;
-        const footer = width < 560 ? 78 : 40,
+        const legendHeight = width < 600 ? 60 : 32,
+            footer = (width < 560 ? 78 : 40) + legendHeight,
             gridHeight = Math.max(1, height - y - footer - 8);
         nodes.push(
             node('Grid', 'adminSecurityMatrix', rect(0, y, width, gridHeight), {
                 source: 'matrix',
                 labelWidth: Math.min(260, width * 0.36),
                 headerHeight: 38,
-                cellWidth: 136,
+                cellWidth: 156,
                 rowHeight: 46,
                 caption: tr('Permission'),
                 rowHeaders: model.matrixRows.map((target) => ({
@@ -319,10 +516,39 @@ export function describe(model, ui, width, height, language) {
             })
         );
         const cell = model.selectedCell || {};
+        const legendY = y + gridHeight + 4,
+            legend = [
+                ['Allowed', 'check', 'action'],
+                ['Denied', 'close', 'secondaryText'],
+                ['Inherited', 'account-tree', 'secondaryText'],
+                ['Other rule', 'lock', 'secondaryText']
+            ],
+            legendColumns = width < 600 ? 2 : 4,
+            legendWidth = width / legendColumns;
+        legend.forEach(([text, icon, color], index) => {
+            const x = (index % legendColumns) * legendWidth,
+                ly = legendY + Math.floor(index / legendColumns) * 28;
+            nodes.push(
+                node(
+                    'Icon',
+                    'adminSecurityLegendIcon_' + index,
+                    rect(x, ly + 5, 16, 16),
+                    { icon, color }
+                )
+            );
+            nodes.push(
+                label(
+                    'adminSecurityLegend_' + index,
+                    rect(x + 22, ly, legendWidth - 26, 26),
+                    tr(text),
+                    muted
+                )
+            );
+        });
         nodes.push(
             button(
                 'adminSecurityInherit',
-                rect(0, y + gridHeight + 8, 168, 38),
+                rect(0, y + gridHeight + legendHeight + 8, 168, 38),
                 tr('Use inherited'),
                 'undo',
                 {
@@ -336,7 +562,7 @@ export function describe(model, ui, width, height, language) {
                 'adminSecurityMatrixHelp',
                 rect(
                     width < 560 ? 0 : 180,
-                    y + gridHeight + (width < 560 ? 46 : 8),
+                    y + gridHeight + legendHeight + (width < 560 ? 46 : 8),
                     width < 560 ? width : width - 180,
                     34
                 ),
@@ -371,7 +597,7 @@ export function describe(model, ui, width, height, language) {
             navigate
         );
     else {
-        const split = width >= 900,
+        const split = width >= 780,
             editorWidth = split ? Math.max(320, width * 0.36) : width,
             listWidth = split ? width - editorWidth - 12 : width;
         if (split || !ui.editing) {
@@ -492,7 +718,7 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
         );
         y += 36;
         if (scope !== 'search_filter') {
-            const count = width < 360 ? 2 : 3,
+            const count = width < 380 ? 1 : width < 620 ? 2 : 3,
                 cellWidth = inner / count;
             levels.forEach(([value, text], index) =>
                 children.push(
@@ -505,7 +731,7 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                             34
                         ),
                         tr(text),
-                        '',
+                        levelIcons[value],
                         {
                             type: 'attribute',
                             field: 'access',
@@ -625,23 +851,37 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
 function technical(nodes, model, ui, bounds, language, edit, navigate) {
     const tr = (text) => translate(text, language),
         width = bounds.width,
-        y = bounds.y;
+        y = bounds.y,
+        backWidth = ui.page === 'group' ? 0 : 46;
+    if (backWidth)
+        nodes.push(
+            button(
+                'adminSecurityBackToRules',
+                rect(0, y, 38, 38),
+                tr('Group defaults'),
+                'chevron-left',
+                { type: 'page', value: 'group' },
+                navigate,
+                { iconOnly: true }
+            )
+        );
     const options = [
-        ['group', 'Group defaults'],
-        ['xml', 'XML'],
-        ['rule', 'Selected rule JSON'],
-        ['inherited', 'Inherited rules']
-    ].map(([value, text]) => ({
+        ['group', 'Group defaults', 'groups'],
+        ['xml', 'XML', 'code'],
+        ['rule', 'Selected rule JSON', 'code'],
+        ['inherited', 'Inherited rules', 'account-tree']
+    ].map(([value, text, icon]) => ({
         value,
+        icon,
         label: tr(text),
         disabled: value === 'rule' && model.selected < 0
     }));
     nodes.push(
-        width < 650
+        width < 880
             ? node(
                   'Choice',
                   'adminSecurityTechnicalPages',
-                  rect(0, y, width, 38),
+                  rect(backWidth, y, width - backWidth, 38),
                   {
                       value: ui.page,
                       options: options.filter((option) => !option.disabled),
@@ -656,7 +896,7 @@ function technical(nodes, model, ui, bounds, language, edit, navigate) {
                   'adminSecurityTechnicalPages',
                   options,
                   ui.page,
-                  rect(0, y, width, 38),
+                  rect(backWidth, y, width - backWidth, 38),
                   navigate,
                   'page'
               )
@@ -735,22 +975,6 @@ function technical(nodes, model, ui, bounds, language, edit, navigate) {
 }
 
 function groupSettings(nodes, model, ui, bounds, language, edit) {
-    const content = [],
-        inner = rect(12, 12, bounds.width - 24, bounds.height - 24);
-    nodes.push(
-        node('Box', 'adminSecurityGroupSettingsPanel', bounds, {
-            background: 'surfaceContainerLow',
-            border: 'outlineVariant',
-            radius: 8,
-            children: [
-                node('Box', 'adminSecurityGroupSettingsContent', inner, {
-                    children: content
-                })
-            ]
-        })
-    );
-    nodes = content;
-    bounds = rect(0, 0, inner.width, inner.height);
     const tr = (text) => translate(text, language),
         width = bounds.width,
         formWidth = Math.max(1, width - 16),
@@ -953,7 +1177,7 @@ export function row(listNode, record, model, ui, language) {
         all = listNode.source === 'allRules',
         quick = !all && ui.scope !== 'search_filter',
         small = width < 540,
-        levelWidth = small ? 48 : 64;
+        levelWidth = 36;
     const textWidth =
         quick && !small ? width - levelWidth * 4 - 42 : width - 44;
     nodes.push(
@@ -999,10 +1223,10 @@ export function row(listNode, record, model, ui, language) {
                             : textWidth + col * levelWidth,
                         small ? 46 : 18,
                         levelWidth - 4,
-                        small ? 24 : 34
+                        32
                     ),
                     tr(levels.find((level) => level[0] === value)[1]),
-                    '',
+                    levelIcons[value],
                     {
                         type: 'ruleAccess',
                         index,
@@ -1012,6 +1236,7 @@ export function row(listNode, record, model, ui, language) {
                     {
                         radio: true,
                         selected: record.access === value,
+                        iconOnly: true,
                         fontRole: 'caption'
                     }
                 )
@@ -1078,7 +1303,29 @@ export function cell(grid, record, row, column, model, ui, language) {
         ui.selectedCell.column === column
             ? 'selected'
             : 'surfaceContainerLow';
-    const children = [];
+    const access = record.custom
+            ? levels.find((entry) => entry[0] === record.access)
+            : null,
+        caption = access
+            ? tr(access[1])
+            : tr(record.checked ? 'Allowed' : 'Denied');
+    const children = [
+        node(
+            'Box',
+            'adminSecurityCellDivider_' + row + '_' + column,
+            rect(0, grid.rowHeight - 2, grid.cellWidth - 1, 1),
+            { background: 'outlineVariant' }
+        ),
+        label(
+            'adminSecurityAccess_' + row + '_' + column,
+            rect(38, 0, grid.cellWidth - 66, grid.rowHeight - 1),
+            caption,
+            {
+                fontRole: 'caption',
+                color: record.checked ? 'primaryText' : 'secondaryText'
+            }
+        )
+    ];
     if (record.custom || record.locked || record.inherited)
         children.push(
             node(
@@ -1113,7 +1360,8 @@ export function cell(grid, record, row, column, model, ui, language) {
                     checked: !!record.checked,
                     keys,
                     enabled,
-                    indicatorX: (grid.cellWidth - 20) / 2,
+                    indicatorX: 10,
+                    radius: 0,
                     normalColor: background,
                     selectedColor: background,
                     action: {
