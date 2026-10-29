@@ -203,7 +203,7 @@
     "features/table/document.ui.mjs": "9dfdaf00d9e0e48a09f93714c50f5ed80c75dd51901e27f580dd6b20eff2c5fc",
     "features/table/drop.ui.mjs": "de900989b1c638606cc0a8c4b8b32d4ff2a7b2874410fb90dd06f664a622bdfd",
     "features/table/host.ui.mjs": "27299216f64733042132799a42455d960da2e2abc316aa80672e4e3270c21752",
-    "features/table/inline.ui.mjs": "2ce6cc80a0f8699d9f2002125b32c815008d8c89360d31e503f14a12c79a722f",
+    "features/table/inline.ui.mjs": "217a1871bbed809c6d077890a955559e64202c888e95262accc6db49b763a900",
     "features/table/items.ui.mjs": "ff18ad3ab255ce7ad041af3b59a8b698e5b68438660fc4a6e33d824239352f9b",
     "features/table/layout.ui.mjs": "62fa3ace72846da46b31ef869e4720279282c242432aa04198566df60c03cf03",
     "features/table/menus.ui.mjs": "27c44e4c812bb63505946161054c4bcf9d20a3dbc5b5d4e281a3f35dff1cc725",

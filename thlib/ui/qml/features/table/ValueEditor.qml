@@ -1,6 +1,7 @@
 import QtQuick
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/table/inline.ui.mjs" as UI
+import "../../tactic_frame/core/foundation.mjs" as Foundation
 
 Item {
     id: root
@@ -28,7 +29,18 @@ Item {
         uncertain: uncertain,
         explicitSave: explicitSave,
         error: error
-    }, width, language)
+    }, width, language, measureTag)
+    function measureTag(text) {
+        const pixels = tagMetrics.font.pixelSize;
+        return tagMetrics.advanceWidth(text) * Foundation.textStyles.body / Math.max(1, pixels);
+    }
+    FontMetrics {
+        id: tagMetrics
+        font.family: root.theme.fontFamily
+        font.pixelSize: 64
+        font.weight: Font.DemiBold
+        font.hintingPreference: Font.PreferVerticalHinting
+    }
     implicitHeight: scene.height
     signal saved(var value)
     signal checked(var value)

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.251 - 2026-10-29
+
+- Measure tag labels in the rendered font and include actual button icon, padding and spacing. Keep short and wide Latin/Cyrillic names visible and wrap complete chips into the next row in both clients. Verify native text elision, editing and browser bounds.
+
 ## 0.6.0.250 - 2026-10-29
 
 - Center resize hit strips on dividers, including the outer edge of the final column beside header tools. Keep manually resized columns visible during and after width acknowledgement so the final adaptive column does not disappear mid-drag. Preserve the previous width on native drag cancellation, accept changed authoritative widths, and retain ordinary adaptive hiding in Handler and Stream. Update EN/RU Help.

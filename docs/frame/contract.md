@@ -29,6 +29,10 @@ this tool is not part of ordinary product builds.
 Workspace tab backgrounds have square corners. Keep the selection underline and
 close-button feedback rounded; tab styling must not change general panel radii.
 
+Tag editors measure labels in the rendered font and include the existing button
+icon, spacing and padding. Pack whole chips onto the next row; only labels wider
+than the popup's available label area may elide.
+
 Table active rows and keyboard focus use the content-selection background across the whole row, without a separate row outline. Checked selection remains independent.
 
 Floating dock windows are the visual reference for floating windows: reuse their chrome, title bar, borders and controls. Keep resize grips quiet and integrated into the corner, without a filled circular button.

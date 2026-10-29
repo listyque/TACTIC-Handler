@@ -144,6 +144,20 @@ class FrameTableTests(unittest.TestCase):
         self.click(window,self.item(view,'tableServiceAction_0'))
         self.assertEqual(len(controller.table_widget_actions),1)
 
+    def test_tag_names_fit_without_elision(self):
+        tags = ['robot', 'arm', 'prop', 'рука', 'WWWWWW', 'манипулятор']
+        window, view = self.create(
+            'features/table/ValueEditor.qml',
+            dict(mode='tags', descriptor=dict(fieldName='keywords', fieldValue=', '.join(tags))),
+            width=596, height=400,
+        )
+        for index, tag in enumerate(tags):
+            button = self.item(view, 'tableInlineTag_' + str(index))
+            label = button.findChild(QObject, 'buttonLabel')
+            self.assertIsNotNone(label, tag)
+            self.assertFalse(label.property('truncated'), tag)
+            self.assertLessEqual(button.x() + button.width(), view.width())
+
     def test_boolean_uses_first_pointer_click(self):
         window, view = self.create(
             "features/table/ValueEditor.qml",

@@ -1,5 +1,6 @@
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import { controls } from '../../core/foundation.mjs';
 
 export function explicitSave(mode) {
     return (
@@ -9,7 +10,7 @@ export function explicitSave(mode) {
     );
 }
 
-export function describe(model, width, language) {
+export function describe(model, width, language, measureTag) {
     const tr = (text) => translate(text, language);
     const enabled = !model.busy && !model.uncertain;
     const mode = model.mode || 'text',
@@ -35,10 +36,13 @@ export function describe(model, width, language) {
     const props = { label: model.title || '', enabled, action };
     if (mode === 'tags') {
         let left = 0;
+        const chip = controls.button;
+        const chrome =
+            chip.iconPadding + chip.padding + chip.iconSize + chip.spacing;
         for (const [index, tag] of tags(model.value).entries()) {
             const chipWidth = Math.min(
                 width,
-                Math.max(72, Array.from(tag).length * 8 + 44)
+                Math.max(chip.minimumWidth, Math.ceil(measureTag(tag)) + chrome)
             );
             if (left && left + chipWidth > width) {
                 left = 0;
