@@ -18,6 +18,8 @@ You can resize a table generated from object fields immediately. The first chang
 
 In the CG project, Script shows the saved URL as a link. An empty Script field shows Not script as plain text.
 
+Table headers and rows fill the available width. Space for a scrollbar is reserved only while that scrollbar is needed.
+
 ## How a query is assembled
 
 A query can be built in layers. Every layer eventually appears as a condition in **Advanced

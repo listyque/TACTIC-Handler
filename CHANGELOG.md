@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.256 - 2026-10-29
+
+- Document the existing table-width contract: headers and rows fill the viewport, reserving space only for scrollbars that actually overflow. Verify native scrollbar transitions alongside the Stream workspace-gutter fix.
+
 ## 0.6.0.255 - 2026-10-29
 
 - Show empty link placeholders such as Not script as ordinary text, without an underline or link cursor. Keep saved URLs clickable and document the CG Script column's link-only presentation.
