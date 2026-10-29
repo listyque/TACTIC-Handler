@@ -6,6 +6,12 @@ parser or file extension. This contract applies to shared screens and prototypes
 It supplements each product's AGENTS and component policies. Do not rewrite an
 unrelated working screen merely to adopt the contract.
 
+Idle task values share `features/tasks/cells.ui.mjs` geometry (`choiceLayout`) and
+paint roles (`choiceStyle`). `choice` builds the same browser scene from them.
+Native value-only updates may reuse geometry and fonts, but must update text,
+colors and enabled states immediately. Native avatar image groups may be lazy
+for missing/pending sources; loaded image geometry and input remain unchanged.
+
 ## Product boundaries
 
 TH and TS are independent products, repositories and bundles. TH ships Python,

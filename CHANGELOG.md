@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.268 - 2026-10-30
+
+- Reduce warm QML creation by reusing task-field geometry/fonts, detaching table cell values once per revision, and skipping image/mask allocation for fallback avatars.
+- Preserve live avatars, rounded previews, resize pixels, inline task editing and row reuse; share unchanged task-cell scenes with Stream.
+- Keep one owned response copy and resolve display XML once per row batch; cover cache isolation and definition refresh.
+
 ## 0.6.0.267 - 2026-10-30
 
 - Replace the administration project combo with a compact searchable project picker: cached previews/initials, readable titles/codes, selection marks and bounded scrolling.

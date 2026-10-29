@@ -13,20 +13,37 @@ Item {
     property string avatarSource: ""
     property string avatarInitials: ""
     property bool scrolling: false
-    readonly property var scene: UI.choice(Object.assign({}, model, {
+    readonly property string fontRole: root.model.fontRole || "body"
+    readonly property bool hasAvatar: !!root.model.avatar
+    readonly property bool hasAccent: !!(root.model.showAccent && root.model.accent)
+    readonly property bool hasIndicator: !!root.model.indicator
+    readonly property bool cellEnabled: !!root.model.enabled
+    readonly property bool cellHovered: !!root.model.hovered
+    readonly property bool actionField: root.model.actionField !== false
+    readonly property var layout: UI.choiceLayout({
+        avatar: root.hasAvatar,
+        showAccent: root.hasAccent,
+        accent: root.hasAccent,
+        indicator: root.hasIndicator,
+        fontRole: root.fontRole,
         textHeight: cellMetrics.height
-    }), width, height)
-    readonly property var surface: scene.nodes[0]
-    readonly property var label: scene.nodes.find(node => node.id === "taskTableCellDisplayLabel")
-    readonly property var avatar: scene.nodes.find(node => node.id === "taskTableCellAvatar")
-    readonly property var accent: scene.nodes.find(node => node.id === "taskTableCellAccent")
-    readonly property var indicator: scene.nodes.find(node => node.id === "taskTableCellIndicator")
+    }, width, height)
+    readonly property var surface: UI.choiceStyle({
+        enabled: root.cellEnabled,
+        hovered: root.cellHovered,
+        actionField: root.actionField
+    })
+    readonly property var label: layout.label
+    readonly property var avatar: layout.avatar
+    readonly property var accent: layout.accent
+    readonly property var indicator: layout.indicator
 
     FontMetrics {
         id: cellMetrics
         font: Qt.font({
             family: root.theme.fontFamily,
-            pixelSize: Foundation.textStyles[root.model.fontRole || "body"],
+            pixelSize: Foundation.textStyles[root.fontRole],
+            weight: Font.Normal,
             hintingPreference: Font.PreferVerticalHinting
         })
     }
@@ -47,7 +64,7 @@ Item {
         width: root.accent ? root.accent.width : 0
         height: root.accent ? root.accent.height : 0
         radius: root.accent ? root.accent.radius : 0
-        color: root.accent ? root.accent.background : "transparent"
+        color: root.accent ? root.model.accent : "transparent"
     }
     Text {
         objectName: "taskTableCellDisplayLabel"
@@ -55,15 +72,10 @@ Item {
         y: root.label.y
         width: root.label.width
         height: root.label.height
-        text: root.label.text
+        text: root.model.text || ""
         textFormat: Text.PlainText
-        color: root.theme[root.label.color]
-        font: Qt.font({
-            family: root.theme.fontFamily,
-            pixelSize: root.label.fontSize,
-            weight: root.label.weight,
-            hintingPreference: Font.PreferVerticalHinting
-        })
+        color: root.theme[root.surface.textColor]
+        font: cellMetrics.font
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }
@@ -91,9 +103,9 @@ Item {
         width: root.indicator ? root.indicator.width : 0
         height: root.indicator ? root.indicator.height : 0
         sourceComponent: Controls.MaterialIcon {
-            name: root.indicator.icon
+            name: root.surface.indicatorIcon
             size: root.indicator.width
-            color: root.theme[root.indicator.color]
+            color: root.theme[root.surface.indicatorColor]
         }
     }
 }

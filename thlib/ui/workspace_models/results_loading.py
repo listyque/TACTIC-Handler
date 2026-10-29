@@ -653,6 +653,7 @@ class LoadingMixin:
             if ancestor.node_type == "sobject" and ancestor.search_key
         }
         seen_related: set[str] = set()
+        metadata = self._info_item_metadata(child_stype)
         for sobject in related:
             info = sobject.get_info() or {}
             search_key = str(sobject.get_search_key() or "")
@@ -680,7 +681,7 @@ class LoadingMixin:
                 has_children=self._item_layout.get("navigation", {}).get(self._plain_search_type(search_key)) != [],
                 source=sobject,
                 preview_source=sobject,
-                chips=self._build_info_items(child_stype, info),
+                chips=self._build_info_items(child_stype, info, metadata),
             )
             node.children.append(child)
         node.children = self._deduplicate_siblings(node.children)

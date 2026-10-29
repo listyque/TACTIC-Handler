@@ -15,15 +15,15 @@ from .watch_folders import _watch_folder_record
 
 class PresentationMixin:
     @staticmethod
-    def _build_info_items(stype, info: dict) -> list[dict]:
-        """Project TACTIC table definitions into compact interactive values."""
+    def _info_item_metadata(stype):
+        """Resolve display metadata once for a projection, never across revisions."""
         if stype is None:
-            return []
+            return {}, "", {}, {}
 
         try:
             table_elements = stype.get_definition("table") or []
         except (AttributeError, KeyError, TypeError, ValueError):
-            return []
+            return {}, "", {}, {}
         table_columns = {
             str(element.get("name") or ""): str(
                 element.get("title")
@@ -33,7 +33,7 @@ class PresentationMixin:
             if element.get("name")
         }
         if not table_columns:
-            return []
+            return {}, "", {}, {}
 
         try:
             color_definition = stype.get_definition("color", bs=True)
@@ -78,6 +78,17 @@ class PresentationMixin:
                     ))
         except (AttributeError, KeyError, TypeError, ValueError):
             edit_labels = {}
+
+        return table_columns, color_column, color_values, edit_labels
+
+    @staticmethod
+    def _build_info_items(stype, info: dict, metadata=None) -> list[dict]:
+        """Project TACTIC table definitions into compact interactive values."""
+        if metadata is None:
+            metadata = PresentationMixin._info_item_metadata(stype)
+        table_columns, color_column, color_values, edit_labels = metadata
+        if not table_columns:
+            return []
 
         excluded = {
             "__search_type__", "__search_key__", "__tasks_count__",

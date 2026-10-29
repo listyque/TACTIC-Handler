@@ -24,6 +24,13 @@ Task Workflow accepts the stock legacy edit flag without hiding the cell. Status
 
 Table headers and rows fill the available width. Space for a scrollbar is reserved only while that scrollbar is needed.
 
+Table preparation reuses display definitions within each loaded batch. Refresh
+reads the current definitions again; task editors, previews and related objects
+remain available, including when results are restored from the search cache.
+
+Task Workflow and inline field editors remain available while avatar or object
+pictures are loading. Initials and placeholder icons remain visible until a picture is ready.
+
 ## How a query is assembled
 
 A query can be built in layers. Every layer eventually appears as a condition in **Advanced

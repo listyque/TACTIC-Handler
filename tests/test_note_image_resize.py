@@ -80,14 +80,19 @@ Window {
                 mask = mask_loader.property("item")
                 for extent in (*range(900, 319, -20), *range(320, 901, 20)):
                     window.resize(extent, 800)
-                    frame(window)
+                    # Capture asynchronously; grabWindow can wait on Python render callbacks.
+                    grab = window.contentItem().grabToImage()
+                    deadline = time.monotonic() + 2
+                    while grab.image().isNull() and time.monotonic() < deadline:
+                        QTest.qWait(5)
+                    rendered = grab.image()
+                    self.assertFalse(rendered.isNull())
                     self.assertIs(preview.findChild(QQuickItem, "previewSourceImage"), source)
                     self.assertEqual(size_changes.count(), 0, "Resize changed the decoder request")
                     self.assertEqual(loads.count(), 0, "Resize reloaded the image")
                     self.assertEqual(source.property("sourceSize"), decoded_size)
                     self.assertGreater(preview.property("sourcePixelWidth"), 0)
                     self.assertIs(mask_loader.property("item"), mask)
-                    rendered = window.grabWindow()
                     center = preview.mapToScene(QPointF(preview.width() / 2, preview.height() / 2))
                     pixel = rendered.pixelColor(int(center.x() * rendered.width() / window.width()),
                                                 int(center.y() * rendered.height() / window.height()))

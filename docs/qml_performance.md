@@ -5,6 +5,58 @@ late visual cleanup. The hot paths are recyclable search delegates, task rows,
 message timeline entries, retained dock content, and report pages with nested
 models.
 
+## Preparing table responses
+
+`get_sobjects` retains the raw server dictionary for the search cache.
+`hydrate_sobjects_payload` makes the single owned deep copy used by native
+objects: `Snapshot` removes transport-only entries and native field edits must
+not mutate either the cached packet or another hydration of it. Read the
+snapshot cache token once per batch, and read it again for the next batch.
+
+`WorkspaceItemModel` resolves table/color/edit XML metadata once for each root,
+related-row or edited-field batch. Pass that metadata into per-row chip
+projection; do not cache it across projections or configuration revisions.
+`tests.test_table_preparation` checks ownership, snapshot/file isolation,
+revision refresh and definition resolution at all three projection call sites.
+
+Task cards share their dimension calculation within the deck and use plain
+native text for passive headings and dates. Keep the editor/display wrapper,
+which owns pointer activation and editor release. Status, assignee and date editors,
+avatar updates, popup lifetime and row recycling remain covered by the native
+task activation and table tests. Do not count a smaller object tree as a speed
+gain without a repeat measurement.
+
+Task idle displays bind geometry through shared `choiceLayout` and paint roles
+through `choiceStyle`. Typed shape/typography properties keep a text, color or
+hover change from rebuilding all layout nodes and fonts. The native display
+shares its font with its metrics. Vue's `choice` composes the same helpers into
+the unchanged scene; scene validation and disabled/hover styling remain shared.
+
+Search table cell delegates detach each QVariant cell into a shallow JavaScript
+value once per existing notification. Value bindings reuse that snapshot; nested
+objects and services keep their identity. Do not serialize cells through JSON or
+retain a second cache across row revisions.
+
+`ItemPreview` keeps its image/mask group lazy until a real supported source is
+present and the preview is active. Empty, pending and inactive avatars retain
+their fallback but allocate no decoder tree. Loaded images keep the existing
+decode size, rounded mask, appearance signals and source identity during resize;
+inactive previews destroy the group through Qt's normal deferred disposal.
+`tests.test_task_display_cost` checks stable geometry/font identity, immediate
+paint updates, late avatar arrival, resource release and actual resized pixels.
+The note-image resize test uses asynchronous scene capture: synchronous
+`grabWindow` can wait for Python render callbacks even on the baseline.
+
+For a table benchmark, replay the same ready response into the real
+`get_sobjects`, column projection, `replace_sobjects` and `SearchResultTable`.
+Measure JSON decode, hydration, columns, model construction and QML creation
+separately. Exclude transport waits, cold imports and QML source compilation
+from warm stage totals. Retain the full snapshot/file/task data and the same
+viewport, graphics backend, fonts and virtualized row count. Record Qt drawing
+and presentation separately; do not add frame waits to CPU construction time.
+For Vue, include deferred main-thread work through the visible frame, rather
+than comparing synchronous mount alone with the whole native construction.
+
 ## Native page data and geometry
 
 The item layout editor also detaches its QVariant value

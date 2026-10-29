@@ -71,7 +71,9 @@ class CardImageContrastTests(unittest.TestCase):
                             )
                             card.property("theme").setProperty("dark", dark)
                             source = card.findChild(QQuickItem, "previewSourceImage")
-                            preview = source.parentItem().parentItem()
+                            preview = source.parentItem()
+                            while preview.metaObject().indexOfProperty("sourcePixelWidth") < 0:
+                                preview = preview.parentItem()
                             deadline = time.monotonic() + 2
                             while (
                                 not preview.property("sourcePixelWidth")

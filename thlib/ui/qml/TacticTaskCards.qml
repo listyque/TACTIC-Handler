@@ -18,6 +18,7 @@ Item {
     property real cardWidth: Cells.metrics.taskWidth
     property real cardSpacing: Cells.metrics.taskGap
     property bool scrolling: false
+    readonly property var cardLayout: Cells.taskLayout(1, width, height)
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
 
     function choiceIndex(choices, value) {
@@ -70,7 +71,7 @@ Item {
                 readonly property string taskIdentity: JSON.stringify([root.nodeId, modelData.taskSearchKey || modelData.taskCode || "", modelData.context || modelData.process || ""])
                 readonly property color taskColor: String(modelData.statusColor || "").length > 0 ? modelData.statusColor : String(modelData.processColor || "").length > 0 ? modelData.processColor : root.theme.action
                 readonly property string processLabel: String(modelData.processLabel || modelData.process || modelData.context || qsTr("Task"))
-                readonly property var cardLayout: Cells.taskLayout(1, root.width, root.height)
+                readonly property var cardLayout: root.cardLayout
                 readonly property bool showDates: cardLayout.dates
                 readonly property real editorHeight: cardLayout.editorHeight
 
@@ -108,7 +109,7 @@ Item {
                         Accessible.role: Accessible.Button
                         Accessible.name: qsTr("Open task") + ": " + taskCard.processLabel
 
-                        Label {
+                        Text {
                             anchors.fill: parent
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
@@ -222,7 +223,7 @@ Item {
                                     color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
                                     Accessible.ignored: true
                                 }
-                                Label {
+                                Text {
                                     Layout.fillWidth: true
                                     text: taskCard.modelData.simpleDates === undefined ? String(taskCard.modelData.bidStartLabel || "—") + " – " + String(taskCard.modelData.bidEndLabel || "—") : Cells.taskDate(taskCard.modelData.bidStart, taskCard.modelData.simpleDates) + " – " + Cells.taskDate(taskCard.modelData.bidEnd, taskCard.modelData.simpleDates)
                                     color: datesHover.hovered ? root.theme.action : root.theme.secondaryText

@@ -3477,7 +3477,12 @@ def hydrate_sobjects_payload(
     project = env_inst.projects.get(project_code)
     if project is None:
         project = _project_object(project_code)
-    for sobject in sobjects_list.get('sobjects_list') or []:
+    sobject_records = sobjects_list.get('sobjects_list') or []
+    snapshot_token = (
+        server_cache.token('snapshots', project_code)
+        if include_snapshots and sobject_records else None
+    )
+    for sobject in sobject_records:
         object_type = str(
             sobject.get('__search_type__')
             or sobject.get('__search_key__') or ''
@@ -3497,7 +3502,7 @@ def hydrate_sobjects_payload(
 
         if include_snapshots:
             native.init_snapshots(sobject.get('__snapshots__') or [])
-            native._snapshot_cache_token = server_cache.token('snapshots', project_code)
+            native._snapshot_cache_token = snapshot_token
         if include_info:
             if object_type == Task.SEARCH_TYPE:
                 process = str(sobject.get('process') or 'publish')
@@ -3589,7 +3594,8 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
                 sobjects_list = {'sobjects_list': []}
         if not isinstance(sobjects_list, dict):
             return None
-        raw_payload = copy.deepcopy(sobjects_list)
+        # Hydration owns its copy; the unmodified response remains the cache payload.
+        raw_payload = sobjects_list
         hydrated = hydrate_sobjects_payload(
             raw_payload,
             project_code,

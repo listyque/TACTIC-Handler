@@ -48,6 +48,7 @@ class RecordsMixin:
 
     def update_item_fields(self, changes: dict) -> None:
         """Patch edited rows without resetting selection, expansion or previews."""
+        metadata = self._info_item_metadata(self._stype) if changes else None
         for node in self._nodes.values():
             values = changes.get(node.search_key)
             if values is None:
@@ -58,7 +59,7 @@ class RecordsMixin:
                 node.title = str(node.source.get_title() or node.code)
             node.subtitle = self._sobject_subtitle(self._stype, node.values)
             node.status = str(node.values.get("status") or node.values.get("state") or "")
-            node.chips = self._build_info_items(self._stype, node.values)
+            node.chips = self._build_info_items(self._stype, node.values, metadata)
             self._emit_node_roles(node, [])
 
     def update_description(self, search_key: str, value: str) -> None:
@@ -696,6 +697,7 @@ class RecordsMixin:
                 pass
         records: list[WorkspaceNode] = []
         seen_sobjects: set[str] = set()
+        metadata = self._info_item_metadata(stype)
         for sobject in sobjects:
             info = dict(sobject.get_info() or {})
             code = str(info.get("code") or info.get("id") or "")
@@ -712,7 +714,7 @@ class RecordsMixin:
                 and isinstance(value, (str, int, float, bool, type(None)))
             }
             subtitle = self._sobject_subtitle(stype, info)
-            info_items = self._build_info_items(stype, info)
+            info_items = self._build_info_items(stype, info, metadata)
             records.append(WorkspaceNode(
                 node_id=search_key,
                 node_type="sobject",

@@ -505,7 +505,8 @@ Item {
                         required property int index
                         required property var modelData
                         property bool editing: false
-                        readonly property var cell: resultRow.cellRecord(String(modelData.name || ""))
+                        // Detach the QVariant once instead of traversing it in every value binding.
+                        readonly property var cell: Object.assign({}, resultRow.cellRecord(String(modelData.name || "")))
                         readonly property string kind: String(cell.kind || modelData.kind || "text")
                         readonly property string textValue: root.displayText(cell.text)
                         readonly property bool inHorizontalViewport: {

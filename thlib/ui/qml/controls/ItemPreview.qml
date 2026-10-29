@@ -16,7 +16,9 @@ Item {
     property bool readyBorderEnabled: true
     property bool selected: false
     property bool loading: false
-    readonly property int previewBorderWidth: outlined || (readyBorderEnabled && sourceImage.status === Image.Ready) ? 1 : 0
+    readonly property var sourceImage: imageLoader.item ? imageLoader.item.image : null
+    readonly property bool previewReady: !!sourceImage && sourceImage.status === Image.Ready
+    readonly property int previewBorderWidth: outlined || (readyBorderEnabled && previewReady) ? 1 : 0
     // Views explicitly deactivate pooled delegates so decoded images and
     // scene-graph textures are released instead of accumulating while the
     // user scrolls through an infinite result set.
@@ -41,8 +43,8 @@ Item {
     readonly property bool pending: root.loading || String(root.source).indexOf("pending-preview:") === 0
     readonly property bool supportedSource: root.isSupportedSource(root.source)
     readonly property bool maskEnabled: root.active && root.visible && GraphicsInfo.api !== GraphicsInfo.Software && (root.effectsEnabled || root.cornerRadius > 0)
-    readonly property real sourcePixelWidth: sourceImage.status === Image.Ready ? sourceImage.sourceSize.width : 0
-    readonly property real sourcePixelHeight: sourceImage.status === Image.Ready ? sourceImage.sourceSize.height : 0
+    readonly property real sourcePixelWidth: root.previewReady ? sourceImage.sourceSize.width : 0
+    readonly property real sourcePixelHeight: root.previewReady ? sourceImage.sourceSize.height : 0
 
     function isSupportedSource(value) {
         const text = String(value || "");
@@ -75,86 +77,93 @@ Item {
         antialiasing: true
     }
 
-    // Mask the rendered item so Image.fillMode survives the texture-provider shortcut.
-    Item {
-        id: previewImageLayer
-        anchors.fill: parent
-        anchors.margins: root.previewBorderWidth
-        visible: root.active && sourceImage.status === Image.Ready
-        Image {
-            id: sourceImage
-            objectName: "previewSourceImage"
-            anchors.fill: parent
-            // Hidden layouts can probe near-DBL_MAX widths while calculating size
-            // hints. A mask still renders its invisible source, and Qt's texture
-            // sizing loop hangs when that width overflows. Do not load or mask a
-            // preview until its presentation is visible.
-            source: !root.active || !root.visible || root.pending || !root.supportedSource ? "" : root.source
-            visible: root.active && status === Image.Ready
-            fillMode: root.fillMode
-            asynchronous: true
-            cache: true
-            // Search Tabs reuse delegate slots. Keep the already rendered texture
-            // until the cached replacement is ready instead of flashing the
-            // fallback between two local preview sources.
-            retainWhileLoading: true
-            smooth: true
-            // The image is already decoded at its render size. A mip chain adds
-            // roughly one third more texture memory without improving thumbnails.
-            mipmap: false
-            sourceSize: root.decodeAtItemSize ? Qt.size(Math.max(64, Math.round(root.width * Screen.devicePixelRatio)), root.preserveDecodeAspect ? -1 : Math.max(64, Math.round(root.height * Screen.devicePixelRatio))) : Qt.size(-1, -1)
-            onStatusChanged: {
-                if (status !== Image.Ready)
-                    return;
-                // Persist first-reveal state as soon as this exact source is
-                // decoded. Waiting for the fade to finish lets a recycled view
-                // delegate report completion for a different model row.
-                root.imageReady();
-                if (!root.animateAppearance)
-                    root.appearanceCompleted();
-            }
+    onPreviewReadyChanged: {
+        if (previewReady) {
+            root.imageReady();
+            if (!root.animateAppearance)
+                root.appearanceCompleted();
         }
     }
 
     Loader {
-        objectName: "previewMaskLoader"
-        anchors.fill: previewImageLayer
-        // A missing, pending, or still-decoding source is represented by the
-        // fallback tree. Creating an OpacityMask before there is an image to
-        // mask adds an offscreen render pass to every idle delegate for no
-        // visible result.
-        active: root.maskEnabled && sourceImage.status === Image.Ready
-        opacity: sourceImage.status === Image.Ready ? 1 : 0
-        onLoaded: {
-            if (sourceImage.status === Image.Ready)
-                root.appearanceCompleted();
-        }
-        Behavior on opacity {
-            enabled: root.appearanceAnimationEnabled
-            NumberAnimation {
-                duration: theme.motionExtended
-                easing.type: Easing.OutCubic
-                onStopped: {
-                    if (sourceImage.status === Image.Ready)
-                        root.appearanceCompleted();
+        id: imageLoader
+        anchors.fill: parent
+        // Fallback avatars need neither an image decoder nor a mask subtree.
+        active: root.active && root.supportedSource && !root.pending
+        sourceComponent: Item {
+            readonly property alias image: sourceImage
+            // Mask the rendered item so Image.fillMode survives the texture-provider shortcut.
+            Item {
+                id: previewImageLayer
+                anchors.fill: parent
+                anchors.margins: root.previewBorderWidth
+                visible: root.active && root.previewReady
+                Image {
+                    id: sourceImage
+                    objectName: "previewSourceImage"
+                    anchors.fill: parent
+                    // Hidden layouts can probe near-DBL_MAX widths while calculating size
+                    // hints. A mask still renders its invisible source, and Qt's texture
+                    // sizing loop hangs when that width overflows. Do not load or mask a
+                    // preview until its presentation is visible.
+                    source: !root.active || !root.visible || root.pending || !root.supportedSource ? "" : root.source
+                    visible: root.active && status === Image.Ready
+                    fillMode: root.fillMode
+                    asynchronous: true
+                    cache: true
+                    // Search Tabs reuse delegate slots. Keep the already rendered texture
+                    // until the cached replacement is ready instead of flashing the
+                    // fallback between two local preview sources.
+                    retainWhileLoading: true
+                    smooth: true
+                    // The image is already decoded at its render size. A mip chain adds
+                    // roughly one third more texture memory without improving thumbnails.
+                    mipmap: false
+                    sourceSize: root.decodeAtItemSize ? Qt.size(Math.max(64, Math.round(root.width * Screen.devicePixelRatio)), root.preserveDecodeAspect ? -1 : Math.max(64, Math.round(root.height * Screen.devicePixelRatio))) : Qt.size(-1, -1)
                 }
             }
-        }
-        sourceComponent: OpacityMask {
-            anchors.fill: parent
-            source: ShaderEffectSource {
-                sourceItem: previewImageLayer
-                hideSource: true
-                live: true
-            }
-            // Caching the effect duplicates every preview in another texture.
-            // Static Image textures are already cached by Qt's image pipeline.
-            cached: false
-            maskSource: Rectangle {
-                width: sourceImage.width
-                height: sourceImage.height
-                radius: Math.max(0, root.cornerRadius - root.previewBorderWidth)
-                antialiasing: true
+
+            Loader {
+                objectName: "previewMaskLoader"
+                anchors.fill: previewImageLayer
+                // A missing, pending, or still-decoding source is represented by the
+                // fallback tree. Creating an OpacityMask before there is an image to
+                // mask adds an offscreen render pass to every idle delegate for no
+                // visible result.
+                active: root.maskEnabled && root.previewReady
+                opacity: root.previewReady ? 1 : 0
+                onLoaded: {
+                    if (root.previewReady)
+                        root.appearanceCompleted();
+                }
+                Behavior on opacity {
+                    enabled: root.appearanceAnimationEnabled
+                    NumberAnimation {
+                        duration: theme.motionExtended
+                        easing.type: Easing.OutCubic
+                        onStopped: {
+                            if (root.previewReady)
+                                root.appearanceCompleted();
+                        }
+                    }
+                }
+                sourceComponent: OpacityMask {
+                    anchors.fill: parent
+                    source: ShaderEffectSource {
+                        sourceItem: previewImageLayer
+                        hideSource: true
+                        live: true
+                    }
+                    // Caching the effect duplicates every preview in another texture.
+                    // Static Image textures are already cached by Qt's image pipeline.
+                    cached: false
+                    maskSource: Rectangle {
+                        width: sourceImage.width
+                        height: sourceImage.height
+                        radius: Math.max(0, root.cornerRadius - root.previewBorderWidth)
+                        antialiasing: true
+                    }
+                }
             }
         }
     }
@@ -171,7 +180,7 @@ Item {
     Loader {
         anchors.centerIn: parent
         anchors.alignWhenCentered: false
-        active: root.active && (root.pending || sourceImage.status !== Image.Ready)
+        active: root.active && (root.pending || !root.previewReady)
         sourceComponent: root.pending ? pendingComponent : root.fallbackText.length ? textComponent : iconComponent
     }
     Component {

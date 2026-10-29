@@ -722,10 +722,8 @@ class NotesQmlTests(unittest.TestCase):
 
         source_image = frame.findChild(QObject, "previewSourceImage")
         mask_loader = frame.findChild(QObject, "previewMaskLoader")
-        self.assertIsNotNone(source_image)
-        self.assertIsNotNone(mask_loader)
-        self.assertTrue(source_image.property("source").isEmpty())
-        self.assertFalse(mask_loader.property("active"))
+        self.assertIsNone(source_image)
+        self.assertIsNone(mask_loader)
         self.assertIsNone(
             frame.findChild(QObject, "messageTimelineGroupTail")
         )

@@ -3875,7 +3875,11 @@ class ItemPreviewLifecycleTests(unittest.TestCase):
         preview.setProperty("active", False)
         self.app.processEvents()
 
-        self.assertTrue(image.property("source").isEmpty())
+        self.assertFalse(preview.property("previewReady"))
+        self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+        self.assertIsNone(preview.findChild(QObject, "previewSourceImage"))
+        self.assertIsNone(preview.findChild(QObject, "previewMaskLoader"))
+        self.assertEqual(preview.property("sourcePixelWidth"), 0)
         preview.deleteLater()
         theme.deleteLater()
 
