@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.247 - 2026-10-29
+
+- Use square workspace-tab backgrounds in Handler and Stream. Preserve the selection underline, close feedback and all other component radii; check actual tab rendering and input in both clients.
+
 ## 0.6.0.246 - 2026-10-29
 
 - Keep ready table cells visible while an unchanged definition refreshes, preventing History disclosure blanking between definition and row responses. Reject late definition replies from another project. Add symmetric breathing room to expanded nested tables in Handler and Stream. Verify native/browser input and narrow/wide bounds; update EN/RU Help.

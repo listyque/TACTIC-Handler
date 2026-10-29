@@ -144,6 +144,7 @@ property string current:"a"
 function apply(action){calls++;if(action.type==="select")current=action.id;else if(action.type==="close"){records=records.filter(record=>record.id!==action.id);if(!records.some(record=>record.id===current))current=records[0]?.id||""}else{const items=records.slice();const moved=items.splice(action.source,1)[0];items.splice(action.target,0,moved);records=items}Qt.callLater(()=>{for(let i=0;i<tabs.count;i++){const item=tabs.itemAt(i);if(item.identity===window.current)item.forceActiveFocus()}})}
 Row{Repeater{id:tabs;model:window.records;delegate:Controls.WorkspaceTabInput{required property var modelData;objectName:"tab_"+modelData.id;width:180;height:50;identity:modelData.id;label:modelData.title;selected:window.current===modelData.id;recordsProvider:()=>window.records;onCommand:action=>window.apply(action);Controls.WorkspaceTabVisual{anchors.fill:parent;theme:theme;title:parent.label;current:parent.selected;closable:true;onCloseRequested:window.apply({type:"close",id:parent.identity})}}}}"""
         with self.scene(body) as window:
+            self.assertEqual(self.find(window, "workspaceTabOverlay").property("radius"), 0)
             self.find(window, "tab_a").forceActiveFocus()
             QTest.keyClick(window, Qt.Key_Right)
             frame(window)

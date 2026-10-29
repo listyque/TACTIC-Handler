@@ -21,6 +21,7 @@ export function tab(width, height, record, state = {}) {
     );
     const nodes = [
         node('Box', 'workspaceTabOverlay', rect(0, 0, width, height), {
+            radius: 0,
             background: selected ? 'action' : 'primaryText',
             opacity: state.pressed
                 ? 0.12
