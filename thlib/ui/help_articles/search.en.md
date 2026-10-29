@@ -416,3 +416,5 @@ The main table and its expanded nested tables share the header colors.
 Expanded related tables, including History, leave an equal inset around the search tools, table and footer. Handler keeps ready cells visible during a refresh of the same table definition, replacing them when the new rows arrive. Switching project, view or definition clears the previous presentation.
 
 The table Check-in button toggles Drop Plate: click to show it, click again to hide it. Hiding keeps files on the plate. A plate covered by another dock tab is brought forward. Stream reopens the same target without clearing files; switching targets retains its discard check. Task Work keeps its explicit open action.
+
+A related-table disclosure arrow and its loading icon belong to the clicked row, column and nested view. Opening one hidden table does not change neighboring arrows, including another column that uses the same view. Clicking the active arrow closes its table.

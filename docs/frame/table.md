@@ -209,3 +209,12 @@ entry point opts into toggling; Task Work remains an explicit open command.
 Reopening the same Stream project/key/process/context preserves the plate;
 retargeting still passes the existing discard guard. Tests use actual native
 table-button input/DockPanelModel and browser TableCell/App/DockWorkspace input.
+
+A nested disclosure uses the row's active expansion only when its column and
+`nested.ui.mjs::identity` match the cell. Shared `services.ui.mjs` owns this
+decision for both engines, including the loading glyph. Native scopes expose
+the compact read-only `expansionState` projection (open/busy/column/scope) rather
+than converting full nested records just to paint the arrow. The existing
+row/column scope cache, one-open-column-per-row rule and row expansion owner
+stay unchanged. Native `test_table_nested` and browser `table_disclosure_state`
+exercise actual clicks across duplicate scopes, columns, loading and rows.

@@ -8,13 +8,14 @@ class NestedTableController(QObject):
     changed = Signal()
     search_text_changed = Signal()
 
-    def __init__(self, services, node_id, descriptor):
+    def __init__(self, services, node_id, descriptor, column: str = ''):
         super().__init__(services)
         self.services = services
         self.application = services._application
         self.open = False
         self.owner_node_id = node_id
         self.descriptor = dict(descriptor)
+        self.column = column
         self.tab = self.application._current_tab()
         self._generation = 0
         self._workers = set()
@@ -41,6 +42,10 @@ class NestedTableController(QObject):
         self.services.nestedChanged.connect(self.changed)
         self.services.completed.connect(self._record_saved)
         self.application.item_fields_updated.connect(self._records_saved)
+
+    @Property('QVariantMap', notify=changed)
+    def expansionState(self) -> dict:
+        return dict(open=self.open, busy=self._model['busy'], column=self.column, scope=self.descriptor)
 
     @Property('QVariantMap', notify=changed)
     def model(self):

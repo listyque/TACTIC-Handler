@@ -18,10 +18,7 @@ Frame.FrameView {
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     readonly property var nestedScope: cell.nestedTable && services ? services.nested_row(nodeId, services.nestedRevision) : null
     scene: UI.describe(cell, width, height, language, editable, Object.assign({}, expanded, {
-        __nested: {
-            open: !!nestedScope,
-            busy: nestedScope ? nestedScope.model.busy : false
-        }
+        __nested: nestedScope ? nestedScope.expansionState : null
     }), controller.server_url || "")
     models: ({
             connectionRows: cell.connectionRows || []

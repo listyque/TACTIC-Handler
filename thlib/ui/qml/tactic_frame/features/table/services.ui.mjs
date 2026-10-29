@@ -7,6 +7,7 @@ import * as Time from './time.ui.mjs';
 import * as Connections from './connections.ui.mjs';
 import * as Parent from './parent.ui.mjs';
 import * as Publish from './publish.ui.mjs';
+import * as Nested from './nested.ui.mjs';
 
 export function describe(
     cell,
@@ -63,6 +64,11 @@ export function describe(
             text: translate(cell.label, language)
         });
     const actions = cell.actions || [];
+    const nested = expanded.__nested;
+    const nestedOpen =
+        !!nested?.open &&
+        String(nested.column || '') === String(cell.columnName || '') &&
+        Nested.identity(nested.scope) === Nested.identity(cell.nestedTable);
     const size = 28,
         gap = 4;
     const inner = Math.max(0, width - 24);
@@ -97,9 +103,9 @@ export function describe(
                     ? action.label
                     : translate(action.label, language),
                 action.name === 'nested-table'
-                    ? expanded.__nested?.busy
+                    ? nestedOpen && nested.busy
                         ? 'loading'
-                        : expanded.__nested?.open
+                        : nestedOpen
                           ? 'expand-more'
                           : action.icon || 'chevron-right'
                     : action.icon,

@@ -245,6 +245,61 @@ class NestedTableTests(unittest.TestCase):
             self.assertIs(self.item(view, 'tableServiceAction_0'), button)
             self.assertTrue(button.hasActiveFocus())
 
+    def test_disclosure_state_belongs_to_its_row_column_and_scope(self):
+        import json
+        import os
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from thlib.ui.table.services import TableServicesController
+        import tests.test_table_service_workflows as workflows
+        application = workflows.Application()
+        owner = TableServicesController(application)
+        self.addCleanup(owner.shutdown)
+        history = dict(searchType='sthpw/snapshot', view='history', parentKey=application.node.search_key)
+        cells = [dict(text='', columnName=name, nestedTable=scope,
+            actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
+            for name, scope in [('history', history), ('tasks', dict(history, view='tasks')), ('history_copy', history)] * 2]
+        surfaces = [self.create('features/table/ServiceCell.qml', dict(controller=_TableController(),
+            nodeId='B' if index >= 3 else 'A', services=owner, administration=None, cell=cell), width=100, height=58)
+            for index, cell in enumerate(cells)]
+        captures = []
+        def icons():
+            self.app.processEvents()
+            values = [view.property('scene').toVariant()['nodes'][0]['children'][0]['icon'] for _, view in surfaces]
+            captures.append(values)
+            return values
+        def click(index):
+            window, view = surfaces[index]
+            self.click(window, self.item(view, 'tableServiceAction_0'))
+        with patch('thlib.ui.table.nested.NestedTableController.reload'):
+            self.assertEqual(icons(), ['chevron-right'] * 6)
+            click(0)
+            self.assertEqual(icons(), ['expand-more', 'chevron-right', 'chevron-right', 'chevron-right', 'chevron-right', 'chevron-right'])
+            active = owner.nested_row('A')
+            active._model['busy'] = True
+            active.changed.emit()
+            self.assertEqual(icons(), ['loading', 'chevron-right', 'chevron-right', 'chevron-right', 'chevron-right', 'chevron-right'])
+            click(1)
+            self.assertEqual(icons(), ['chevron-right', 'expand-more', 'chevron-right', 'chevron-right', 'chevron-right', 'chevron-right'])
+            click(1)
+            self.assertEqual(icons(), ['chevron-right'] * 6)
+            click(2)
+            self.assertEqual(icons(), ['chevron-right', 'chevron-right', 'expand-more', 'chevron-right', 'chevron-right', 'chevron-right'])
+            click(3)
+            self.assertEqual(icons(), ['chevron-right', 'chevron-right', 'expand-more', 'expand-more', 'chevron-right', 'chevron-right'])
+            parent = owner.nested_row('A')
+            parent._nodes['nested:R'] = SimpleNamespace(search_key='sthpw/snapshot?code=R')
+            parent._model['rows'] = [dict(key='R', nodeId='nested:R')]
+            owner.toggle_nested('nested:R', dict(cells[1], columnName='child', nestedTable=dict(history, view='files')))
+            child = owner.nested_row('nested:R')
+            self.assertEqual(child.expansionState['column'], 'child')
+            self.assertEqual(child.expansionState['scope']['view'], 'files')
+        if os.environ.get('TABLE_DISCLOSURE_OUTPUT'):
+            output = Path(os.environ['TABLE_DISCLOSURE_OUTPUT'])
+            output.mkdir(parents=True, exist_ok=True)
+            (output/'native.json').write_text(json.dumps(captures), encoding='utf-8')
+
     def test_script_context_uses_the_nested_selection_and_view(self):
         from unittest.mock import patch, Mock
         from types import SimpleNamespace
