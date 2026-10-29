@@ -707,6 +707,7 @@ class ItemActionsMixin:
             actions.append(relation_action(
                 related_stype, code, "child"
             ))
+        actions.append({"title": "Related objects", "icon": "link", "command": "open_related_objects"})
         return actions
 
     @Slot(str, result="QVariantList")

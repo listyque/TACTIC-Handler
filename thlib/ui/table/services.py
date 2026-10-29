@@ -259,6 +259,8 @@ class TableServicesController(QObject):
     def scope_visible(self, scope):
         seen = set()
         while scope is not None:
+            if getattr(scope, 'window_id', '') and not self._application.window_model.is_window_visible(scope.window_id):
+                return False
             if id(scope) in seen or not scope.open or scope.tab is not self._application._current_tab():
                 return False
             layout_owner = getattr(scope, 'layout_owner', None)
@@ -283,7 +285,7 @@ class TableServicesController(QObject):
     @Slot(str, int, result=QObject)
     def nested_row(self, node_id, revision=0):
         return next((scope for scope in self._nested_scopes.values()
-            if scope.owner_node_id == node_id and self.scope_visible(scope)), None)
+            if scope.owner_node_id == node_id and not getattr(scope, 'window_id', '') and self.scope_visible(scope)), None)
 
     def _nested_changed(self):
         for scope in self._nested_scopes.values():
@@ -324,7 +326,7 @@ class TableServicesController(QObject):
             self._nested_scopes[key] = scope
         opening = not scope.open
         for sibling in self._nested_scopes.values():
-            if sibling.tab is tab and sibling.owner_node_id == node_id:
+            if sibling.tab is tab and sibling.owner_node_id == node_id and not getattr(sibling, 'window_id', ''):
                 sibling.open = False
         scope.open = opening
         self._nested_changed()

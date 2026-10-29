@@ -77,6 +77,7 @@ from thlib.ui.sobject_duplicate import SObjectDuplicateController
 from thlib.ui.sobject_editor import SObjectEditorController
 from thlib.ui.sobject_info import SObjectInfoController
 from thlib.ui.sobject_link import SObjectLinkController
+from thlib.ui.related_objects import RelatedObjectsController
 from thlib.ui.tasks import TasksController
 from thlib.ui.tray import TrayController
 from thlib.ui.update_controller import UpdateController
@@ -346,6 +347,7 @@ class EditorBundle:
     project_creation: ProjectCreationController
     table_services: TableServicesController
     links: SObjectLinkController
+    related_objects: RelatedObjectsController
 
     def qml_bindings(self) -> dict[str, Any]:
         return {
@@ -366,6 +368,7 @@ class EditorBundle:
             "projectCreationController": self.project_creation,
             "tableServicesController": self.table_services,
             "sobjectLinkController": self.links,
+            "relatedObjectsController": self.related_objects,
             "linkAvailableModel": self.links.available_model,
             "linkCurrentModel": self.links.linked_model,
         }
@@ -936,6 +939,8 @@ def _build_editors(
     table_services = TableServicesController(controller, administration=collaboration.administration,
         tasks=task_bundle.tasks, scripts=delivery.script_editor, links=links)
     controller._table_services = table_services
+    related_objects = RelatedObjectsController(controller, table_services)
+    controller._related_objects = related_objects
     table_services.completed.connect(lambda key: delivery.columns_editor._refresh_changed_rows(controller._current_project_code, [key]))
     def refresh_table_time():
         columns = delivery.columns_editor
@@ -953,6 +958,7 @@ def _build_editors(
         project_creation=project_creation,
         table_services=table_services,
         links=links,
+        related_objects=related_objects,
     )
 
 
@@ -1082,6 +1088,7 @@ def build_application_runtime(
     lifecycle.add_services(
         (
             editors.project_creation,
+            editors.related_objects,
             editors.table_services,
             collaboration.server_updates,
             collaboration.administration,

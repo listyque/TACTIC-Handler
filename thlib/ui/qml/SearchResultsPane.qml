@@ -164,6 +164,7 @@ Rectangle {
             ) {
                 if (below) {
                     root.itemActionMenuNodeId = selectedNodeId
+                    itemActionMenu.relationStyle = menuActions.some(action => String(action.command || "").indexOf("related:") === 0 || action.command === "open_related_objects")
                     itemActionMenu.actions = menuActions
                     itemActionMenu.openBelow(anchorItem)
                 } else {
@@ -203,14 +204,16 @@ Rectangle {
     property string itemActionMenuNodeId: ""
     ActionMenu {
         id: itemActionMenu
+        property bool relationStyle: false
+        frameComposition: relationStyle
         parent: Overlay.overlay
         theme: root.theme
         usePopupWindow: false
-        preferredWidth: 212
-        processPickerStyle: true
-        alignBelowRight: true
+        preferredWidth: relationStyle ? 260 : 212
+        processPickerStyle: !relationStyle
+        alignBelowRight: !relationStyle
         belowRightOverhang: 12
-        anchorPointerVisible: true
+        anchorPointerVisible: !relationStyle
         actions: []
         onTriggered: function(command) {
             root.controller.invoke_item_action(

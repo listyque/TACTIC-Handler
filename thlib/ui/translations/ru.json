@@ -5807,5 +5807,7 @@
   "The source tab changed. Reload the page.": "Исходная вкладка изменилась. Обновите страницу.",
   "Select all tools": "Выбрать все инструменты",
   "No expiration": "Без срока",
-  "MCP access lifetime must be zero or between 5 and 480 minutes": "Срок MCP-доступа должен быть равен нулю или составлять от 5 до 480 минут"
+  "MCP access lifetime must be zero or between 5 and 480 minutes": "Срок MCP-доступа должен быть равен нулю или составлять от 5 до 480 минут",
+  "Related type": "Тип связанных объектов",
+  "Create related object": "Создать связанный объект"
 }

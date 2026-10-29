@@ -378,6 +378,12 @@ class NestedTableController(QObject):
             for worker in tuple(self._workers):
                 worker.cancel()
 
+    @Slot()
+    def request_close(self):
+        self.open = False
+        self.suspend()
+        self.services._nested_changed()
+
     def shutdown(self):
         self.clear_search_suggestions()
         self._reload_timer.stop()

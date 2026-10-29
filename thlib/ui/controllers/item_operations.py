@@ -915,46 +915,7 @@ class ItemOperationsMixin:
         return True
 
     def _open_related_search(self, node_id: str, direction: str, related_code: str) -> None:
-        node = self.workspace_model.node_for(node_id)
-        if not node or not node.source:
-            return
-        source = node.source
-        parent_stype = source.get_stype()
-        project = parent_stype.get_project()
-        related_stype = project.stypes.get(related_code)
-        if not related_stype:
-            self._notify(f"Related search type is unavailable: {related_code}")
-            return
-        if direction == "parent":
-            expression = source.get_related_sobjects_tel_string(
-                child_stype=parent_stype,
-                parent_stype=related_stype,
-                path="parent",
-            )
-        else:
-            expression = source.get_related_sobjects_tel_string(
-                child_stype=related_stype,
-                parent_stype=parent_stype,
-                path="child",
-            )
-        section = self._unfiltered_search_key_section(
-            related_code,
-            related_stype.get_pretty_name(),
-            related_stype.get_stype_color(fmt="hex") or "",
-        )
-        self.activate_section(section.entry_key)
-        tab = create_search_tab(
-            section.entry_key,
-            f"{related_stype.get_pretty_name()} related to {source.get_title()}",
-            tab_kind="related",
-            limit=self._page_size,
-            view_mode=self._default_view_mode,
-            filters=[("_expression", "in", expression)],
-        )
-        section.tabs.append(tab)
-        section.current_tab_id = tab.tab_id
-        self._sync_search_tabs()
-        self._load_tab(tab)
+        self._related_objects.open(node_id, direction, related_code)
 
     @Slot(str, str)
     def open_completion(self, node_id: str, related_search_type: str) -> None:
@@ -1078,6 +1039,9 @@ class ItemOperationsMixin:
         if command.startswith("related:"):
             _prefix, direction, related_code = command.split(":", 2)
             self._open_related_search(node_id, direction, related_code)
+            return
+        if command == "open_related_objects":
+            self._related_objects.open(node_id)
             return
         node = self._node_for_any(node_id)
         source = node.source if node else None

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.259 - 2026-10-29
+
+- Add the native Related objects window using existing scoped tables, creation/edit operations and standard window hosting. Add its relationship-menu entry, shared toolbar and menu styling, with cancellation and cleanup on close or context changes.
+
 ## 0.6.0.258 - 2026-10-29
 
 - Document restored stock Task Workflow and expression-column availability from TACTIC Stream, retaining native edit permissions and rejecting unknown callbacks.

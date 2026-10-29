@@ -534,11 +534,13 @@ export function row(model, record, language, viewportWidth = 0) {
         );
     nodes.push(
         button(
-            'nestedEdit',
+            model.rowActions ? 'nestedMenu' : 'nestedEdit',
             rect(width - 36, (rowHeight - 28) / 2, 28, 28),
-            translate('Edit', language),
-            'edit',
-            { type: 'edit', key: record.key },
+            translate(model.rowActions ? 'Object actions' : 'Edit', language),
+            model.rowActions ? 'more-vert' : 'edit',
+            model.rowActions
+                ? { type: 'operate', nodeId: record.nodeId }
+                : { type: 'edit', key: record.key },
             true,
             { iconOnly: true, iconAction: true }
         )

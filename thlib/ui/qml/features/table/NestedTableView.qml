@@ -16,6 +16,7 @@ Item {
     required property var scope
     property Component nestedTableFactory: null
     signal closed
+    signal menuRequested(string nodeId, var anchor)
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     Frame.FrameView {
         anchors.fill: parent
@@ -43,6 +44,8 @@ Item {
         onEvent: (action, value) => {
             if (action.type === "close")
                 root.closed();
+            else if (action.type === "operate")
+                root.menuRequested(action.nodeId, value);
             else if (root.scope)
                 root.scope.activate(action, value);
         }
