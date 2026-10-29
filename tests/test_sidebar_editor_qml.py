@@ -201,6 +201,31 @@ ApplicationWindow {
                 self.window.grabWindow().save(str(Path(target).with_stem(
                     Path(target).stem + "-" + str(width))))
 
+    def test_tree_text_keeps_gap_from_icons_and_folder_toggles(self):
+        self.controller.add_entry('section')
+        self.controller.update_selected('title', 'Episodes')
+        self.controller.add_entry('link')
+        self.controller.update_selected('title', 'Ready to Sound')
+        self.controller.update_selected('searchType', 'demo/assets')
+        self.scene()
+        self.assertTrue(any(row['depth'] > 0 for row in self.controller.entryRecords))
+        for width in (860, 1300):
+            self.window.resize(width, 720)
+            frame(self.window)
+            for row in self.controller.entryRecords:
+                if not row['entryVisible']:
+                    continue
+                icon = self.item('sidebarEntryIcon_' + str(row['index']))
+                right = icon.mapToScene(QPointF(icon.width(), 0)).x()
+                title = self.item('sidebarEntryTitle_' + str(row['index']))
+                self.assertGreaterEqual(title.mapToScene(QPointF()).x() - right, 12)
+                if row['searchType']:
+                    detail = self.item('sidebarEntryType_' + str(row['index']))
+                    self.assertEqual(detail.mapToScene(QPointF()).x(), title.mapToScene(QPointF()).x())
+                if row['entryType'] == 'section':
+                    toggle = self.item('sidebarEntryToggle_' + str(row['index']))
+                    self.assertLessEqual(title.mapToScene(QPointF(title.width(), 0)).x(), toggle.mapToScene(QPointF()).x() - 8)
+
     def test_title_edit_preserves_identity_and_enables_save(self):
         self.scene()
         field = self.item("sidebarTitleField")

@@ -259,9 +259,9 @@ export function row(id, width, record, options = {}) {
                 label(
                     ids.title || id + '_title',
                     rect(
-                        x + 32,
+                        x + 44,
                         record.subtitle ? 8 : 18,
-                        Math.max(1, width - x - 88),
+                        Math.max(1, width - x - 100),
                         24
                     ),
                     record.title,
@@ -271,7 +271,12 @@ export function row(id, width, record, options = {}) {
                     ? [
                           label(
                               ids.detail || id + '_detail',
-                              rect(x + 32, 32, Math.max(1, width - x - 88), 20),
+                              rect(
+                                  x + 44,
+                                  32,
+                                  Math.max(1, width - x - 100),
+                                  20
+                              ),
                               record.subtitle,
                               muted
                           )

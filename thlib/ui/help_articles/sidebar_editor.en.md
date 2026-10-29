@@ -5,6 +5,8 @@ order: 37
 ---
 # Sidebar Editor
 
+Tree labels and their secondary text keep a clear gap from icons, including nested entries.
+
 > Sidebar Editor changes project navigation stored in TACTIC. Simple mode covers normal setup;
 > Advanced XML edits the selected server element directly. Save deliberately—these changes affect
 > users allowed to see the item.
