@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.273 - 2026-10-30
+
+- Reuse the task value display as the inline editor base, removing its duplicate host and property forwarding while preserving popup and pointer lifetime.
+- Share real body/caption font metrics per QML engine; retain native measurement for other font families and roles.
+- Cover font changes, editor surface reuse and 200% display scaling; document measured creation costs without dropping table rows, cards or actions.
+
 ## 0.6.0.272 - 2026-10-30
 
 - Embed the existing AI connection editor directly in Configuration; remove the intermediate launch button and unrelated header save actions on that page.

@@ -6,7 +6,7 @@ import time
 import unittest
 
 from PySide6.QtCore import QObject, QUrl, Slot
-from PySide6.QtGui import QColor, QImage
+from PySide6.QtGui import QColor, QFontMetricsF, QImage
 from PySide6.QtTest import QSignalSpy, QTest
 
 from tests import test_frame_table as frames
@@ -84,6 +84,73 @@ class TaskDisplayCostTests(unittest.TestCase):
         self.app.processEvents()
         self.assertFalse(layout.strictlyEquals(view.property("layout")))
         self.assertGreater(label.x(), layout.property("label").property("x").toNumber())
+
+    def test_common_metrics_are_shared_without_losing_native_font_fallback(self):
+        directory = TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        fixture = Path(directory.name) / "TaskFonts.qml"
+        tasks_url = QUrl.fromLocalFile(str(frames.QML / "features/tasks")).toString()
+        fixture.write_text('''import QtQuick
+import "TASKS" as Tasks
+Item {
+    id: root
+    required property var theme
+    property QtObject alternateTheme: QtObject {
+        property string fontFamily: "Courier New"
+        property color primaryText: "#ffffff"
+        property color secondaryText: "#aaaaaa"
+        property color disabledText: "#888888"
+        property color surfaceContainerLow: "#222222"
+        property color surfaceContainerHigh: "#333333"
+        property color outlineVariant: "#777777"
+        property int itemRadius: 4
+        property int fieldRadius: 4
+    }
+    Tasks.TaskCellDisplay {
+        objectName: "first"; width: 140; height: 28
+        theme: root.theme
+        model: ({ text: "First", enabled: true, fontRole: "caption" })
+    }
+    Tasks.TaskCellDisplay {
+        objectName: "second"; x: 150; width: 140; height: 28
+        theme: root.theme
+        model: ({ text: "Second", enabled: true, fontRole: "caption" })
+    }
+    Tasks.TaskCellDisplay {
+        objectName: "alternate"; x: 300; width: 140; height: 28
+        theme: root.alternateTheme
+        model: ({ text: "Other font", enabled: true, fontRole: "caption" })
+    }
+}
+'''.replace("TASKS", tasks_url), encoding="utf-8")
+        window, view = self.create(str(fixture), {}, width=460, height=40)
+        first, second, alternate = (self.item(view, name) for name in
+                                    ("first", "second", "alternate"))
+
+        def metrics(item):
+            value = item.property("cellMetrics")
+            return value.toQObject() if hasattr(value, "toQObject") else value
+
+        common = metrics(first)
+        self.assertIs(common, metrics(second))
+        self.assertIsNot(common, metrics(alternate))
+        self.assertEqual(metrics(alternate).property("font").family(), "Courier New")
+        for item in (first, second, alternate):
+            value = metrics(item)
+            self.assertAlmostEqual(value.property("height"),
+                                   QFontMetricsF(value.property("font")).height())
+        first.setProperty("model", dict(text="Larger", enabled=True, fontRole="bodyLarge"))
+        self.app.processEvents()
+        self.assertIsNot(metrics(first), common)
+        self.assertEqual(metrics(first).property("font").pixelSize(), 14)
+        label = self.item(first, "taskTableCellDisplayLabel")
+        self.assertEqual(label.property("font"), metrics(first).property("font"))
+        first.setProperty("model", dict(text="Back", enabled=True, fontRole="caption"))
+        self.app.processEvents()
+        self.assertIs(metrics(first), common)
+        view.property("alternateTheme").setProperty("fontFamily", view.property("theme").property("fontFamily"))
+        self.app.processEvents()
+        self.assertIs(metrics(alternate), common)
 
     def test_fallback_and_pending_previews_have_no_decoder_or_mask(self):
         window, view = self.create(

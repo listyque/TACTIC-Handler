@@ -12,6 +12,7 @@ Item {
     property string login: ""
     property string avatarSource: ""
     property string avatarInitials: ""
+    property bool displayActive: true
     property bool scrolling: false
     readonly property string fontRole: root.model.fontRole || "body"
     readonly property bool hasAvatar: !!root.model.avatar
@@ -26,7 +27,7 @@ Item {
         accent: root.hasAccent,
         indicator: root.hasIndicator,
         fontRole: root.fontRole,
-        textHeight: cellMetrics.height
+        textHeight: cellMetrics ? cellMetrics.height : 0
     }, width, height)
     readonly property var surface: UI.choiceStyle({
         enabled: root.cellEnabled,
@@ -38,17 +39,23 @@ Item {
     readonly property var accent: layout.accent
     readonly property var indicator: layout.indicator
 
-    FontMetrics {
-        id: cellMetrics
-        font: Qt.font({
-            family: root.theme.fontFamily,
-            pixelSize: Foundation.textStyles[root.fontRole],
-            weight: Font.Normal,
-            hintingPreference: Font.PreferVerticalHinting
-        })
+    readonly property bool sharedFont: root.theme.fontFamily === Foundation.fontFamily && (root.fontRole === "body" || root.fontRole === "caption")
+    readonly property var cellMetrics: sharedFont ? (root.fontRole === "caption" ? Controls.Typography.captionMetrics : Controls.Typography.bodyMetrics) : fallbackMetrics.item
+    Loader {
+        id: fallbackMetrics
+        active: !root.sharedFont
+        sourceComponent: FontMetrics {
+            font: Qt.font({
+                family: root.theme.fontFamily,
+                pixelSize: Foundation.textStyles[root.fontRole],
+                weight: Font.Normal,
+                hintingPreference: Font.PreferVerticalHinting
+            })
+        }
     }
     // Keep shared geometry, but do not build a recursive Frame tree for an idle value.
     Rectangle {
+        visible: root.displayActive
         objectName: "taskTableCellSurface"
         anchors.fill: parent
         radius: root.theme[root.surface.radiusRole]
@@ -58,7 +65,7 @@ Item {
     }
     Rectangle {
         objectName: "taskTableCellAccent"
-        visible: !!root.accent
+        visible: root.displayActive && !!root.accent
         x: root.accent ? root.accent.x : 0
         y: root.accent ? root.accent.y : 0
         width: root.accent ? root.accent.width : 0
@@ -67,6 +74,7 @@ Item {
         color: root.accent ? root.model.accent : "transparent"
     }
     Text {
+        visible: root.displayActive
         objectName: "taskTableCellDisplayLabel"
         x: root.label.x
         y: root.label.y
@@ -75,11 +83,17 @@ Item {
         text: root.model.text || ""
         textFormat: Text.PlainText
         color: root.theme[root.surface.textColor]
-        font: cellMetrics.font
+        font: cellMetrics ? cellMetrics.font : Qt.font({
+            family: root.theme.fontFamily,
+            pixelSize: Foundation.textStyles[root.fontRole],
+            weight: Font.Normal,
+            hintingPreference: Font.PreferVerticalHinting
+        })
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }
     Loader {
+        visible: root.displayActive
         objectName: "taskTableCellAvatar"
         active: !!root.avatar
         x: root.avatar ? root.avatar.x : 0
@@ -97,6 +111,7 @@ Item {
         }
     }
     Loader {
+        visible: root.displayActive
         active: !!root.indicator
         x: root.indicator ? root.indicator.x : 0
         y: root.indicator ? root.indicator.y : 0

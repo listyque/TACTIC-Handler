@@ -31,6 +31,9 @@ remain available, including when results are restored from the search cache.
 Task Workflow and inline field editors remain available while avatar or object
 pictures are loading. Initials and placeholder icons remain visible until a picture is ready.
 
+Opening and closing an inline task editor keeps the existing task card and its
+idle display in place.
+
 ## How a query is assembled
 
 A query can be built in layers. Every layer eventually appears as a condition in **Advanced

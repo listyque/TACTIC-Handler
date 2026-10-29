@@ -128,6 +128,25 @@ Item {
         items = self.visual_items(self.cell)
         self.assertLessEqual(len(items), 20)
 
+    def test_editor_reuses_its_own_idle_surface_through_popup_lifetime(self):
+        self.create_cell(user=True, animations=False)
+        label = self.cell.findChild(QObject, "taskTableCellDisplayLabel")
+        surface = self.cell.findChild(QObject, "taskTableCellSurface")
+        self.assertIs(label.parentItem(), self.cell)
+        self.assertIs(surface.parentItem(), self.cell)
+        QTest.mouseClick(self.window, Qt.LeftButton, Qt.NoModifier, QPoint(100, 36))
+        self.assert_open()
+        self.assertTrue(self.cell.isVisible())
+        self.assertFalse(label.isVisible())
+        self.assertFalse(surface.isVisible())
+        QTest.keyClick(self.window, Qt.Key_Escape)
+        QTest.mouseMove(self.window, QPoint(310, 150))
+        self.wait_for(lambda: not self.cell.property("editorLoaded"))
+        self.assertIs(self.cell.findChild(QObject, "taskTableCellDisplayLabel"), label)
+        self.assertIs(self.cell.findChild(QObject, "taskTableCellSurface"), surface)
+        self.assertTrue(label.isVisible())
+        self.assertTrue(surface.isVisible())
+
     def test_cold_status_cell_opens_on_single_click(self):
         self.create_cell()
         self.assertFalse(self.cell.property("editorLoaded"))

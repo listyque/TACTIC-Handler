@@ -20,8 +20,11 @@ projection; do not cache it across projections or configuration revisions.
 revision refresh and definition resolution at all three projection call sites.
 
 Task cards share their dimension calculation within the deck and use plain
-native text for passive headings and dates. Keep the editor/display wrapper,
-which owns pointer activation and editor release. Status, assignee and date editors,
+native text for passive headings and dates. `TaskTableEditorCell` derives from
+`TaskCellDisplay`: it owns pointer activation and editor release without another
+display wrapper or forwarded theme/user/font properties. `displayActive` hides
+idle paint and its hit targets while the editor is open; it must not hide the
+editor host itself. Status, assignee and date editors,
 avatar updates, popup lifetime and row recycling remain covered by the native
 task activation and table tests. Do not count a smaller object tree as a speed
 gain without a repeat measurement.
@@ -31,6 +34,21 @@ through `choiceStyle`. Typed shape/typography properties keep a text, color or
 hover change from rebuilding all layout nodes and fonts. The native display
 shares its font with its metrics. Vue's `choice` composes the same helpers into
 the unchanged scene; scene validation and disabled/hover styling remain shared.
+
+The existing `Typography` singleton owns real native metrics for the shared body
+and caption fonts, once per QML engine. Task values reuse those metrics. Other
+font families and roles retain their own native `FontMetrics`; do not replace
+measurement with fixed height constants. The font fallback and inherited editor
+tests cover role/family changes and the same idle objects across popup lifetime.
+
+Separate retained object counts from construction time. Removing unused cell
+Component definitions, changing a layout container, or adding `Bound` contexts
+did not give a repeatable whole-table gain in controlled trials. Count transient
+creations too, and time actual Loader content by kind in a diagnostic copy.
+Instrumentation adds work: its inclusive subtree totals are not an exact,
+additive decomposition of an uninstrumented benchmark. Use fresh alternating
+before/after runs for the final creation result, keep the benchmark thread on the
+same CPU when scheduling varies, and record the hardware/backend and warm-up.
 
 Search table cell delegates detach each QVariant cell into a shallow JavaScript
 value once per existing notification. Value bindings reuse that snapshot; nested

@@ -4,25 +4,20 @@ import QtQuick.Layouts
 import "controls" as Controls
 import "features/tasks" as Tasks
 
-Item {
+Tasks.TaskCellDisplay {
     id: root
     objectName: "taskTableEditorCell"
 
-    required property var theme
     required property var releaseCoordinator
     property Component editorComponent
     property bool editorActive: false
     property bool editingAllowed: true
-    property bool scrolling: false
     property bool actionField: true
     property bool showIndicator: !actionField
     property bool showAccent: false
     property color accentColor: theme.action
     property bool showAvatar: false
-    property var userModel: null
     property string avatarLogin: ""
-    property string avatarSource: ""
-    property string avatarInitials: ""
     property string displayText: ""
     property real textPointSize: Controls.Typography.body
     property bool editRequested: false
@@ -103,36 +98,28 @@ Item {
 
     Component.onDestruction: cancelEditorRelease()
 
-    Tasks.TaskCellDisplay {
-        anchors.fill: parent
-        visible: !editorLoader.active
-        theme: root.theme
-        model: ({
-                text: root.showAvatar && !root.avatarLogin && ["Not assigned", "No supervisor"].includes(root.displayText) ? qsTr(root.displayText) : root.displayText,
-                enabled: root.editingAllowed,
-                hovered: root.editorActive || cellHover.hovered,
-                actionField: root.actionField,
-                indicator: root.showIndicator,
-                showAccent: root.showAccent,
-                accent: String(root.accentColor),
-                avatar: root.showAvatar,
-                fontRole: root.textPointSize <= Controls.Typography.caption ? "caption" : "body"
-            })
-        userModel: root.userModel
-        login: root.avatarLogin
-        avatarSource: root.avatarSource
-        avatarInitials: root.avatarInitials
-        scrolling: root.scrolling
-        HoverHandler {
-            id: cellHover
-            cursorShape: root.editingAllowed ? Qt.PointingHandCursor : Qt.ArrowCursor
-        }
-        Controls.ActivationHandler {
-            anchors.fill: parent
-            enabled: root.editingAllowed && !root.scrolling
-            cursorShape: Qt.PointingHandCursor
-            onActivated: root.editRequested = true
-        }
+    displayActive: !editorLoader.active
+    model: ({
+            text: root.showAvatar && !root.avatarLogin && ["Not assigned", "No supervisor"].includes(root.displayText) ? qsTr(root.displayText) : root.displayText,
+            enabled: root.editingAllowed,
+            hovered: root.editorActive || cellHover.hovered,
+            actionField: root.actionField,
+            indicator: root.showIndicator,
+            showAccent: root.showAccent,
+            accent: String(root.accentColor),
+            avatar: root.showAvatar,
+            fontRole: root.textPointSize <= Controls.Typography.caption ? "caption" : "body"
+        })
+    login: root.avatarLogin
+    HoverHandler {
+        id: cellHover
+        enabled: root.displayActive
+        cursorShape: root.editingAllowed ? Qt.PointingHandCursor : Qt.ArrowCursor
+    }
+    Controls.ActivationHandler {
+        enabled: root.displayActive && root.editingAllowed && !root.scrolling
+        cursorShape: Qt.PointingHandCursor
+        onActivated: root.editRequested = true
     }
 
     Loader {
