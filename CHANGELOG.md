@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.253 - 2026-10-29
+
+- Document that existing table column widths persist without adding Undo or activity-history entries on TACTIC Stream. Creating views and changing other definition settings remain audited; the server owns this rule for both clients.
+
 ## 0.6.0.252 - 2026-10-29
 
 - Identify local Python and DCC shelf actions with a TH marker and a runtime tooltip. Preserve server/browser execution distinctions, permissions and dispatch. Verify controller metadata, native shelf input and shared EN/RU presentation.

@@ -12,6 +12,8 @@ On a fresh launch, the workspace contains only Search. Open the main menu and ch
 to begin. Closing the last Search Type leaves the workspace empty instead of reopening the previous
 type. Other panels can be opened from the workspace panel menu when needed.
 
+When connected to TACTIC Stream, resizing columns in an existing table definition remembers the sizes without adding Undo or activity-history entries. Creating a view or changing columns, titles or widgets remains in the history.
+
 ## How a query is assembled
 
 A query can be built in layers. Every layer eventually appears as a condition in **Advanced
