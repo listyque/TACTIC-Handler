@@ -305,6 +305,74 @@ export function describe(definition, ui, language) {
     };
 }
 
+export function paintBounds(definition, ui, viewportSize, selection) {
+    let left = Infinity,
+        top = Infinity,
+        right = -Infinity,
+        bottom = -Infinity;
+    for (const edge of curves(ui, definition)) {
+        left = Math.min(
+            left,
+            edge.x1,
+            edge.x2,
+            edge.x1 + edge.bend,
+            edge.x2 - edge.bend
+        );
+        right = Math.max(
+            right,
+            edge.x1,
+            edge.x2,
+            edge.x1 + edge.bend,
+            edge.x2 - edge.bend
+        );
+        top = Math.min(top, edge.y1, edge.y2);
+        bottom = Math.max(bottom, edge.y1, edge.y2);
+    }
+    if (selection) {
+        left = Math.min(left, selection.x);
+        right = Math.max(right, selection.x + selection.width);
+        top = Math.min(top, selection.y);
+        bottom = Math.max(bottom, selection.y + selection.height);
+    }
+    if (!Number.isFinite(left)) return rect(0, 0, 0, 0);
+    // Include the existing arrowheads and stroke, then clip to the camera.
+    const margin = 10;
+    left = Math.max(
+        0,
+        Math.min(
+            viewportSize.width,
+            Math.floor((left - margin - ui.x) * ui.zoom)
+        )
+    );
+    top = Math.max(
+        0,
+        Math.min(
+            viewportSize.height,
+            Math.floor((top - margin - ui.y) * ui.zoom)
+        )
+    );
+    right = Math.max(
+        0,
+        Math.min(
+            viewportSize.width,
+            Math.ceil((right + margin - ui.x) * ui.zoom)
+        )
+    );
+    bottom = Math.max(
+        0,
+        Math.min(
+            viewportSize.height,
+            Math.ceil((bottom + margin - ui.y) * ui.zoom)
+        )
+    );
+    return rect(
+        left,
+        top,
+        Math.max(0, right - left),
+        Math.max(0, bottom - top)
+    );
+}
+
 // Both Canvas2D hosts call the same paint routine; no domain state is mutated.
 export function paint(context, definition, ui, viewportSize, color, selection) {
     context.clearRect(0, 0, viewportSize.width, viewportSize.height);

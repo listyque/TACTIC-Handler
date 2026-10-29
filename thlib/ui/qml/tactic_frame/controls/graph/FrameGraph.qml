@@ -17,6 +17,7 @@ FocusScope {
     readonly property string modelKey: node.resetKey || node.center || node.id
     property var ui: State.initial()
     readonly property var viewport: UI.viewport(node)
+    readonly property var edgePaintBounds: UI.paintBounds(node, ui, viewport, State.selectionRect(ui))
     property bool synchronizing: false
     readonly property var paintPalette: [theme.workspace, theme.action, theme.primaryText, theme.surfaceContainerHigh, theme.outlineVariant]
     signal event(var action)
@@ -212,11 +213,22 @@ FocusScope {
             clip: true
             Canvas {
                 id: edges
-                anchors.fill: parent
+                x: root.edgePaintBounds.x
+                y: root.edgePaintBounds.y
+                width: Math.max(1, root.edgePaintBounds.width)
+                height: Math.max(1, root.edgePaintBounds.height)
+                visible: root.edgePaintBounds.width > 0 && root.edgePaintBounds.height > 0
                 onPaint: {
                     const ctx = getContext("2d");
                     ctx.reset();
-                    UI.paint(ctx, root.node, root.ui, root.viewport, role => String(root.color(role)), State.selectionRect(root.ui));
+                    const paintState = Object.assign({}, root.ui, {
+                        x: root.ui.x + x / root.ui.zoom,
+                        y: root.ui.y + y / root.ui.zoom
+                    });
+                    UI.paint(ctx, root.node, paintState, {
+                        width: width,
+                        height: height
+                    }, role => String(root.color(role)), State.selectionRect(root.ui));
                 }
             }
             FrameBranch {

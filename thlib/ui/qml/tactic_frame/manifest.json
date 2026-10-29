@@ -19,7 +19,7 @@
     "controls/forms/segmented.mjs": "2d09d2fafbf02f7feacc910c6ad6f80d87578232013a5862a29b3c12a80d9957",
     "controls/forms/toggle.ui.mjs": "d35bbee1c014bd38af2bf7174efe3e2e31381cd134396ddb82f2d4897e4de929",
     "controls/graph/graph.state.mjs": "1d2d265661a2c53e9a0abef84b71faf1ef1907f2647c76260906b9bab3a0bd82",
-    "controls/graph/graph.ui.mjs": "c81cc08509da40cdf68b215c38ef9adf59827f272ba9e4636034afeecb6b9470",
+    "controls/graph/graph.ui.mjs": "cf217e7c5a4e8ad15ed7e02425f52bb49f3a131648b5e7fc03cf0f8b31fbb492",
     "controls/layout/page_header.ui.mjs": "3fcd7ece604a32bd21da50085c8b93fd95c72774da2c921fc7e41f8f32aa440d",
     "controls/lists/chips.mjs": "1d0dda59e34b5b3c60e53196b0750a7f04c662337a931ce0881311fd40f258b0",
     "controls/lists/collection.mjs": "a1aaa13d6e15d101093b854038300f4533916d35279ce1dc057f80401f227f0e",

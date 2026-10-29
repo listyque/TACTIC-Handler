@@ -138,6 +138,36 @@ class NativeResizeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = gui_test_application()
 
+    def test_graph_surface_does_not_follow_blank_viewport_resizes(self):
+        definition = dict(
+            id='resizeGraph', width=1400, height=900, toolbar=False,
+            nodes=[dict(identity='a', nodeX=60, nodeY=60),
+                   dict(identity='b', nodeX=360, nodeY=120)],
+            edges=[{'from': 'a', 'to': 'b'}],
+        )
+        window, view = self.create(
+            'tactic_frame/controls/graph/FrameGraph.qml', dict(node=definition),
+            width=1400, height=900,
+        )
+        canvas = next(item for item in frames._visual_items(view)
+                      if item.inherits('QQuickCanvasItem'))
+        before = (canvas.x(), canvas.y(), canvas.width(), canvas.height())
+        self.assertGreater(canvas.width(), 0)
+        self.assertLess(canvas.width() * canvas.height(), 1400 * 900 / 10)
+        for width, height in [(1200, 780), (1500, 960)]:
+            view.setProperty('node', dict(definition, width=width, height=height))
+            view.setWidth(width)
+            view.setHeight(height)
+            window.resize(width, height)
+            frame(window)
+            self.assertEqual(
+                (canvas.x(), canvas.y(), canvas.width(), canvas.height()), before
+            )
+        view.setProperty('node', dict(definition, nodes=definition['nodes'][:1], edges=[]))
+        frame(window)
+        self.assertFalse(canvas.isVisible())
+        self.assertEqual((canvas.width(), canvas.height()), (1, 1))
+
     def test_resize_batch_reaches_deep_children_in_one_frame(self):
         window, view = self.create('tactic_frame/core/FrameView.qml', {})
         engine = QQmlEngine.contextForObject(view).engine()

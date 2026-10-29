@@ -42,6 +42,26 @@ GPU presentation separately from offscreen/software tests. See the
 [Qt disk-cache documentation](https://doc.qt.io/qt-6/qmldiskcache.html) and
 [Qt Quick performance guidance](https://doc.qt.io/qt-6/qtquick-performance.html).
 
+## Graph backing surfaces
+
+`FrameGraph` keeps the existing full camera, node delegates and input surface,
+but sizes its transparent Canvas to `graph.ui.paintBounds`: visible connection
+curves, pending connections, arrowheads and marquee selection. Empty graphs do
+not allocate a viewport-sized bitmap. Resizing blank space around a graph must
+not resize and upload that bitmap. The camera offset passed to the unchanged
+shared paint routine preserves world coordinates, zoom and clipping. Stream
+keeps its existing Canvas rendering; the shared geometry is identical.
+
+The native presentation regression checks stable backing dimensions across
+viewport resizes and release of an empty surface. Graph interaction and paired
+capture suites cover dragging, ports, zoom, keyboard actions and cancellation.
+Use actual native-window border drags for final resize acceptance. Record the
+display/backend, distinguish GUI-dispatch time from native frame timing, and
+exclude pauses between drags. Python callbacks queued by the render thread are
+not reliable presentation timestamps. Remote Windows display refresh rates can
+differ from the physical display; record that limitation rather than claiming
+physical-monitor frame rates.
+
 ## Windows table resize and presentation
 
 Windows OpenGL defaults to `QSG_NO_VSYNC=1` before QApplication creation. Blocking

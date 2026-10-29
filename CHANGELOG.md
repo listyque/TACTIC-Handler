@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.245 - 2026-10-29
+
+- Bound native graph connection backing surfaces to their painted content instead of the full viewport. Preserve zoom, selection and input while avoiding blank bitmap reallocation on resize. Add a native resize regression and shared paint-bounds checks; verify nine paired graph states.
+
 ## 0.6.0.244 - 2026-10-29
 
 - Give main and nested table headers a distinct neutral theme surface and strong foreground. Keep grouped labels and indicators readable in light/dark themes, preserve sorting and geometry, and match Stream. Update EN/RU Help.
