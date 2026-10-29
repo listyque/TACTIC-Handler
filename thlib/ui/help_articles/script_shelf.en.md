@@ -81,3 +81,15 @@ show Used on this tab. Help opens the general Help window at this article.
 The agent can prepare a Local Python draft and, with separate activation permission, publish its saved script and a shared shelf assigned to one existing sidebar entry. The effective shared buttons are retained in the new tab shelf; personal shelves and other tabs are preserved. The code executes in native Handler, not in the browser.
 
 Local shelf scripts receive captured `TACTIC_SCRIPT_KWARGS`: `project_code`, `entryKey`, `tab_id` and selected `search_keys`. The context is captured when the button is pressed, so changing tabs before a worker finishes does not change its targets. The existing Frame example supports `show(records, modal=True)` using the current GUI engine and releases its window after close. Create UI on the GUI thread and submit slow work to existing workers; do not create another QApplication. Saving a draft and checking syntax do not execute or isolate its source.
+
+## Where a script runs
+
+Shelf actions marked **TH** require TACTIC Handler. Their tooltip says whether
+they use local Python or a connected DCC. They stay disabled in TACTIC Stream.
+Server Python, Server JavaScript and browser JavaScript identify their runtime
+in the tooltip; the Stream result window repeats it, including on errors.
+
+The saved script language determines its runtime, not its folder or title.
+Server Python is not a Handler script. A server trigger that expects event
+`input` must run from its configured event; clicking a shelf button does not
+provide a trigger payload.

@@ -19,7 +19,7 @@ class _Shelf(QObject):
         super().__init__()
         self.buttons = RecordListModel((
             "buttonId", "title", "description", "iconName", "script",
-            "available", "running",
+            "available", "running", "language",
         ))
         self.buttons.replace([{
             "buttonId": "save" if index == 0 else f"script_{index}",
@@ -27,6 +27,7 @@ class _Shelf(QObject):
             "description": "Save the current scene",
             "iconName": "content-save",
             "script": "tools/save",
+            "language": "local_python",
             "available": True,
             "running": False,
         } for index in range(button_count)])
@@ -124,7 +125,7 @@ class _ShelfEditor(QObject):
         self.applied_views = []
         self.buttons = RecordListModel((
             "buttonId", "title", "description", "iconName", "script",
-            "available", "running",
+            "available", "running", "language",
         ))
         self.buttons.replace([{
             "buttonId": "textures",
@@ -132,6 +133,7 @@ class _ShelfEditor(QObject):
             "description": "Check textures",
             "iconName": "image",
             "script": "tools/textures",
+            "language": "python",
             "available": True,
             "running": False,
         }])
@@ -303,8 +305,7 @@ class ScriptShelfQmlTests(unittest.TestCase):
         shelf = _Shelf()
         with self.fixture.scene(width=720, shelf=shelf) as (window, view):
             toggle = self._item(view, "scriptShelfButton")
-            icon = QQmlExpression(QQmlEngine.contextForObject(toggle), toggle, "icon.name")
-            self.assertEqual(icon.evaluate()[0], "code")
+            self.assertEqual(toggle.property("iconName"), "code")
             self._click(window, toggle)
 
             loader = self._item(view, "scriptShelfLoader")
@@ -319,8 +320,11 @@ class ScriptShelfQmlTests(unittest.TestCase):
             action = self._item(view, "scriptShelfAction_save")
             self.assertEqual(action.width(), 40)
             self.assertEqual(action.height(), 40)
+            marker = self._item(action, "scriptShelfRuntime")
+            self.assertEqual(marker.property("text"), "TH")
+            self.assertTrue(marker.isVisible())
             self.assertEqual(
-                action.property("description"), "Save the current scene"
+                action.property("description"), "TACTIC Handler only\nSave the current scene"
             )
             icon = self._item(action, "scriptShelfActionIcon")
             label = self._item(action, "scriptShelfActionLabel")

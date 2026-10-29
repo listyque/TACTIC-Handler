@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.252 - 2026-10-29
+
+- Identify local Python and DCC shelf actions with a TH marker and a runtime tooltip. Preserve server/browser execution distinctions, permissions and dispatch. Verify controller metadata, native shelf input and shared EN/RU presentation.
+
 ## 0.6.0.251 - 2026-10-29
 
 - Measure tag labels in the rendered font and include actual button icon, padding and spacing. Keep short and wide Latin/Cyrillic names visible and wrap complete chips into the next row in both clients. Verify native text elision, editing and browser bounds.

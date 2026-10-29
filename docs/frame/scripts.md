@@ -100,3 +100,10 @@ checks. Generated reports belong in the ignored tool `output/` directories.
 Historical release counts and captures are local archive material, not current
 acceptance. Offscreen checks do not establish physical touch/IME, compositor,
 DCC or deployment readiness; exercise those when the feature requires them.
+
+Shelf runtime labels come from the saved script language through the existing
+script catalog/model. `local_python` and `dcc_python` show a compact TH marker;
+server/browser languages remain distinct tooltip labels. The browser result
+header captures the language at invocation, including failures. This is
+presentation metadata only: execution permissions, dispatch and trigger
+payloads are unchanged.

@@ -21,7 +21,7 @@ SCRIPT_SHELF_GLOBAL_VIEW = SCRIPT_SHELF_VIEW_PREFIX + "global"
 
 _BUTTON_ROLES = (
     "buttonId", "title", "description", "iconName", "script",
-    "available", "running",
+    "available", "running", "language",
 )
 _PRESET_ROLES = (
     "code", "view", "title", "globalShelf", "selected", "valid", "error",
@@ -569,11 +569,15 @@ class ScriptShelfController(QObject):
         }
 
     def _present_buttons(self, source: list[dict]) -> list[dict]:
-        available = self._available_scripts()
+        languages = {
+            option["value"]: str(option.get("language") or "")
+            for option in self.scriptOptions if option.get("value")
+        }
         return [{
             **button,
             "description": str(button.get("description") or ""),
-            "available": str(button.get("script") or "") in available,
+            "available": str(button.get("script") or "") in languages,
+            "language": languages.get(str(button.get("script") or ""), ""),
             "running": str(button.get("buttonId") or "") == self._running_id,
         } for button in source]
 

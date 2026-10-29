@@ -1,5 +1,10 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'TACTIC Handler only': 'Только в ТХ',
+    'TACTIC Handler with a connected DCC': 'ТХ с подключённым DCC',
+    'Server Python': 'Серверный Python',
+    'Server JavaScript': 'Серверный JavaScript',
+    'Browser JavaScript': 'JavaScript в браузере',
     'Item preview · Sample data': 'Предпросмотр · Пример данных',
     'Example item': 'Пример элемента',
     'Example value': 'Пример значения',

@@ -239,6 +239,20 @@ class ScriptShelfTests(unittest.TestCase):
         restored._project_changed("", "")
         self.assertEqual(restored.activeMode, "personal")
 
+    def test_button_runtime_comes_from_the_saved_script_language(self):
+        rows = self.controller._present_buttons([
+            _button("save", "tools/save"),
+            _button("publish", "tools/publish"),
+            _button("missing", "tools/missing"),
+        ])
+        self.assertEqual([row["language"] for row in rows], [
+            "dcc_python", "local_python", "",
+        ])
+        self.assertEqual([row["available"] for row in rows], [True, True, False])
+        self.assertNotIn("language", shelf_configuration_xml(
+            rows, "script_shelf@global", scope="global"
+        ))
+
     def test_xml_round_trip_keeps_button_order_and_scope(self):
         view = "script_shelf@review"
         save_button = _button("save", "tools/save")

@@ -90,12 +90,29 @@ export function actionHeight(count, width) {
     return count * 44 - 4 > width ? 36 : 40;
 }
 
+export function scriptRuntime(language, locale) {
+    const label =
+        {
+            local_python: 'TACTIC Handler only',
+            dcc_python: 'TACTIC Handler with a connected DCC',
+            python: 'Server Python',
+            server_js: 'Server JavaScript',
+            javascript: 'Browser JavaScript'
+        }[language] || '';
+    return {
+        label: translate(label, locale),
+        handlerOnly: language === 'local_python' || language === 'dcc_python'
+    };
+}
+
 export function action(record, running, language, height) {
     height = height === undefined ? 40 : height;
     const enabled = record.available && !running;
-    const description = record.available
+    const runtime = scriptRuntime(record.language, language);
+    const detail = record.available
         ? record.description || record.title
         : translate('Script is unavailable: ', language) + record.script;
+    const description = [runtime.label, detail].filter(Boolean).join('\n');
     return {
         nodes: [
             node(
@@ -114,7 +131,7 @@ export function action(record, running, language, height) {
                         node(
                             'Icon',
                             'scriptShelfActionIcon',
-                            rect(12, 1, 16, 16),
+                            rect(runtime.handlerOnly ? 2 : 12, 1, 16, 16),
                             {
                                 icon: record.running
                                     ? 'hourglass-empty'
@@ -122,6 +139,12 @@ export function action(record, running, language, height) {
                                 color: enabled ? 'primaryText' : 'disabledText'
                             }
                         ),
+                        label('scriptShelfRuntime', rect(21, 1, 19, 16), 'TH', {
+                            visible: runtime.handlerOnly,
+                            fontRole: 'caption',
+                            align: 'center',
+                            color: enabled ? 'secondaryText' : 'disabledText'
+                        }),
                         label(
                             'scriptShelfActionLabel',
                             rect(0, height - 16, 40, 15),

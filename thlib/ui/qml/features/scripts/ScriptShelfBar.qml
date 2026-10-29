@@ -64,6 +64,7 @@ Item {
             required property string description
             required property string iconName
             required property string script
+            required property string language
             required property bool available
             required property bool running
             width: 40
@@ -79,6 +80,7 @@ Item {
                     description: buttonDelegate.description,
                     iconName: buttonDelegate.iconName,
                     script: buttonDelegate.script,
+                    language: buttonDelegate.language,
                     available: buttonDelegate.available,
                     running: buttonDelegate.running
                 }, root.controller.executionBusy, root.language, height)
