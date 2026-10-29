@@ -405,6 +405,12 @@ class _EditorSObject:
 
 
 class SObjectWidgetContractTests(unittest.TestCase):
+    def test_stock_preview_size_keeps_native_image_picker(self):
+        source = dict(name="preview", class_name="tactic.ui.widget.upload_wdg.SimpleUploadWdg",
+            action_class="pyasm.command.UploadAction", kwargs=dict(icon_size="100%"))
+        field = SObjectEditorController.describe_field(_EditorStype(), {}, source)
+        self.assertEqual(field["fieldType"], "preview")
+
     def test_publish_keeps_upload_action_as_file_and_rejects_null_preview(self):
         source = dict(name="attachment", class_name="tactic.ui.widget.upload_wdg.SimpleUploadWdg",
             action_class="pyasm.command.UploadAction", kwargs=dict(context="publish/reference"))

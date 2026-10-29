@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.262 - 2026-10-29
+
+- Verify that stock preview upload fields with icon_size display metadata retain the native image picker. Document staged selection and the existing shared check-in path alongside the Stream preview fix.
+
 ## 0.6.0.261 - 2026-10-29
 
 - Use the common small dialog radius in every theme and the standard themed native frame for sign-in. Document shared window chrome, while preserving native controls and editor close guards.

@@ -84,3 +84,7 @@ are applied, long values remain available in tooltips, and URL columns open as e
 - Previews load in the background.
 - Replacing a versionless snapshot refreshes its preview.
 - If preview generation fails, check-in stops and reports the error.
+
+## Choosing a record preview
+
+In Create/Edit record, the Preview field accepts local images, including forms configured with `icon_size="100%"`. Selection stages files until you save the record; canceling the form does not check them in. After saving, Handler uses its shared check-in queue in the icon context. The desktop field retains multiple-image selection.
