@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.248 - 2026-10-29
+
+- Make the table Check-in button toggle Drop Plate through the existing dock owner. Hide without clearing files or preparing the target again; raise covered tabs and preserve explicit Task Work opening in Stream. Retain existing target/discard guards and update EN/RU Help.
+
 ## 0.6.0.247 - 2026-10-29
 
 - Use square workspace-tab backgrounds in Handler and Stream. Preserve the selection underline, close feedback and all other component radii; check actual tab rendering and input in both clients.

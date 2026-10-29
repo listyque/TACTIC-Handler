@@ -285,6 +285,7 @@ class SObjectInfoEntrypointTests(unittest.TestCase):
             prepared.append(dict(target)) or True
         )
         controller.dock_model = SimpleNamespace(
+            is_panel_presented=lambda panel: False,
             show_panel=lambda panel: shown.append(panel)
         )
 
@@ -355,6 +356,7 @@ class SObjectInfoEntrypointTests(unittest.TestCase):
             prepared.append(dict(target)) or True
         )
         controller.dock_model = SimpleNamespace(
+            is_panel_presented=lambda panel: False,
             show_panel=lambda panel: shown.append(panel)
         )
 

@@ -200,3 +200,12 @@ column definitions. Retained keys still request fresh data; fresh/stale request
 generations remain enforced. A changed context/definition clears retained cells.
 Tests: `test_table_refresh_presentation`, `test_table_nested` and browser
 `frontend/tests/table_nested.mjs` (real actions and paired narrow/wide bounds).
+
+The table Check-in action uses the existing dock presentation owner: hide an
+actually presented Drop Plate, otherwise prepare its target and show/raise it.
+Hiding does not clear files or rerun target preparation; Handler also cancels its
+pending parent-target handoff. A covered tab is raised. Stream's injected table
+entry point opts into toggling; Task Work remains an explicit open command.
+Reopening the same Stream project/key/process/context preserves the plate;
+retargeting still passes the existing discard guard. Tests use actual native
+table-button input/DockPanelModel and browser TableCell/App/DockWorkspace input.

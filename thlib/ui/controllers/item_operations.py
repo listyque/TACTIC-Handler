@@ -1517,6 +1517,10 @@ class ItemOperationsMixin:
         if values.get("available") is False:
             self._notify("The configured check-in target is unavailable")
             return
+        if self.dock_model.is_panel_presented("drop_plate"):
+            self._pending_table_checkin = {}
+            self.dock_model.close_panel("drop_plate")
+            return
         process = str(values.get("process") or "publish")
         context = str(values.get("context") or process)
         checkin_type = str(values.get("checkinMode") or "")
