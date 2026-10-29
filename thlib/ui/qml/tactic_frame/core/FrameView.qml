@@ -605,6 +605,8 @@ Item {
                         checked: !!wrapper.node.selected
                         segmented: radio
                         focusPolicy: wrapper.node.retainFocus ? Qt.TabFocus : radio && !checked ? Qt.ClickFocus : Qt.StrongFocus
+                        onActiveFocusChanged: if (activeFocus)
+                            root.reveal(this)
                         Keys.priority: Keys.BeforeItem
                         Keys.onPressed: event => {
                             if (root.keyboard(event.key, wrapper.node))

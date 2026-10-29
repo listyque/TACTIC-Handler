@@ -1,5 +1,67 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Custom rule: its effect depends on the plugin or script that checks it.':
+        'Кастомное правило: его действие зависит от плагина или скрипта, который его проверяет.',
+    'Application features': 'Функции приложения',
+    'Choose access to individual application features. Legacy rules are marked explicitly.':
+        'Доступ к отдельным функциям приложения. Старые правила отмечены явно.',
+    'Application feature': 'Функция приложения',
+    'Sidebar navigation': 'Навигация по проекту',
+    'Show the project navigation sidebar in the legacy interface.':
+        'Показ боковой панели навигации по проекту в старом интерфейсе.',
+    Administration: 'Администрирование',
+    'Open administration in the legacy interface. Modern administration still requires an administrator.':
+        'Открытие старой админки. Современная админка по-прежнему требует прав администратора.',
+    'Script editor': 'Редактор скриптов',
+    'Open the legacy script editor. This does not grant permission to execute scripts.':
+        'Открытие старого редактора скриптов. Само по себе не разрешает выполнение скриптов.',
+    'Schema navigation': 'Навигация по схеме',
+    'Show the schema section of the legacy sidebar.':
+        'Показ раздела схемы в старой боковой панели.',
+    'Saved views': 'Сохранённые представления',
+    'Open and save personal views in the legacy interface.':
+        'Открытие и сохранение личных представлений в старом интерфейсе.',
+    'Private notes': 'Приватные заметки',
+    'Read private notes belonging to other users. The server checks this rule when retrieving notes.':
+        'Чтение приватных заметок других пользователей. Сервер проверяет это правило при получении заметок.',
+    'Table column manager': 'Настройка колонок таблицы',
+    'Open the column manager in the legacy interface.':
+        'Открытие настройки колонок в старом интерфейсе.',
+    'Template projects': 'Проекты-шаблоны',
+    'Show template projects in the legacy project list.':
+        'Показ проектов-шаблонов в старом списке проектов.',
+    'Project creation': 'Создание проектов',
+    'Create projects through the legacy interface. Modern project creation still requires an administrator.':
+        'Создание проектов через старый интерфейс. Современное создание проектов требует прав администратора.',
+    'Export all rows to CSV': 'Экспорт всех строк в CSV',
+    'Export all search results, beyond the current page, in the legacy interface.':
+        'Экспорт всех результатов поиска, включая другие страницы, в старом интерфейсе.',
+    'CSV import': 'Импорт CSV',
+    'Import records from CSV through the legacy interface.':
+        'Импорт записей из CSV через старый интерфейс.',
+    'Archive and delete records': 'Архивация и удаление записей',
+    'Show archive and delete operations in the legacy interface. Record permissions are checked separately.':
+        'Показ архивации и удаления в старом интерфейсе. Права на записи проверяются отдельно.',
+    'Edit records': 'Редактирование записей',
+    'Show record editing in the legacy interface. Record and field permissions are checked separately.':
+        'Показ редактирования в старом интерфейсе. Права на записи и поля проверяются отдельно.',
+    'Checked by the server.': 'Проверяется сервером.',
+    'Legacy interface rule: this does not control the modern TH/TS screen.':
+        'Правило старого интерфейса: не управляет соответствующим экраном современных ТХ/ТС.',
+    'Deny access': 'Запретить доступ',
+    'Allow access': 'Разрешить доступ',
+    'Existing access: {access}. It is preserved until you choose Allow or Deny. Use Advanced rules for other native access levels.':
+        'Сохранённый уровень: {access}. Он останется до выбора разрешения или запрета. Другие уровни доступны в расширенных правилах.',
+    "This is the selected group's rule, not the user's final access. Other groups can grant access; administrators bypass these rules. Use Effective permissions to inspect a user.":
+        'Это правило выбранной группы. Другие группы могут разрешить доступ; администраторы обходят эти правила. Итог смотрите в «Итоговых правах».',
+    'Rule key: {key}': 'Ключ правила: {key}',
+    'Use inherited access': 'Использовать наследование',
+    'Removes only this rule from the group draft. Other groups and native defaults still apply. Save to apply the change.':
+        'Удаляет только это правило из черновика группы. Права других групп и базовые правила остаются. Для применения сохраните изменения.',
+    'Allowed by this group': 'Разрешено этой группой',
+    'Denied by this group': 'Запрещено этой группой',
+    'Existing access: {access}': 'Сохранённый уровень: {access}',
+
     'Select a user': 'Выберите пользователя',
     'Select a user to inspect saved permissions.':
         'Выберите пользователя, чтобы посмотреть его действующие права.',

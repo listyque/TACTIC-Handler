@@ -271,6 +271,20 @@ export function transition(ui, model, event) {
             if (allow.editable && !pending(ui))
                 commands.push(Object.assign({}, event));
             break;
+        case 'builtinTarget':
+            if (
+                allow.editable &&
+                !pending(ui) &&
+                ui.scope === 'builtin' &&
+                (model.metadata.builtinPermissions || []).some(
+                    (item) => item.key === event.value
+                )
+            )
+                commands.push({
+                    type: 'target',
+                    attributes: { key: event.value }
+                });
+            break;
         case 'inheritGroup': {
             const choice = inheritanceChoices(model).find(
                 (group) => group.identity === event.identity

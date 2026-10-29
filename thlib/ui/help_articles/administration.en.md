@@ -637,3 +637,6 @@ URL alone grants no access. Closing the window clears the displayed token.
 Revoking a connection stops new calls; it does not undo earlier changes. External
 clients log their work through native project tools; automatic third-party chat
 history import is not provided by the connection itself.
+
+
+Application features uses a named feature selector, an explanation and Allow/Deny access. These are individual native builtin rules, not record creation/deletion permissions. Private-note access is checked by the server. Legacy interface rules are explicitly marked and do not control the modern TH/TS screens or grant administrator privileges. Existing non-binary levels are preserved; edit them under Advanced rules. Use inherited access removes only the selected group rule from the draft; other groups and native defaults remain. Save applies the draft. Inspect Effective permissions for the combined user result.

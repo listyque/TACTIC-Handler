@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.266 - 2026-10-30
+
+- Explain application feature rules with named choices, descriptions, Allow/Deny and explicit legacy-screen limits; preserve non-binary native levels and provide inheritance reset.
+- Reveal focused Frame buttons inside scrolling editors; verify feature selection and draft changes in native and browser clients.
+
 ## 0.6.0.265 - 2026-10-29
 
 - Add a saved effective-user permission report with native access checks, direct/inherited groups, combined defaults and source rules.

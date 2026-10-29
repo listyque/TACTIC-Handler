@@ -14,7 +14,7 @@ const accessLabels = {
     false: 'Deny'
 };
 const scopeLabels = {
-    builtin: 'Global permissions',
+    builtin: 'Application features',
     project: 'Projects',
     search_type: 'Search Types',
     process: 'Processes',

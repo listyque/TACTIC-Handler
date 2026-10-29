@@ -30,7 +30,7 @@ export const scopes = [
     ['effective', 'Effective permissions'],
     ['defaults', 'Group inheritance'],
     ['project', 'Projects'],
-    ['builtin', 'Global permissions'],
+    ['builtin', 'Application features'],
     ['link', 'Sidebar links'],
     ['gear_menu', 'Menu actions'],
     ['search_type', 'Search Types'],
@@ -88,7 +88,7 @@ export const scopeDetails = {
     ],
     builtin: [
         'security',
-        'Configure the native built-in application permissions.'
+        'Choose access to individual application features. Legacy rules are marked explicitly.'
     ],
     search_filter: [
         'filter-alt',
@@ -113,10 +113,77 @@ const names = {
 const contains = (value, query) =>
     String(value).toLowerCase().indexOf(String(query).trim().toLowerCase()) >=
     0;
+const builtinFeatures = {
+    view_side_bar: [
+        'Sidebar navigation',
+        'Show the project navigation sidebar in the legacy interface.'
+    ],
+    view_site_admin: [
+        'Administration',
+        'Open administration in the legacy interface. Modern administration still requires an administrator.'
+    ],
+    view_script_editor: [
+        'Script editor',
+        'Open the legacy script editor. This does not grant permission to execute scripts.'
+    ],
+    side_bar_schema: [
+        'Schema navigation',
+        'Show the schema section of the legacy sidebar.'
+    ],
+    view_save_my_view: [
+        'Saved views',
+        'Open and save personal views in the legacy interface.'
+    ],
+    view_private_notes: [
+        'Private notes',
+        'Read private notes belonging to other users. The server checks this rule when retrieving notes.'
+    ],
+    view_column_manager: [
+        'Table column manager',
+        'Open the column manager in the legacy interface.'
+    ],
+    view_template_projects: [
+        'Template projects',
+        'Show template projects in the legacy project list.'
+    ],
+    create_projects: [
+        'Project creation',
+        'Create projects through the legacy interface. Modern project creation still requires an administrator.'
+    ],
+    export_all_csv: [
+        'Export all rows to CSV',
+        'Export all search results, beyond the current page, in the legacy interface.'
+    ],
+    import_csv: [
+        'CSV import',
+        'Import records from CSV through the legacy interface.'
+    ],
+    retire_delete: [
+        'Archive and delete records',
+        'Show archive and delete operations in the legacy interface. Record permissions are checked separately.'
+    ],
+    edit: [
+        'Edit records',
+        'Show record editing in the legacy interface. Record and field permissions are checked separately.'
+    ]
+};
+function builtinFeature(model, key) {
+    const entry =
+        (model.metadata.builtinPermissions || []).find(
+            (item) => item.key === key
+        ) || {};
+    const description = builtinFeatures[key];
+    return {
+        label: description ? description[0] : entry.title || key,
+        description: description ? description[1] : entry.description || '',
+        active: key === 'view_private_notes',
+        known: !!description
+    };
+}
 export function targets(model, scope) {
     return scope === 'builtin'
         ? (model.metadata.builtinPermissions || []).map((item) => ({
-              label: item.title,
+              label: builtinFeature(model, item.key).label,
               attributes: {
                   key: item.key
               }
@@ -716,7 +783,11 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
         );
         y += 42;
     }
-    if (model.selected < 0) {
+    if (
+        model.selected < 0 ||
+        (ui.scope === 'builtin' &&
+            (model.attributes.group || model.attributes.category) !== 'builtin')
+    ) {
         children.push(
             label(
                 'adminAccessEditorEmpty',
@@ -734,6 +805,7 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
             fields = (names[scope] || []).slice();
         if (Object.prototype.hasOwnProperty.call(attrs, 'project'))
             fields.push('project');
+        if (scope === 'builtin') fields.splice(fields.indexOf('key'), 1);
         children.push(
             label(
                 'adminAccessEditorTitle',
@@ -746,10 +818,55 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
             )
         );
         y += 36;
+        if (scope === 'builtin') {
+            const feature = builtinFeature(model, attrs.key),
+                helpHeight = width < 380 ? 112 : 80,
+                options = targets(model, 'builtin').map((target) => ({
+                    value: target.attributes.key,
+                    label: tr(target.label)
+                }));
+            if (!options.some((option) => option.value === attrs.key))
+                options.push({ value: attrs.key, label: attrs.key });
+            children.push(
+                node('Choice', 'adminBuiltinFeature', rect(12, y, inner, 38), {
+                    value: attrs.key,
+                    options,
+                    label: tr('Application feature'),
+                    enabled: edit,
+                    action: { type: 'builtinTarget' }
+                }),
+                label(
+                    'adminBuiltinDescription',
+                    rect(12, y + 48, inner, helpHeight),
+                    [
+                        tr(feature.description),
+                        tr(
+                            feature.active
+                                ? 'Checked by the server.'
+                                : feature.known
+                                  ? 'Legacy interface rule: this does not control the modern TH/TS screen.'
+                                  : 'Custom rule: its effect depends on the plugin or script that checks it.'
+                        )
+                    ]
+                        .filter(Boolean)
+                        .join('\n'),
+                    Object.assign({ wrap: true }, muted)
+                )
+            );
+            y += 48 + helpHeight + 8;
+        }
         if (scope !== 'search_filter') {
             const count = width < 380 ? 1 : width < 620 ? 2 : 3,
-                cellWidth = inner / count;
-            levels.forEach(([value, text], index) =>
+                choices =
+                    scope === 'builtin'
+                        ? [
+                              ['deny', 'Deny access'],
+                              ['allow', 'Allow access']
+                          ]
+                        : levels,
+                cellWidth =
+                    inner / (scope === 'builtin' ? Math.min(count, 2) : count);
+            choices.forEach(([value, text], index) =>
                 children.push(
                     button(
                         'adminAccessLevel_' + value,
@@ -774,7 +891,33 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                     )
                 )
             );
-            y += Math.ceil(levels.length / count) * 38 + 8;
+            y += Math.ceil(choices.length / count) * 38 + 8;
+        }
+        if (scope === 'builtin') {
+            const unusual = !['allow', 'deny'].includes(attrs.access),
+                helpHeight = width < 380 ? 96 : 72;
+            children.push(
+                label(
+                    'adminBuiltinInheritanceHelp',
+                    rect(12, y, inner, helpHeight),
+                    tr(
+                        unusual
+                            ? 'Existing access: {access}. It is preserved until you choose Allow or Deny. Use Advanced rules for other native access levels.'
+                            : "This is the selected group's rule, not the user's final access. Other groups can grant access; administrators bypass these rules. Use Effective permissions to inspect a user."
+                    ).replace('{access}', attrs.access || ''),
+                    Object.assign({ wrap: true }, muted)
+                )
+            );
+            y += helpHeight + 8;
+            children.push(
+                label(
+                    'adminBuiltinKey',
+                    rect(12, y, inner, 24),
+                    tr('Rule key: {key}').replace('{key}', attrs.key || ''),
+                    muted
+                )
+            );
+            y += 32;
         }
         const fieldLabels = {
             code: scope === 'project' ? 'Project' : 'Search Type',
@@ -821,40 +964,61 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
             button(
                 'adminRemoveAccessRule',
                 rect(12, y, inner, 38),
-                tr('Remove rule'),
-                'delete',
+                tr(
+                    scope === 'builtin' ? 'Use inherited access' : 'Remove rule'
+                ),
+                scope === 'builtin' ? 'account-tree' : 'delete',
                 {
                     type: 'removeRule'
                 },
                 edit,
                 {
-                    destructive: true
+                    destructive: scope !== 'builtin'
                 }
             )
         );
         y += 50;
-        children.push(
-            node('Field', 'adminAccessTargetSearch', rect(12, y, inner, 38), {
-                text: ui.targetQuery,
-                label: tr('Find a target'),
-                placeholder: tr('Find a target'),
-                enabled: !model.busy,
-                action: {
-                    type: 'targetQuery'
-                }
-            })
-        );
-        y += 46;
-        children.push(
-            list(
-                'adminAccessTargets',
-                rect(12, y, inner, 200),
-                'targets',
-                54,
-                'index'
-            )
-        );
-        y += 212;
+        if (scope === 'builtin') {
+            children.push(
+                label(
+                    'adminBuiltinResetHelp',
+                    rect(12, y, inner, 84),
+                    tr(
+                        'Removes only this rule from the group draft. Other groups and native defaults still apply. Save to apply the change.'
+                    ),
+                    Object.assign({ wrap: true }, muted)
+                )
+            );
+            y += 92;
+        } else {
+            children.push(
+                node(
+                    'Field',
+                    'adminAccessTargetSearch',
+                    rect(12, y, inner, 38),
+                    {
+                        text: ui.targetQuery,
+                        label: tr('Find a target'),
+                        placeholder: tr('Find a target'),
+                        enabled: !model.busy,
+                        action: {
+                            type: 'targetQuery'
+                        }
+                    }
+                )
+            );
+            y += 46;
+            children.push(
+                list(
+                    'adminAccessTargets',
+                    rect(12, y, inner, 200),
+                    'targets',
+                    54,
+                    'index'
+                )
+            );
+            y += 212;
+        }
     }
     nodes.push(
         node('Box', 'adminAccessRuleEditor', bounds, {
@@ -1206,7 +1370,7 @@ export function row(listNode, record, model, ui, language) {
         };
     const index = record.ruleIndex,
         all = listNode.source === 'allRules',
-        quick = !all && ui.scope !== 'search_filter',
+        quick = !all && !['search_filter', 'builtin'].includes(ui.scope),
         small = width < 540,
         levelWidth = 36;
     const textWidth =
@@ -1237,7 +1401,16 @@ export function row(listNode, record, model, ui, language) {
                     rect(12, 28, textWidth - 20, 20),
                     (all
                         ? (record.group || record.category || '') + ' · '
-                        : '') + detail(record),
+                        : '') +
+                        ((record.group || record.category) === 'builtin'
+                            ? tr(
+                                  record.access === 'allow'
+                                      ? 'Allowed by this group'
+                                      : record.access === 'deny'
+                                        ? 'Denied by this group'
+                                        : 'Existing access: {access}'
+                              ).replace('{access}', record.access || '')
+                            : detail(record)),
                     muted
                 )
             ]

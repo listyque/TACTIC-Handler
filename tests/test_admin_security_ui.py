@@ -3,6 +3,7 @@
 import json
 import os
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -79,6 +80,36 @@ class AdminSecurityUiTests(unittest.TestCase):
         frame(self.window)
         self.assertTrue(self.item('adminSecurityScope').isVisible())
         self.assertFalse(self.editor.dirty)
+        self.assertEqual(self.fixture.warnings, [])
+
+    def test_application_feature_access_has_explanations_and_no_record_operations(self):
+        self.click('adminSecurityTab_builtin')
+        self.click('adminAddAccessRule')
+        self.assertIn('Legacy interface rule', self.item('adminBuiltinDescription').property('text'))
+        self.assertFalse(any(item.objectName() in ('adminAccessLevel_view', 'adminAccessLevel_insert',
+                                                  'adminAccessLevel_retire', 'adminAccessLevel_delete',
+                                                  'adminAccessField_key', 'adminAccessTargets')
+                             and item.isVisible() for item in self.items()))
+        self.assertIn('Allow', self.item('adminAccessLevel_allow').property('text'))
+        feature = self.item('adminBuiltinFeature')
+        feature.forceActiveFocus()
+        QTest.keyClick(self.window, Qt.Key_Down)
+        frame(self.window)
+        self.assertEqual(self.editor.selectedAttributes['key'], 'view_private_notes')
+        self.assertIn('Checked by the server', self.item('adminBuiltinDescription').property('text'))
+        self.click('adminAccessLevel_allow')
+        self.assertEqual(self.editor.selectedAttributes['access'], 'allow')
+        # A non-binary legacy level is retained on inspection, not normalized.
+        self.editor.set_attribute('access', 'view')
+        frame(self.window)
+        self.assertIn('Existing access: view', self.item('adminBuiltinInheritanceHelp').property('text'))
+        self.assertEqual(self.editor.selectedAttributes['access'], 'view')
+        self.item('adminRemoveAccessRule').forceActiveFocus()
+        frame(self.window)
+        self.click('adminRemoveAccessRule')
+        self.assertEqual(ET.canonicalize(self.editor.groupDocument['xml'], strip_text=True),
+                         ET.canonicalize(RULES, strip_text=True))
+        self.assertIn('<!--preserve-->', self.editor.groupDocument['xml'])
         self.assertEqual(self.fixture.warnings, [])
 
     def test_all_six_scopes_are_matrices_with_group_columns(self):

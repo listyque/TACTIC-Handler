@@ -41,7 +41,8 @@ def seed_security(editor, group_count=3, row_count=4):
             'tasks': [{'label': 'review', 'detail': 'demo/tasks', 'attributes': {'process': 'review', 'pipeline': 'demo/tasks'}}],
             'search_filter': [{'label': 'Assets', 'attributes': {'search_type': 'demo/asset'}}],
         },
-        'builtinPermissions': [{'key': 'view_side_bar', 'title': 'View Side Bar'}],
+        'builtinPermissions': [{'key': 'view_side_bar', 'title': 'View Side Bar'},
+                               {'key': 'view_private_notes', 'title': 'View Private Notes'}],
     }
     tools = [dict(name='agent_context', title='Captured context', description='Read the current project, page and selected objects.', readonly=True),
              dict(name='ts_records', title='Project records', description='Read records using the native project permissions.', readonly=True),
