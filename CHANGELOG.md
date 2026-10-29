@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.267 - 2026-10-30
+
+- Replace the administration project combo with a compact searchable project picker: cached previews/initials, readable titles/codes, selection marks and bounded scrolling.
+- Keep all available built-in, template and archived projects accessible without changing workspace filters; retain draft locks and keyboard/touch selection in both clients.
+
 ## 0.6.0.266 - 2026-10-30
 
 - Explain application feature rules with named choices, descriptions, Allow/Deny and explicit legacy-screen limits; preserve non-binary native levels and provide inheritance reset.

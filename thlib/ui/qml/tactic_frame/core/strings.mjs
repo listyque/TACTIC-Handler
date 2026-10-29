@@ -1,5 +1,6 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Find a project by name or code': 'Найти проект по названию или коду',
     'Custom rule: its effect depends on the plugin or script that checks it.':
         'Кастомное правило: его действие зависит от плагина или скрипта, который его проверяет.',
     'Application features': 'Функции приложения',

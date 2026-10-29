@@ -194,17 +194,11 @@ export function describe(model, ui, width, height, language) {
             );
             nav.push(
                 node(
-                    'Choice',
-                    'administrationProjectSelector',
+                    'View',
+                    'administrationProjectPicker',
                     rect(12, 114, g.nav - 24, 38),
                     {
-                        label: tr('Administration project'),
-                        value: model.project,
-                        options: model.projects || [],
-                        enabled: !model.locked,
-                        action: {
-                            type: 'project'
-                        }
+                        view: 'projectPicker'
                     }
                 )
             );
@@ -323,17 +317,11 @@ export function describe(model, ui, width, height, language) {
         const half = (g.body - 32) / 2;
         head.push(
             node(
-                'Choice',
-                'administrationProjectSelector',
+                'View',
+                'administrationProjectPicker',
                 rect(12, 70, half, 38),
                 {
-                    label: tr('Administration project'),
-                    value: model.project,
-                    options: model.projects || [],
-                    enabled: !model.locked,
-                    action: {
-                        type: 'project'
-                    }
+                    view: 'projectPicker'
                 }
             )
         );

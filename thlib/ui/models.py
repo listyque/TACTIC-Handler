@@ -513,7 +513,12 @@ class ProjectModel(QAbstractListModel):
         """Unfiltered selector data, without preview discovery or chooser state."""
         return [
             {"projectCode": project.get_code(),
-             "title": project.get_title() or project.get_code()}
+             "title": project.get_title() or project.get_code(),
+             "preview": self._preview_cache.get(project.get_code(), ""),
+             "category": str(project.get_info().get("category") or ""),
+             "isBuiltin": self._is_builtin(project),
+             "isTemplate": bool(project.is_template()),
+             "isRetired": str(project.get_info().get("s_status") or "").lower() == "retired"}
             for project in self._all_entries
         ]
 

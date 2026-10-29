@@ -640,3 +640,6 @@ history import is not provided by the connection itself.
 
 
 Application features uses a named feature selector, an explanation and Allow/Deny access. These are individual native builtin rules, not record creation/deletion permissions. Private-note access is checked by the server. Legacy interface rules are explicitly marked and do not control the modern TH/TS screens or grant administrator privileges. Existing non-binary levels are preserved; edit them under Advanced rules. Use inherited access removes only the selected group rule from the draft; other groups and native defaults remain. Save applies the draft. Inspect Effective permissions for the combined user result.
+
+
+Administration project selection opens a compact searchable list. Search by project title, code or category; the list shows a cached preview or initials, the title, code and project kind. The current project has a check mark. System projects, templates and archived projects stay available independently of the main project chooser filters. Type to filter, press Down/Up and Enter to select, or click/tap a row. Escape closes the list. Unsaved or uncertain editor changes keep project switching locked.

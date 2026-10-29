@@ -90,6 +90,15 @@ class AdministrationQmlTests(unittest.TestCase):
     def click(self, name):
         self.window.requestActivate()
         frame(self.window)
+        if name.startswith('adminSecurityTab_'):
+            pickers = [item for item in windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())
+                       if item.objectName() == 'adminSecurityScope' and item.isVisible()]
+            if pickers:
+                rows = pickers[0].property('model')
+                rows = rows.toVariant() if hasattr(rows, 'toVariant') else rows
+                index = next(index for index, row in enumerate(rows) if row['value'] == name.removeprefix('adminSecurityTab_'))
+                self.fixture.choose_combo_option(self.window, pickers[0], index)
+                return
         if name.startswith('segmentedButtonSegment_entity_'):
             self.choose_page('searchTypePages',name[len('segmentedButtonSegment_entity_'):]);return
         if name.startswith('adminSection_'):
@@ -119,8 +128,7 @@ class AdministrationQmlTests(unittest.TestCase):
         self.admin.stateChanged.emit()
         frame(self.window)
         selector = self.item('administrationProjectSelector')
-        self.assertEqual(selector.property('currentIndex'), -1)
-        self.assertEqual(selector.property('displayText'), 'external_only')
+        self.assertEqual(selector.property('text'), 'external_only')
         self.assertEqual(self.admin.project, 'external_only')
         self.assertEqual(self.fixture.warnings, [])
 
@@ -297,29 +305,40 @@ class AdministrationQmlTests(unittest.TestCase):
         model.replace(projects)
         frame(self.window)
         selector = self.item('administrationProjectSelector')
-        self.assertEqual(selector.property('count'), 5)
-        self.assertEqual(selector.property('currentValue'), 'demo')
+        self.assertEqual(len(model.allProjects), 5)
+        self.assertEqual(selector.property('text'), 'Demo')
         self.assertEqual(model.rowCount(), 1)
         self.assertFalse(model.showBuiltins)
         self.assertFalse(model.showTemplates)
         self.assertFalse(model.showRetired)
 
-        # Pick the hidden builtin with the same keyboard path as the user.
-        selector.forceActiveFocus()
-        for _ in range(4):
-            QTest.keyClick(self.window, Qt.Key_Down)
-        QTest.keyClick(self.window, Qt.Key_Return)
+        # Search the hidden builtin by code and select it using the real popup.
+        self.click('administrationProjectSelector')
+        picker = self.item('administrationProjectPickerControl')
+        popup = picker.findChild(QObject, 'administrationProjectPopup')
+        self.assertTrue(popup.property('opened'))
+        content = popup.property('contentItem')
+        search = next(item for item in windows_fixture.SidebarEditorQmlTests.descendants(content)
+                      if item.objectName() == 'administrationProjectSearch')
+        search.forceActiveFocus()
+        for char in 'sthpw':
+            QTest.keyClick(search.window(), char)
+        frame(self.window)
+        self.assertEqual(picker.property('query'), 'sthpw')
+        QTest.keyClick(search.window(), Qt.Key_Down)
+        frame(self.window)
+        QTest.keyClick(search.window(), Qt.Key_Return)
         frame(self.window)
         self.assertEqual(self.admin.project, 'sthpw')
-        self.assertEqual(selector.property('currentValue'), 'sthpw')
+        self.assertFalse(popup.property('opened'))
+        self.assertEqual(selector.property('text'), 'TACTIC')
         self.assertEqual(model.rowCount(), 1)
 
         # A catalog refresh preserves the selection even when indexes change.
         model.replace(list(reversed(projects)))
         frame(self.window)
-        self.assertEqual(selector.property('currentValue'), 'sthpw')
-        self.assertEqual(selector.property('currentIndex'), 0)
-        self.assertFalse(selector.property('translateDisplayText'))
+        self.assertEqual(selector.property('text'), 'TACTIC')
+        self.assertEqual(self.fixture.warnings, [])
 
     def test_permission_failure_opens_an_operable_child_error_and_keeps_the_editor_usable(self):
         from thlib.environment import env_inst, env_mode

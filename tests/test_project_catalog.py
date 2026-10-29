@@ -159,8 +159,11 @@ class ProjectCatalogTests(unittest.TestCase):
         changed = QSignalSpy(model.projects_changed)
         with patch.object(model, 'preview_for', side_effect=AssertionError('No preview work')):
             model.replace(projects)
-            self.assertEqual(model.allProjects, [
-                {'projectCode': project.code, 'title': project.info['name']} for project in projects])
+            self.assertEqual([(row['projectCode'], row['title']) for row in model.allProjects],
+                             [(project.code, project.info['name']) for project in projects])
+            self.assertTrue(model.allProjects[3]['isBuiltin'])
+            self.assertTrue(model.allProjects[2]['isTemplate'])
+            self.assertTrue(model.allProjects[1]['isRetired'])
             self.assertEqual(model.visibleCount, 1)
             model.setShowBuiltins(True)
             model.setShowTemplates(True)

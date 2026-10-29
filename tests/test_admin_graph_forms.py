@@ -941,11 +941,12 @@ class AdminGraphFormsTests(unittest.TestCase):
     def test_forms_keep_page_and_node_type_tabs_while_catalogs_use_comboboxes(self):
         self.click('graphNode_model')
         for page in ('canvas', 'technical'):
-            self.click('segmentedButtonSegment_' + page)
+            self.click('adminGraphPages_' + page)
             selectors = [item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())
                          if item.isVisible() and item.inherits('QQuickComboBox')]
-            expected = {'administrationProjectSelector'}
+            expected = set()
             if page == 'canvas':
+                expected.add('adminGraphLayoutStyle')
                 expected.update('adminProcessField_' + field for field in (
                     'assigned_group', 'supervisor_group', 'task_pipeline'))
             self.assertEqual({item.objectName() for item in selectors}, expected)

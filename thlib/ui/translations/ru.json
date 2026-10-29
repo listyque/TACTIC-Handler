@@ -5904,5 +5904,6 @@
   "Allowed by this group": "Разрешено этой группой",
   "Denied by this group": "Запрещено этой группой",
   "Existing access: {access}": "Сохранённый уровень: {access}",
-  "Custom rule: its effect depends on the plugin or script that checks it.": "Кастомное правило: его действие зависит от плагина или скрипта, который его проверяет."
+  "Custom rule: its effect depends on the plugin or script that checks it.": "Кастомное правило: его действие зависит от плагина или скрипта, который его проверяет.",
+  "Find a project by name or code": "Найти проект по названию или коду"
 }

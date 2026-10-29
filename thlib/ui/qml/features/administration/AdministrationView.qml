@@ -21,7 +21,10 @@ Item {
             project: controller.project,
             projects: projectModel.allProjects.map(row => ({
                         value: row.projectCode,
-                        label: row.title
+                        label: row.title,
+                        preview: row.preview || "",
+                        category: row.category || "",
+                        kind: row.isBuiltin ? "Built-in" : row.isTemplate ? "Templates" : row.isRetired ? "Retired" : ""
                     })),
             locked: controller.projectLocked || columnsDirty,
             busy: controller.busy,
@@ -206,10 +209,23 @@ Item {
             })
         describeRow: (list, record) => UI.row(list, record, root.frameModel, root.ui, root.language)
         views: ({
+                projectPicker: projectPickerPort,
                 toolbar: toolbarPort,
                 content: contentPort
             })
         onEvent: action => root.dispatch(action)
+    }
+    Component {
+        id: projectPickerPort
+        AdminProjectPicker {
+            theme: root.theme
+            model: root.frameModel
+            language: root.language
+            onSelected: code => root.dispatch({
+                    type: "project",
+                    value: code
+                })
+        }
     }
     Component {
         id: toolbarPort
