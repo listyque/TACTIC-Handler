@@ -18,6 +18,8 @@ You can resize a table generated from object fields immediately. The first chang
 
 In the CG project, Script shows the saved URL as a link. An empty Script field shows Not script as plain text.
 
+Episode displays native previews, names and task controls. Related assets and shots open as tables scoped to that episode. The shots use the saved episode_shots view; asset categories remain visible as a column in the related-assets table.
+
 Table headers and rows fill the available width. Space for a scrollbar is reserved only while that scrollbar is needed.
 
 ## How a query is assembled

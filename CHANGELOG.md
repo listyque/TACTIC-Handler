@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.257 - 2026-10-29
+
+- Document the corrected shared CG Episode configuration: native previews, names and task controls, with scoped asset and saved shot tables.
+
 ## 0.6.0.256 - 2026-10-29
 
 - Document the existing table-width contract: headers and rows fill the viewport, reserving space only for scrollbars that actually overflow. Verify native scrollbar transitions alongside the Stream workspace-gutter fix.
