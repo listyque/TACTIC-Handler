@@ -54,6 +54,9 @@ search tab or offer a separate "current" mode.
 Opening Configure columns from a result table selects that table's project, Search Type, saved
 view and, when invoked for a column, that column. Opening Columns Editor directly keeps the full
 project catalog.
+Opening a result table loads its saved column definition automatically, including
+the first table opened after launch. Reopening or refreshing the tab is not needed.
+Repeated activation during that load shares the same pending definition request.
 The Search Type filter shows both the registry title and code; if they match, it shows the value once.
 The Columns Editor uses the same two-panel layout and header Save/Discard actions as the other
 administration pages. Refresh sits in the header; the Wizard/XML switch stays with the

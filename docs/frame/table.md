@@ -1,5 +1,15 @@
 # Tactic Frame table contract
 
+Handler table activation calls `ColumnsEditorController.begin_session` whenever
+the current table workspace is presented, including with an empty `_stype_code`
+before the first definition. An inactive workspace is not bootstrapped by
+Administration's configuration-save signals. Session context coalesces an
+in-flight read of the same project/Search Type/view. Explicit reloads and changed-context queuing retain
+their existing behavior. `tests.test_table_first_open` covers cold session
+creation before any tab exists, the first actual native header/cell publication,
+duplicate activation and no table bootstrap in card mode or an inactive workspace. Stream uses its
+existing immediate `ConfiguredView.definition` watcher for initial loading.
+
 Shared table descriptions do not certify complete legacy compatibility. A
 registered adapter must still preserve applicable original options, editor/action
 behavior, permissions and errors. Discover current support from the installed

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.239 - 2026-10-29
+
+- Load the saved column definition on the first table activation after launch, even when the table surface was created before its search tab. Reuse an in-flight definition request for repeated activation signals; preserve explicit reloads and context changes.
+
 ## 0.6.0.238 - 2026-10-29
 
 - Regroup Page layout controls in a shared toolbar: explicit New page beside the picker, direct preview/XML actions, a labelled secondary Actions menu, and Undo/Redo beside canvas tools. Keep empty catalogs clear, preserve draft/save guards and keep paper-edge resize handles usable under zoom. Match Stream and update EN/RU Help.

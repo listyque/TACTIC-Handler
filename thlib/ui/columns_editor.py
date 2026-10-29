@@ -459,9 +459,12 @@ class ColumnsEditorController(QObject):
 
     def _reload_table_if_active(self, *_args):
         tab = self._current_tab()
-        if (self._stype_code and tab
-                and getattr(tab, "view_mode", "") == "table"):
-            self.reload()
+        docks = getattr(self._application, "dock_model", None)
+        if (
+            tab and getattr(tab, "view_mode", "") == "table"
+            and (self._stype_code or docks and docks.is_panel_presented("results"))
+        ):
+            self.begin_session()
 
     @Slot()
     def begin_session(self):
