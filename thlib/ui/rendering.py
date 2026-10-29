@@ -50,15 +50,22 @@ def apply_render_backend(
     """Apply the preference before QApplication owns a scene graph."""
 
     selected = normalize_render_backend(value)
+    platform_name = platform_name or sys.platform
+    backend = environment.get("QSG_RHI_BACKEND") or effective_render_backend(
+        selected, platform_name=platform_name,
+    )
+    if (
+        platform_name == "win32" and backend == "opengl"
+        and environment.get("QT_QUICK_BACKEND", "rhi") == "rhi"
+    ):
+        # WGL presentation can block resize synchronization for an entire frame.
+        # Qt uses its timer-driven animation clock when vsync is disabled.
+        environment.setdefault("QSG_NO_VSYNC", "1")
     if (
         environment.get("QT_QUICK_BACKEND")
         or environment.get("QSG_RHI_BACKEND")
     ):
         return selected
-    backend = effective_render_backend(
-        selected,
-        platform_name=platform_name,
-    )
     if backend == "software":
         # Software is a Qt Quick scene-graph adaptation, not an RHI backend.
         # Passing it through QSG_RHI_BACKEND makes Qt reject the value and

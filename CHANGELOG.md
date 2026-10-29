@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.240 - 2026-10-29
+
+- Avoid blocking Windows OpenGL resize synchronization on VSync, preserving the existing renderer and explicit environment overrides. Reuse notified item-layout document snapshots during resizing instead of repeatedly copying the XML tree. Add native read-budget and rendering-policy regressions.
+
 ## 0.6.0.239 - 2026-10-29
 
 - Load the saved column definition on the first table activation after launch, even when the table surface was created before its search tab. Reuse an in-flight definition request for repeated activation signals; preserve explicit reloads and context changes.

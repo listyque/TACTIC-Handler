@@ -7,6 +7,13 @@ models.
 
 ## Native page data and geometry
 
+The item layout editor also detaches its QVariant value
+input once per existing notification. Item layout geometry must reuse
+`editorSnapshot`; reading `controller.model` on every window-width change
+deep-copies the whole XML tree again. Preserve immediate geometry and
+input updates. This is a native boundary optimization, not a change to the
+shared Frame descriptions or Stream's data flow.
+
 `PageLayoutEditorView.editorSnapshot` copies document/metadata values with
 `Object.assign` and the catalog with `Array.from`, once per existing controller
 notification. Keep native QObject services in the snapshot; do not JSON-serialize
@@ -34,6 +41,26 @@ separate measurements. Preserve the Windows graphics-backend policy and measure
 GPU presentation separately from offscreen/software tests. See the
 [Qt disk-cache documentation](https://doc.qt.io/qt-6/qmldiskcache.html) and
 [Qt Quick performance guidance](https://doc.qt.io/qt-6/qtquick-performance.html).
+
+## Windows table resize and presentation
+
+Windows OpenGL defaults to `QSG_NO_VSYNC=1` before QApplication creation. Blocking
+WGL presentation can stall the GUI's resize synchronization even when table
+layout is cheap. Keep OpenGL as the Windows automatic backend: switching to
+Direct3D reintroduces the previously observed desktop flicker. Explicit
+`QSG_NO_VSYNC=0` remains an override; other backends and platforms keep their
+existing policy. Qt uses timer-driven regular animations when vsync is disabled.
+See [Qt's render-loop and vsync documentation](https://doc.qt.io/qt-6/qtquick-visualcanvas-scenegraph.html).
+
+An isolated full Main window with five rows and ten task cards, on Qt 6.11.2 /
+NVIDIA RTX 5080 Laptop / Windows OpenGL threaded rendering, measured median
+resize dispatch below 1 ms but presentation around 34 ms. With the policy above,
+dispatch remained below 1 ms and presentation was 5.3 ms. All ten cards retained
+their identity. This probe masks its helper window to one pixel to avoid
+interrupting the user's desktop; it measures programmatic native window resize,
+not a human dragging the live window border. These are diagnostic measurements,
+not universal frame-rate guarantees or CI timing limits. Check driver-specific
+presentation artifacts and animations when changing this policy.
 
 ## Idle table cells
 

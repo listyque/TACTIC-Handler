@@ -12,6 +12,16 @@ from tests.qt_application import gui_test_application
 from tests import test_frame_table as frames
 from tests.test_page_layout_editor import DOCUMENT
 from thlib.ui.admin.dashboard import DashboardEditor
+from thlib.ui.layout_editor import LayoutEditorHost, layout_tree
+
+
+class CountingLayoutEditor(LayoutEditorHost):
+    reads = 0
+
+    @Property('QVariantMap', notify=LayoutEditorHost.stateChanged)
+    def model(self):
+        self.reads += 1
+        return LayoutEditorHost.model.fget(self)
 
 
 class CountingEditor(DashboardEditor):
@@ -77,6 +87,46 @@ class NativeSnapshotTests(unittest.TestCase):
         self.assertEqual(evaluate('editorSnapshot.document.title'), 'Updated page')
         self.assertTrue(evaluate('editorSnapshot.metadata.dataBusy'))
         self.assertLess(host.reads, 100)
+
+    def test_item_editor_resize_does_not_refetch_the_document(self):
+        host = CountingLayoutEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        self.addCleanup(host.shutdown)
+        host._project, host._search_type, host._view = 'demo', 'demo/asset', 'cards_example'
+        elements = ''.join(
+            f'<element name="field_{index}"><display class="text"/></element>'
+            for index in range(20)
+        )
+        host._xml = host._baseline = (
+            '<config><cards_example layout="sobject-layout">'
+            + elements + '</cards_example></config>'
+        )
+        host._tree = layout_tree(host._xml)
+        host._loaded = True
+        host._loaded_scope = ('demo', 'demo/asset', 'cards_example')
+        host._configuration = dict(revision='R1', sources=[], views=['cards_example'])
+        host._types = [dict(value='demo/asset', label='Assets')]
+        window, view = self.create(
+            'features/administration/layouts/LayoutEditorView.qml',
+            dict(controller=host), width=1400, height=900,
+        )
+        reads = host.reads
+        for width in range(1200, 1400, 20):
+            frame(window, lambda: (
+                window.resize(width, 850), view.setWidth(width), view.setHeight(850)
+            ))
+        self.assertEqual(host.reads, reads, 'Resize must reuse the notified value snapshot')
+        host._xml = host._xml.replace('field_0', 'renamed_field')
+        host._tree = layout_tree(host._xml)
+        host.stateChanged.emit()
+        frame(window)
+        self.assertGreater(host.reads, reads)
+        expression = QQmlExpression(
+            QQmlEngine.contextForObject(view), view, 'editorSnapshot.xml'
+        )
+        value, _ = expression.evaluate()
+        self.assertFalse(expression.hasError(), expression.error().toString())
+        self.assertEqual(value, host._xml)
+        self.assertTrue(host.dirty)
 
 
 class NativeResizeTests(unittest.TestCase):

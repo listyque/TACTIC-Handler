@@ -15,7 +15,8 @@ Item {
     property bool saveActionsInHeader: false
     property var ui: State.initial()
     readonly property var navigationParent: State.navigationParent(ui)
-    readonly property var frameModel: UI.model(controller.model, ui, language, root.Window.window ? root.Window.window.width : width)
+    readonly property var editorSnapshot: Object.assign({}, root.controller.model)
+    readonly property var frameModel: UI.model(editorSnapshot, ui, language, root.Window.window ? root.Window.window.width : width)
     readonly property var frameScene: body.scene
     readonly property var rows: Object.assign({}, UI.models(frameModel, language), {
         sourceEditor: controller.sourceEditor
