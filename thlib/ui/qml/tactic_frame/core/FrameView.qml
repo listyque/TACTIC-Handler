@@ -665,7 +665,11 @@ Item {
                         onClicked: root.send(wrapper.node.action, undefined, actionControl)
                         onDoubleClicked: root.send(wrapper.node.doubleAction)
 
-                        onActiveFocusChanged: tipDismissed = false
+                        onActiveFocusChanged: {
+                            tipDismissed = false;
+                            if (activeFocus)
+                                root.reveal(this);
+                        }
                         Keys.onEscapePressed: event => {
                             if (infoTip.item && infoTip.item.visible) {
                                 tipDismissed = true;

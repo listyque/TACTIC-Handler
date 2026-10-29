@@ -304,5 +304,46 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.assertEqual(self.fixture.warnings, [])
 
 
+    def test_tool_policies_keep_other_rules_and_effective_view_uses_saved_permissions(self):
+        self.window.resize(1500, 900)
+        frame(self.window)
+        self.click('adminSecurityTab_agent_tool')
+        self.click('adminToolsRead')
+        xml = self.editor.groupDocument['xml']
+        self.assertIn('agent_context', xml)
+        self.assertIn('ts_records', xml)
+        self.assertNotIn('ts_tasks_save', xml)
+        self.assertIn('studio_custom', xml)
+        self.assertIn('unchanged', xml)
+        self.assertTrue(self.editor.dirty)
+        self.click('adminSecurityTab_effective')
+        self.assertFalse(self.item('adminEffectiveUser').isEnabled())
+        with patch.object(self.editor, '_request') as request:
+            self.editor.inspect_user('artist')
+            request.assert_not_called()
+        import copy
+        self.editor._original = copy.deepcopy(self.editor.document)
+        self.editor.stateChanged.emit()
+        frame(self.window)
+        with patch.object(self.editor, '_request') as request:
+            self.editor.inspect_user('lead')
+            request.assert_called_once_with('effective', 'demo', login='lead')
+        self.assertEqual(self.fixture.warnings, [])
+
+    def test_empty_group_catalogue_disables_tool_changes_but_keeps_user_report(self):
+        import copy
+        self.editor.document['groups'].clear()
+        self.editor._original=copy.deepcopy(self.editor.document)
+        self.editor._document_loaded()
+        self.editor.stateChanged.emit()
+        frame(self.window)
+        self.click('adminSecurityTab_agent_tool')
+        self.assertFalse(self.item('adminToolsRead').isEnabled())
+        self.assertFalse(self.item('adminToolMode').isEnabled())
+        self.click('adminSecurityTab_effective')
+        self.assertTrue(self.item('adminEffectiveUser').isEnabled())
+        self.assertEqual(self.fixture.warnings, [])
+
+
 if __name__ == '__main__':
     unittest.main()

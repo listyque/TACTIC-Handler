@@ -348,6 +348,32 @@ Discard, and Save to server are in the editor command bar.
 
 ## Access rules
 
+### Effective user permissions and AI tools
+
+Open **Access rules → Effective permissions** and choose a user. The report
+reads saved native rights, including direct groups, inherited groups and the combined
+system defaults. Each resolved rule lists the groups that supplied it. Refresh reads
+current server state without changing the selected user's identity or issuing a ticket.
+Save or discard your draft before changing the inspected user. Search filters the
+membership, rule and tool rows. Record restrictions and operation-specific checks
+still apply: a rule entry is not blanket authorization to every record or field.
+
+**AI tools** and **MCP tools** configure separate group allowlists. Choose **Inherit**,
+**Selected tools** or **All tools**; **Read tools** selects read-only catalogue entries,
+and **Clear** selects none. These are ordinary access-rule drafts: **Save** checks the
+revision and commits all group changes together. Group project binding still applies.
+All inherited groups participate; a deny does not veto another group's grant for the
+same key. An exact tool rule is checked before the wildcard. The group-only list is
+not the user's final tool list: inspect the user report to see the combined result.
+
+Group settings only restrict tools. Existing native administrator requirements for
+agent/MCP connections and administrative operations remain in force. On Stream,
+configured provider hosts, Codex adapters and MCP gateways recheck saved group rights
+before each tool call; an existing connection loses revoked tools on its next call.
+MCP additionally intersects the granted project's tool list, lifetime and revocation.
+Handler connected to an original server without these agent endpoints still supports
+the native user-rights report, but shows no agent-tool catalogue.
+
 The wide Access rules editor has grouped navigation with action icons. On smaller
 windows the same sections are available in a selector. The section header explains
 what is being controlled. Matrix rows identify permissions and columns identify

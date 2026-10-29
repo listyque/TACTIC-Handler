@@ -10,6 +10,7 @@ import {
     tabs
 } from '../admin.document.mjs';
 import { translate } from '../../../core/strings.mjs';
+import * as Access from './security.access.mjs';
 import {
     inheritanceChoices,
     matrixScopes,
@@ -26,6 +27,7 @@ export function toolbar(model, ui, width, language) {
 }
 
 export const scopes = [
+    ['effective', 'Effective permissions'],
     ['defaults', 'Group inheritance'],
     ['project', 'Projects'],
     ['builtin', 'Global permissions'],
@@ -37,6 +39,8 @@ export const scopes = [
     ['sobject', 'Search Objects'],
     ['sobject_column', 'Field access'],
     ['search_filter', 'Search restrictions'],
+    ['agent_tool', 'AI tools'],
+    ['mcp_tool', 'MCP tools'],
     ['technical', 'Advanced rules']
 ];
 export const levels = [
@@ -58,6 +62,15 @@ const levelIcons = {
     allow: 'check'
 };
 export const scopeDetails = {
+    effective: [
+        'person',
+        'Inspect saved user permissions and their source groups.'
+    ],
+    agent_tool: [
+        'security',
+        'Choose which tools this group can use through the agent chat.'
+    ],
+    mcp_tool: ['link', 'Choose which tools this group can expose through MCP.'],
     defaults: ['groups', 'Choose the groups whose permissions are inherited.'],
     project: ['folder', 'Choose which projects each group can open.'],
     link: ['link', 'Choose which sidebar links each group can see.'],
@@ -149,7 +162,7 @@ export function detail(record) {
 export function models(model, ui, language) {
     const editorScope =
         model.attributes.group || model.attributes.category || ui.scope;
-    return {
+    return Object.assign(Access.models(model, ui, language), {
         rules: model.records.filter(
             (record) =>
                 (record.group || record.category) === ui.scope &&
@@ -174,7 +187,7 @@ export function models(model, ui, language) {
                 )
             )
             .filter((target) => contains(target.label, ui.targetQuery))
-    };
+    });
 }
 const list = (id, bounds, source, rowHeight, keyField) =>
     node('List', id, bounds, {
@@ -215,7 +228,11 @@ export function describe(model, ui, width, height, language) {
     if (rail) {
         const entries = [],
             groups = [
-                ['Groups and projects', ['defaults', 'project', 'builtin']],
+                [
+                    'Groups and projects',
+                    ['effective', 'defaults', 'project', 'builtin']
+                ],
+                ['Agent access', ['agent_tool', 'mcp_tool']],
                 ['Interface', ['link', 'gear_menu']],
                 [
                     'Data and workflow',
@@ -405,6 +422,8 @@ export function describe(model, ui, width, height, language) {
 }
 
 function workspace(model, ui, width, height, language) {
+    if (ui.scope === 'effective')
+        return Access.workspace(model, ui, width, height, language);
     const tr = (text) => translate(text, language),
         allow = policy(model),
         edit = allow.editable && !pending(ui),
@@ -458,6 +477,16 @@ function workspace(model, ui, width, height, language) {
         );
         return {
             nodes
+        };
+    }
+    if (ui.scope === 'agent_tool' || ui.scope === 'mcp_tool') {
+        const access = Access.workspace(model, ui, width, height - y, language);
+        return {
+            nodes: nodes.concat(
+                access.nodes.map((item) =>
+                    Object.assign({}, item, { y: item.y + y })
+                )
+            )
         };
     }
     if (matrix) {
@@ -1105,6 +1134,8 @@ function groupSettings(nodes, model, ui, bounds, language, edit) {
 }
 
 export function row(listNode, record, model, ui, language) {
+    if (listNode.source === 'effective' || listNode.source === 'agentTools')
+        return Access.row(listNode, record, model, ui, language);
     const tr = (text) => translate(text, language),
         width = Math.max(1, listNode.width - 16),
         height = listNode.rowHeight - 4,

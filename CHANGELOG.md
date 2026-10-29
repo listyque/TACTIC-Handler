@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.265 - 2026-10-29
+
+- Add a saved effective-user permission report with native access checks, direct/inherited groups, combined defaults and source rules.
+- Configure separate group allowlists for chat and MCP tools through the existing revisioned Access rules editor; retain native operation authority and show agent eligibility explicitly.
+- Keep newly focused navigation actions visible in scrolling Frame sections, with matching native and browser behavior.
+
 ## 0.6.0.264 - 2026-10-29
 
 - Modernize the Access rules editor with grouped icon navigation, section explanations, bounded work panels and a readable permission legend.

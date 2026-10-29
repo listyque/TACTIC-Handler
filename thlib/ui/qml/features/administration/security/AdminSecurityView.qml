@@ -21,7 +21,7 @@ Item {
     readonly property bool canReloadDocument: Document.policy(frameModel).reload
     readonly property var frameModel: ({
             ready: controller.document.groups !== undefined,
-            canWrite: controller.canWrite,
+            canWrite: controller.canWrite && !!controller.selectedGroup,
             canLoad: true,
             busy: controller.busy,
             dirty: controller.dirty,
@@ -64,6 +64,12 @@ Item {
         controller.set_presentation_dirty(State.pending(ui));
         for (const command of result.commands) {
             switch (command.type) {
+            case "effectiveUser":
+                controller.inspect_user(command.login);
+                break;
+            case "toolPolicy":
+                controller.set_tool_policy(command.scope, command.mode, command.names);
+                break;
             case "filterMatrix":
                 controller.matrix.filter(ui.scope, ui.query, ui.groupQuery);
                 break;
@@ -194,6 +200,8 @@ Item {
                 rules: root.rows.rules,
                 allRules: root.rows.allRules,
                 inheritance: root.rows.inheritance,
+                effective: root.rows.effective,
+                agentTools: root.rows.agentTools,
                 targets: root.rows.targets
             })
         describeRow: root.rowScene

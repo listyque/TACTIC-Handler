@@ -1,4 +1,5 @@
 import { documentEvent, policy } from '../admin.document.mjs';
+import { toolSettings } from './security.access.mjs';
 export const matrixScopes = [
     'project',
     'link',
@@ -10,6 +11,7 @@ export const matrixScopes = [
 export function initial() {
     return {
         scope: 'project',
+        reportView: 'summary',
         page: 'group',
         query: '',
         groupQuery: '',
@@ -74,6 +76,63 @@ export function transition(ui, model, event) {
         allow = policy(model);
     const canNavigate = !model.busy && !pending(ui);
     switch (event.type) {
+        case 'reportView':
+            if (
+                canNavigate &&
+                ['summary', 'groups', 'rules', 'tools'].includes(event.value)
+            )
+                next.reportView = event.value;
+            break;
+        case 'effectiveUser':
+            if (
+                canNavigate &&
+                !model.dirty &&
+                !model.uncertain &&
+                event.value &&
+                (model.metadata.users || []).some(
+                    (user) => user.value === event.value
+                )
+            )
+                commands.push({ type: 'effectiveUser', login: event.value });
+            break;
+        case 'toolMode':
+        case 'toolRead':
+        case 'toolNone':
+        case 'toolToggle': {
+            if (
+                !allow.editable ||
+                pending(ui) ||
+                !['agent_tool', 'mcp_tool'].includes(ui.scope)
+            )
+                break;
+            const settings = toolSettings(model, ui.scope),
+                tools =
+                    ui.scope === 'mcp_tool'
+                        ? model.metadata.mcpTools || []
+                        : model.metadata.agentTools || [];
+            let mode = 'selected',
+                names =
+                    settings.mode === 'all'
+                        ? tools.map((tool) => tool.name)
+                        : settings.names;
+            if (event.type === 'toolMode') {
+                if (!['inherit', 'selected', 'all'].includes(event.value))
+                    break;
+                mode = event.value;
+            } else if (event.type === 'toolRead')
+                names = tools
+                    .filter((tool) => tool.readonly)
+                    .map((tool) => tool.name);
+            else if (event.type === 'toolNone') names = [];
+            else {
+                if (!tools.some((tool) => tool.name === event.name)) break;
+                names = names.includes(event.name)
+                    ? names.filter((name) => name !== event.name)
+                    : names.concat([event.name]);
+            }
+            commands.push({ type: 'toolPolicy', scope: ui.scope, mode, names });
+            break;
+        }
         case 'scope':
             if (canNavigate) {
                 next.scope = event.value;

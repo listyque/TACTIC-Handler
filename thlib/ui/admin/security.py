@@ -104,6 +104,33 @@ class SecurityRulesEditor(AdminDocumentEditor):
             self._matrix.refresh()
             self.stateChanged.emit()
 
+    @Slot(str)
+    def inspect_user(self, login):
+        if self.busy or self.dirty or self.writeUncertain:
+            return
+        if any(user['value'] == login for user in self.metadata.get('users', [])):
+            self._request('effective', self._project, login=login)
+
+    @Slot(str, str, 'QVariantList')
+    def set_tool_policy(self, scope, mode, names):
+        if not self.canWrite or self.busy or self.writeUncertain or not self._rules:
+            return
+        if scope not in ('agent_tool', 'mcp_tool') or mode not in ('inherit', 'selected', 'all'):
+            return
+        catalog = self.metadata.get('mcpTools' if scope == 'mcp_tool' else 'agentTools', [])
+        if any(name not in {tool['name'] for tool in catalog} for name in names):
+            return
+        for rule in list(self._rules.root):
+            if (rule.get('group') or rule.get('category') or rule.get('type')) == scope:
+                self._rules.root.remove(rule)
+        if mode != 'inherit':
+            self._rules.set_rule(-1, dict(group=scope, key='*', access='allow' if mode == 'all' else 'deny'))
+            if mode == 'selected':
+                for name in dict.fromkeys(names):
+                    self._rules.set_rule(-1, dict(group=scope, key=name, access='allow'))
+        self._selected = -1
+        self._changed()
+
     @Property('QVariantList', notify=rulesChanged)
     def rules(self):
         return self._records

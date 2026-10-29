@@ -86,6 +86,15 @@ class AdministrationApiTests(unittest.TestCase):
             def get_table(self):
                 return self.data['table_name']
 
+            def is_retired(self):
+                return self.data.get('s_status') == 'retired'
+
+            def get_login(self):
+                return self.data['login']
+
+            def get_full_name(self):
+                return self.data.get('display_name') or self.get_login()
+
             def get_search_type_id_col(self):
                 return self.data.get('id_column') or 'id'
 
