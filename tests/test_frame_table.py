@@ -365,6 +365,24 @@ class FrameTableTests(unittest.TestCase):
         self.assertTrue(result)
         self.assertEqual(label.property("lineCount"), 2)
 
+    def test_empty_script_placeholder_is_not_a_clickable_link(self):
+        for text, href, clickable in (
+            ('Not script', '', False),
+            ('https://example.com/script', 'https://example.com/script', True),
+        ):
+            window, view = self.create('TacticTableCellDisplay.qml', dict(
+                controller=None, columnsController=None, userModel=None, nodeId='row',
+                kind='link', cell=dict(text=text, href=href), textValue=text,
+                columnIndex=1, previewActive=False, previewUrl='', previewRevealed=False,
+                title='Script', accent='#78a6c4', comments=0, tasks=0, displayOptions={}),
+                width=208, height=58)
+            self.assertEqual(view.property('clickableLink'), clickable)
+            label = next(item for item in _visual_items(view) if item.property('text') == text
+                         and item.metaObject().indexOfProperty('textFormat') >= 0)
+            expression = QQmlExpression(QQmlEngine.contextForObject(label), label, 'font.underline')
+            underlined, _undefined = expression.evaluate()
+            self.assertEqual(underlined, clickable)
+
     def test_vfx_text_input_uses_the_real_native_keyboard_editor(self):
         from thlib.ui.sobject_editor import SObjectEditorController
         from tests.test_sobject_editor import _EditorStype

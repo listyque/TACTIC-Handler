@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.255 - 2026-10-29
+
+- Show empty link placeholders such as Not script as ordinary text, without an underline or link cursor. Keep saved URLs clickable and document the CG Script column's link-only presentation.
+
 ## 0.6.0.254 - 2026-10-29
 
 - Verify that the native Name-column resize materializes a missing schema column while retaining existing options and column order. Document matching first-resize and retry behavior alongside the Stream fix.

@@ -16,6 +16,8 @@ When connected to TACTIC Stream, resizing columns in an existing table definitio
 
 You can resize a table generated from object fields immediately. The first change remembers its displayed columns and their order; the width remains after reopening the table.
 
+In the CG project, Script shows the saved URL as a link. An empty Script field shows Not script as plain text.
+
 ## How a query is assembled
 
 A query can be built in layers. Every layer eventually appears as a condition in **Advanced

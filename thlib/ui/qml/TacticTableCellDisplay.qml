@@ -35,6 +35,7 @@ Item {
     property var tableServices: typeof tableServicesController === "undefined" ? null : tableServicesController
     property var administration: typeof administrationController === "undefined" ? null : administrationController
     readonly property string safeHref: Cells.link(cell.href, controller ? controller.server_url || "" : "")
+    readonly property bool clickableLink: kind === "link" && safeHref.length > 0
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     signal taskPreviewHoverChanged(bool hovered)
 
@@ -123,21 +124,21 @@ Item {
                 background: Rectangle {
                     color: root.cell.statusColor || "transparent"
                 }
-                color: root.cell.error ? root.theme.error : root.cell.statusColor ? "#000" : root.kind === "link" ? root.theme.action : root.theme[Cells.textRole(root.cell)]
+                color: root.cell.error ? root.theme.error : root.cell.statusColor ? "#000" : root.clickableLink ? root.theme.action : root.theme[Cells.textRole(root.cell)]
                 font.family: root.theme.fontFamily
                 font.pixelSize: Cells.metrics.bodyFont
                 font.weight: root.columnIndex === 0 ? Font.DemiBold : Font.Normal
-                font.underline: root.kind === "link"
+                font.underline: root.clickableLink
             }
             TapHandler {
-                enabled: root.kind === "link" && root.safeHref.length > 0
+                enabled: root.clickableLink
                 acceptedButtons: Qt.LeftButton
                 onTapped: Qt.openUrlExternally(root.safeHref)
             }
             HoverHandler {
                 id: hover
-                enabled: root.kind === "link" || String(root.cell.tooltip || "").length > 0 || String(root.cell.error || "").length > 0 || label.truncated
-                cursorShape: root.kind === "link" ? Qt.PointingHandCursor : Qt.ArrowCursor
+                enabled: root.clickableLink || String(root.cell.tooltip || "").length > 0 || String(root.cell.error || "").length > 0 || label.truncated
+                cursorShape: root.clickableLink ? Qt.PointingHandCursor : Qt.ArrowCursor
             }
             Controls.ToolTip {
                 theme: root.theme
