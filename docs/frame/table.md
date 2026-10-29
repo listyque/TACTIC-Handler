@@ -218,3 +218,23 @@ than converting full nested records just to paint the arrow. The existing
 row/column scope cache, one-open-column-per-row rule and row expansion owner
 stay unchanged. Native `test_table_nested` and browser `table_disclosure_state`
 exercise actual clicks across duplicate scopes, columns, loading and rows.
+
+`columns.mjs::visibleColumns` excludes explicit width overrides from adaptive
+hiding so resizing cannot destroy the active header handle. `acknowledgedWidths`
+retains only overrides matching the current authoritative column width; removed
+or changed columns discard stale overrides. Both adapters use it after column
+updates. Native resize cancellation snapshots/restores a previous override,
+matching the browser's pointer-cancel behavior. Width bounds, hide priorities
+for untouched columns and configuration persistence stay with their existing
+owners. Tests: native `test_table_last_column_resize`, browser
+`frontend/tests/table_last_column_resize.mjs`, including actual drag/cancel/key
+input, server acknowledgement and replacement width.
+
+The resize hit strip is centered on the divider using `metrics.resizeHandle`.
+Native header handles share the header's visual layer so the next column cannot
+cover their outer half; QObject lifetime remains with the declared column.
+Sticky tools paint above handles, reserve an 8-DIP leading gap and keep their
+28-DIP targets. Browser tool-background hit testing passes through that empty
+gap; direct tool children remain interactive. The grip stays at the true column
+edge, and covered/off-viewport strips cannot replace tool input. Native and
+browser regressions start 3 DIP beyond the final divider beside the tool area.

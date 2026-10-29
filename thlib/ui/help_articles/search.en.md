@@ -418,3 +418,7 @@ Expanded related tables, including History, leave an equal inset around the sear
 The table Check-in button toggles Drop Plate: click to show it, click again to hide it. Hiding keeps files on the plate. A plate covered by another dock tab is brought forward. Stream reopens the same target without clearing files; switching targets retains its discard check. Task Work keeps its explicit open action.
 
 A related-table disclosure arrow and its loading icon belong to the clicked row, column and nested view. Opening one hidden table does not change neighboring arrows, including another column that uses the same view. Clicking the active arrow closes its table.
+
+A column you resize manually stays visible when it grows beyond the table viewport; use horizontal scrolling to reach its right edge. Confirmed widths retain this manual choice. Cancelling a drag restores its previous width. Automatic hiding still applies to columns without a manual width override; a changed authoritative width replaces the local override.
+
+Column resize hit areas straddle their visible divider, including the right edge of the final column. Drag from either side of the line. Header tools reserve space beside that hit area and remain directly clickable.

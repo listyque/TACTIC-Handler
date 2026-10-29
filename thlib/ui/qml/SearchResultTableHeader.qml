@@ -27,6 +27,7 @@ Rectangle {
     required property var columnWidthProvider
     required property bool autoFitColumns
     property var columnContext: ({})
+    property var widthOverrides: ({})
     property var tableViewPresetMenu: null
     property int draggedColumn: -1
     property int dropColumn: -1
@@ -290,12 +291,14 @@ Rectangle {
                 }
                 MouseArea {
                     id: resizeHandle
+                    parent: root
                     objectName: "tableColumnResize_" + String(headerCell.modelData.name || "")
                     z: 2
-                    anchors.right: parent.right
+                    x: root.selectionColumnWidth + headerCell.x + headerCell.width - width / 2
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    width: 12
+                    anchors.bottomMargin: 3
+                    width: TableHost.metrics.resizeHandle
                     hoverEnabled: true
                     enabled: !root.columnsBusy
                     acceptedButtons: Qt.LeftButton
@@ -305,16 +308,19 @@ Rectangle {
                     Accessible.role: Accessible.Slider
                     Accessible.name: qsTr("Resize column") + " " + String(headerCell.modelData.label || "")
                     Controls.ColumnHeaderGrip {
+                        anchors.rightMargin: resizeHandle.width / 2
                         theme: root.theme
                         highlighted: resizeHandle.containsMouse || resizeHandle.activeFocus || resizeHandle.pressed
                     }
                     property real pressSceneX: 0
                     property real startWidth: 0
+                    property var previousOverride: undefined
                     property bool changed: false
 
                     onPressed: function (mouse) {
                         pressSceneX = mapToItem(null, mouse.x, mouse.y).x;
                         startWidth = root.columnWidth(headerCell.modelData);
+                        previousOverride = root.widthOverrides[String(headerCell.modelData.name || "")];
                         changed = false;
                     }
                     onPositionChanged: function (mouse) {
@@ -332,7 +338,10 @@ Rectangle {
                     }
                     onCanceled: {
                         if (changed) {
-                            root.widthClearRequested(String(headerCell.modelData.name || ""));
+                            if (previousOverride !== undefined)
+                                root.widthPreviewRequested(String(headerCell.modelData.name || ""), previousOverride);
+                            else
+                                root.widthClearRequested(String(headerCell.modelData.name || ""));
                         }
                     }
                     Keys.onPressed: function (event) {
@@ -391,6 +400,7 @@ Rectangle {
 
     Item {
         x: Math.max(0, root.viewportContentX + root.viewportWidth - width)
+        z: 3
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 3
@@ -410,8 +420,9 @@ Rectangle {
             uiTheme: root.theme
         }
         Row {
-            anchors.centerIn: parent
-            spacing: 4
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 0
             visible: !root.columnsBusy
 
             Controls.CompactIconButton {

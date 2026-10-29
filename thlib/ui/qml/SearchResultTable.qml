@@ -141,7 +141,7 @@ Item {
 
         function onStateChanged() {
             if (!root.columnsBusy && !root.columnsDirty)
-                root.widthOverrides = ({});
+                root.widthOverrides = TableColumnLayout.acknowledgedWidths(root.columns, root.widthOverrides);
         }
     }
 
@@ -318,6 +318,7 @@ Item {
             selectionColumnWidth: root.selectionColumnWidth
             actionColumnWidth: root.actionColumnWidth
             columnWidthProvider: root.columnWidth
+            widthOverrides: root.widthOverrides
             autoFitColumns: root.autoFitColumns
             onAutoFitRequested: root.autoFitColumns = !root.autoFitColumns
             onWidthPreviewRequested: (name, width) => root.setWidthOverride(name, width)

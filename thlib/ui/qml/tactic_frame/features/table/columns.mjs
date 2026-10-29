@@ -36,6 +36,17 @@ export function totalWidth(columns, overrides, fittedWidths) {
     }, 0);
 }
 
+export function acknowledgedWidths(columns, overrides) {
+    const result = {};
+    for (const column of columns || []) {
+        const name = String(column.name || '');
+        const width = overrides?.[name];
+        if (width !== undefined && width === baseWidth(column, {}))
+            result[name] = width;
+    }
+    return result;
+}
+
 export function hideOrder(column, index, count) {
     if (column.hideOrder !== undefined && column.hideOrder !== null)
         return Math.max(0, Number(column.hideOrder) || 0);
@@ -52,7 +63,11 @@ export function visibleColumns(columns, availableWidth, overrides) {
     for (let index = 0; index < source.length; ++index) {
         total += baseWidth(source[index], overrides);
         const order = hideOrder(source[index], index, source.length);
-        if (order > 0) candidates.push({ index: index, order: order });
+        if (
+            order > 0 &&
+            overrides?.[String(source[index].name || '')] === undefined
+        )
+            candidates.push({ index: index, order: order });
     }
     candidates.sort(function (left, right) {
         return left.order - right.order || right.index - left.index;
