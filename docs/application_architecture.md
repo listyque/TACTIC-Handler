@@ -115,6 +115,12 @@ behavioral reason.
    not start TACTIC mutations. New feature roots receive required controller/model
    properties directly; the context-property count is debt with a decreasing budget,
    not an extension mechanism.
+   The retired `dropModel`, `watchModel`, `logLevelModel`, `updateVersionModel`
+   and `databaseTableModel` aliases are not published: their active feature
+   controllers own the models. Startup regression publishes the actual bundle
+   bindings and verifies the shared task, column and table-service owners before
+   loading QML; manually constructing missing dependencies in a UI fixture is
+   not evidence that ordinary startup works.
 5. Zero-delay startup jobs bootstrap the TACTIC session, start the local Handler
    Server in the background, and start the incremental server-update service.
 6. Restored tabs, selected sObject, docks, and windows are applied after their models

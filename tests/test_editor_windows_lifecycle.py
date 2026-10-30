@@ -28,5 +28,5 @@ class EditorWindowsLifecycleTests(unittest.TestCase):
                 timeout=45, check=False,
             )
         self.assertEqual(
-            completed.returncode, 0, completed.stdout + completed.stderr,
+            completed.returncode, 0, (completed.stdout or '') + (completed.stderr or ''),
         )

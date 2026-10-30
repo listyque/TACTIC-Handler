@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tests.qt_application import gui_test_application
-from test_commit_queue import payload
+from tests.test_commit_queue import payload
 from thlib.checkin_operation import execute_checkin_payload, prepare_checkin
 from thlib.server_checkin_queue import operation_manifest
 from thlib.ui.commit_queue import CommitQueueController

@@ -13,7 +13,7 @@ os.environ.setdefault('QSG_RENDER_LOOP','basic')
 from PySide6.QtGui import QGuiApplication
 from thlib.server_checkin_queue import operation_manifest, submit_batch, remove_committed_sources
 from thlib.ui.commit_queue import CommitQueueController
-from test_commit_queue import payload
+from tests.test_commit_queue import payload
 
 
 class ServerCheckinQueue(unittest.TestCase):

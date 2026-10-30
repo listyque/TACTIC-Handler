@@ -40,6 +40,7 @@ def inspect_menu():
             assert has_admin(), 'Administration did not appear after signing in as admin'
             controller._set_server_state('authentication', 'Test signed out')
             assert not has_admin(), 'Administration remained visible after signing out'
+            controller._administration_identity = (controller.server_url, controller.server_user)
             controller._set_server_state('online', 'Test supervisor session')
             assert has_admin(), 'Privileged user lost the administration menu entry'
     except Exception:
@@ -50,10 +51,15 @@ def inspect_menu():
 def build(*args, **kwargs):
     global runtime
     runtime = original_build(*args, **kwargs)
-    QTimer.singleShot(0, inspect_menu)
     return runtime
 
+class Engine(application.QQmlApplicationEngine):
+    def load(self, *args):
+        super().load(*args)
+        QTimer.singleShot(0, inspect_menu)
+
 application.build_application_runtime = build
+application.QQmlApplicationEngine = Engine
 result = application.main()
 if failures:
     print('\n'.join(failures), flush=True)

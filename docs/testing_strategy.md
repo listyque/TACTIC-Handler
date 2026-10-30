@@ -44,7 +44,7 @@ never advance cursors or mutate models for a dead session.
 ### QML smoke harness
 
 `tests/test_qml_smoke_harness.py` launches the real `thlib/ui/application.py` composition root
-with the offscreen renderer. It uses a temporary QSettings directory and
+with the offscreen renderer. It uses a temporary Handler settings directory and
 `TACTIC_QML_SMOKE_OFFLINE=1`, therefore it neither reads user window state nor starts
 TACTIC bootstrap, Handler Server, or polling.
 
@@ -59,6 +59,26 @@ Run it directly with:
 ```powershell
 python -m unittest tests.test_qml_smoke_harness -v
 ```
+
+Before running the client and extracted server-procedure tests, install
+`requirements-dev.txt`. On Windows it includes the IANA time-zone data used by
+the procedure fixtures; those fixtures run in Python without the TS server's
+runtime dependencies.
+
+For application startup and its controller/QML dependency wiring, run:
+
+```powershell
+python -m unittest tests.test_application_runtime tests.test_nested_columns tests.test_administration_menu_qml tests.test_qml_smoke_harness
+python tests/run_entrypoint_smoke.py
+```
+
+The startup regression constructs the actual application bundles and publishes
+their real bindings, rejects missing values and duplicate names, and verifies
+that embedded tables share the application's task and column owners. Do not
+manually add missing owners to a fixture to make that check pass. Menu checks
+run after loading the real QML root and require fresh authorization after sign-out.
+The context-property budget remains a separate architecture guard; a passing
+source inventory alone does not establish a working launch.
 
 ### Request budgets
 

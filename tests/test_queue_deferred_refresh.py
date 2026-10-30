@@ -6,8 +6,8 @@ from PySide6.QtCore import QObject, Signal
 
 from thlib.ui.checkin_out import CheckinOutController
 from thlib.ui.server_updates import ServerUpdateService
-from test_server_checkin_queue import ServerCheckinQueue
-from test_server_updates import _Application, _PoolStub
+from tests.test_server_checkin_queue import ServerCheckinQueue
+from tests.test_server_updates import _Application, _PoolStub
 
 
 class _Executor(QObject):

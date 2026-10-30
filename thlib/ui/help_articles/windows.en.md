@@ -100,6 +100,7 @@ native windows.
 | **Filter Processes** · modal | Selects processes for the prepared Search or sidebar context; Apply returns the selection, Cancel restores the incoming one. |
 | **Quick filters** · modal | Creates, orders and edits reusable filters for one Search Type. Its script/tree selector uses the prepared Search context. |
 | **Columns Editor** | Chooses and orders result columns in the Columns Editor section of Administration. Advanced mode lists saved TACTIC definitions: Wizard uses a compact column list and edits one native TACTIC element at a time, while XML mode changes the exact structure and custom options. |
+| **Table views manager** | Finds, selects and manages saved views for the current table. Column definitions remain scoped to that table's Search Type and project. |
 | **Advanced Search** | Builds field, relation, AND/OR and TEL rules for the active Search tab. |
 | **Sidebar Editor** · Administration section | Builds shared sidebar tabs, links, saved searches, scripts and workspace layouts, with an explicit XML apply path. |
 | **Search preview** · modal | Runs a sidebar saved-search draft without replacing the user's real Search tabs. |
@@ -107,6 +108,7 @@ native windows.
 | **Duplicate SObject** | Reviews target name, related data and options before creating a distinct copy. |
 | **Delete SObject** · modal | Shows the selected objects and deletion plan, checks dependencies and requires explicit confirmation. |
 | **Link SObjects** | Loads one schema-declared instance relation and transfers selected objects between available and linked panes. |
+| **Related objects** | Opens records connected to the selected object through the project's declared relationships. |
 | **Database Editor dock** | Batch field editing lives in a dock rather than a registered native window. |
 
 ## Tasks and planning windows
@@ -184,6 +186,7 @@ process, status, group and role labels are displayed without reinterpretation.
 | **Help** | Searches and reads the installed English or Russian Markdown articles. |
 | **Debug Log** | Full structured events, request IDs, details, commands and tracebacks with secrets redacted. |
 | **UI responsiveness** | Measures UI stalls and request timing for diagnosis; it does not optimize the application by itself. |
+| **System Info** | Shows the current client/server environment and provides the available diagnostic checks. |
 | **Application Error** · modal | Shows the actionable exception, details and complete traceback; dismissal acknowledges this report only. |
 | **Update** | Checks and applies an available Handler update through the supported update flow. |
 | **Create Update** | Packages a controlled application update for authorized maintainers. |

@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.302 - 2026-10-30
+
+- Remove five unused global QML model aliases while preserving the 179-binding architecture limit and existing feature controllers.
+- Verify real startup binding publication and controller ownership; run the authentication-menu probe after loading the QML root and with fresh session authorization.
+- Correct isolated regression imports, activity schema fixtures, Windows test timezone dependencies and window Help coverage.
+
 ## 0.6.0.301 - 2026-10-30
 
 - Bind the shared column editor during application startup so embedded dashboard and nested tables can load their columns and open scoped definitions.

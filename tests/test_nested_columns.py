@@ -24,7 +24,22 @@ original_build = application.build_application_runtime
 def build(*args, **kwargs):
     runtime = original_build(*args, **kwargs)
     try:
+        class Context:
+            def __init__(self):
+                self.values = {}
+
+            def setContextProperty(self, name, value):
+                assert name not in self.values, name
+                assert value is not None, name
+                self.values[name] = value
+
+        context = Context()
+        runtime.publish_qml_bindings(context)
+        assert context.values['appController'] is runtime.controller
         delivery, editors = runtime.bundles[3:5]
+        assert context.values['columnsEditorController'] is delivery.columns_editor
+        assert context.values['tableServicesController'] is editors.table_services
+        assert context.values['tasksController'] is runtime.bundles[1].tasks
         scope = NestedTableController(editors.table_services, 'startup',
             dict(searchType='demo/asset', view='table'))
         try:

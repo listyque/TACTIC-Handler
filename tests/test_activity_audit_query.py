@@ -62,6 +62,10 @@ class _Search:
     def add_column(self, *_args, **_kwargs):
         pass
 
+    def get_columns(self):
+        key = self.search_type.split("?", 1)[0]
+        return list(dict.fromkeys(column for row in self.rows.get(key, ()) for column in row))
+
     def set_limit(self, value, *_args, **_kwargs):
         self.limit = value
 
