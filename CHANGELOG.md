@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.298 - 2026-10-30
+
+- Remove the duplicate Search Type title and code above Summary statistics in both clients.
+
 ## 0.6.0.297 - 2026-10-30
 
 - Remove passive explanatory paragraphs from the shared Search Types summary and bring the relationship map directly below its statistics. Keep the explanations in EN/RU Help.

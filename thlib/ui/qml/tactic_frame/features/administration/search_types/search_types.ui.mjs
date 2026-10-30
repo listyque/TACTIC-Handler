@@ -837,11 +837,6 @@ function content(model, ui, width, height, language, edit, navigate) {
                 y += h + 8;
             }
         };
-        summaryHeading(
-            'typeSummaryHeading',
-            doc.title || model.identity,
-            model.identity
-        );
         const metrics = [
                 ['total', 'Search Objects'],
                 ['active', 'Active'],
