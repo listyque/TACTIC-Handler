@@ -168,8 +168,27 @@ class NestedTableTests(unittest.TestCase):
         window, view = self.create('features/table/NestedTableView.qml', dict(controller=_TableController(),
             columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
             width=320, height=320)
-        self.assertEqual(self.item(view, 'nestedRows').height(), 181)
+        from PySide6.QtCore import QPointF
+        rows = self.item(view, 'nestedRows')
+        footer = self.item(view, 'nestedFooterSurface')
+        self.assertGreaterEqual(footer.mapToItem(view, QPointF()).y() - rows.mapToItem(view, QPointF(0, rows.height())).y(), 12)
         self.assertIsNotNone(self.item(view, 'nestedHorizontalBar'))
+
+    def test_short_results_fit_the_available_content_and_keep_long_lists_bounded(self):
+        scope = Scope()
+        window, view = self.create('features/table/NestedTableView.qml', dict(controller=_TableController(),
+            columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
+            width=600, height=206)
+        self.assertEqual(view.implicitHeight(), 206)
+        scope.state['rows'].append(dict(scope.state['rows'][0], key='B'))
+        scope.changed.emit()
+        frames.frame(window)
+        self.assertEqual(view.implicitHeight(), 274)
+        source = scope.state['rows'][0]
+        scope.state['rows'] = [dict(source, key=str(index), nodeId='row:'+str(index)) for index in range(40)]
+        scope.changed.emit()
+        frames.frame(window)
+        self.assertEqual(view.implicitHeight(), 320)
 
     def test_expanded_content_has_symmetric_breathing_room(self):
         import json
@@ -188,6 +207,8 @@ class NestedTableTests(unittest.TestCase):
                 columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
                 width=width, height=320, context=qml_icon_bindings(Path(__file__).resolve().parents[1], self.app))
             window.setColor(view.property('theme').property('workspace'))
+            view.setHeight(view.implicitHeight())
+            window.resize(width, int(view.height()))
             frames.frame(window)
             bounds = {}
             for name in ('nestedFilter', 'nestedReload', 'nestedClose', 'nestedHorizontal', 'nestedFooterSurface'):
@@ -196,7 +217,7 @@ class NestedTableTests(unittest.TestCase):
                 self.assertGreaterEqual(position.x(), 8, name)
                 self.assertGreaterEqual(position.y(), 8, name)
                 self.assertLessEqual(position.x() + item.width(), width - 8, name)
-                self.assertLessEqual(position.y() + item.height(), 312, name)
+                self.assertLessEqual(position.y() + item.height(), view.height() - 8, name)
                 bounds[name] = dict(x=position.x(), y=position.y(), width=item.width(), height=item.height())
             captures.append(dict(width=width, bounds=bounds))
             if os.environ.get('TABLE_NESTED_OUTPUT'):

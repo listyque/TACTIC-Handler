@@ -50,8 +50,11 @@ class NestedTableController(QObject):
     @Property('QVariantMap', notify=changed)
     def model(self):
         model = dict(self._model)
-        model['children'] = {row['key']: dict(open=bool(self.services.nested_row(row['nodeId'])))
-            for row in model['rows'] if row.get('nodeId')}
+        model['children'] = {}
+        for row in model['rows']:
+            child = self.services.nested_row(row['nodeId']) if row.get('nodeId') else None
+            if child:
+                model['children'][row['key']] = dict(open=True, model=child.model)
         return model
 
     @Property(QObject, constant=True)
@@ -262,7 +265,7 @@ class NestedTableController(QObject):
             adapters[source['name']] = adapter
             kind = adapter.get_cell_kind(source.get('dataType'))
             first = next(iter(layout['rows'].values()), {})
-            column_width = source.get('width') or (first.get(source['name']) or {}).get('widthHint') or 160
+            column_width = source.get('width') or (first.get(source['name']) or {}).get('widthHint')
             columns.append(dict(source, width=column_width, title=source.get('title') or source['name'], index=index,
                 field=source['name'], supported=kind != 'unsupported', cell=dict(kind=kind)))
         nodes = {identity: node for identity, node in self._nodes.items() if node.search_key in self._model['selected']}

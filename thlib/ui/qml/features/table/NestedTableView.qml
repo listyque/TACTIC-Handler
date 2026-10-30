@@ -15,6 +15,7 @@ Item {
     required property var administration
     required property var scope
     property Component nestedTableFactory: null
+    implicitHeight: root.scope ? UI.extent(root.scope.model, width) : UI.height
     signal closed
     signal menuRequested(string nodeId, var anchor)
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language

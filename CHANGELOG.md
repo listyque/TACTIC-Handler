@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.275 - 2026-10-30
+
+- Fit expanded tables to short results, while keeping long lists bounded and preserving nested selection, cached data and paging.
+- Remove duplicate outer padding; reserve horizontal scrollbar space and keep the footer next to the data.
+- Use compact default checkbox/preview columns while retaining explicit column widths.
+
 ## 0.6.0.274 - 2026-10-30
 
 - Let the native window own the Cell editor title; remove the duplicate title row from the shared content layout.

@@ -1,9 +1,38 @@
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import { layout } from '../../core/foundation.mjs';
 import { metrics, paint } from './host.ui.mjs';
 
 export const height = 320;
 export const rowHeight = 68;
+
+// Expanded rows fit short results; long lists retain their bounded viewport.
+export function extent(state = {}, width = 0) {
+    const model = Object.assign({}, state.scope, state);
+    if (model.busy && !model.loaded && !model.rows?.length) return height;
+    const inner = Math.max(0, width - metrics.margin * 2);
+    const chrome =
+        metrics.margin * 2 +
+        42 +
+        quickLayout(model, inner).height +
+        40 +
+        (model.gallery
+            ? 0
+            : metrics.header +
+              3 +
+              (tableWidth(model, inner) > inner ? layout.scrollbarExtent : 0));
+    const content = rows(model, inner).reduce(
+        (sum, row) => sum + row.extent,
+        0
+    );
+    return Math.max(chrome + rowHeight, Math.min(height, chrome + content));
+}
+
+function tableWidth(model, width) {
+    const fields = columns(model),
+        last = fields[fields.length - 1];
+    return Math.max(width - 16, (last ? last.x + last.width : 0) + 40);
+}
 
 export function quickLayout(model, width) {
     const columns = Math.max(1, Math.floor(Math.max(0, width - 16) / 180));
@@ -41,7 +70,14 @@ export function rows(model, width = 0) {
         Object.assign({}, record, {
             detailOpen: !!model.children?.[record.key]?.open,
             extent:
-                rowHeight + (model.children?.[record.key]?.open ? height : 0)
+                rowHeight +
+                (model.children?.[record.key]?.open
+                    ? extent(
+                          model.children[record.key].model ||
+                              model.children[record.key],
+                          width
+                      )
+                    : 0)
         })
     );
 }
@@ -56,7 +92,17 @@ export function columns(model) {
             Math.max(
                 minimum,
                 titleWidth,
-                Number.parseFloat(column.width) || 160
+                Number.parseFloat(column.width) ||
+                    ([
+                        'thumbnail',
+                        'boolean',
+                        'check',
+                        'selection',
+                        'locked',
+                        'status_flag'
+                    ].includes(column.cell?.kind)
+                        ? 84
+                        : 160)
             )
         );
         const result = Object.assign({}, column, { index, x: left, width });
@@ -87,12 +133,8 @@ function content(model, width, extent, language) {
         quickColumns = quick.columns,
         quickHeight = quick.height;
     const fields = columns(model);
-    const contentWidth = Math.max(
-        width - 16,
-        (model.selection === false ? 0 : metrics.selection + 36) +
-            fields.reduce((sum, field) => sum + field.width, 0) +
-            40
-    );
+    const contentWidth = tableWidth(model, width);
+    const gutter = contentWidth > width ? layout.scrollbarExtent : 0;
     const nodes = [
         node(
             'Box',
@@ -168,7 +210,7 @@ function content(model, width, extent, language) {
         ),
         label(
             'nestedState',
-            rect(0, extent - 32, Math.max(0, width - 120), 28),
+            rect(8, extent - 36, Math.max(0, width - 136), 32),
             model.error
                 ? t(model.error)
                 : t('Results') + ': ' + (model.rows || []).length,
@@ -176,7 +218,7 @@ function content(model, width, extent, language) {
         ),
         button(
             'nestedClearSelection',
-            rect(Math.max(0, width - 112), extent - 32, 32, 32),
+            rect(Math.max(0, width - 112), extent - 36, 32, 32),
             t('Clear selection'),
             'close',
             { type: 'clear-selection' },
@@ -185,7 +227,7 @@ function content(model, width, extent, language) {
         ),
         button(
             'nestedPrevious',
-            rect(Math.max(0, width - 76), extent - 32, 32, 32),
+            rect(Math.max(0, width - 76), extent - 36, 32, 32),
             t('Previous page'),
             'chevron-left',
             { type: 'page', value: -1 },
@@ -194,7 +236,7 @@ function content(model, width, extent, language) {
         ),
         button(
             'nestedNext',
-            rect(Math.max(0, width - 40), extent - 32, 32, 32),
+            rect(Math.max(0, width - 40), extent - 36, 32, 32),
             t('Next page'),
             'chevron-right',
             { type: 'page', value: 1 },
@@ -301,7 +343,10 @@ function content(model, width, extent, language) {
                 0,
                 metrics.header + 3,
                 contentWidth,
-                Math.max(0, extent - metrics.header - 86 - quickHeight)
+                Math.max(
+                    0,
+                    extent - 82 - metrics.header - 3 - quickHeight - gutter
+                )
             ),
             {
                 source: 'rows',
@@ -330,11 +375,11 @@ function content(model, width, extent, language) {
                 0,
                 42 + quickHeight,
                 width,
-                Math.max(0, extent - 80 - quickHeight)
+                Math.max(0, extent - 82 - quickHeight)
             ),
             {
                 contentWidth,
-                contentHeight: Math.max(0, extent - 96 - quickHeight),
+                contentHeight: Math.max(0, extent - 82 - quickHeight - gutter),
                 scrollbarId: 'nestedHorizontalBar',
                 children
             }
@@ -547,11 +592,27 @@ export function row(model, record, language, viewportWidth = 0) {
     );
     if (record.detailOpen)
         nodes.push(
-            node('View', 'nestedDetail', rect(0, rowHeight, width, height), {
-                view: 'nestedTable',
-                key: record.key,
-                nodeId: record.nodeId
-            })
+            node(
+                'View',
+                'nestedDetail',
+                rect(
+                    0,
+                    rowHeight,
+                    width,
+                    record.extent
+                        ? record.extent - rowHeight
+                        : extent(
+                              model.children?.[record.key]?.model ||
+                                  model.children?.[record.key],
+                              width
+                          )
+                ),
+                {
+                    view: 'nestedTable',
+                    key: record.key,
+                    nodeId: record.nodeId
+                }
+            )
         );
     return { nodes };
 }

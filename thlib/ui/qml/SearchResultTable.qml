@@ -364,17 +364,17 @@ Item {
             required property int childCount
             property bool viewPooled: false
             readonly property var nestedScope: root.tableServices ? root.tableServices.nested_row(nodeId, root.tableServices.nestedRevision) : null
-            readonly property real nestedHeight: nestedScope ? Nested.height : 0
+            readonly property real nestedHeight: nestedScope ? Nested.extent(nestedScope.model, rows.width) : 0
             property var nestedView: null
             function updateNestedView() {
                 if (nestedScope && inVerticalViewport && !viewPooled) {
                     if (!nestedView)
                         nestedView = nestedTableComponent.createObject(resultRow, {
                             scope: nestedScope,
-                            height: Nested.height,
+                            height: Qt.binding(() => resultRow.nestedHeight),
                             y: Qt.binding(() => root.effectiveRowHeight),
-                            x: Qt.binding(() => rows.contentX + 8),
-                            width: Qt.binding(() => Math.max(0, rows.width - 16))
+                            x: Qt.binding(() => rows.contentX),
+                            width: Qt.binding(() => Math.max(0, rows.width))
                         });
                     else
                         nestedView.scope = nestedScope;
