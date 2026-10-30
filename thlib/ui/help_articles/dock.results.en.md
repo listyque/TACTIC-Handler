@@ -5,6 +5,8 @@ order: 26
 ---
 # Search dock
 
+Icon-only cell actions are centered within the column, including groups that wrap onto another row. Text values keep their existing alignment.
+
 In the table header, open **Table views and columns → Horizontal scrolling** to keep every configured column at its current width. Excess columns scroll horizontally instead of being hidden on narrow screens. Turn this option off to restore adaptive hiding, or use **Auto Fit columns**. This is a local display mode; it does not change the shared column definition.
 
 In an expanded relationship or process branch, use the small magnifier to the left of its title to search its immediate children. The popup has a clear button; Enter/Escape closes it. Other branches and records remain unchanged.

@@ -88,12 +88,12 @@ export function describe(
             )
         );
     actions.forEach((action, index) => {
-        const left =
-            cell.align === 'center' && !cell.text && actions.length === 1
-                ? (width - size) / 2
-                : cell.text
-                  ? inner - size
-                  : 4 + (index % capacity) * (size + gap);
+        const rowStart = Math.floor(index / capacity) * capacity;
+        const rowCount = Math.min(capacity, actions.length - rowStart);
+        const rowWidth = rowCount * size + (rowCount - 1) * gap;
+        const left = cell.text
+            ? inner - size
+            : (width - rowWidth) / 2 + (index % capacity) * (size + gap);
         const top = cell.text ? 0 : Math.floor(index / capacity) * (size + gap);
         children.push(
             button(

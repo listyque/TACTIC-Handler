@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.280 - 2026-10-30
+
+- Center icon-only table action cells, including wrapped action groups, while retaining text/value alignment and existing actions.
+
 ## 0.6.0.279 - 2026-10-30
 
 - Add an optional Horizontal scrolling table mode that keeps all configured columns and existing widths on narrow screens; Auto Fit restores adaptive layout.

@@ -210,6 +210,10 @@ class FrameTableTests(unittest.TestCase):
             dict(controller=controller, services=None, administration=None, nodeId='asset',
                  cell={'text':'','actions':[{'name':'edit','label':'Edit','icon':'edit','view':'edit_review'}]}),
             width=160, height=58)
+        button = self.item(view, 'tableServiceAction_0')
+        center = button.mapToItem(view, QPointF(button.width() / 2, button.height() / 2))
+        self.assertAlmostEqual(center.x(), view.width() / 2, delta=1)
+        self.assertAlmostEqual(center.y(), view.height() / 2, delta=1)
         self.click(window, self.item(view,'tableServiceAction_0'))
         self.assertEqual(controller.table_widget_actions[-1],
             ('edit','asset',{'text':'','actions':[{'name':'edit','label':'Edit','icon':'edit','view':'edit_review'}], 'actionView':'edit_review'}))
