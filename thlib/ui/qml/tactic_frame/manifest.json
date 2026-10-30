@@ -262,10 +262,10 @@
     "features/table/views.ui.mjs": "ea438e2043f258d3aee7a025042cac07ce097592b4079aff1c40fd6ec97e4ec8",
     "features/scripts/executor.ui.mjs": "daabfae30331352908b09904438f1d0a91924d792499117d2fd08f188178ba0c",
     "features/support/diagnostics/system.ui.mjs": "a4229de0fb743b29a2627fda4e09920f010c3ef9ea0cf025ea3b3eada8991ca4",
-    "features/administration/plugins/plugins.ui.mjs": "95353c4c5b44a4eda11630fdb60dc1fd3e66c1cf28c3148ab724639071e45bff",
+    "features/administration/plugins/plugins.ui.mjs": "b5bf30e488d51d47dc9fc6e650206a5a21692443e1dc9bb3dba270a5efacfee9",
     "features/administration/plugins/plugins.guide.mjs": "3eada4dd4578bc9c2762247b6f9ed7bd5fa568e74ba5ee188db6502e2d40c093",
     "features/administration/plugins/plugins.state.mjs": "7ebc5528331f7bdcea66a56586eb4246b2291d4ec5fadb57e8e4c2bc6ea45173",
     "features/scripts/rules.ui.mjs": "e96839e2939796e573968c2c4ad70eaf1bde6a49dd1b9bae09724520d81d6822",
-    "features/administration/plugins/plugins.resources.mjs": "a238ee6aa242fdfd3143d21c5008b81a506419b553f068be8f4104a3a934cb7f"
+    "features/administration/plugins/plugins.resources.mjs": "4bc535b346b6ee01deec23ce908c4eb80d44211e05e95bb6607dabcd63f3d40c"
   }
 }

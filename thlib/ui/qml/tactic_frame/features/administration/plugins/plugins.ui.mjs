@@ -8,7 +8,13 @@ import {
 export { initial, transition, catalog, destructive, canCreate };
 import * as Guide from './plugins.guide.mjs';
 import * as Resources from './plugins.resources.mjs';
-import { node, rect, label, button } from '../../../core/frame.mjs';
+import {
+    node,
+    rect,
+    label,
+    button,
+    listRowHeight
+} from '../../../core/frame.mjs';
 import { translate as commonTranslate } from '../../../core/strings.mjs';
 
 const russian = {
@@ -1110,7 +1116,8 @@ export function describe(model, ui, width, height, language) {
 
 export function row(list, record, model, language) {
     const tr = (text) => translate(text, language),
-        w = Math.max(0, list.width - 16);
+        w = Math.max(0, list.width - 16),
+        h = listRowHeight(list);
     if (list.id === 'pluginResources')
         return Resources.row(list, record, model, tr);
     if (list.id === 'pluginFiles')
@@ -1118,7 +1125,7 @@ export function row(list, record, model, language) {
             nodes: [
                 button(
                     'pluginFile_' + record.path,
-                    rect(0, 0, w, 40),
+                    rect(0, 0, w, h),
                     record.name,
                     record.directory ? 'folder' : 'file',
                     {
@@ -1136,7 +1143,7 @@ export function row(list, record, model, language) {
         };
     return {
         nodes: [
-            node('Box', 'pluginRowBackground', rect(0, 0, w, 76), {
+            node('Box', 'pluginRowBackground', rect(0, 0, w, h), {
                 background:
                     model.identity === record.identity
                         ? 'contentSelection'
@@ -1164,11 +1171,16 @@ export function row(list, record, model, language) {
                     .join(' · '),
                 { color: 'secondaryText' }
             ),
-            label('pluginRowPath', rect(36, 52, w - 44, 22), record.path, {
-                color: 'secondaryText',
-                fontRole: 'secondary'
-            }),
-            node('Action', 'pluginSelect', rect(0, 0, w, 76), {
+            label(
+                'pluginRowPath',
+                rect(36, 52, w - 44, Math.min(22, h - 52)),
+                record.path,
+                {
+                    color: 'secondaryText',
+                    fontRole: 'secondary'
+                }
+            ),
+            node('Action', 'pluginSelect', rect(0, 0, w, h), {
                 text: record.title || record.code,
                 action: { type: 'select', identity: record.identity },
                 enabled: !model.busy

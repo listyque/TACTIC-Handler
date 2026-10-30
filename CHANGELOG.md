@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.304 - 2026-10-31
+
+- Keep plugin catalogue, resource and file-row selection and hit areas inside the shared list row bounds, so QML and browser gaps match.
+
 ## 0.6.0.303 - 2026-10-31
 
 - Complete the shared plugin resource workflow: create/edit reusable widgets, table columns, light/dark project themes, selected data/schema, Python actions and installation/removal hooks through the native package lifecycle.

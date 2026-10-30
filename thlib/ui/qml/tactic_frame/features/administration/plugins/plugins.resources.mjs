@@ -1,4 +1,10 @@
-import { node, rect, label, button } from '../../../core/frame.mjs';
+import {
+    node,
+    rect,
+    label,
+    button,
+    listRowHeight
+} from '../../../core/frame.mjs';
 import * as Composition from '../layouts/layout.preview.mjs';
 
 export const russian = {
@@ -67,10 +73,11 @@ const icons = {
 };
 
 export function row(list, entry, model, tr) {
-    const w = Math.max(0, list.width - 16);
+    const w = Math.max(0, list.width - 16),
+        h = listRowHeight(list);
     return {
         nodes: [
-            node('Box', 'pluginResourceBackground', rect(0, 0, w, 48), {
+            node('Box', 'pluginResourceBackground', rect(0, 0, w, h), {
                 background:
                     model.document?.resource?.key === entry.key
                         ? 'contentSelection'
@@ -85,7 +92,7 @@ export function row(list, entry, model, tr) {
             }),
             label(
                 'pluginResourceKind',
-                rect(44, 24, w - 48, 22),
+                rect(44, 24, w - 48, Math.min(22, h - 24)),
                 tr(
                     names[entry.kind] ||
                         {
@@ -98,7 +105,7 @@ export function row(list, entry, model, tr) {
                     (entry.count === undefined ? '' : ' · ' + entry.count),
                 { color: 'secondaryText', fontRole: 'secondary' }
             ),
-            node('Action', 'pluginResourceSelect', rect(0, 0, w, 48), {
+            node('Action', 'pluginResourceSelect', rect(0, 0, w, h), {
                 text: entry.title,
                 selected: model.document?.resource?.key === entry.key,
                 enabled: !model.busy && !!(entry.field || entry.path),
