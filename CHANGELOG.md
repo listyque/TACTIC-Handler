@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.285 - 2026-10-30
+
+- Keep double-click inline editing separate from checkbox selection: focus the edited row without checking it or opening the bulk-selection bar.
+- Preserve existing checked rows and bulk edit targets; verify ordinary focus, editor cancellation, explicit checkboxes and Shift ranges in both clients.
+
 ## 0.6.0.284 - 2026-10-30
 
 - Connect and disconnect a project-scoped server-side agent executor from chat and AI provider settings, with shared progress/errors and duplicate protection. Preserve current-session scope and explicit per-request write permission.

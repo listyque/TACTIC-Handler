@@ -583,7 +583,7 @@ Item {
                                 onEditingChanged: cellDelegate.editing = editing
                                 onSelectRequested: {
                                     rows.currentIndex = resultRow.index;
-                                    resultRow.selectWithModifiers(0);
+                                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, true);
                                 }
                                 onFocusTableRequested: rows.forceActiveFocus()
                             }
