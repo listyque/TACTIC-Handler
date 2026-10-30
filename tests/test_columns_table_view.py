@@ -1720,6 +1720,15 @@ class ColumnsTableViewTests(unittest.TestCase):
         self.assertIn("th_table_lighting_review", requested_views)
         self.assertGreaterEqual(application.search_cache_saves, 2)
 
+    def test_table_view_catalog_excludes_service_definitions(self):
+        records = [dict(search_type='demo/asset', view=view,
+                        config='<config><%s><element name="code"/></%s></config>' % (view, view))
+                   for view in ('table', 'definition', 'edit', 'edit_definition', 'custom_filter', 'simple_filter', 'artists_filter')]
+        records.append(dict(search_type='demo/asset',view='cards',config='<config><cards layout="ItemLayoutWdg"><element name="code"/></cards></config>'))
+        records.append(dict(search_type='demo/asset',view='review',config='<config><view name="review" layout="tactic.ui.panel.TableLayoutWdg"><element name="code"/></view></config>'))
+        views = ColumnsEditorController._table_view_records(records, 'demo/asset')
+        self.assertEqual({row['view'] for row in views}, {'table', 'artists_filter', 'review'})
+
     def test_task_workflow_adds_empty_process_and_creates_it_on_edit(self):
         target_key = "demo/asset?code=ASSET001"
 

@@ -1,5 +1,6 @@
 import { metrics } from './host.ui.mjs';
 import { translate } from '../../core/strings.mjs';
+import { choices } from './views.ui.mjs';
 
 export function columnActions(model, language) {
     const column = model.column || {};
@@ -113,6 +114,7 @@ export function viewActions(views, enabled, language, scrollColumns = false) {
     const actions = [{ title: 'Table views', header: true }];
     for (let index = 0; index < views.length; index++) {
         const view = views[index];
+        if (!choices([view]).length) continue;
         actions.push({
             title:
                 view.view === 'table'
@@ -125,6 +127,13 @@ export function viewActions(views, enabled, language, scrollColumns = false) {
         });
     }
     return actions.concat([
+        { separator: true },
+        {
+            title: 'Manage table views…',
+            icon: 'view-column',
+            command: 'manage',
+            enabled
+        },
         { separator: true },
         {
             title: 'Horizontal scrolling',

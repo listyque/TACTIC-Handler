@@ -93,6 +93,7 @@ class FloatingWindowModel(QAbstractListModel):
         "agent_request",
         "agent_providers",
         "agent_mcp",
+        "table_views",
     })
 
     _configuration_pages = frozenset({
@@ -124,6 +125,7 @@ class FloatingWindowModel(QAbstractListModel):
         "agent_request": "features/scripts/AgentRequestView.qml",
         "agent_providers": "features/configuration/AgentProvidersView.qml",
         "agent_mcp": "features/configuration/AgentMcpView.qml",
+        "table_views": "features/table/TableViewsManager.qml",
         "script_shelf_editor": "ScriptShelfEditorView.qml",
         "script_trigger_editor": "ScriptTriggerEditorView.qml",
         "help": "features/support/help/HelpView.qml",
@@ -177,6 +179,7 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("agent_request", "External agent", "agent_request", .14, .08, .72, .84, blocking=True),
             FloatingWindow("agent_providers", "AI providers", "agent_providers", .16, .1, .68, .8, blocking=True),
             FloatingWindow("agent_mcp", "MCP connections", "agent_mcp", .16, .1, .68, .8, blocking=True),
+            FloatingWindow("table_views", "Table views manager", "table_views", .16, .1, .68, .8, blocking=True),
             FloatingWindow("configuration", "Configuration", "configuration", .15, .10, .70, .76),
             FloatingWindow("server", "Server Settings", "server", .23, .16, .54, .62),
             FloatingWindow("project", "Project Settings", "project", .22, .15, .56, .64),

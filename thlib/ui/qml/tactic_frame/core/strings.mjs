@@ -2726,6 +2726,25 @@ const russian = {
     Table: 'Таблица',
     'Table %1.%2 is missing. This Search Type is still referenced by the schema. Check the table on the server or correct the connection, then reload columns. No table is created automatically.':
         'Таблица %1.%2 отсутствует, но схема всё ещё ссылается на этот серч-тайп. Проверьте таблицу на сервере или исправьте связь, затем обновите столбцы. Таблица не создаётся автоматически.',
+    'Table views manager': 'Менеджер табличных видов',
+    'Manage table views…': 'Управление видами…',
+    'Find a table view': 'Найти табличный вид',
+    'The default table is protected. Create a copy to customize it.':
+        'Стандартный вид защищён. Для своего варианта создайте копию.',
+    'Project view. Renaming changes its label and keeps existing links.':
+        'Вид проекта. При переименовании меняется подпись, ссылки сохраняются.',
+    'Current view': 'Текущий вид',
+    'New table view': 'Новый табличный вид',
+    'Duplicate table view': 'Копия табличного вида',
+    'Rename table view': 'Переименовать вид',
+    'Delete table view': 'Удалить вид',
+    'Use this view': 'Применить вид',
+    'Delete this project view and its saved layers? Existing links to it may stop working.':
+        'Удалить этот вид проекта и его сохранённые слои? Ссылки на него могут перестать работать.',
+    Duplicate: 'Создать копию',
+    Rename: 'Переименовать',
+    'Save or discard column changes before managing views.':
+        'Перед управлением видами сохраните или отмените изменения колонок.',
     'Horizontal scrolling': 'Горизонтальная прокрутка',
     'Table views and columns': 'Варианты таблицы и колонки',
     Target: 'Объект',

@@ -294,6 +294,8 @@ class ColumnsEditorController(QObject):
             ):
                 continue
             view = str(source.get("view") or "")
+            if view in {'definition', 'default_definition', 'edit_definition', 'edit', 'insert', 'search', 'filter', 'custom_filter', 'simple_filter'}:
+                continue
             config = str(source.get("config") or "")
             if not view or not config:
                 continue
@@ -301,7 +303,10 @@ class ColumnsEditorController(QObject):
                 root = ElementTree.fromstring(config)
             except ElementTree.ParseError:
                 continue
-            node = cls._find_view(root, view)
+            node = next((node for node in root.iter() if node.tag == view
+                         or node.tag == 'view' and node.get('name') == view), None)
+            if node is not None and node.get('layout', '') not in ('', 'TableLayoutWdg', 'tactic.ui.panel.TableLayoutWdg'):
+                continue
             if not (
                 view == "table"
                 or view.startswith("th_table_")

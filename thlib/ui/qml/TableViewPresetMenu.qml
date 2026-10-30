@@ -36,7 +36,10 @@ Item {
         theme: root.theme
         preferredWidth: 280
         onTriggered: command => {
-            if (command === "scroll_columns") {
+            if (command === "manage") {
+                tableViewsController.open(root.columnsController);
+                root.closeRequested();
+            } else if (command === "scroll_columns") {
                 root.scrollColumnsRequested();
                 root.closeRequested();
             } else if (command === "save_as") {

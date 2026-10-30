@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.282 - 2026-10-30
+
+- Add a searchable native table-view manager with create/copy, label rename, guarded deletion and column-editor navigation. Preserve view codes, default protection, project scope, native undo and revision checks; exclude service definitions from table choices.
+
 ## 0.6.0.281 - 2026-10-30
 
 - Wrap ordinary table text and links to the column width, preserving explicit line breaks and configured row heights.

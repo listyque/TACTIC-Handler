@@ -5,6 +5,8 @@ order: 26
 ---
 # Search dock
 
+Open **Table views and columns → Manage table views…** for a searchable project-view catalogue. Select a view to use it or configure its columns. Create a new view, duplicate a selected one, rename its label, or delete it after confirmation. Renaming keeps its internal code and existing links. The default table is protected; copy it for a separate variant. Service definitions, edit forms and filter definitions are excluded. Changes require administrator access and a current revision; reload after a conflict. Views with personal overrides stay available in the definition editor.
+
 Ordinary text and links wrap to the column width, including keywords and long words. Explicit line breaks are preserved. Row height remains configurable through the table header menu; increase it for longer values.
 
 Icon-only cell actions are centered within the column, including groups that wrap onto another row. Text values keep their existing alignment.
