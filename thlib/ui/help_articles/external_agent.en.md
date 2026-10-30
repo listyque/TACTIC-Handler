@@ -232,3 +232,18 @@ For an actual object preview, the agent checks one image into the built-in `icon
 
 
 The chat remembers your last connection, model, reasoning effort, **Allow requested changes** and **Allow internet access** as soon as you change them. New conversations and reopened clients reuse those choices. Existing conversations keep their own captured permissions and model settings; opening history does not overwrite the remembered choices. Unsent drafts retain their explicit choices. Storage is local to each client: TH uses the current account/server preset's UI settings, TS uses the current account's browser storage on this server. Chat text, attachments, object selection, tickets and provider secrets are not stored with these choices. Nothing is sent or started by restoring them; only **Send** captures a new authorized request.
+
+
+## Project chat rules
+
+Open the chat's permissions/options menu and choose **Project chat rules**. An administrator can save shared instructions for the current project: shot naming conventions, where previews/reference files belong, and what belongs in task comments. The same text is available in TH and TS to all chats in that project. It is stored in the native `config/prod_setting` setting `agent/chat_rules`, so native project templates carry it with the other project settings.
+
+Rules apply to new conversations and to the next message in an existing conversation. An active turn keeps its captured rules, including when you send a correction. Saving rules does not start the agent or execute project changes. Rules guide the agent; actual native naming, file destinations and access checks still govern operations. They do not grant additional tools or permissions. An explicit request can override a workflow preference.
+
+The editor saves with a revision check. A conflicting edit keeps your draft and asks you to reopen the editor; Cancel leaves the stored text unchanged. Clear the text and save to remove the project's rules. The limit is 16,000 characters. After installing this feature, reconnect an already running executor once; a host that cannot receive rules is rejected when nonempty rules are configured.
+
+Example instructions you can adapt:
+
+- Follow the project's existing shot naming; inspect its configured naming before creating new shots.
+- Put object previews in the native `icon` context. Keep work-process references separate.
+- Add only requested comments. Keep image sources and license attribution in the answer or appropriate metadata instead of adding extra task comments.

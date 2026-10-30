@@ -2,6 +2,7 @@ import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import * as History from './history.ui.mjs';
 import * as Executor from './executor.ui.mjs';
+import * as Rules from './rules.ui.mjs';
 
 export const metrics = {
     inset: 12,
@@ -346,6 +347,12 @@ export function permissionActions(model) {
             enabled: enabled && !!host(model)?.capabilities.web_search
         },
         { separator: true },
+        {
+            title: 'Project chat rules',
+            command: 'rules',
+            icon: 'edit',
+            enabled: !model.busy && !model.pending && !!model.context?.project
+        },
         {
             title: 'MCP connections',
             command: 'mcp',
@@ -730,6 +737,8 @@ function describeChat(model, width, height, language, sidebarVisible) {
     return { nodes };
 }
 export function describe(model, width, height, language) {
+    if (model.projectRules)
+        return Rules.describe(model, width, height, language);
     const space = History.layout(model, width);
     const nodes = [];
     if (!space.small || !space.visible)

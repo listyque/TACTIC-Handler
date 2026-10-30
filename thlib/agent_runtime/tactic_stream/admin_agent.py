@@ -341,6 +341,7 @@ def create_server(connection: StreamConnection, stream_root: Path, handler_root:
             """The user's immutable TH/TS project, page and selection captured before sending."""
             request = connection.command('request', 'read', request_id=request_id)
             result = dict(request_id=request_id, **request['document'])
+            result['project_rules'] = request.get('project_rules', {})
             result['related_conversations'] = request.get('related_conversations', [])
             result['attachments'] = [item for message in request.get('messages', []) for item in message.get('attachments', [])]
             if request.get('operations'):

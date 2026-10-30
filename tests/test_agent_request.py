@@ -65,6 +65,7 @@ class Server:
         self.requests = {}
         self.last = None
         self.files = {}
+        self.rules = dict(project='one', text='', revision='empty')
 
     def get_project(self):
         return self.project
@@ -74,7 +75,13 @@ class Server:
 
     def execute_cmd(self, command, values):
         action = values['action']
-        if 'AgentAttachmentCmd' in command:
+        if action in ('rules_read', 'rules_save'):
+            if action == 'rules_save':
+                if values['expected_revision'] != self.rules['revision']:
+                    raise ValueError('Project chat rules changed. Reopen the editor before saving.')
+                self.rules.update(text=values['text'], revision='saved')
+            result = self.rules
+        elif 'AgentAttachmentCmd' in command:
             code = values['attachment_id']
             if action == 'preview':
                 return dict(status='OK', info=dict(url='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC'))
@@ -162,6 +169,83 @@ class AgentRequestUI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ScriptToolsTests.setUpClass()
+
+    def test_project_rules_editor_real_input_and_reopen(self):
+        surface = ScriptToolsTests()
+        surface.setUp()
+        self.addCleanup(surface.doCleanups)
+        if os.name == 'nt':
+            for font in ('segoeui.ttf', 'segoeuib.ttf'):
+                QFontDatabase.addApplicationFont(str(Path(os.environ['WINDIR'])/'Fonts'/font))
+            surface.app.setFont(QFont('Segoe UI'))
+        for name, value in qml_icon_bindings(QML.parents[2], surface.engine).items():
+            surface.engine.rootContext().setContextProperty(name, value)
+        app = Application()
+        controller = AgentRequestController(app, env_inst.server_pool)
+        self.addCleanup(controller.reset)
+        server = Server()
+        with patch('thlib.tactic_classes.server_start', return_value=server):
+            controller.open()
+            view = surface.create(QML/'features/scripts/AgentRequestView.qml',
+                dict(theme=surface.theme, controller=controller, width=900, height=650))
+            window = QQuickWindow()
+            window.resize(900, 650)
+            window.setColor(surface.theme.property('workspace'))
+            view.setParentItem(window.contentItem())
+            surface.windows.append(window)
+            window.show()
+
+            def wait():
+                deadline = time.monotonic() + 10
+                while controller._in_flight and time.monotonic() < deadline:
+                    QTest.qWait(10)
+                self.assertFalse(controller._in_flight)
+                self.assertFalse(controller.model['error'])
+                frame(window)
+
+            wait()
+            button = surface.item(view, 'agentRequestPermissionsButton')
+            surface.click(window, button)
+            expression = QQmlExpression(QQmlEngine.contextForObject(button), button, 'permissionsMenu')
+            menu = expression.evaluate()
+            menu = menu[0] if isinstance(menu, tuple) else menu
+            target = None
+            deadline = time.monotonic() + 3
+            while target is None and time.monotonic() < deadline:
+                items = [menu.property('contentItem')]
+                for item in items:
+                    items.extend(item.childItems())
+                    if item.property('objectName') == 'actionMenuPrimaryTarget' and surface.value(item.parentItem(), 'modelData').get('command') == 'rules':
+                        target = item
+                        break
+                QTest.qWait(10)
+            self.assertIsNotNone(target)
+            QTest.mouseClick(target.window(), Qt.LeftButton, pos=target.mapToScene(QPointF(target.width()/2, target.height()/2)).toPoint())
+            wait()
+            field = surface.item(view, 'agentRulesText')
+            surface.fill(window, field, 'Keep project naming; previews in icon.')
+            for width in (900, 520, 360):
+                view.setWidth(width)
+                window.resize(width, 650)
+                frame(window)
+                for name in ('agentRulesText', 'agentRulesCancel', 'agentRulesSave'):
+                    item = surface.item(view, name)
+                    self.assertGreaterEqual(item.x(), 0)
+                    self.assertLessEqual(item.x() + item.width(), width)
+                target = Path(__file__).resolve().parents[2]/'agent-work/agent-project-rules-2026-10-30'
+                target.mkdir(parents=True, exist_ok=True)
+                window.grabWindow().save(str(target/f'handler-rules-{width}.png'))
+            surface.click(window, surface.item(view, 'agentRulesSave'))
+            wait()
+            self.assertIsNone(controller.model['projectRules'])
+            self.assertEqual(server.rules['text'], 'Keep project naming; previews in icon.')
+            controller.handle('rules')
+            wait()
+            self.assertEqual(controller.model['projectRules']['text'], server.rules['text'])
+            surface.click(window, surface.item(view, 'agentRulesCancel'))
+            frame(window)
+            self.assertIsNone(controller.model['projectRules'])
+            self.assertFalse(surface.warnings, surface.warnings)
 
     def test_item_menu_captures_clicked_or_selected_objects_and_keeps_draft(self):
         app=Application()

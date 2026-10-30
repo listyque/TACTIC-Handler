@@ -1,5 +1,20 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Project chat rules': 'Правила чатов проекта',
+    'Shared by all chats in this project. Changes apply on the next send; the current turn keeps its captured rules.':
+        'Общие для всех чатов проекта. Изменения действуют со следующей отправки; текущий ход сохранит прежние правила.',
+    'Describe naming, preview destinations and comment preferences.':
+        'Опишите нейминг, назначение превью и правила комментариев.',
+    'Save project rules': 'Сохранить правила',
+    'Project chat rules changed. Reopen the editor before saving.':
+        'Правила чатов проекта изменились. Откройте редактор заново перед сохранением.',
+    'Project chat rules must be text of at most 16000 characters':
+        'Правила чатов проекта должны содержать не более 16000 символов',
+    'Select a user project before editing chat rules':
+        'Выберите пользовательский проект для настройки правил чата',
+    'Reconnect the agent to load project chat rules':
+        'Переподключите агента, чтобы загрузить правила чатов проекта',
+
     Plugins: 'Плагины',
     'Packages, versions and project activation':
         'Пакеты, версии и активация в проекте',

@@ -135,6 +135,8 @@ pipeline is enabled. You can create a type without adding any extra fields.
 
 Summary shows total, active and retired Search Objects, fields, pipelines and processes. System and
 config Search Types are included, also for administrative projects.
+The counters share a compact statistics strip, wrapping on narrow screens.
+The relationship map follows the statistics without large spacer rows.
 
 Details uses a color picker with a theme-color reset. Workflow lists pipelines linked to the
 selected type and opens their existing editor without discarding your type draft.
@@ -648,3 +650,5 @@ Collapsed Administration navigation uses centered square section buttons. When a
 Administration uses consistent 12 px content margins. Access rules categories use compact 30 px navigation rows with unchanged text size and a separate scrollbar when needed.
 
 The Cell editor uses one window title. Its column context, value mode and Apply/Cancel actions stay inside the window when resized; long values scroll inside the text field. Applying changes the table draft only; Save to server still commits the draft.
+
+See [Plugins](plugins) for package creation, installation, activation, files and publication.

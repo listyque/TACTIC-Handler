@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.296 - 2026-10-30
+
+- Add shared project chat rules to the ordinary chat options in both clients, with native project/template storage, revision checks, per-turn snapshots and compatible-host detection.
+
 ## 0.6.0.295 - 2026-10-30
 
 - Rebuild the shared plugin manager around guided package installation, content review and explicit project activation. Add first-run choices, contextual instructions, project status, visible creation controls and grouped maintenance actions; retain native file/manifest/distribution operations and EN/RU Help.

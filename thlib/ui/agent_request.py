@@ -151,7 +151,7 @@ class AgentRequestController(QObject):
     def open(self, context=None):
         if not self.application.can_administer:
             return
-        if not self._model['selected'] and not self._model['prompt'] and not self._model['attachments'] and not self._model['pending'] and not self._model['uploading']:
+        if not self._model.get('projectRules') and not self._model['selected'] and not self._model['prompt'] and not self._model['attachments'] and not self._model['pending'] and not self._model['uploading']:
             self._model = dict(self.new_model(context or self.capture()), history=self._model['history'], drafts=self._model['drafts'])
         if self._model['context'].get('project') and self._server is None:
             self._capture_session()
@@ -188,8 +188,23 @@ class AgentRequestController(QObject):
 
     @Slot(str, 'QVariant')
     def handle(self, action, value=''):
-        if hasattr(value,'toVariant'):
-            value=value.toVariant()
+        if hasattr(value, 'toVariant'):
+            value = value.toVariant()
+        if action in ('rules', 'rulesCancel', 'rulesText', 'rulesSave'):
+            if self._model['busy'] or self._model['pending']:
+                return
+            if action == 'rules':
+                self._model['projectRules'] = dict(text='', original='', revision='')
+                self._request('rules_read')
+            elif action == 'rulesCancel':
+                self._model['projectRules'] = None
+                self._model['error'] = ''
+            elif action == 'rulesText':
+                self._model['projectRules']['text'] = str(value)
+            elif action == 'rulesSave':
+                self._request('rules_save')
+            self.changed.emit()
+            return
         if self._model['busy']:
             return
         if action == 'executorTarget':
@@ -497,12 +512,12 @@ class AgentRequestController(QObject):
             action, self._model['selected'], deepcopy(self._model['pending']), self._generation, set(self._model['previews']),
             dict(query=self._model['history']['query'],archived=self._model['history']['archived'],project_filter=self._model['history'].get('project',''),
                 **(dict(offset=self._model['next_offset']) if action=='historyMore' else {})),
-            deepcopy(self._library_operation),deepcopy(self._model['attachments']))
+            deepcopy(self._library_operation),deepcopy(self._model['attachments']),deepcopy(self._model.get('projectRules')))
         self._worker.result.connect(self._done)
         self._worker.start()
 
     @staticmethod
-    def _load(server, project, action, selected, pending, generation, cached_previews=(), history_filter=None, library_operation=None, draft_attachments=()):
+    def _load(server, project, action, selected, pending, generation, cached_previews=(), history_filter=None, library_operation=None, draft_attachments=(), rules_operation=None):
         reading=False
         try:
             if action=='library' and library_operation['action']=='draft':
@@ -516,6 +531,9 @@ class AgentRequestController(QObject):
                 if result.get('status') != 'OK':
                     raise RuntimeError(result.get('description') or 'Agent request failed')
                 return json.loads(result['info']) if isinstance(result['info'], str) else result['info']
+            if action in ('rules_read', 'rules_save'):
+                values = dict(text=rules_operation['text'], expected_revision=rules_operation['revision']) if action == 'rules_save' else {}
+                return dict(generation=generation, action=action, project_rules=call(action, **values))
             if action.startswith('executor_'):
                 result = project_server(server, project).execute_cmd('tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd',
                     dict(action=action.split(':')[0].removeprefix('executor_'), target=action.split(':')[1], project_code=project))
@@ -563,6 +581,12 @@ class AgentRequestController(QObject):
         self._worker = None
         self._in_flight = False
         self._model['busy'] = False
+        if 'project_rules' in result:
+            rules = result['project_rules']
+            self._model['projectRules'] = None if result['action'] == 'rules_save' else dict(rules, original=rules['text'])
+            self.changed.emit()
+            self._timer.start()
+            return
         history_filter=result.get('history_filter',{})
         if 'error' not in result and result.get('action')!='library' and any(
                 history_filter.get(field,self._model['history'].get(key,''))!=self._model['history'].get(key,'')
