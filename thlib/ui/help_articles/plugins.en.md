@@ -27,6 +27,19 @@ files are read-only; built-in package activation is still available.
 
 ## Create your own plugin
 
+### Installable example: Workspace Pulse
+
+`TS/examples/workspace_pulse` contains a complete reusable plugin. Build its ZIP
+with `TS/tactic_stream/tools/build_workspace_pulse.py`, then install and activate
+it through this manager. **Pulse** provides current-project task/deadline counters,
+shared filters, charts and a searchable task queue. **VFX overview** discovers the
+project's existing episode/scene/shot/asset types. Both pages use the existing
+sidebar and native dashboard renderer in TH and TS, and remain editable through
+the Page Editor and the internal agent. It creates no sample records or services.
+Remove/Reload affects its configurations; export custom page edits first.
+
+### Start a new package
+
 1. Choose **Create your own plugin** on the start screen, or **New** in the catalogue.
 2. Enter a title and unique code, for example `studio_tools`. Codes use letters,
    digits, underscores or hyphens; slash-separated package paths are also supported.
