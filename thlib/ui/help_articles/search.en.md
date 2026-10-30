@@ -444,3 +444,5 @@ A related-table disclosure arrow and its loading icon belong to the clicked row,
 A column you resize manually stays visible when it grows beyond the table viewport; use horizontal scrolling to reach its right edge. Confirmed widths retain this manual choice. Cancelling a drag restores its previous width. Automatic hiding still applies to columns without a manual width override; a changed authoritative width replaces the local override.
 
 Column resize hit areas straddle their visible divider, including the right edge of the final column. Drag from either side of the line. Header tools reserve space beside that hit area and remain directly clickable.
+
+Simple Table and expanded related tables use the main table component: the same full-width column header, resize handles, row context menu and three-dot actions. There is no separate row drag grip. Searches, page changes, selection, column/view settings and nested objects keep the table’s own data scope.

@@ -67,3 +67,5 @@ ActionMenu 1.0 ActionMenu.qml
 UserComboBox 1.0 UserComboBox.qml
 TaskWorkspaceSurfaceSwitcher 1.0 TaskWorkspaceSurfaceSwitcher.qml
 ContentLoadingOverlay 1.0 ContentLoadingOverlay.qml
+
+ProcessCountMenu 1.0 features/objects/ProcessCountMenu.qml

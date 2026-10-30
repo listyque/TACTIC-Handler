@@ -12,6 +12,10 @@ Rectangle {
     required property var theme
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     required property var controller
+    property var selectionOwner: controller
+    property var tableScope: null
+    property bool selectable: true
+    property var tableServices: typeof tableServicesController === "undefined" ? null : tableServicesController
     required property var columnsController
     required property var columns
     required property var selectedIds
@@ -86,15 +90,16 @@ Rectangle {
 
     function contextActions() {
         const column = columnContext || ({});
+        const owner = selectionOwner || controller || ({});
         return TableMenus.columnActions({
             column: column,
             count: columns.length,
             index: columns.findIndex(item => item.name === column.name),
             busy: columnsBusy,
             editable: true,
-            sorted: String(controller.result_sort_mode || "").indexOf("column:" + column.name + ":") === 0,
-            direction: String(controller.result_sort_mode || "").endsWith(":desc") ? "desc" : "asc",
-            group: String(controller.result_group_mode || "none"),
+            sorted: String(owner.result_sort_mode || "").indexOf("column:" + column.name + ":") === 0,
+            direction: String(owner.result_sort_mode || "").endsWith(":desc") ? "desc" : "asc",
+            group: String(owner.result_group_mode || "none"),
             rowHeight: rowHeight,
             automaticRowHeight: automaticRowHeight
         }, root.language);
@@ -162,15 +167,16 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             z: 1
             theme: root.theme
-            enabled: !root.columnsBusy && typeof tableServicesController !== "undefined" && !!tableServicesController && !tableServicesController.busy
+            enabled: !root.columnsBusy && !!root.tableServices && !root.tableServices.busy
             iconName: header.insertAction.icon || "add"
             toolTip: header.insertAction.type === "publish" ? qsTr("Multi Publish") : qsTr("Create")
             Accessible.name: toolTip
             onClicked: {
-                if (header.insertAction.type === "publish")
-                    tableServicesController.insert_record(header.insertAction.view, "publish");
+                const operation = header.insertAction.type === "publish" ? "publish" : "";
+                if (root.tableScope)
+                    root.tableServices.insert_record(header.insertAction.view, operation, root.tableScope);
                 else
-                    tableServicesController.insert_record(header.insertAction.view);
+                    root.tableServices.insert_record(header.insertAction.view, operation);
             }
         }
     }
@@ -211,7 +217,7 @@ Rectangle {
                     insertReady = true;
                     updateInsertControl();
                 }
-                readonly property bool grouped: String(root.controller.result_group_mode || "") === "column:" + String(modelData.name || "")
+                readonly property bool grouped: String((root.selectionOwner || root.controller || {}).result_group_mode || "") === "column:" + String(modelData.name || "")
                 width: root.columnWidth(modelData)
                 height: parent.height
 
@@ -394,6 +400,7 @@ Rectangle {
 
         Controls.CheckBox {
             objectName: "tableSelectionAll"
+            visible: root.selectable
             anchors.centerIn: parent
             width: 28
             height: 28
@@ -471,7 +478,7 @@ Rectangle {
             else if (command === "group")
                 root.columnsController.group_column(row);
             else if (command === "ungroup")
-                root.controller.set_result_group_mode("none");
+                root.selectionOwner.set_result_group_mode("none");
             else if (command === "edit_definition")
                 root.columnsEditorRequested(row, "definition");
             else if (command === "columns")

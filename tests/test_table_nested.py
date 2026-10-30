@@ -1,8 +1,9 @@
 """Real input and lifecycle checks for the expanded table renderer."""
 import unittest
+from types import SimpleNamespace
 from PySide6.QtCore import QObject, Property, Signal, Slot, QCoreApplication, QEvent
 import tests.test_frame_table as frames
-from tests.test_columns_table_view import _TableController, _TableColumns
+from tests.test_columns_table_view import _TableController, _TableColumns, _visual_items
 
 
 class Scope(QObject):
@@ -12,12 +13,58 @@ class Scope(QObject):
         super().__init__()
         self.state = dict(columns=[dict(name='name', title='Name', width=180, cell=dict(kind='text'))],
             rows=[dict(key='A', nodeId='nested:A', record=dict(name='Robot'), cells=dict(name=dict(text='Robot')))],
-            selected=[], busy=False, offset=0, insert=True)
+            selected=[], busy=False, offset=0, insert=True, loaded=True)
         self.events = []
+        from thlib.ui.workspace_models.results import WorkspaceItemModel
+        self.native_model = WorkspaceItemModel()
+        self.columns = ScopedColumns(self)
+        self._focused = ''
+        self._anchor = ''
+        self._model = self.state
+        self._model['selection'] = True
+        self.changed.connect(self.sync)
+        self.sync()
         from thlib.ui.workspace_models.records import RecordListModel
         from thlib.ui.search_suggestion_data import SEARCH_SUGGESTION_ROLES
         self.suggestions = RecordListModel(SEARCH_SUGGESTION_ROLES)
         self.text = ''
+    def sync(self):
+        from thlib.ui.workspace_models.results_types import WorkspaceNode
+        self._nodes = {row['nodeId']: WorkspaceNode(node_id=row['nodeId'],
+            node_type='sobject', search_key=row['key'], code=row['key'],
+            title=str(row['record'].get('name') or row['record'].get('code') or row['key']),
+            values=row['record']) for row in self.state['rows']}
+        signature = repr(self.state['rows'])
+        if signature != getattr(self, '_rows_signature', None):
+            self._rows_signature = signature
+            self.native_model.replace_nodes(list(self._nodes.values()))
+        self.columns.stateChanged.emit()
+    @Property(QObject, constant=True)
+    def tableModel(self): return self.native_model
+    @Property(QObject, constant=True)
+    def tableColumns(self): return self.columns
+    @Property(str, notify=changed)
+    def selected_node_id(self): return self._focused
+    @Property('QVariantList', notify=changed)
+    def selected_result_node_ids(self):
+        return [row['nodeId'] for row in self.state['rows'] if row['key'] in self.state['selected']]
+    @Property(str, notify=changed)
+    def result_group_mode(self): return 'none'
+    @Property(str, notify=changed)
+    def result_sort_mode(self): return ''
+    def node_for(self, identity): return self._nodes.get(identity)
+    @Slot(str, str, str, int, bool)
+    def select_result_node(self, *args):
+        from thlib.ui.table.nested import NestedTableController
+        NestedTableController.select_result_node(self, *args)
+    @Slot()
+    def clear_result_selection(self):
+        self.state['selected'] = []
+        self.changed.emit()
+    @Slot()
+    def select_all_result_siblings(self):
+        self.state['selected'] = [row['key'] for row in self.state['rows']]
+        self.changed.emit()
     @Property(QObject, constant=True)
     def searchSuggestions(self):
         return self.suggestions
@@ -43,11 +90,50 @@ class Scope(QObject):
     def model(self):
         return self.state
     @Slot('QVariantMap', 'QVariant')
-    def activate(self, action, value):
+    def activate(self, action, value=None):
         self.events.append((dict(action), value))
         if action['type'] == 'select':
             self.state['selected'] = ['A'] if not self.state['selected'] else []
             self.changed.emit()
+
+
+class ScopedColumns(_TableColumns):
+    def __init__(self, scope):
+        super().__init__()
+        self.scope = scope
+        scope.changed.connect(self.update_cells)
+    def update_cells(self):
+        self._cell_revision += 1
+        self.cellRevisionChanged.emit()
+    def shutdown(self):
+        pass
+
+    @Property('QVariantList', notify=_TableColumns.stateChanged)
+    def visibleColumns(self):
+        return [dict(column, row=i, label=column['title'],
+                     kind=column.get('cell', {}).get('kind', 'text'))
+                for i, column in enumerate(self.scope.model['columns'])]
+    @Slot(str, int, result='QVariantMap')
+    def row_cells(self, key, _revision):
+        return next((row['cells'] for row in self.scope.model['rows'] if row['key'] == key), {})
+    @Slot(int, bool)
+    def sort_column(self, row, descending):
+        self.scope.activate(dict(type='sort', value=self.scope.model['columns'][row]['name'],
+                                 direction='desc' if descending else 'asc'), None)
+    @Slot(int, str)
+    def request_column_focus(self, row, target):
+        self.scope.activate(dict(type='columns', column=self.scope.model['columns'][row]['name'] if row >= 0 else ''), None)
+
+
+def prepare_scope(scope):
+    from thlib.ui.workspace_models.results_types import WorkspaceNode
+    nodes = [WorkspaceNode(node_id=row['nodeId'], node_type='sobject', search_key=row['key'],
+        code=row['key'], title=row['record'].get('code', row['key']), values=row['record'])
+        for row in scope._model['rows']]
+    scope._nodes = {node.node_id: node for node in nodes}
+    scope._table_model.replace_nodes(nodes)
+    scope._columns = ScopedColumns(scope)
+    scope.changed.connect(scope._columns.stateChanged)
 
 
 class NestedTableTests(unittest.TestCase):
@@ -60,6 +146,23 @@ class NestedTableTests(unittest.TestCase):
         QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     click = frames.FrameTableTests.click
     item = frames.FrameTableTests.item
+
+    def test_shared_process_menu_opens_the_same_note_actions(self):
+        from PySide6.QtQml import QQmlExpression, qmlContext
+        controller = _TableController()
+        window, view = self.create('features/objects/ProcessCountMenu.qml', dict(controller=controller),
+                                   width=320, height=200)
+        expression = QQmlExpression(qmlContext(view), view, 'openProcessCountMenu("asset", "notes", this)')
+        expression.evaluate()
+        self.assertFalse(expression.hasError(), expression.error().toString())
+        frames.frame(window)
+        menu = view.findChild(QObject, 'workspaceProcessCountMenu')
+        self.assertTrue(menu.property('visible'))
+        actions = menu.property('actions').toVariant()
+        self.assertTrue(any(action.get('process') == 'publish' for action in actions))
+        menu.triggered.emit('publish')
+        self.assertEqual(controller.process_details[-1], ('asset', 'notes', 'publish'))
+        menu.close()
 
     def test_nested_table_uses_the_native_suggestion_popup_and_enter(self):
         from PySide6.QtCore import Qt
@@ -100,6 +203,7 @@ class NestedTableTests(unittest.TestCase):
         from thlib.ui.table.services import TableServicesController
         import tests.test_table_service_workflows as workflows
         app = workflows.Application()
+        app.columns_editor_controller = SimpleNamespace(_tasks_controller=None)
         services = TableServicesController(app)
         pool = ThreadsPool(max_threads=2)
         self.addCleanup(services.shutdown)
@@ -154,13 +258,18 @@ class NestedTableTests(unittest.TestCase):
         window, view = self.create('features/table/NestedTableView.qml', dict(controller=app,
             columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
             width=600, height=320)
-        self.assertEqual(self.item(view,'nestedHeaderSurface').property('radius'),0)
-        self.assertEqual(self.item(view,'nestedRowSurface').property('radius'),0)
-        self.click(window, self.item(view, 'nestedSelect'))
+        self.assertEqual(self.item(view,'tableHeaderSurface').property('radius'),0)
+        self.assertIsNotNone(self.item(view, 'searchResultTableRowSurface'))
+        self.assertFalse(any(item.objectName() == 'nestedDrag' for item in _visual_items(view)))
+        self.click(window, self.item(view, 'tableSelection_nested:A'))
         self.assertEqual(scope.state['selected'], ['A'])
         self.assertEqual(app.selections, [])
-        self.click(window, self.item(view, 'nestedEdit'))
-        self.assertEqual(scope.events[-1][0], dict(type='edit', key='A'))
+        self.click(window, self.item(view, 'searchResultTableActions'))
+        menu = view.findChild(QObject, 'nestedRowMenu')
+        self.assertTrue(menu.property('visible'))
+        menu.triggered.emit('open')
+        self.assertEqual(app.actions, [('open', 'nested:A')])
+        menu.close()
 
     def test_renderer_fits_a_narrow_surface_and_keeps_its_scrollbars(self):
         scope = Scope()
@@ -169,21 +278,21 @@ class NestedTableTests(unittest.TestCase):
             columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
             width=320, height=320)
         from PySide6.QtCore import QPointF
-        rows = self.item(view, 'nestedRows')
+        rows = self.item(view, 'searchResultsTableView')
         footer = self.item(view, 'nestedFooterSurface')
-        self.assertGreaterEqual(footer.mapToItem(view, QPointF()).y() - rows.mapToItem(view, QPointF(0, rows.height())).y(), 12)
-        self.assertIsNotNone(self.item(view, 'nestedHorizontalBar'))
+        self.assertGreaterEqual(footer.mapToItem(view, QPointF()).y() - rows.mapToItem(view, QPointF(0, rows.height())).y(), 0)
+        self.assertIsNotNone(self.item(view, 'tableHorizontalScrollBar'))
 
     def test_short_results_fit_the_available_content_and_keep_long_lists_bounded(self):
         scope = Scope()
         window, view = self.create('features/table/NestedTableView.qml', dict(controller=_TableController(),
             columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
-            width=600, height=206)
-        self.assertEqual(view.implicitHeight(), 206)
+            width=600, height=177)
+        self.assertEqual(view.implicitHeight(), 177)
         scope.state['rows'].append(dict(scope.state['rows'][0], key='B'))
         scope.changed.emit()
         frames.frame(window)
-        self.assertEqual(view.implicitHeight(), 274)
+        self.assertEqual(view.implicitHeight(), 235)
         source = scope.state['rows'][0]
         scope.state['rows'] = [dict(source, key=str(index), nodeId='row:'+str(index)) for index in range(40)]
         scope.changed.emit()
@@ -196,7 +305,9 @@ class NestedTableTests(unittest.TestCase):
         from thlib.ui.workspace_models.results import WorkspaceItemModel
         from thlib.ui.workspace_models.results_types import WorkspaceNode
         import tests.test_table_service_workflows as workflows
-        owner = TableServicesController(workflows.Application())
+        application = workflows.Application()
+        application.columns_editor_controller = SimpleNamespace(_tasks_controller=None)
+        owner = TableServicesController(application)
         self.addCleanup(owner.shutdown)
         model = WorkspaceItemModel()
         model.replace_nodes([WorkspaceNode(node_id='A', node_type='sobject',
@@ -210,18 +321,18 @@ class NestedTableTests(unittest.TestCase):
             window, view = self.create('SearchResultTable.qml', dict(controller=_TableController(),
                 columnsController=_TableColumns(), resultModel=model, tableServices=owner), width=800, height=650)
             parent = self.item(view, 'searchResultTableRow')
-            self.assertEqual(parent.height(), view.property('effectiveRowHeight') + 410)
+            self.assertEqual(parent.height(), view.property('effectiveRowHeight') + 351)
             load.assert_called_once()
             for height in (350, 650):
                 view.setHeight(height)
                 window.resize(800, height)
                 frames.frame(window)
                 viewport = self.item(view, 'searchResultsTableView')
-                expected = min(410, viewport.height() - view.property('headerHeight') - view.property('effectiveRowHeight'))
+                expected = min(351, viewport.height() - view.property('headerHeight') - view.property('effectiveRowHeight'))
                 self.assertEqual(parent.height(), view.property('effectiveRowHeight') + expected)
                 load.assert_called_once()
 
-    def test_expanded_content_has_symmetric_breathing_room(self):
+    def test_expanded_content_fills_the_available_width(self):
         import json
         import os
         from pathlib import Path
@@ -242,13 +353,13 @@ class NestedTableTests(unittest.TestCase):
             window.resize(width, int(view.height()))
             frames.frame(window)
             bounds = {}
-            for name in ('nestedFilter', 'nestedReload', 'nestedClose', 'nestedHorizontal', 'nestedFooterSurface'):
+            for name in ('nestedFilter', 'nestedReload', 'nestedClose', 'nestedTableBody', 'nestedFooterSurface'):
                 item = self.item(view, name)
                 position = item.mapToItem(view, QPointF())
-                self.assertGreaterEqual(position.x(), 8, name)
-                self.assertGreaterEqual(position.y(), 8, name)
-                self.assertLessEqual(position.x() + item.width(), width - 8, name)
-                self.assertLessEqual(position.y() + item.height(), view.height() - 8, name)
+                self.assertGreaterEqual(position.x(), 0, name)
+                self.assertGreaterEqual(position.y(), 0, name)
+                self.assertLessEqual(position.x() + item.width(), width, name)
+                self.assertLessEqual(position.y() + item.height(), view.height(), name)
                 bounds[name] = dict(x=position.x(), y=position.y(), width=item.width(), height=item.height())
             captures.append(dict(width=width, bounds=bounds))
             if os.environ.get('TABLE_NESTED_OUTPUT'):
@@ -270,6 +381,11 @@ class NestedTableTests(unittest.TestCase):
         with patch('thlib.ui.table.nested.NestedTableController.reload'):
             window, view = self.create('features/table/ServiceCell.qml',dict(controller=_TableController(),
                 nodeId='A',services=owner,administration=None,cell=cell),width=100,height=58)
+            import time
+            from PySide6.QtTest import QTest
+            deadline = time.monotonic() + 1
+            while time.monotonic() < deadline and not any(item.objectName() == 'tableServiceAction_0' for item in _visual_items(view)):
+                QTest.qWait(5)
             self.click(window,self.item(view,'tableServiceAction_0'))
             scope = owner.nested_row('A',owner.nestedRevision)
             self.assertIsNotNone(scope)
@@ -381,6 +497,7 @@ class NestedTableTests(unittest.TestCase):
         from thlib.ui.table.services import TableServicesController
         import tests.test_table_service_workflows as workflows
         app = workflows.Application()
+        app.columns_editor_controller = SimpleNamespace(_tasks_controller=None)
         owner = TableServicesController(app)
         self.addCleanup(owner.shutdown)
         with patch.object(NestedTableController, 'reload'):
@@ -424,6 +541,7 @@ class NestedTableTests(unittest.TestCase):
         from thlib.ui.table.services import TableServicesController
         import tests.test_table_service_workflows as workflows
         app = workflows.Application()
+        app.columns_editor_controller = SimpleNamespace(_tasks_controller=None)
         owner = TableServicesController(app)
         self.addCleanup(owner.shutdown)
         scope = NestedTableController(owner, 'A', dict(parentKey=app.node.search_key))
@@ -443,6 +561,7 @@ class NestedTableTests(unittest.TestCase):
         from thlib.ui.table.services import TableServicesController
         import tests.test_table_service_workflows as workflows
         app = workflows.Application()
+        app.columns_editor_controller = SimpleNamespace(_tasks_controller=None)
         owner = TableServicesController(app)
         self.addCleanup(owner.shutdown)
         parent = dict(searchType='demo/asset', view='parent', parentKey=app.node.search_key)
@@ -458,9 +577,15 @@ class NestedTableTests(unittest.TestCase):
             scope._model.update(loaded=True, columns=columns, rows=[dict(key=key, nodeId=identity,
                 record=dict(code='B'),cells=dict(code=dict(text='B'),expand=dict(nestedTable=child,
                     actions=[dict(name='nested-table',label='Show related table',icon='chevron-right')])) )])
+            prepare_scope(scope)
             fixture = Path(__file__).parent / 'fixtures/frame_controls/NestedRecursive.qml'
             window, view = self.create(str(fixture.resolve()),dict(controller=_TableController(),
                 columnsController=_TableColumns(),services=owner,scope=scope),width=600,height=320)
+            import time
+            from PySide6.QtTest import QTest
+            deadline = time.monotonic() + 1
+            while time.monotonic() < deadline and not any(item.objectName() == 'tableServiceAction_0' for item in _visual_items(view)):
+                QTest.qWait(5)
             self.click(window,self.item(view,'tableServiceAction_0'))
             branch = owner.nested_row(identity)
             self.assertIsNotNone(branch)
@@ -469,6 +594,7 @@ class NestedTableTests(unittest.TestCase):
             branch._nodes[branch_id] = SimpleNamespace(search_key=branch_key)
             branch._model.update(loaded=True,columns=columns,rows=[dict(key=branch_key,nodeId=branch_id,
                 record=dict(code='C'),cells=dict(code=dict(text='C')))])
+            prepare_scope(branch)
             branch.changed.emit()
             self.app.processEvents()
             self.assertIs(owner.scope_for(branch_id),branch)
@@ -521,16 +647,25 @@ class NestedTableTests(unittest.TestCase):
             owner.shutdown()
             self.app.processEvents()
 
-    def test_sortable_nested_headers_have_a_visible_label_and_first_click_sort(self):
+    def test_nested_headers_use_main_column_sort_menu(self):
         scope=Scope()
         scope.state['columns'][0]['sortable']=True
         window,view=self.create('features/table/NestedTableView.qml',dict(controller=_TableController(),
             columnsController=_TableColumns(),userModel=None,services=None,administration=None,scope=scope),width=600,height=320)
-        label=self.item(view,'nestedHeaderText_name')
-        self.assertEqual(label.property('text'),'Name')
+        label=self.item(view,'tableColumnHeaderLabel_name')
+        self.assertEqual(label.property('text'),'NAME')
         self.assertGreater(label.property('paintedWidth'),0)
-        self.click(window,self.item(view,'nestedHeader_name'))
-        self.assertEqual(scope.events[-1][0],dict(type='sort',value='name'))
+        from PySide6.QtCore import Qt, QPointF
+        from PySide6.QtTest import QTest
+        header = self.item(view, 'tableColumnContextArea_name')
+        QTest.mouseClick(window, Qt.RightButton, Qt.NoModifier,
+            header.mapToScene(QPointF(40, 15)).toPoint())
+        table = self.item(view, 'nestedMainTable')
+        menu = table.findChild(QObject, 'tableColumnContextMenu')
+        self.assertTrue(menu.property('visible'))
+        menu.triggered.emit('sort:ascending')
+        self.assertEqual(scope.events[-1][0],dict(type='sort',value='name',direction='asc'))
+        menu.close()
 
     def test_nested_header_menu_opens_the_selected_column_without_sorting(self):
         from PySide6.QtCore import Qt, QPointF
@@ -540,12 +675,13 @@ class NestedTableTests(unittest.TestCase):
         window, view = self.create('features/table/NestedTableView.qml', dict(controller=_TableController(),
             columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
             width=600, height=320)
-        header = self.item(view, 'nestedHeader_name')
+        header = self.item(view, 'tableColumnContextArea_name')
         QTest.mouseClick(window, Qt.RightButton, Qt.NoModifier,
             header.mapToScene(QPointF(header.width()/2, header.height()/2)).toPoint())
         QTest.qWait(100)
-        menu = view.findChild(QObject, 'nestedColumnMenu')
-        self.assertTrue(menu.property('visible'), (view.property('headerColumn'), header.mapToScene(QPointF()), header.width(), header.height()))
+        table = self.item(view, 'nestedMainTable')
+        menu = table.findChild(QObject, 'tableColumnContextMenu')
+        self.assertTrue(menu.property('visible'))
         actions = menu.property('actions').toVariant()
         self.assertTrue(next(a for a in actions if a.get('command') == 'edit_definition')['enabled'])
         self.assertEqual(scope.events, [])
@@ -559,6 +695,7 @@ class NestedTableTests(unittest.TestCase):
         from thlib.ui.table.nested import NestedTableController
         import tests.test_table_service_workflows as workflows
         app = workflows.Application()
+        app.columns_editor_controller = SimpleNamespace(_tasks_controller=None)
         app.columns_editor_controller = Mock()
         app.open_columns_editor = Mock()
         owner = TableServicesController(app)
@@ -591,6 +728,7 @@ class NestedTableTests(unittest.TestCase):
         from thlib.ui.table.services import TableServicesController
         import tests.test_table_service_workflows as workflows
         app = workflows.Application()
+        app.columns_editor_controller = SimpleNamespace(_tasks_controller=None)
         app._sessions = {'main': SimpleNamespace(tabs=[app.tab])}
         app.columns_editor_controller = Mock()
         app.open_columns_editor = Mock()
@@ -625,6 +763,7 @@ class NestedTableTests(unittest.TestCase):
         from thlib.ui.table.services import TableServicesController
         import tests.test_table_service_workflows as workflows
         app = workflows.Application()
+        app.columns_editor_controller = SimpleNamespace(_tasks_controller=None)
         owner = TableServicesController(app)
         self.addCleanup(owner.shutdown)
         parent = dict(searchType='sthpw/task', view='table', parentKey=app.node.search_key, projectCode='demo', initialLimit=2)

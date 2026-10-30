@@ -18,7 +18,6 @@ Item {
             userModel: null
             administration: null
             services: root.services
-            nestedTableFactory: factory
             onClosed: root.services.close_nested(scope)
         }
     }

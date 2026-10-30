@@ -2,7 +2,6 @@ import QtQuick
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/objects/related.ui.mjs" as UI
 import "../table" as Tables
-import "../.." as Shell
 
 Item {
     id: root
@@ -34,34 +33,7 @@ Item {
         services: tableServicesController
         administration: administrationController
         scope: root.relatedController.scope
-        nestedTableFactory: nestedFactory
         onClosed: root.relatedController.close()
-        onMenuRequested: (nodeId, anchor) => {
-            rowMenu.nodeId = nodeId;
-            rowMenu.actions = appController.item_menu_actions(nodeId);
-            rowMenu.openBelow(anchor);
-        }
-    }
-    Shell.ActionMenu {
-        id: rowMenu
-        objectName: "relatedObjectsRowMenu"
-        property string nodeId: ""
-        theme: root.theme
-        frameComposition: true
-        onTriggered: command => appController.invoke_item_action(command, nodeId)
-    }
-    Component {
-        id: nestedFactory
-        Tables.NestedTableView {
-            theme: root.theme
-            controller: appController
-            columnsController: columnsEditorController
-            userModel: root.users
-            services: tableServicesController
-            administration: administrationController
-            nestedTableFactory: nestedFactory
-            onClosed: scope.request_close()
-        }
     }
     Frame.FrameView {
         id: message

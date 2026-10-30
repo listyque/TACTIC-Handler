@@ -192,9 +192,16 @@ Its CSS variable is `--table-header-surface`, separate from TableView's local
 roles for main and nested tables. Grouped labels and their indicator retain the
 header foreground; grouping stays explicit without sacrificing text contrast.
 
-Expanded nested tables use `host.ui.mjs::metrics.margin` as a symmetric
-content inset in `nested.ui.mjs::describe`; toolbar, scroll viewport and footer
-share the same reduced bounds in both engines. Row/column heights stay unchanged.
+Simple Table and expanded related tables use the main table renderer: Handler's
+`SearchResultTable`/`SearchResultTableHeader` and Stream's `ConfiguredView`/`TableView`.
+`nested.ui.mjs` owns the full-width search/footer bounds and viewport budget;
+there is no outer table inset or separate row drag grip. Gallery rows retain their
+Frame List presentation. The main renderer owns column headers, resizing, row
+menus and editing; the nested owner retains queries, paging, checked rows and
+ancestry. Handler scopes the existing `ColumnsEditorController` with
+`NestedColumnsController` and shares `ProcessCountMenu` with the main search.
+Stream consumes the nested command's prepared cells without a second cell read;
+recursive component registration resolves after both modules initialize.
 Handler retains current-key cells while reloading the same project/type/view and
 column definitions. Retained keys still request fresh data; fresh/stale request
 generations remain enforced. A changed context/definition clears retained cells.

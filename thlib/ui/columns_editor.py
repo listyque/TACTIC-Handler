@@ -222,6 +222,10 @@ class ColumnsEditorController(QObject):
     def cellRevision(self):
         return self._cell_revision
 
+    @property
+    def _project_code(self):
+        return self._application._current_project_code
+
     def _current_tab(self):
         return self._application._current_tab()
 
@@ -409,7 +413,7 @@ class ColumnsEditorController(QObject):
             self.stateChanged.emit()
             self._application._notify(self._error)
             return False
-        project_code = str(self._application._current_project_code or "")
+        project_code = str(self._project_code or "")
         stype_code = self._stype_code
 
         def operation():
@@ -478,7 +482,7 @@ class ColumnsEditorController(QObject):
             stype = self._current_stype()
             tab = self._current_tab()
             context = (
-                str(self._application._current_project_code or ""),
+                str(self._project_code or ""),
                 str(stype.get_code() or "") if stype else "",
                 str(getattr(tab, "table_view", "table") or "table"),
             )
@@ -843,7 +847,7 @@ class ColumnsEditorController(QObject):
         self._reload_pending = bool(
             self._stype_code
             and self._definition_catalog_project
-                == self._application._current_project_code
+                == self._project_code
         )
         self._error = ""
         self.stateChanged.emit()
@@ -1016,7 +1020,7 @@ class ColumnsEditorController(QObject):
         if self._busy:
             self._reload_pending = True
             return
-        project_code = str(self._application._current_project_code or "")
+        project_code = str(self._project_code or "")
         tab = self._current_tab()
         table_view = str(getattr(tab, "table_view", "table") or "table")
         try:
@@ -1083,7 +1087,7 @@ class ColumnsEditorController(QObject):
             self._loading_context = None
 
     @Slot(object)
-    def _loaded(self, result):
+    def _loaded(self, result, prepared_rows=None):
         requested_context = self._loading_context
         self._loading_context = None
         stype, payload = result
@@ -1108,7 +1112,7 @@ class ColumnsEditorController(QObject):
             self._error = str(error)
             self.stateChanged.emit()
             return
-        context = (str(self._application._current_project_code or ""),
+        context = (str(self._project_code or ""),
                    str(stype.get_code() or ""), loaded_view)
         if requested_context is not None and requested_context != context:
             self._reload_pending = True
@@ -1147,7 +1151,8 @@ class ColumnsEditorController(QObject):
         current_keys = set(self._current_search_keys())
         self._cells = {key: cells for key, cells in retained.items() if key in current_keys}
         self._changed_row_keys.update(self._cells)
-        mapped = self._map_rows(payload)
+        mapped = (self._map_rows(payload) if prepared_rows is None
+                  else self._complete_rows(prepared_rows))
         self._cells.update(mapped)
         self._changed_row_keys.difference_update(mapped)
         self._cell_context = context
@@ -1171,6 +1176,9 @@ class ColumnsEditorController(QObject):
             }
             for search_key, row in dict(payload.get("rows") or {}).items()
         }
+        return self._complete_rows(rows)
+
+    def _complete_rows(self, rows):
         tab = self._current_tab()
         targets = {
             str(target.get_search_key() or ""): target
@@ -1415,7 +1423,7 @@ class ColumnsEditorController(QObject):
                 )
             except AttributeError:
                 project_code = str(
-                    self._application._current_project_code or ""
+                    self._project_code or ""
                 )
             plans.append({
                 "nodeId": target_node_id,
@@ -1688,7 +1696,7 @@ class ColumnsEditorController(QObject):
 
     @Slot(str, object)
     def _refresh_changed_rows(self, project, search_keys):
-        if project != self._application._current_project_code:
+        if project != self._project_code:
             return
         self._changed_row_keys.update(
             key for key in search_keys
@@ -1746,7 +1754,7 @@ class ColumnsEditorController(QObject):
         if not missing:
             return
         self._changed_row_keys.difference_update(missing)
-        project_code = str(self._application._current_project_code or "")
+        project_code = str(self._project_code or "")
         stype_code = self._stype_code
         request_id = self._row_request_id
 
@@ -1917,7 +1925,7 @@ class ColumnsEditorController(QObject):
         source = self._edit_sources.get(column)
         if not record or not record["editable"] or not source:
             return {}
-        node = self._application.workspace_model.node_for(str(node_id or ""))
+        node = self._application._node_for_any(str(node_id or ""))
         sobject = getattr(node, "source", None) if node is not None else None
         stype = self._current_stype()
         if sobject is None or stype is None:
@@ -2028,7 +2036,7 @@ class ColumnsEditorController(QObject):
         self._requested_view = str(view or 'table')
         self._requested_config_code = ''
         self._focus_pending = True
-        self.load_definition_catalog(project_code or self._application._current_project_code)
+        self.load_definition_catalog(project_code or self._project_code)
         self.focusRequested.emit()
 
     @Slot(int, int)
@@ -2101,7 +2109,7 @@ class ColumnsEditorController(QObject):
             self.stateChanged.emit()
             return False
         stype = self._current_stype()
-        project_code = str(self._application._current_project_code or "")
+        project_code = str(self._project_code or "")
         if not stype or stype.get_code() != self._stype_code:
             self._error = self.tr(
                 "The Search Type changed. Reopen the Columns Editor."
@@ -2233,7 +2241,7 @@ class ColumnsEditorController(QObject):
             self.stateChanged.emit()
             return False
         stype_code = self._stype_code
-        project_code = str(self._application._current_project_code or "")
+        project_code = str(self._project_code or "")
         edit_config_xml = None
         if target == "edit_definition":
             if included is None:

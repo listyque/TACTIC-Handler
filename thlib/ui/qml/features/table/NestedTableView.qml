@@ -3,7 +3,6 @@ import QtQuick
 import "../.." as Tables
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/table/nested.ui.mjs" as UI
-import "../../tactic_frame/features/tasks/cells.ui.mjs" as TaskCells
 
 Item {
     id: root
@@ -14,65 +13,36 @@ Item {
     required property var services
     required property var administration
     required property var scope
-    property Component nestedTableFactory: null
     implicitHeight: root.scope ? UI.extent(root.scope.model, width) : UI.height
     signal closed
-    signal menuRequested(string nodeId, var anchor)
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
-    property string headerColumn: ""
-    function headerCommand(command) {
-        if (command === "edit_definition" || command === "columns")
-            root.scope.activate({
-                type: "columns",
-                column: command === "columns" ? "" : root.headerColumn
-            }, null);
-        else if (command.indexOf("sort:") === 0)
-            root.scope.activate({
-                type: "sort",
-                value: root.headerColumn,
-                direction: command === "sort:descending" ? "desc" : "asc"
-            }, null);
-    }
-    Tables.ActionMenu {
-        id: columnMenu
-        objectName: "nestedColumnMenu"
-        parent: root
-        theme: root.theme
-        preferredWidth: 280
-        actions: root.scope ? UI.headerActions(root.scope.model, root.headerColumn, root.language) : []
-        onTriggered: command => root.headerCommand(command)
-    }
+    readonly property var description: root.scope ? UI.describe(root.scope.model, width, height, root.language) : ({
+            nodes: []
+        })
+    readonly property var body: description.nodes.find(node => node.id === "nestedTableBody") || ({
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0
+        })
     Frame.FrameView {
         anchors.fill: parent
         theme: root.theme
-        scene: root.scope ? UI.describe(root.scope.model, width, height, root.language) : ({
-                nodes: []
+        scene: ({
+                nodes: root.description.nodes.filter(node => node.id !== "nestedTableBody")
             })
         models: ({
                 rows: root.scope ? UI.rows(root.scope.model, root.width, root.height) : []
             })
         views: ({
-                tableSearch: searchComponent,
-                nestedTable: {
-                    component: detailComponent,
-                    nodeProps: true
-                },
-                tableCell: {
-                    component: cellComponent,
-                    nodeProps: true
-                }
+                tableSearch: searchComponent
             })
         describeRow: (list, row, index) => root.scope ? UI.row(root.scope.model, row, root.language, list.width - 16) : ({
                     nodes: []
                 })
         onEvent: (action, value) => {
-            if (action.type === "header-menu") {
-                root.headerColumn = action.column;
-                columnMenu.openAt(value, action.value ? action.value.x : value.width - 8, action.value ? action.value.y : value.height, false);
-            } else if (action.type === "close")
+            if (action.type === "close")
                 root.closed();
-            else if (action.type === "operate")
-                root.menuRequested(action.nodeId, value);
             else if (root.scope)
                 root.scope.activate(action, value);
         }
@@ -87,66 +57,56 @@ Item {
             placeholderText: qsTr("Search objects")
         }
     }
-    Component {
-        id: detailComponent
-        Item {
-            id: detailHost
-            property var frameNode: ({})
-            property var childView: null
-            readonly property var childScope: root.services ? root.services.nested_row(frameNode.nodeId || "", root.services.nestedRevision) : null
-            function updateView() {
-                if (childView) {
-                    childView.destroy();
-                    childView = null;
-                }
-                if (childScope && root.nestedTableFactory)
-                    childView = root.nestedTableFactory.createObject(detailHost, {
-                        scope: childScope,
-                        width: Qt.binding(() => detailHost.width),
-                        height: Qt.binding(() => detailHost.height)
-                    });
-            }
-            onChildScopeChanged: updateView()
-            Component.onCompleted: updateView()
+    Loader {
+        objectName: "nestedTableBody"
+        x: root.body.x
+        y: root.body.y
+        width: root.body.width
+        height: root.body.height
+        active: root.body.width > 0
+        visible: active
+        function initialize() {
+            if (!active || source.toString().length > 0)
+                return;
+            setSource(Qt.resolvedUrl("../../SearchResultTable.qml"), {
+                objectName: "nestedMainTable",
+                theme: root.theme,
+                controller: root.controller,
+                selectionOwner: Qt.binding(() => root.scope || root.controller),
+                selectable: Qt.binding(() => root.scope && root.scope.model.selection !== false),
+                columnsController: Qt.binding(() => root.scope ? root.scope.tableColumns : root.columnsController),
+                resultModel: Qt.binding(() => root.scope ? root.scope.tableModel : null),
+                tableServices: root.services,
+                userModel: root.userModel,
+                rowHeight: UI.rowHeight,
+                presentationActive: true
+            });
+        }
+        Component.onCompleted: initialize()
+        onActiveChanged: initialize()
+        onLoaded: {
+            item.effectiveRowHeightChanged.connect(function () {
+                if (item && root.scope && typeof root.scope.set_table_row_height === "function")
+                    root.scope.set_table_row_height(item.effectiveRowHeight);
+            });
+            item.processCountMenuRequested.connect(processCounts.openProcessCountMenu);
+            item.actionMenuRequested.connect(function (nodeId, actions, anchor, x, y, below) {
+                rowMenu.nodeId = nodeId;
+                rowMenu.actions = actions;
+                rowMenu.openAt(anchor, x, y, below);
+            });
         }
     }
-    Component {
-        id: cellComponent
-        Item {
-            id: cellHost
-            property var frameNode: ({
-                    column: {
-                        cell: {
-                            kind: "text"
-                        }
-                    },
-                    record: {},
-                    cell: {}
-                })
-            Tables.TacticTableCellDisplay {
-                anchors.fill: parent
-                theme: root.theme
-                controller: root.controller
-                selectionOwner: root.scope
-                columnsController: root.columnsController
-                userModel: root.userModel
-                tableServices: root.services
-                administration: root.administration
-                nodeId: cellHost.frameNode.nodeId || ""
-                kind: cellHost.frameNode.cell.kind || cellHost.frameNode.column.cell.kind || "text"
-                cell: cellHost.frameNode.cell
-                textValue: String(cellHost.frameNode.cell.text || "")
-                columnIndex: cellHost.frameNode.column.index || 0
-                previewActive: true
-                previewUrl: cellHost.frameNode.cell.image || ""
-                previewRevealed: true
-                title: TaskCells.initials(cellHost.frameNode.record.name || cellHost.frameNode.record.title || cellHost.frameNode.record.code || "")
-                accent: root.theme.action
-                comments: 0
-                tasks: 0
-                displayOptions: cellHost.frameNode.column.displayOptions || ({})
-                widgetClass: cellHost.frameNode.column.displayClass || cellHost.frameNode.column.resolvedClass || ""
-            }
-        }
+    Tables.ProcessCountMenu {
+        id: processCounts
+        theme: root.theme
+        controller: root.controller
+    }
+    Tables.ActionMenu {
+        id: rowMenu
+        objectName: "nestedRowMenu"
+        property string nodeId: ""
+        theme: root.theme
+        onTriggered: command => root.controller.invoke_item_action(command, nodeId)
     }
 }

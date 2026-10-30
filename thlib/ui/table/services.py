@@ -587,9 +587,16 @@ class TableServicesController(QObject):
 
     @Slot(str)
     @Slot(str, str)
-    def insert_record(self, view, operation=''):
+    @Slot(str, str, QObject)
+    def insert_record(self, view, operation='', scope=None):
         app = self._application
         if self.busy or not app.can_manage_tools:
+            return
+        if scope is not None:
+            from .nested import NestedTableController
+            if not isinstance(scope, NestedTableController) or scope.services is not self or not self.scope_visible(scope):
+                raise ValueError('The nested table is no longer active')
+            scope._edit(None, view, operation)
             return
         stype = app._active_stype()
         if stype is None:

@@ -20,6 +20,14 @@ class NestedTableController(QObject):
         self._generation = 0
         self._workers = set()
         self._nodes = {}
+        from ..workspace_models.results import WorkspaceItemModel
+        self._table_model = WorkspaceItemModel()
+        self._table_model.setParent(self)
+        self._columns = None
+        self._layout = None
+        self._focused = ''
+        self._anchor = ''
+        self._group = 'none'
         self._pending_reload = False
         from ..workspace_models.records import RecordListModel
         from ..search_suggestion_data import SEARCH_SUGGESTION_ROLES
@@ -166,11 +174,84 @@ class NestedTableController(QObject):
         selected = set(self._model['selected'])
         return [identity for identity, node in self._nodes.items() if node.search_key in selected]
 
+    @Property(str, notify=changed)
+    def selected_node_id(self):
+        return self._focused
+
+    @Property(QObject, constant=True)
+    def tableModel(self):
+        return self._table_model
+
+    @Property(QObject, constant=True)
+    def tableColumns(self):
+        if self._columns is None:
+            from .nested_columns import NestedColumnsController
+            self._columns = NestedColumnsController(self)
+            if self._layout is not None:
+                self._accept_columns()
+        return self._columns
+
+    def _accept_columns(self):
+        from thlib.environment import env_inst
+        stype = env_inst.get_stype_by_code(self.descriptor['searchType'],
+            project_code=self.descriptor.get('projectCode') or self.application._current_project_code)
+        self._columns.accept(stype, self._layout, {
+            row['key']: row['cells'] for row in self._model['rows']})
+
+    @Property(str, notify=changed)
+    def result_group_mode(self):
+        return self._group
+
+    @Property(str, notify=changed)
+    def result_sort_mode(self):
+        order = self._model.get('order', '').split()
+        return 'column:' + ':'.join(order) if order else ''
+
+    @Slot(float)
+    def set_table_row_height(self, height):
+        if height > 0 and self._model.get('rowHeight') != height:
+            self._model['rowHeight'] = height
+            self.changed.emit()
+
+    @Slot(str)
+    def set_result_group_mode(self, mode):
+        self._group = mode
+        self._table_model.set_organization(group_mode=mode)
+        self.changed.emit()
+
+    @Slot(str)
+    def toggle_result_node(self, identity):
+        self._table_model.toggle_node(identity)
+
+    @Slot()
+    def clear_result_selection(self):
+        self.activate(dict(type='clear-selection'))
+
+    @Slot()
+    def select_all_result_siblings(self):
+        if self._model['selection'] is not False:
+            self._model['selected'] = [row['key'] for row in self._model['rows']][:500]
+            self.changed.emit()
+
     @Slot(str, str, str, int, bool)
     def select_result_node(self, identity, search_key, node_type, modifiers, preserve):
         node = self.node_for(identity)
-        if node is not None:
-            self.activate(dict(type='select', key=node.search_key))
+        if node is None:
+            return
+        self._focused = identity
+        if not preserve and self._model['selection'] is not False:
+            keys = [row['key'] for row in self._model['rows']]
+            shift = modifiers & Qt.ShiftModifier.value
+            if shift and self._anchor in keys and node.search_key in keys:
+                start, end = sorted((keys.index(self._anchor), keys.index(node.search_key)))
+                self._model['selected'] = keys[start:end + 1][:500]
+            elif modifiers & Qt.ControlModifier.value:
+                self.activate(dict(type='select', key=node.search_key))
+            else:
+                self._model['selected'] = [node.search_key]
+        if not modifiers & Qt.ShiftModifier.value:
+            self._anchor = node.search_key
+        self.changed.emit()
 
     def node_for(self, identity):
         return self._nodes.get(identity)
@@ -282,12 +363,19 @@ class NestedTableController(QObject):
                 source=source, values=record)
             cells = {column['name']: adapters[column['name']].map_cell(
                 (layout['rows'].get(key) or {}).get(column['name']) or {}, column.get('dataType')) for column in columns}
+            nodes[identity].preview_url = next((cell['image'] for cell in cells.values() if cell.get('image')), '')
+            nodes[identity].preview_requested = True
+            nodes[identity].preview_revealed = True
             rows.append(dict(key=key, nodeId=identity, record=record, cells=cells))
         self._nodes = nodes
+        self._layout = layout
         self._model.update(columns=columns, rows=rows, hasNext=result['hasNext'], simpleFilters=result.get('simpleFilters') or [], busy=False, loaded=True,
             insert=bool(self.descriptor.get('insert', True) and self.application.can_manage_tools),
             gear=bool(self.descriptor.get('gear', True) and self.application.can_manage_tools),
             filterField=next((name for name in ('name', 'title', 'file_name', 'code') if any(column['name'] == name for column in columns)), 'id'))
+        if self._columns is not None:
+            self._accept_columns()
+        self._table_model.replace_nodes([nodes[row['nodeId']] for row in rows])
         self.changed.emit()
         self.services._nested_changed()
         if self._pending_reload:
@@ -339,7 +427,7 @@ class NestedTableController(QObject):
                     self._model['order'] = name + ' ' + (action.get('direction') or ('desc' if self._model.get('order') == name + ' asc' else 'asc'))
             self.reload()
 
-    def _edit(self, key):
+    def _edit(self, key, view_override='', operation=''):
         from thlib.environment import env_inst
         app = self.application
         if self.tab is not app._current_tab() or not app.can_manage_tools:
@@ -355,9 +443,9 @@ class NestedTableController(QObject):
         owner = app._node_for_any(self.owner_node_id)
         parent = owner.source if not key and not self.descriptor.get('projectScope') and owner and owner.source and owner.search_key.split('?')[0] != self.descriptor['searchType'] else None
         from thlib.ui.sobject_editor import open_sobject_editor
-        view = (self.descriptor.get('editView') or 'edit') if key else (self.descriptor.get('insertView') or 'insert')
+        view = view_override or ((self.descriptor.get('editView') or 'edit') if key else (self.descriptor.get('insertView') or 'insert'))
         open_sobject_editor(app, dict(mode='edit' if key else 'insert', view=view,
-            stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True),
+            stype=stype, operation=operation, sobject=node.source if node else None, parent_sobject=parent, _prepared=True),
             refresh=lambda: (app.refresh_current(), self.services.completed.emit(self.descriptor['parentKey'])))
 
     def _open_columns(self, column=''):
@@ -395,6 +483,8 @@ class NestedTableController(QObject):
         self._pending_reload = False
         self._generation += 1
         self._nodes = {}
+        if self._columns is not None:
+            self._columns.shutdown()
         self._model.update(busy=False)
         for worker in tuple(self._workers):
             worker.cancel()

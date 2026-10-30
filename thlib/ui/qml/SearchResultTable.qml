@@ -16,12 +16,14 @@ Item {
     required property var controller
     required property var resultModel
     required property var columnsController
+    property var selectionOwner: controller
+    property bool selectable: true
+    readonly property var checkedIds: selectionOwner ? selectionOwner.selected_result_node_ids : []
     property var userModel: null
     property var tableServices: typeof tableServicesController === "undefined" ? null : tableServicesController
     Component {
         id: nestedTableComponent
         Table.NestedTableView {
-            nestedTableFactory: nestedTableComponent
             theme: root.theme
             controller: root.controller
             columnsController: root.columnsController
@@ -38,7 +40,7 @@ Item {
     property real rowHeight: 58
     property bool automaticRowHeight: false
     property var hoveredTaskCell: null
-    readonly property bool selectedTaskPreviewActive: hoveredTaskCell !== null && controller.selected_result_node_ids.indexOf(hoveredTaskCell.nodeId) >= 0
+    readonly property bool selectedTaskPreviewActive: hoveredTaskCell !== null && checkedIds.indexOf(hoveredTaskCell.nodeId) >= 0
     readonly property var columns: columnsController ? columnsController.visibleColumns : []
     readonly property real availableColumnWidth: Math.max(0, rows.width - selectionColumnWidth - actionColumnWidth)
     readonly property var tableLayout: TableHost.describe({
@@ -153,7 +155,7 @@ Item {
         anchors.top: parent.top
         width: parent.width
         height: active ? 36 : 0
-        active: root.controller.selected_result_node_ids.length > 0
+        active: root.checkedIds.length > 0
         sourceComponent: Rectangle {
             color: root.theme.contentSelection
 
@@ -167,8 +169,8 @@ Item {
                     objectName: "clearTableSelection"
                     theme: root.theme
                     implicitHeight: 28
-                    text: (root.controller.selected_result_node_ids.length === 1 ? qsTr("Deselect %1 item") : qsTr("Deselect %1 items")).arg(root.controller.selected_result_node_ids.length)
-                    onClicked: root.controller.clear_result_selection()
+                    text: (root.checkedIds.length === 1 ? qsTr("Deselect %1 item") : qsTr("Deselect %1 items")).arg(root.checkedIds.length)
+                    onClicked: root.selectionOwner.clear_result_selection()
                 }
                 Item {
                     Layout.fillWidth: true
@@ -270,7 +272,7 @@ Item {
 
         Keys.onPressed: function (event) {
             if (event.key === Qt.Key_A && (event.modifiers & Qt.ControlModifier)) {
-                root.controller.select_all_result_siblings();
+                root.selectionOwner.select_all_result_siblings();
                 event.accepted = true;
             } else if (event.key === Qt.Key_Up) {
                 selectRow(currentIndex < 0 ? 0 : currentIndex - 1, event.modifiers);
@@ -307,12 +309,16 @@ Item {
             height: root.headerHeight
             theme: root.theme
             controller: root.controller
+            selectionOwner: root.selectionOwner
+            tableScope: root.selectionOwner !== root.controller ? root.selectionOwner : null
+            selectable: root.selectable
+            tableServices: root.tableServices
             columnsController: root.columnsController
             columns: root.effectiveColumns
-            selectedIds: root.controller.selected_result_node_ids
+            selectedIds: root.checkedIds
             columnsBusy: root.columnsBusy
             columnsError: root.columnsError
-            rowCount: root.resultModel.selectableCount
+            rowCount: root.resultModel ? root.resultModel.selectableCount : 0
             rowHeight: root.rowHeight
             automaticRowHeight: root.automaticRowHeight
             viewportContentX: rows.contentX
@@ -342,14 +348,14 @@ Item {
             }
             onSelectAllRequested: selected => {
                 if (!selected) {
-                    root.controller.clear_result_selection();
+                    root.selectionOwner.clear_result_selection();
                 } else if (rows.currentIndex < 0) {
                     rows.selectRow(0, 0);
                     Qt.callLater(function () {
-                        root.controller.select_all_result_siblings();
+                        root.selectionOwner.select_all_result_siblings();
                     });
                 } else {
-                    root.controller.select_all_result_siblings();
+                    root.selectionOwner.select_all_result_siblings();
                 }
             }
         }
@@ -398,8 +404,8 @@ Item {
             onViewPooledChanged: updateNestedView()
             readonly property bool isGroup: nodeType === "group"
             readonly property var parentGroup: isGroup ? values.parentGroup || null : null
-            readonly property bool active: !isGroup && root.controller.selected_node_id === nodeId
-            readonly property bool selected: !isGroup && root.controller.selected_result_node_ids.indexOf(nodeId) >= 0
+            readonly property bool active: !isGroup && root.selectionOwner && root.selectionOwner.selected_node_id === nodeId
+            readonly property bool selected: !isGroup && root.checkedIds.indexOf(nodeId) >= 0
             readonly property bool inVerticalViewport: y + height >= rows.contentY && y <= rows.contentY + rows.height
             readonly property bool previewActive: root.presentationActive && root.hasThumbnailColumn && !isGroup && inVerticalViewport && !viewPooled
             readonly property var nativeCells: !isGroup && root.columnsController ? root.columnsController.row_cells(searchKey, root.columnsController.cellRevision) : ({})
@@ -413,7 +419,7 @@ Item {
 
             function cellRecord(columnName) {
                 const nativeCell = nativeCells ? nativeCells[columnName] : undefined;
-                if (nativeCell && nativeCell.text !== undefined)
+                if (nativeCell)
                     return nativeCell;
                 const value = values ? values[columnName] : undefined;
                 if (value !== undefined && value !== null)
@@ -436,12 +442,12 @@ Item {
             function selectWithModifiers(modifiers) {
                 if (isGroup)
                     return;
-                root.controller.select_result_node(nodeId, searchKey, nodeType, modifiers, false);
+                root.selectionOwner.select_result_node(nodeId, searchKey, nodeType, modifiers, false);
             }
 
             function activate(modifiers) {
                 if (isGroup)
-                    root.controller.toggle_result_node(nodeId);
+                    root.selectionOwner.toggle_result_node(nodeId);
                 else
                     root.controller.handle_item_double_click(nodeId, modifiers);
             }
@@ -487,7 +493,7 @@ Item {
                             resultRow.activate(mouse.modifiers);
                         return;
                     }
-                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, mouse.modifiers, !(mouse.modifiers & Qt.ShiftModifier));
+                    root.selectionOwner.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, mouse.modifiers, !(mouse.modifiers & Qt.ShiftModifier));
                     if (mouse.button === Qt.RightButton) {
                         root.requestActionMenu(resultRow.nodeId, resultRow, mouse.x, mouse.y, false);
                     } else if (mouse.button === Qt.MiddleButton) {
@@ -536,6 +542,8 @@ Item {
                                 id: taskCellDisplay
                                 theme: root.theme
                                 controller: root.controller
+                                selectionOwner: root.selectionOwner
+                                tableServices: root.tableServices
                                 columnsController: root.columnsController
                                 userModel: root.userModel
                                 nodeId: resultRow.nodeId
@@ -583,7 +591,7 @@ Item {
                                 onEditingChanged: cellDelegate.editing = editing
                                 onSelectRequested: {
                                     rows.currentIndex = resultRow.index;
-                                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, true);
+                                    root.selectionOwner.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, true);
                                 }
                                 onFocusTableRequested: rows.forceActiveFocus()
                             }
@@ -688,9 +696,10 @@ Item {
                     height: 28
                     leftPadding: 4
                     theme: root.theme
+                    visible: root.selectable
                     checked: resultRow.selected
                     Accessible.name: qsTr("Select row") + " " + resultRow.title
-                    onClicked: root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, Qt.ControlModifier, false)
+                    onClicked: root.selectionOwner.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, Qt.ControlModifier, false)
                 }
             }
             Rectangle {
@@ -718,7 +727,7 @@ Item {
                 Accessible.name: qsTr("Item actions")
                 onClicked: {
                     rows.currentIndex = resultRow.index;
-                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, true);
+                    root.selectionOwner.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, true);
                     root.requestActionMenu(resultRow.nodeId, rowActions, 0, rowActions.height, true);
                 }
             }

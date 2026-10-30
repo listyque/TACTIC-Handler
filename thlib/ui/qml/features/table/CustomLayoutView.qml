@@ -221,23 +221,8 @@ Frame.FrameView {
                     columnsController: root.columnsController
                     userModel: root.users
                     administration: root.administration
-                    nestedTableFactory: nestedComponent
                 }
             }
-        }
-    }
-    Component {
-        id: nestedComponent
-        NestedTableView {
-            enabled: !root.editing
-            theme: root.theme
-            controller: root.controller
-            services: root.services
-            columnsController: root.columnsController
-            userModel: root.users
-            administration: root.administration
-            nestedTableFactory: nestedComponent
-            onClosed: root.services.close_nested(scope)
         }
     }
 }

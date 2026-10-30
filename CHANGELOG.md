@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.286 - 2026-10-30
+
+- Render Simple Table and expanded related tables with the main native table and column controller; share row, column and process menus, resizing, editing and view management.
+- Remove the separate row drag grip and outer table gutters. Keep nested search, paging, checked rows, project/view context, cached branches and snapshot galleries independent of the main search.
+
 ## 0.6.0.285 - 2026-10-30
 
 - Keep double-click inline editing separate from checkbox selection: focus the edited row without checking it or opening the bulk-selection bar.

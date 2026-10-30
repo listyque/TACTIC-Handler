@@ -981,6 +981,7 @@ class ColumnsTableViewTests(unittest.TestCase):
         )
         payload = {"rows": {"asset": {name: {"text": raw} for name in types}}}
         pretty, full = activity_timestamp_labels(raw)
+        owner._complete_rows = lambda rows: ColumnsEditorController._complete_rows(owner, rows)
         self.assertTrue(pretty)
         self.assertTrue(full)
         rows = ColumnsEditorController._map_rows(owner, payload)
