@@ -440,5 +440,38 @@ class AgentRequestUI(unittest.TestCase):
             self.assertFalse(surface.warnings, surface.warnings)
 
 
+    def test_running_conversation_project_aligns_with_title(self):
+        surface = ScriptToolsTests()
+        surface.setUp()
+        self.addCleanup(surface.doCleanups)
+        app = Application()
+        owner = AgentRequestController(app, env_inst.server_pool)
+        self.addCleanup(owner.reset)
+        owner._model = owner.initial(owner.capture())
+        owner._model['selected'] = 'row-fixture'
+        owner._model['history']['width'] = 400
+        owner._model['requests'] = [dict(request_id='row-fixture', project='one', project_title='CG Test',
+            title='Сдублируй текущую сцену с длинным названием', status='running', activity=time.time())]
+        for name, value in qml_icon_bindings(QML.parents[2], surface.engine).items():
+            surface.engine.rootContext().setContextProperty(name, value)
+        view = surface.create(QML / 'features/scripts/AgentRequestView.qml',
+            dict(theme=surface.theme, controller=owner, width=1000, height=650))
+        window = QQuickWindow()
+        window.resize(1000, 650)
+        window.setColor(surface.theme.property('workspace'))
+        surface.windows.append(window)
+        view.setParentItem(window.contentItem())
+        window.show()
+        frame(window)
+        title = surface.item(view, 'agentHistoryOpen_one:row-fixtureLabel')
+        project = surface.item(view, 'agentHistoryProject_one:row-fixture')
+        self.assertAlmostEqual(title.mapToScene(QPointF()).x(), project.mapToScene(QPointF()).x())
+        self.assertAlmostEqual(title.width(), project.width())
+        self.assertGreaterEqual(project.mapToScene(QPointF()).y(), title.mapToScene(QPointF()).y() + title.height())
+        if os.environ.get('TACTIC_AGENT_CAPTURE'):
+            window.grabWindow().save(str(Path(os.environ['TACTIC_AGENT_CAPTURE']) / 'native-history-row.png'))
+        self.assertFalse(surface.warnings, surface.warnings)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -395,7 +395,7 @@ export function row(model, record, width, language) {
         item.children.push(
             label(
                 'agentHistoryProject_' + key(record, model.context.project),
-                rect(12, 20, width - 68, 18),
+                rect(text.x, 20, text.width, 18),
                 record.project_title || record.project || model.context.project,
                 { fontRole: 'caption', color: 'secondaryText' }
             )
