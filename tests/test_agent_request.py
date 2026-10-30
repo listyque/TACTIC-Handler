@@ -26,6 +26,13 @@ from thlib.ui.controllers.item_actions import ItemActionsMixin
 from thlib.ui.controllers.item_operations import ItemOperationsMixin
 
 
+def isolate_chat_settings(test):
+    from thlib.environment import env_mode
+    directory = test.enterContext(tempfile.TemporaryDirectory(prefix='agent-chat-choices-'))
+    test.enterContext(patch.object(env_mode, 'current_path', directory))
+    return directory
+
+
 class Application(QObject, ItemActionsMixin, ItemOperationsMixin):
     authentication_changed = Signal()
     signing_out = Signal()
@@ -125,6 +132,33 @@ class AgentRequestTransport(unittest.TestCase):
 
 
 class AgentRequestUI(unittest.TestCase):
+    def setUp(self):
+        isolate_chat_settings(self)
+
+    def test_choices_survive_recreation_without_changing_old_conversations(self):
+        owner = AgentRequestController(Application(), env_inst.server_pool)
+        self.addCleanup(owner.reset)
+        for action, value in [('provider', 'codex'), ('model', 'fixture'), ('effort', 'high'), ('changes', True), ('web', True)]:
+            owner.handle(action, value)
+        fields = dict(provider='codex', model='fixture', effort='high', allowChanges=True, allowWeb=True)
+        reopened = AgentRequestController(Application(), env_inst.server_pool)
+        self.addCleanup(reopened.reset)
+        self.assertEqual({key:reopened.model[key] for key in fields}, fields)
+        reopened._model['context'] = dict(project='one')
+        reopened._model['request'] = dict(status='completed', document=dict(allow_changes=False,allow_web=False))
+        reopened._restore_draft('old-conversation')
+        self.assertIsNone(reopened.model['model'])
+        self.assertFalse(reopened.model['allowChanges'])
+        reopened.handle('effort', 'low')
+        self.assertTrue(reopened.saved_choices()['allowChanges'])
+        reopened._restore_draft('new-conversation', fresh=True)
+        self.assertTrue(reopened.model['allowChanges'])
+        self.assertTrue(reopened.model['allowWeb'])
+        self.assertEqual(reopened.model['effort'], 'low')
+        from thlib.environment import env_server
+        with patch.object(env_server, 'get_user', return_value='another-user'):
+            self.assertEqual(reopened.saved_choices(), {})
+
     @classmethod
     def setUpClass(cls):
         ScriptToolsTests.setUpClass()

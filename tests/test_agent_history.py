@@ -14,7 +14,7 @@ from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTest import QTest
 
 from tests.test_frame_script_tools import ScriptToolsTests, QML
-from tests.test_agent_request import Application
+from tests.test_agent_request import Application, isolate_chat_settings
 from tests.profile_ui_responsiveness import frame
 from thlib.environment import env_inst
 from thlib.ui.agent_request import AgentRequestController
@@ -23,6 +23,9 @@ from thlib.ui.icon_font import qml_icon_bindings
 
 @unittest.skipUnless(os.environ.get('TACTIC_AGENT_TEST_URL'), 'Run with the owned HTTP fixture')
 class AgentHistoryInput(unittest.TestCase):
+    def setUp(self):
+        isolate_chat_settings(self)
+
     @classmethod
     def setUpClass(cls):
         ScriptToolsTests.setUpClass()

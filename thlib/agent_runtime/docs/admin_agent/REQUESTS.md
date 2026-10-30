@@ -241,3 +241,10 @@ Frame `request.ui.mjs.permissionActions` owns the three toolbar-menu actions.
 Both native ActionMenu and web AppMenu render it; checked permission items use
 checkbox semantics. The composer reserves 60 fewer pixels; frozen/pending guards
 and default-denied change/internet permissions are retained.
+
+
+## Last-used composer choices
+
+The five last-used composer values (provider/model/effort and change/web permissions) are restored for new drafts and reopened clients. These are local working-state choices, not project configuration or an expansion of tool authority. TH reads/writes `ui_agent_chat` through the normal login/server-preset-scoped `env_read_config`/`env_write_config` under `ui_main`. TS uses `tactic_stream.agentChat.<login>` in the current origin's localStorage; the application supplies its authenticated login. Only bounded string model/connection choices and boolean flags are retained. No ticket, key, prompt, attachment or selection enters this record.
+
+Only explicit control changes update the saved values; loading history does not. A new draft uses remembered choices, its own existing draft state takes precedence, and an existing sent conversation keeps its captured permissions/model values. Changing model/effort on a finished conversation updates those future model choices without copying that conversation's permissions into defaults. Server validation and per-group tool restrictions still apply to every submitted request.

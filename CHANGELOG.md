@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.290 - 2026-10-30
+
+- Remember the last chat connection, model, reasoning effort and change/internet permissions across new conversations and application restarts, scoped to the current account and server preset.
+- Preserve each existing conversation's captured permissions and each unsent draft's explicit choices when restoring history.
+
 ## 0.6.0.289 - 2026-10-30
 
 - Let the agent read/add native task and process comments with per-turn retry protection, and set actual object previews through the built-in icon check-in.

@@ -42,7 +42,7 @@ class AgentRequestController(QObject):
         self._timer.setInterval(2500)
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(lambda: self._request('poll'))
-        self._model = self.initial()
+        self._model = self.new_model()
         from PySide6.QtGui import QGuiApplication
         QGuiApplication.clipboard().dataChanged.connect(self.clipboardChanged)
         application._registry.register('open_agent_request', self.open)
@@ -58,6 +58,26 @@ class AgentRequestController(QObject):
                     history=dict(visible=None,mobile=False,width=280,query='',project='',searchOpen=False,grouping='time',archived=False,collapsed={},edit=None),
                     groups=[],groups_revision='',group_revisions={},projects=[],unavailable_projects=[],total=0,next_offset=None,drafts={})
 
+    @staticmethod
+    def saved_choices():
+        from thlib.environment import env_read_config
+        stored = env_read_config(filename='ui_agent_chat', unique_id='ui_main', long_abs_path=True) or {}
+        if not isinstance(stored, dict):
+            return {}
+        return {key: value for key, value in stored.items()
+                if (key in ('provider', 'model', 'effort') and isinstance(value, str) and len(value) <= 512)
+                or (key in ('allowChanges', 'allowWeb') and type(value) is bool)}
+
+    def new_model(self, context=None):
+        return dict(self.initial(context), **self.saved_choices())
+
+    def remember_choices(self, fields):
+        from thlib.environment import env_write_config
+        try:
+            env_write_config(dict(self.saved_choices(), **fields), filename='ui_agent_chat', unique_id='ui_main', long_abs_path=True)
+        except OSError as error:
+            self._model['error'] = str(error)
+
     @Slot('QVariantMap')
     def set_history(self, value):
         before = self._model['history']
@@ -69,8 +89,10 @@ class AgentRequestController(QObject):
     def _draft(self):
         return {key:deepcopy(self._model[key]) for key in ('prompt','attachments','model','provider','effort','allowChanges','allowWeb')}
 
-    def _restore_draft(self, code):
+    def _restore_draft(self, code, fresh=False):
         values = dict(prompt='',attachments=[],model=None,provider=None,effort=None,allowChanges=False,allowWeb=False)
+        if fresh or not code:
+            values.update(self.saved_choices())
         values.update(deepcopy(self._model['drafts'].get(self._draft_key(code), {})))
         self._model.update(values)
 
@@ -109,7 +131,7 @@ class AgentRequestController(QObject):
         self._in_flight = False
         self._queued_action = ''
         self._timer.stop()
-        self._model = dict(self.initial(context), history=self._model['history'], drafts=self._model['drafts'])
+        self._model = dict(self.new_model(context), history=self._model['history'], drafts=self._model['drafts'])
         self._capture_session()
         self.open(context)
 
@@ -121,7 +143,7 @@ class AgentRequestController(QObject):
         self._timer.stop()
         self._history_timer.stop()
         self._server = None
-        self._model = self.initial()
+        self._model = self.new_model()
         self.application.window_model.close_window('agent_request')
         self.changed.emit()
 
@@ -130,7 +152,7 @@ class AgentRequestController(QObject):
         if not self.application.can_administer:
             return
         if not self._model['selected'] and not self._model['prompt'] and not self._model['attachments'] and not self._model['pending'] and not self._model['uploading']:
-            self._model = dict(self.initial(context or self.capture()), history=self._model['history'], drafts=self._model['drafts'])
+            self._model = dict(self.new_model(context or self.capture()), history=self._model['history'], drafts=self._model['drafts'])
         if self._model['context'].get('project') and self._server is None:
             self._capture_session()
         self.application.window_model.show_window('agent_request')
@@ -221,6 +243,9 @@ class AgentRequestController(QObject):
             if self._model['pending'] or (action in ('changes', 'web') and self._model['selected'] and self._model['request'].get('status')!='draft'):
                 return
             self._model[{'prompt': 'prompt', 'changes': 'allowChanges', 'web': 'allowWeb'}[action]] = str(value) if action == 'prompt' else bool(value)
+            if action in ('changes', 'web'):
+                field = 'allowChanges' if action == 'changes' else 'allowWeb'
+                self.remember_choices({field: self._model[field]})
             self.changed.emit()
         elif action == 'select':
             if self._model['uploading'] or self._model['pending']:
@@ -243,7 +268,7 @@ class AgentRequestController(QObject):
             self._generation += 1
             self._in_flight = False
             self._model.update(selected=code, request={}, pending=None)
-            self._restore_draft(code)
+            self._restore_draft(code, fresh=selected.get('status') == 'draft')
             self._model['history']['edit']=None
             self.refresh()
         elif action == 'send':
@@ -273,6 +298,11 @@ class AgentRequestController(QObject):
                 self._model['model'] = ''
             if action in ('model', 'provider'):
                 self._model['effort'] = ''
+            provider = self._model['provider'] or self._model['request'].get('provider') or next(
+                (host['capabilities'].get('default_provider', 'codex') for host in self._model['hosts']), 'codex')
+            self.remember_choices(dict(provider=provider,
+                model=self._model['model'] if self._model['model'] is not None else self._model['request'].get('model', ''),
+                effort=self._model['effort'] or ''))
             self.changed.emit()
         elif action == 'context':
             self._model['contextExpanded'] = not self._model['contextExpanded']
@@ -559,7 +589,7 @@ class AgentRequestController(QObject):
                         self._model['previews']={}
                     self._model['context']=result['request']['document']['context']
                     if not operation.get('edit'):
-                        self._restore_draft(result['selected'])
+                        self._restore_draft(result['selected'], fresh=True)
                     self._model['history'].update(query='',archived=False)
                 self._model['history']['edit']=None
             self._model.update({key: result[key] for key in ('selected', 'request', 'hosts', 'requests')})

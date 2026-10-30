@@ -37,6 +37,9 @@ class Server(requests.Server):
 
 
 class ExecutorUI(unittest.TestCase):
+    def setUp(self):
+        requests.isolate_chat_settings(self)
+
     @classmethod
     def setUpClass(cls):
         frames.ScriptToolsTests.setUpClass()
