@@ -1,4 +1,5 @@
 SidebarTreeRow 1.0 controls/NavigationRow.qml
+SystemInfoView 1.0 SystemInfoView.qml
 CustomLayoutView 1.0 features/table/CustomLayoutView.qml
 AttachmentComposerControls 1.0 AttachmentComposerControls.qml
 SnapshotPreviewLayers 1.0 SnapshotPreviewLayers.qml

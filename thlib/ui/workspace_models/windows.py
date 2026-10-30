@@ -94,6 +94,7 @@ class FloatingWindowModel(QAbstractListModel):
         "agent_providers",
         "agent_mcp",
         "table_views",
+        "system_info",
     })
 
     _configuration_pages = frozenset({
@@ -131,6 +132,7 @@ class FloatingWindowModel(QAbstractListModel):
         "help": "features/support/help/HelpView.qml",
         "debug_log": "DebugLogView.qml",
         "ui_performance": "UiPerformanceView.qml",
+        "system_info": "SystemInfoView.qml",
         "error": "ErrorDialog.qml",
         "repository_sync": "RepositorySyncView.qml",
         "repository_sync_editor": "RepositorySyncEditorView.qml",
@@ -208,6 +210,7 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("help", "Help", "help", .15, .10, .70, .76),
             FloatingWindow("debug_log", "Debug Log", "debug_log", .18, .13, .64, .68),
             FloatingWindow("ui_performance", "UI responsiveness", "ui_performance", .15, .12, .70, .70),
+            FloatingWindow("system_info", "System Info", "system_info", .20, .12, .60, .72),
             FloatingWindow("error", "Application Error", "error", .18, .16, .64, .68, blocking=True),
             FloatingWindow("repository_sync", "Repository Sync Queue", "repository_sync", .18, .13, .64, .68),
             FloatingWindow("repository_sync_editor", "Repository Sync", "repository_sync_editor", .10, .08, .80, .82, blocking=True),

@@ -1,5 +1,71 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'System Info': 'Информация о системе',
+    'Server and client diagnostics': 'Сведения о сервере и клиенте',
+    'Node Name': 'Имя узла',
+    Release: 'Выпуск ОС',
+    Machine: 'Архитектура',
+    'CPU Count': 'Число процессоров',
+    OS: 'Операционная система',
+    'Server time (UTC)': 'Время сервера (UTC)',
+    'User Agent': 'User Agent',
+    'TACTIC User': 'Пользователь TACTIC',
+    'Mail Server': 'Почтовый сервер',
+    'Asset Folders': 'Каталоги файлов',
+    'Server handoff directory': 'Каталог передачи на сервере',
+    'Writable (access check)': 'Доступен для записи (проверка прав)',
+    'None configured': 'Не настроено',
+    Browser: 'Браузер',
+    'Time zone': 'Часовой пояс',
+    'Load Balancing': 'Балансировка нагрузки',
+    'Performance Test': 'Тест производительности',
+    'Sample server requests to identify responding workers and ports.':
+        'Проверка отвечающих серверных процессов и портов по серии запросов.',
+    'Build the Users table definition and read its rows through sequential and parallel requests.':
+        'Загрузка описания таблицы пользователей и её строк последовательными и параллельными запросами.',
+    'Test load balancing': 'Проверить балансировку',
+    'Test performance': 'Проверить производительность',
+    'Email Send Test': 'Отправить тестовое письмо',
+    'No mail server is configured': 'Почтовый сервер не настроен',
+    'Test client handoff': 'Проверить передачу файлов',
+    'Link Test': 'Проверка страниц',
+    'Open the project pages in browser windows. This can take a few minutes.':
+        'Открыть страницы проекта в окнах браузера. Это может занять несколько минут.',
+    'Include built-in pages': 'Включить встроенные страницы',
+    'Run link test': 'Открыть страницы',
+    'No project pages configured': 'Страницы проекта не настроены',
+    'Python Script Test': 'Проверка Python-скрипта',
+    'Script Path': 'Путь скрипта',
+    'Clear Side Bar Cache': 'Очистить кеш навигации',
+    'Clear the Side Bar Cache for all users':
+        'Очистить серверный кеш боковой панели для всех пользователей',
+    'Running test\u2026': 'Выполняется проверка…',
+    Sequential: 'Последовательно',
+    Parallel: 'Параллельно',
+    request: 'запрос',
+    requests: 'запросов',
+    'parallel requests': 'параллельных запросов',
+    'Observed workers': 'Обнаружено процессов',
+    Ports: 'Порты',
+    Samples: 'Замеров',
+    Accessible: 'Доступен',
+    'Not accessible': 'Недоступен',
+    'Email sent successfully': 'Письмо успешно отправлено',
+    'Script completed': 'Скрипт выполнен',
+    'Side Bar cache cleared.': 'Кеш навигации очищен.',
+    'Opened pages': 'Открыто страниц',
+    'Allow pop-ups to open all pages':
+        'Разрешите всплывающие окна, чтобы открыть все страницы',
+    'The browser cannot inspect client folders. Run this test in TACTIC Handler.':
+        'Браузер не может проверить локальные каталоги. Запустите эту проверку в ТХ.',
+    'Test cancelled': 'Проверка отменена',
+    'Please enter a valid script path':
+        'Укажите корректный путь сохранённого скрипта',
+    'Choose sender and recipient emails':
+        'Укажите отправителя и получателей письма',
+    'System Info requires administrator access':
+        'Информация о системе доступна только администратору',
+
     'Preparing the local agent environment…':
         'Подготовка локального окружения агента…',
     'Choose computer': 'Выберите компьютер',

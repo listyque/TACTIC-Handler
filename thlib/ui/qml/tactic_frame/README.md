@@ -24,7 +24,7 @@ Neither product imports the other checkout at runtime.
 | `features/tools` | Native DCC options, Handler Server and selected-object Database tools | Core and controls; connector manifests, fixed command routing, selected identities and mutations stay with existing controllers. No additional browser Batch Manager |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
-| `features/support/diagnostics` | Debug sessions, event details, measurements and selection | Core and controls |
+| `features/support/diagnostics` | Debug sessions, event details, measurements, selection and the complete System Info diagnostics panel | Core and controls |
 | `features/support/identity` | Profile composition, account editor and local draft decisions | Core and controls |
 | `features/support/connection` | Sign-in, native presets and release composition | Core and controls |
 | `features/support/feedback` | Error inspection and contextual actions | Core and controls |

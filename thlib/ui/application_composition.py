@@ -68,6 +68,7 @@ from thlib.ui.agent_request import AgentRequestController
 from thlib.ui.agent_providers import AgentProvidersController
 from thlib.ui.table.views import TableViewsController
 from thlib.ui.agent_mcp import AgentMcpController
+from thlib.ui.system_info import SystemInfoController
 from thlib.ui.script_shelf import ScriptShelfController
 from thlib.ui.script_triggers import ScriptTriggerController
 from thlib.ui.server_updates import ServerUpdateService
@@ -278,6 +279,7 @@ class DeliveryBundle:
     agent_providers: AgentProvidersController
     table_views: TableViewsController
     agent_mcp: AgentMcpController
+    system_info: SystemInfoController
     script_shelf: ScriptShelfController
     script_triggers: ScriptTriggerController
     update: UpdateController
@@ -302,6 +304,7 @@ class DeliveryBundle:
             "agentProvidersController": self.agent_providers,
             "tableViewsController": self.table_views,
             "agentMcpController": self.agent_mcp,
+            "systemInfoController": self.system_info,
             "scriptEditorModel": self.script_editor.model,
             "scriptEditorTabModel": self.script_editor.tabs,
             "scriptTriggerController": self.script_triggers,
@@ -644,6 +647,8 @@ def _build_delivery(
     agent_providers = AgentProvidersController(controller, server_pool)
     table_views = TableViewsController(controller, server_pool)
     agent_mcp = AgentMcpController(controller, server_pool)
+    system_info = SystemInfoController(controller, server_pool)
+    system_info.navigationCleared.connect(collaboration.administration.refresh_metadata)
     collaboration.server_updates.batchReady.connect(
         script_editor.apply_server_batch
     )
@@ -731,6 +736,7 @@ def _build_delivery(
         agent_providers=agent_providers,
         table_views=table_views,
         agent_mcp=agent_mcp,
+        system_info=system_info,
         script_shelf=script_shelf,
         script_triggers=script_triggers,
         update=update,
@@ -1115,6 +1121,7 @@ def build_application_runtime(
             delivery.ingest_files,
             delivery.screenshot,
             delivery.script_editor,
+            delivery.system_info,
             delivery.script_shelf,
             delivery.script_triggers,
             delivery.handler_server,

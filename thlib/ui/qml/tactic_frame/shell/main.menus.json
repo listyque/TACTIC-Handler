@@ -82,6 +82,12 @@
       "desktop": true
     },
     {
+      "title": "System Info",
+      "icon": "info",
+      "command": "show_system_info",
+      "admin": true
+    },
+    {
       "title": "UI responsiveness",
       "icon": "ui-performance",
       "command": "show_ui_performance",

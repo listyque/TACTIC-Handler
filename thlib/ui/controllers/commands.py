@@ -278,7 +278,7 @@ class CommandsMixin:
         if (
             not self.can_manage_tools
             and (
-                command in {"show_ui_performance", "show_handler_server"}
+                command in {"show_ui_performance", "show_handler_server", "show_system_info"}
                 or command.startswith(("tool_", "dcc_tool:"))
             )
         ):
@@ -319,7 +319,7 @@ class CommandsMixin:
     @Slot(str)
     def open_window(self, window_id: str) -> None:
         if not self.can_manage_tools and window_id in {
-            "handler_server", "ui_performance", "create_update"
+            "handler_server", "ui_performance", "create_update", "system_info"
         }:
             return
         if window_id == "commit_queue":
@@ -457,7 +457,7 @@ class CommandsMixin:
             or self.can_manage_tools
         ]
         if menu_id == "configuration" and not self.can_manage_tools:
-            hidden = {"show_ui_performance", "show_handler_server"}
+            hidden = {"show_ui_performance", "show_handler_server", "show_system_info"}
             actions = [
                 action for action in actions
                 if action.get("command") not in hidden

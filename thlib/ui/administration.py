@@ -486,7 +486,13 @@ class AdministrationController(QObject):
 
     @Slot()
     def _project_document_saved(self) -> None:
-        self._pending_metadata.add(self._project)
+        self.refresh_metadata(self._project)
+
+    @Slot(str)
+    def refresh_metadata(self, project: str) -> None:
+        if not project:
+            return
+        self._pending_metadata.add(project)
         self._refresh_pending_metadata()
 
     @Slot()
