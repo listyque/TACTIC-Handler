@@ -609,6 +609,7 @@ def _build_delivery(
 ) -> DeliveryBundle:
     controller = core.controller
     columns_editor = ColumnsEditorController(controller, task_bundle.tasks)
+    controller.columns_editor_controller = columns_editor
     controller.columnsEditorRequested.connect(
         collaboration.administration.open_columns_editor
     )

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.301 - 2026-10-30
+
+- Bind the shared column editor during application startup so embedded dashboard and nested tables can load their columns and open scoped definitions.
+
 ## 0.6.0.300 - 2026-10-30
 
 - Document the installable Workspace Pulse example: portable task and VFX dashboards using existing native Handler and Stream components.

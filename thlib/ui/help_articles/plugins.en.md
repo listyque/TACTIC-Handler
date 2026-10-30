@@ -38,6 +38,10 @@ sidebar and native dashboard renderer in TH and TS, and remain editable through
 the Page Editor and the internal agent. It creates no sample records or services.
 Remove/Reload affects its configurations; export custom page edits first.
 
+In Handler, embedded dashboard tables use the ordinary column editor. Opening a
+column definition retains that table's Search Type and view, separate from the
+main search's selected view.
+
 ### Start a new package
 
 1. Choose **Create your own plugin** on the start screen, or **New** in the catalogue.
