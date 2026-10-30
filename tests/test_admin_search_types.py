@@ -529,11 +529,12 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
                     band = band.parentItem()
                 self.assertIsNotNone(band, 'Counters belong to one statistics surface')
                 graph = self.item('adminSearchTypeRelationshipGraph')
-                help_text = self.item('typeSummaryHelp')
+                names = {item.objectName() for item in sidebar_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())}
+                self.assertNotIn('typeSummaryHelp', names)
+                self.assertNotIn('typeGraphHeadingDescription', names)
                 band_top = band.mapToScene(QPointF()).y()
                 graph_top = graph.mapToScene(QPointF()).y()
-                self.assertLessEqual(graph_top - band_top - band.height(), 180)
-                self.assertLess(help_text.height(), 80)
+                self.assertLessEqual(graph_top - band_top - band.height(), 44)
                 for name, expected in (('total', '230'), ('active', '215'), ('retired', '15')):
                     value = self.item('adminSearchTypeCount_' + name)
                     self.assertEqual(value.property('text'), expected)

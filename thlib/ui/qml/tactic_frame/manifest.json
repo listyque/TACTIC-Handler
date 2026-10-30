@@ -71,7 +71,7 @@
     "features/administration/schema/schema_delete.ui.mjs": "5b6a1806f84a4e319df6eefb57c13894b776530fb30463aba81a3d8595f68cf4",
     "features/administration/search_types/search_types.fields.mjs": "bf29f567db1e015fda20978a5a6b89c452713981a0129f8773de71961999038a",
     "features/administration/search_types/search_types.state.mjs": "d5530a13322fb0985974615a64ea4d53c1a3d8aa443105c606302acea855915a",
-    "features/administration/search_types/search_types.ui.mjs": "d4f51906716ec696b44c79939d0b7689f3aea832c00f628ccc485fbb2e241e2d",
+    "features/administration/search_types/search_types.ui.mjs": "fb083d60945384e9a9451d16466c59c7d4852243e9e0222078c012f570ab7e89",
     "features/administration/security/security.state.mjs": "414a80470943ee612faa6bd04d38b9f12cb97bd0937378ae826e3714444f232e",
     "features/administration/security/security.ui.mjs": "5d9229965ed1b3f04d35a1ab38b3f21868f11d0599059bbe318cd3d6774103ad",
     "features/administration/sidebar/sidebar.state.mjs": "f729049311a7d742c9bc3d521075cbbcfe3c0cdca84ad96c89acb0c9b7d91b19",

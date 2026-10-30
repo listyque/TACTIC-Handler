@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.297 - 2026-10-30
+
+- Remove passive explanatory paragraphs from the shared Search Types summary and bring the relationship map directly below its statistics. Keep the explanations in EN/RU Help.
+
 ## 0.6.0.296 - 2026-10-30
 
 - Add shared project chat rules to the ordinary chat options in both clients, with native project/template storage, revision checks, per-turn snapshots and compatible-host detection.

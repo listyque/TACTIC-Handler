@@ -911,31 +911,7 @@ function content(model, ui, width, height, language, edit, navigate) {
             )
         );
         y += metricsHeight + 12;
-        const summaryHelp = tr(
-                'Totals include retired Search Objects. Shared system types are counted in their own database. Reload to update the summary.'
-            ),
-            summaryHelpHeight = textHeight(summaryHelp);
-        nodes.push(
-            label(
-                'typeSummaryHelp',
-                rect(0, y, width, summaryHelpHeight),
-                summaryHelp,
-                Object.assign(
-                    {
-                        wrap: true
-                    },
-                    muted
-                )
-            )
-        );
-        y += summaryHelpHeight + 16;
-        summaryHeading(
-            'typeGraphHeading',
-            tr('Relationship map'),
-            tr(
-                'A read-only view of this Search Type and only its direct schema relationships.'
-            )
-        );
+        summaryHeading('typeGraphHeading', tr('Relationship map'));
         nodes.push(
             node(
                 'Graph',
