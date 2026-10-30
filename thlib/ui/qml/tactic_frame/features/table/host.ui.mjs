@@ -71,14 +71,17 @@ function serviceHeight(columns) {
 
 export function describe(model, width) {
     const available = Math.max(0, width - metrics.selection - metrics.actions);
-    const columns = Columns.visibleColumns(
-        model.columns || [],
-        available,
-        model.overrides
-    );
-    const fitted = model.autoFit
-        ? Columns.fittedWidths(columns, available, model.overrides)
-        : {};
+    const columns = model.scrollColumns
+        ? model.columns || []
+        : Columns.visibleColumns(
+              model.columns || [],
+              available,
+              model.overrides
+          );
+    const fitted =
+        model.autoFit && !model.scrollColumns
+            ? Columns.fittedWidths(columns, available, model.overrides)
+            : {};
     const cells = [];
     let left = metrics.selection;
     for (let index = 0; index < columns.length; index++) {

@@ -11,15 +11,17 @@ Item {
     required property var theme
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     required property var columnsController
+    property bool scrollColumns: false
 
     signal configureRequested
+    signal scrollColumnsRequested
     signal closeRequested
 
     width: 0
     height: 0
 
     function actions() {
-        return TableMenus.viewActions(columnsController.tableViews || [], !columnsController.busy, root.language);
+        return TableMenus.viewActions(columnsController.tableViews || [], !columnsController.busy, root.language, root.scrollColumns);
     }
 
     function openBelow(anchor) {
@@ -34,7 +36,10 @@ Item {
         theme: root.theme
         preferredWidth: 280
         onTriggered: command => {
-            if (command === "save_as") {
+            if (command === "scroll_columns") {
+                root.scrollColumnsRequested();
+                root.closeRequested();
+            } else if (command === "save_as") {
                 viewName.clear();
                 saveDialog.open();
                 viewName.forceActiveFocus();

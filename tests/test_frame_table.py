@@ -100,6 +100,80 @@ class FrameTableTests(unittest.TestCase):
         frame(window)
         self.assertEqual(saved, ["Модель"])
 
+    def test_scrolling_mode_keeps_columns_and_uses_existing_horizontal_bar(self):
+        controller, columns = _TableController(), _TableColumns()
+        columns._columns = [
+            dict(row=index, name=name, label=name, width=160, hideOrder=order)
+            for index, (name, order) in enumerate(
+                [("code", 0), ("notes", 2), ("category", 1)]
+            )
+        ]
+        model = WorkspaceItemModel()
+        model.replace_nodes([WorkspaceNode(
+            node_id="asset", node_type="sobject", search_key="asset",
+            code="A", title="Asset",
+        )])
+        window, table = self.create(
+            "SearchResultTable.qml",
+            dict(controller=controller, columnsController=columns, resultModel=model,
+                 presentationActive=True),
+            width=430, height=380,
+        )
+        self.assertFalse(any(item.objectName() == "tableColumnContextArea_category"
+                             for item in _visual_items(table)))
+
+        def toggle():
+            self.click(window, self.item(table, "configureTableColumnsButton"))
+            menu = table.findChild(QObject, "tableViewPresetsMenu")
+            self.assertIsNotNone(menu)
+            for _ in range(100):
+                if menu.property("opened"):
+                    break
+                QTest.qWait(10)
+            self.assertTrue(menu.property("opened"))
+            content = menu.property("contentItem")
+            frame(content.window())
+            for item in _visual_items(content):
+                data = item.property("modelData")
+                data = data.toVariant() if hasattr(data, "toVariant") else data
+                if isinstance(data, dict) and data.get("command") == "scroll_columns":
+                    previous = table.property("scrollColumns")
+                    self.click(content.window(), self.item(item, "actionMenuPrimaryTarget"))
+                    for _ in range(100):
+                        if table.property("scrollColumns") != previous:
+                            break
+                        QTest.qWait(10)
+                    frame(window)
+                    return
+            self.fail("Horizontal scrolling action missing")
+
+        toggle()
+        self.assertTrue(table.property("scrollColumns"))
+        rows = self.item(table, "searchResultsTableView")
+        bar = self.item(table, "tableHorizontalScrollBar")
+        self.assertTrue(bar.property("hasOverflow"))
+        self.assertTrue(bar.isVisible())
+        self.assertAlmostEqual(rows.property("contentWidth"), 584, delta=1)
+        if output := os.environ.get("TABLE_SCROLLING_OUTPUT"):
+            window.grabWindow().save(str(Path(output) / "native.png"))
+        rows.setProperty("contentX", rows.property("contentWidth") - rows.width())
+        frame(window)
+        self.assertGreater(rows.property("contentX"), 0)
+        self.assertTrue(self.item(table, "tableColumnContextArea_category").isVisible())
+        for width in (900, 360):
+            table.setWidth(width)
+            window.resize(width, 380)
+            frame(window)
+            self.assertTrue(table.property("scrollColumns"))
+            self.assertTrue(self.item(table, "tableColumnContextArea_category").isVisible())
+            self.assertEqual(bar.property("hasOverflow"), width < 584)
+        toggle()
+        self.assertFalse(table.property("scrollColumns"))
+        toggle()
+        self.click(window, self.item(table, "autoFitTableColumnsButton"))
+        self.assertTrue(table.property("autoFitColumns"))
+        self.assertFalse(table.property("scrollColumns"))
+
     def test_tags_keep_draft_until_save_and_remove_without_writing(self):
         window, view = self.create(
             "features/table/ValueEditor.qml",

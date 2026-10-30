@@ -109,7 +109,7 @@ export function columnActions(model, language) {
     ]);
 }
 
-export function viewActions(views, enabled, language) {
+export function viewActions(views, enabled, language, scrollColumns = false) {
     const actions = [{ title: 'Table views', header: true }];
     for (let index = 0; index < views.length; index++) {
         const view = views[index];
@@ -125,6 +125,14 @@ export function viewActions(views, enabled, language) {
         });
     }
     return actions.concat([
+        { separator: true },
+        {
+            title: 'Horizontal scrolling',
+            icon: 'fit-width',
+            command: 'scroll_columns',
+            role: 'menuitemcheckbox',
+            checked: scrollColumns
+        },
         { separator: true },
         {
             title: 'Configure columns',

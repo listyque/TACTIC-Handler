@@ -34,6 +34,7 @@ Item {
     property bool presentationActive: false
     property var widthOverrides: ({})
     property bool autoFitColumns: false
+    property bool scrollColumns: false
     property real rowHeight: 58
     property bool automaticRowHeight: false
     property var hoveredTaskCell: null
@@ -44,6 +45,7 @@ Item {
         columns: columns,
         overrides: widthOverrides,
         autoFit: autoFitColumns,
+        scrollColumns: scrollColumns,
         rowHeight: rowHeight,
         automaticRowHeight: automaticRowHeight
     }, rows.width)
@@ -320,7 +322,15 @@ Item {
             columnWidthProvider: root.columnWidth
             widthOverrides: root.widthOverrides
             autoFitColumns: root.autoFitColumns
-            onAutoFitRequested: root.autoFitColumns = !root.autoFitColumns
+            scrollColumns: root.scrollColumns
+            onScrollColumnsRequested: {
+                root.scrollColumns = !root.scrollColumns;
+                root.autoFitColumns = false;
+            }
+            onAutoFitRequested: {
+                root.autoFitColumns = !root.autoFitColumns;
+                root.scrollColumns = false;
+            }
             onWidthPreviewRequested: (name, width) => root.setWidthOverride(name, width)
             onWidthClearRequested: name => root.clearWidthOverride(name)
             onWidthCommitRequested: (column, width) => root.commitColumnWidth(column, width)

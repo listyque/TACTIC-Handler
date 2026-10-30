@@ -26,6 +26,7 @@ Rectangle {
     required property real actionColumnWidth
     required property var columnWidthProvider
     required property bool autoFitColumns
+    property bool scrollColumns: false
     property var columnContext: ({})
     property var widthOverrides: ({})
     property var tableViewPresetMenu: null
@@ -39,6 +40,7 @@ Rectangle {
     signal selectAllRequested(bool selected)
     signal rowHeightRequested(real height)
     signal autoFitRequested
+    signal scrollColumnsRequested
 
     function columnWidth(column) {
         return Number(columnWidthProvider(column));
@@ -116,7 +118,11 @@ Rectangle {
                 return;
             tableViewPresetMenu = component.createObject(root, {
                 "theme": root.theme,
-                "columnsController": root.columnsController
+                "columnsController": root.columnsController,
+                "scrollColumns": root.scrollColumns
+            });
+            tableViewPresetMenu.scrollColumnsRequested.connect(function () {
+                root.scrollColumnsRequested();
             });
             tableViewPresetMenu.configureRequested.connect(function () {
                 root.columnsEditorRequested(-1, "definition");
@@ -129,6 +135,7 @@ Rectangle {
                 });
             });
         }
+        tableViewPresetMenu.scrollColumns = root.scrollColumns;
         tableViewPresetMenu.openBelow(anchor);
     }
 
