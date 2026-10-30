@@ -70,6 +70,41 @@ class AdminPluginsTests(unittest.TestCase):
     def setUpClass(cls):
         ScriptToolsTests.setUpClass()
 
+    def test_resource_theme_draft_crosses_qml_boundary_and_saves_plain_values(self):
+        isolate_chat_settings(self)
+        surface=ScriptToolsTests();surface.setUp();self.addCleanup(surface.doCleanups)
+        resource=dict(key='config/widget_config?project=one&code=THEME',kind='theme',title='sample_theme',field='config',revision='r1',
+            source='<config><sample_theme><theme style="md3"><light base="#ffffff" accent="#123456"/><dark base="#202020" accent="#abcdef"/></theme></sample_theme></config>',
+            palette=dict(style='md3',light=dict(base='#ffffff',accent='#123456'),dark=dict(base='#202020',accent='#abcdef')))
+        class ResourceServer(Server):
+            def execute_cmd(self,command,args):
+                result=super().execute_cmd(command,args)
+                if args['action']!='list':
+                    result['info']['metadata'].update(active=True,resources=[resource])
+                    if args['action']!='save':result['info']['document']['resource']=deepcopy(resource)
+                return result
+        server=ResourceServer()
+        controller=PluginsEditor(SimpleNamespace(can_manage_tools=True,debug_log=None));self.addCleanup(controller.shutdown)
+        with patch('thlib.tactic_classes.server_start',return_value=server):
+            view=surface.create(QML/'features/administration/plugins/AdminPluginsView.qml',dict(theme=surface.theme,controller=controller,width=1000,height=780,saveActionsInHeader=False))
+            window=QQuickWindow();window.resize(1000,780);surface.windows.append(window)
+            view.setParentItem(window.contentItem());window.show()
+            def wait():
+                deadline=time.monotonic()+10
+                while controller.busy and time.monotonic()<deadline:QTest.qWait(5)
+                self.assertFalse(controller.busy);self.assertFalse(controller.error,controller.error);frame(window)
+            controller.activate('one');wait()
+            view.dispatch(dict(type='tab',value='resources'));wait()
+            view.dispatch(dict(type='resource-theme',field='dark_accent',value='#998877'));frame(window)
+            self.assertTrue(controller.dirty)
+            surface.click(window,surface.item(view,'pluginSave'));wait()
+            saved=server.calls[-1]['document']['resource']
+            self.assertEqual('#998877',saved['palette']['dark']['accent'])
+            self.assertIn('accent="#998877"',saved['source'])
+            import json
+            json.dumps(saved)
+            self.assertFalse(surface.warnings,'\n'.join(surface.warnings))
+
     def test_first_package_guides_creation_installation_and_explicit_activation(self):
         isolate_chat_settings(self)
         surface = ScriptToolsTests(); surface.setUp(); self.addCleanup(surface.doCleanups)
@@ -139,7 +174,7 @@ class AdminPluginsTests(unittest.TestCase):
             surface.click(window,surface.item(view,'pluginInstall')); frame(window)
             server.empty = True
             controller.activate('two'); wait()
-            self.assertEqual(surface.value(view,'ui'),dict(query='',activeOnly=False,tab='info',operation='',value='',url='',checksum='',collapsed=False,source='zip',notice=''))
+            self.assertEqual(surface.value(view,'ui'),dict(query='',activeOnly=False,tab='info',operation='',value='',url='',checksum='',collapsed=False,source='zip',notice='',resourceAdd=False,resourceKind='widget',resourceName='',resourceType='',resourceCode='',resourceSchema=False,resourceMode='source'))
             self.assertTrue(surface.item(view,'pluginEmptyInstall').isVisible())
             self.assertFalse(surface.warnings,'\n'.join(surface.warnings))
 

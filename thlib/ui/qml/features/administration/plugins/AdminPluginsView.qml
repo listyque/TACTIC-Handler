@@ -98,6 +98,7 @@ Item {
         models: ({
                 plugins: UI.catalog(root.frameModel, root.ui),
                 files: root.controller.metadata.files || [],
+                pluginResources: root.controller.metadata.resources || [],
                 sourceEditor: root.controller.sourceEditor
             })
         describeRow: root.rowScene

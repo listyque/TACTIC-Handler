@@ -6,6 +6,7 @@ import * as Report from './report.ui.mjs';
 import * as Filters from './page.filters.mjs';
 import * as PageLayout from './page.layout.mjs';
 import * as Parts from './record.parts.mjs';
+import * as Composition from '../administration/layouts/layout.preview.mjs';
 import {
     textStyles,
     controls as controlMetrics
@@ -134,7 +135,55 @@ export function describe(
                           );
             top += margin[0] + padding[0];
             let extent = 0;
-            if (item.children) {
+            if (item.kind === 'widget') {
+                const scene = Composition.describe(
+                    item.layout,
+                    item.sample,
+                    available,
+                    '',
+                    language,
+                    width,
+                    server,
+                    id,
+                    0,
+                    !editable
+                );
+                function actions(nodes) {
+                    for (const child of nodes) {
+                        if (child.action?.type === 'itemAction')
+                            child.action = Object.assign({}, child.action, {
+                                type: 'record-action',
+                                name: child.action.href
+                                    ? 'layout-link'
+                                    : {
+                                          inspect: 'details',
+                                          operate: 'context_menu',
+                                          relations: 'context_menu',
+                                          tasks: 'task-details',
+                                          preview: 'quickaction',
+                                          upload: 'checkin'
+                                      }[child.action.action] ||
+                                      child.action.action,
+                                targetSearchKey: item.sample.search_key,
+                                record: item.sample.record,
+                                relationMenu:
+                                    child.action.action === 'relations',
+                                command:
+                                    child.action.action === 'preview'
+                                        ? 'open'
+                                        : child.action.command
+                            });
+                        actions(child.children || []);
+                    }
+                }
+                actions(scene.nodes);
+                output.push(
+                    node('Box', id, rect(x, top, available, scene.height), {
+                        children: scene.nodes
+                    })
+                );
+                extent = scene.height;
+            } else if (item.children) {
                 const horizontal =
                     item.kind === 'row' &&
                     available >= (item.collapseWidth ?? 600);

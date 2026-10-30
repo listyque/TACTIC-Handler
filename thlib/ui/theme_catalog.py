@@ -132,3 +132,44 @@ def base_color(preset, dark):
 def normalize_icon_set(value):
     value = str(value or "material-design").strip().lower()
     return value if value in ICON_SET_IDS else "material-design"
+def read_project_theme(project_code):
+    """Called by existing metadata workers, never from a QML property binding."""
+    import json
+    import re
+    from xml.etree import ElementTree as ET
+    from thlib import tactic_classes as tc
+
+    if project_code in ('admin', 'sthpw'):
+        return None
+    server = tc.server_start(project=project_code)
+    settings = server.query('config/prod_setting', filters=[('key', 'appearance/plugin_theme')])
+    source = next((row.get('value') for row in settings if row.get('value')), '')
+    if not source:
+        return None
+    try:
+        selection=json.loads(source)
+    except ValueError:
+        return None
+    if not isinstance(selection,dict) or not all(isinstance(selection.get(key),str) for key in ('view','plugin')):
+        return None
+    view=selection['view']
+    themes = server.query('config/widget_config', filters=[('view', view), ('widget_type', 'theme')])
+    if not themes:
+        return None
+    if not any(row.get('code')==selection['plugin'] for row in server.query('config/plugin',filters=[('code',selection['plugin'])])):
+        return None
+    try:
+        theme = ET.fromstring(themes[0]['config']).find('./*/theme')
+    except ET.ParseError:
+        return None
+    if theme is None or theme.get('style') not in ('md3', 'material5', 'fluent'):
+        return None
+    result = dict(style=theme.get('style'))
+    for mode in ('light', 'dark'):
+        colors = theme.find(mode)
+        if colors is None or set(colors.attrib) != {'base', 'accent'} or any(
+            not re.fullmatch(r'#[0-9a-fA-F]{6}', value) for value in colors.attrib.values()
+        ):
+            return None
+        result[mode] = dict(colors.attrib)
+    return result

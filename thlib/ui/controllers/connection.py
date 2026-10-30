@@ -488,6 +488,8 @@ class ConnectionMixin:
         self._clear_result_state()
         self._set_loading(False, self.tr("Project deactivated"))
         self.project_changed.emit("", "")
+        self.accent_changed.emit()
+        self.theme_style_changed.emit(self.theme_style)
         self.project_state_changed.emit()
         self.section_state_changed.emit()
 
@@ -531,6 +533,7 @@ class ConnectionMixin:
             stypes[identity] = retained
         project.stypes = stypes
         project.workflow = fresh.workflow
+        project.plugin_theme = getattr(fresh, 'plugin_theme', None)
         project.views = fresh.views
         project.views.project = project
         if code != self._current_project_code:
@@ -539,6 +542,8 @@ class ConnectionMixin:
         self.workspace_state.load_project(project)
         self.apply_cache_invalidation({code: ['reference', 'search', 'relations', 'tasks']})
         self.project_state_changed.emit()
+        self.accent_changed.emit()
+        self.theme_style_changed.emit(self.theme_style)
     @Slot(str)
     def select_project(self, project_code: str) -> None:
         files = getattr(self, 'file_workspace', None)
@@ -599,6 +604,9 @@ class ConnectionMixin:
         )
         if cache_only and not loaded:
             return None
+        if not cache_only:
+            from thlib.ui.theme_catalog import read_project_theme
+            project.plugin_theme = read_project_theme(project_code)
         entries = self.navigation_model.build_project_entries(
             project,
             env_inst.get_current_login_object(),
@@ -718,6 +726,8 @@ class ConnectionMixin:
             self._clear_result_state()
         self.project_state_changed.emit()
         self.section_state_changed.emit()
+        self.accent_changed.emit()
+        self.theme_style_changed.emit(self.theme_style)
     @Slot(object)
     def _async_project_result(self, result) -> None:
         project_code, title, entries, project, request_id = result
@@ -773,6 +783,8 @@ class ConnectionMixin:
         self.workspace_state.set_tabs([])
         self.workspace_model.clear()
         self.project_changed.emit(project_code, title)
+        self.accent_changed.emit()
+        self.theme_style_changed.emit(self.theme_style)
         self.project_state_changed.emit()
         links = {
             entry.key: entry for entry in entries

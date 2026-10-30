@@ -164,6 +164,14 @@ def read_custom_layout(
             (node for node in root if node.tag == view or node.get('name') == view),
             None,
         )
+        if definition is not None and definition.get('layout') == 'sobject-layout':
+            from tactic_stream.server.interface import read_interface
+            interface = read_interface(obj.get_base_search_type(), view)
+            record = dict(obj.get_data(), __search_key__=search_key)
+            sample = dict(kind='object', record=record, title=record.get('name') or record.get('title') or obj.get_code(),
+                          subtitle=record.get('description') or '', search_key=search_key)
+            return dict(layoutNodes=[dict(kind='widget', layout=interface['table']['item_layout'], sample=sample)],
+                        layoutView=view, targetSearchKey=search_key, record=record)
         if definition is not None and definition.find('dashboard') is not None:
             from tactic_stream.server.dashboards import dashboard_layout
             return dashboard_layout(json.loads(definition.findtext('dashboard')), view, search_key, filter_values=filter_values)

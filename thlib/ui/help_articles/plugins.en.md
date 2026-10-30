@@ -64,6 +64,59 @@ with a modern reusable item layout. Packages use existing renderers; installatio
 does not add a compiled QML/Vue renderer. **Project template** exports the selected
 project through the native template creator instead of creating/activating a plugin.
 
+## Resources: widgets, columns, themes, data and Python
+
+Open **Resources** in an active package. Select a resource in the left list to
+open its source or saved preview on the right. Narrow windows place the editor
+below the list. **Add resource** offers:
+
+- **Widget**: a modern reusable `sobject-layout` with title, description and Notes.
+  A `view` element can use another item layout. These compositions work in
+  CustomLayout pages and table cells in both clients.
+- **Column**: a reusable item composition. In a table use
+  `tactic.ui.table.CustomLayoutElementWdg` with its `view` set to this resource name.
+  Item layouts and Columns Editor remain the visual editors. Preview uses a real
+  record or sample data when the type is empty.
+- **Theme**: light/dark base and accent colors and a house style. Save, then choose
+  **Apply theme to project**. Users retain their light/dark mode and personal
+  preferences. **Use personal appearance**, changing projects or removing the
+  selected theme restores the personal palette. No CSS or client code is executed.
+- **Python action**: a native `config/custom_script`. Saving checks syntax without
+  execution. Enter a JSON object in **Arguments**, choose **Run Python action**,
+  confirm, and read the result. Script tools can invoke the same registered path.
+- **Project data**: select a Search Type and optional record code; empty selects
+  all records. **Include table schema** also exports registration and table DDL.
+  Removal deletes the selected records; a schema entry owns its entire table.
+- **Install/removal hooks**: creates two Python files and a manifest
+  `python path="..." undo_path="..."` entry. Select either file to edit it.
+  Installation runs the first; removal runs the second in reverse manifest order.
+
+Saving a resource validates it, updates the installed record and exports its SPT
+data into the package in one native Command transaction. Saving does not run
+installation hooks. Widget/theme changes become available immediately; changed
+manifest data still needs activation/reload. Unsaved changes block switching,
+execution and export. Concurrent edits are rejected.
+
+### Complete example: Studio Review
+
+Build `TS/examples/studio_review/build.py`, then install
+`TS/releases/studio-review-1.0.0.zip` in a disposable business project. It adds a
+`studio/review` table, three records, a sidebar table, a reusable widget with a
+nested status/progress column, a light/dark theme, a Python business action and
+install/remove hooks. In Resources open **approve**, enter
+`{"review_code":"STUDIO_REVIEW_001"}` and run it. The record becomes Approved,
+reaches 100% and records the authenticated approver. Refresh the table to see it.
+Apply the theme, export, reload and remove the package to exercise its lifecycle.
+Removal deletes the owned table/configurations/link and restores personal colors;
+export records you want to retain first.
+
+Native manifest selectors also package pipelines, processes, triggers, naming,
+navigation and other selected configuration records. Packages can carry Python
+modules, assets and manifest includes. Modern widgets compose existing native
+controls; packages do not dynamically compile new QML/Vue controls or execute
+legacy HTML/JavaScript inside Handler. SQL views and excluded legacy subsystems
+remain outside the supported contract.
+
 ## Edit and maintain packages
 
 The catalogue shows title, version, path and project activation state. Search by

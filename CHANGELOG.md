@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.303 - 2026-10-31
+
+- Complete the shared plugin resource workflow: create/edit reusable widgets, table columns, light/dark project themes, selected data/schema, Python actions and installation/removal hooks through the native package lifecycle.
+- Render modern nested item compositions in CustomLayout pages and cells; preserve native operations and personal appearance fallback across project changes and package removal.
+- Verify the complete Studio Review plugin in both clients, including typed creation, theme editing, confirmed Python writes, export/reinstallation/removal and rollback after a late install failure. Extend English/Russian Help.
+
 ## 0.6.0.302 - 2026-10-30
 
 - Remove five unused global QML model aliases while preserving the 179-binding architecture limit and existing feature controllers.

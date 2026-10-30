@@ -515,6 +515,8 @@ class CustomLayoutController(QObject):
         key, kind = action.get('targetSearchKey'), action.get('name')
         if kind == 'copy_link':
             QGuiApplication.clipboard().setText('skey://' + key)
+        elif kind == 'layout-link':
+            app.open_rich_link(action.get('href') or '')
         elif kind == 'refresh':
             if self.document_data.get('layoutHasDetails'):
                 self.select_detail(force=True)
@@ -543,6 +545,9 @@ class CustomLayoutController(QObject):
                 open_sobject_editor(app, dict(mode='edit', view=action.get('view') or 'edit', stype=stype,
                     sobject=tc.SObject(record, env_inst.projects[project_code]), parent_sobject=None, _prepared=True))
             self.services._run(lambda: server.get_by_search_key(key), loaded)
+        elif self.document_data.get('nodeId'):
+            command = {'task-details':'tasks', 'checkin':'save', 'quickaction':action.get('command') or 'open'}.get(kind,kind)
+            app.invoke_item_action(command,self.document_data['nodeId'])
 
     @Slot('QVariantMap')
     def activate(self, action):

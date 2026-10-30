@@ -205,7 +205,7 @@
     "features/table/host.ui.mjs": "4d45494bc8af3a7c87dd16ee654218c84dcc256b4ce66f746debfdccea8e1ef6",
     "features/table/inline.ui.mjs": "217a1871bbed809c6d077890a955559e64202c888e95262accc6db49b763a900",
     "features/table/items.ui.mjs": "ff18ad3ab255ce7ad041af3b59a8b698e5b68438660fc4a6e33d824239352f9b",
-    "features/table/layout.ui.mjs": "62fa3ace72846da46b31ef869e4720279282c242432aa04198566df60c03cf03",
+    "features/table/layout.ui.mjs": "597f23751ee76a82cead0f316daa8e97bf3da7ce999ef1f0199e0a2c6c0ff02e",
     "features/table/menus.ui.mjs": "bf71fcf22c987b26110701150a39bc3d98e76c4dfaef99cb7639c9286c1bcdc3",
     "features/table/nested.ui.mjs": "aa71d69aa9ba1a1f75bf92763f552bc31f0720b50a2ab3208518c680629dcf38",
     "features/table/page.filters.mjs": "5d334a1de85c1c7c38709ef9cd807b4023c964a5860a6e65f50e5c2be4d12803",
@@ -262,9 +262,10 @@
     "features/table/views.ui.mjs": "ea438e2043f258d3aee7a025042cac07ce097592b4079aff1c40fd6ec97e4ec8",
     "features/scripts/executor.ui.mjs": "daabfae30331352908b09904438f1d0a91924d792499117d2fd08f188178ba0c",
     "features/support/diagnostics/system.ui.mjs": "a4229de0fb743b29a2627fda4e09920f010c3ef9ea0cf025ea3b3eada8991ca4",
-    "features/administration/plugins/plugins.ui.mjs": "eefcff248b0f0d5d73aaae4781bedf9398462561c68a166cac6d7d75f972179f",
+    "features/administration/plugins/plugins.ui.mjs": "95353c4c5b44a4eda11630fdb60dc1fd3e66c1cf28c3148ab724639071e45bff",
     "features/administration/plugins/plugins.guide.mjs": "3eada4dd4578bc9c2762247b6f9ed7bd5fa568e74ba5ee188db6502e2d40c093",
-    "features/administration/plugins/plugins.state.mjs": "6488443a941df5f65d0638ab6b1beb32f8397231e99687e64cbfd6411021e5eb",
-    "features/scripts/rules.ui.mjs": "e96839e2939796e573968c2c4ad70eaf1bde6a49dd1b9bae09724520d81d6822"
+    "features/administration/plugins/plugins.state.mjs": "7ebc5528331f7bdcea66a56586eb4246b2291d4ec5fadb57e8e4c2bc6ea45173",
+    "features/scripts/rules.ui.mjs": "e96839e2939796e573968c2c4ad70eaf1bde6a49dd1b9bae09724520d81d6822",
+    "features/administration/plugins/plugins.resources.mjs": "a238ee6aa242fdfd3143d21c5008b81a506419b553f068be8f4104a3a934cb7f"
   }
 }

@@ -624,7 +624,12 @@ class ApplicationController(
 
     @Property(str, notify=theme_style_changed)
     def theme_style(self) -> str:
-        return self._theme_style
+        return self._project_palette().get('style') or self._theme_style
+
+    def _project_palette(self):
+        from thlib.environment import env_inst
+        project = (env_inst.projects or {}).get(getattr(self, '_current_project_code', ''))
+        return getattr(project, 'plugin_theme', None) or {}
 
     @Property(str, notify=dcc_state_changed)
     def selected_dcc_application(self) -> str:
@@ -664,10 +669,16 @@ class ApplicationController(
 
     @Property(str, notify=accent_changed)
     def accent_color(self) -> str:
+        mode = 'dark' if self._dark_theme else 'light'
+        if self._project_palette():
+            return self._project_palette()[mode]['accent']
         return accent_color(self.accent_preset, self._dark_theme)
 
     @Property(str, notify=accent_changed)
     def base_color(self) -> str:
+        mode = 'dark' if self._dark_theme else 'light'
+        if self._project_palette():
+            return self._project_palette()[mode]['base']
         return base_color(self.accent_preset, self._dark_theme)
 
     @Property("QVariantList", constant=True)

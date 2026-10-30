@@ -4,6 +4,7 @@ from urllib.parse import quote
 
 from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
+from PySide6.QtQml import QJSValue
 
 from .editor import AdminDocumentEditor
 from ..source_editor import SourceEditorService
@@ -43,7 +44,13 @@ class PluginsEditor(AdminDocumentEditor):
 
     @Slot(str, 'QVariant')
     def set_field(self, name, value):
-        if name == 'file_content':
+        if isinstance(value, QJSValue):
+            value = value.toVariant()
+        if name in ('resource_source', 'resource_palette'):
+            if not self.busy and self.canWrite and self._document.get('resource'):
+                self._document['resource']['source' if name == 'resource_source' else 'palette'] = value
+                self.stateChanged.emit()
+        elif name == 'file_content':
             if not self.busy and self.canWrite and self._document.get('file'):
                 self._document['file']['content'] = value
                 self.stateChanged.emit()
@@ -57,7 +64,7 @@ class PluginsEditor(AdminDocumentEditor):
         if (self.dirty or self.writeUncertain) and action not in ('save', 'discard', 'list'):
             self.fail(self.tr('Apply or discard unsaved changes first'))
             return
-        self._mutating = action not in ('list', 'load', 'new', 'browse', 'open_file')
+        self._mutating = action not in ('list', 'load', 'new', 'browse', 'open_file', 'open_resource')
         if action == 'create':
             values = dict(values, document=self.document)
         self._request(action, self.identity, **values)
@@ -97,7 +104,7 @@ class PluginsEditor(AdminDocumentEditor):
                                            if arguments['document'].get(key) != original.get(key)]
         result = server.execute_cmd(COMMAND, args=arguments)['info']
         result.setdefault('metadata', {})['_completedAction'] = arguments['action']
-        if arguments['action'] not in ('list', 'load', 'new', 'browse', 'open_file'):
+        if arguments['action'] not in ('list', 'load', 'new', 'browse', 'open_file', 'open_resource'):
             server_cache.invalidate_domains(('reference', 'search', 'relations', 'tasks'), project)
         download = result.pop('download', None)
         if download:

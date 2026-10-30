@@ -7,6 +7,7 @@ import {
 } from './plugins.state.mjs';
 export { initial, transition, catalog, destructive, canCreate };
 import * as Guide from './plugins.guide.mjs';
+import * as Resources from './plugins.resources.mjs';
 import { node, rect, label, button } from '../../../core/frame.mjs';
 import { translate as commonTranslate } from '../../../core/strings.mjs';
 
@@ -196,6 +197,8 @@ const russian = {
     'Plugin checksum does not match': 'Контрольная сумма плагина не совпадает'
 };
 export function translate(text, language) {
+    if (language === 'ru' && Resources.russian[text])
+        return Resources.russian[text];
     return language === 'ru' && russian[text]
         ? russian[text]
         : commonTranslate(text, language);
@@ -441,7 +444,8 @@ export function describe(model, ui, width, height, language) {
             new_file: 'New file',
             new_folder: 'New folder',
             rename: 'Rename or move',
-            publish: 'Publish version'
+            publish: 'Publish version',
+            run_resource: 'Run Python action'
         }[ui.operation];
         content.push(
             label('pluginOperationTitle', rect(0, oy, w, 36), tr(heading), {
@@ -643,6 +647,7 @@ export function describe(model, ui, width, height, language) {
         );
         const tabs = [
                 ['info', 'Overview'],
+                ['resources', 'Resources'],
                 ['details', 'Package details'],
                 ['manifest', 'Manifest XML'],
                 ['files', 'Files'],
@@ -815,6 +820,17 @@ export function describe(model, ui, width, height, language) {
             );
             cy += 68;
         }
+    } else if (ui.tab === 'resources') {
+        const resources = Resources.describe(
+            model,
+            ui,
+            w,
+            Math.max(360, height - y),
+            language,
+            tr
+        );
+        resources.nodes.forEach((item) => content.push(item));
+        cy = resources.height;
     } else if (ui.tab === 'manifest') {
         content.push(
             label(
@@ -1095,6 +1111,8 @@ export function describe(model, ui, width, height, language) {
 export function row(list, record, model, language) {
     const tr = (text) => translate(text, language),
         w = Math.max(0, list.width - 16);
+    if (list.id === 'pluginResources')
+        return Resources.row(list, record, model, tr);
     if (list.id === 'pluginFiles')
         return {
             nodes: [

@@ -553,6 +553,8 @@ class AdministrationController(QObject):
             fresh = tc.Project(info)
             if not fresh.query_search_types(force=True):
                 raise ValueError('Saved, but project metadata could not be refreshed. Reload the project.')
+            from thlib.ui.theme_catalog import read_project_theme
+            fresh.plugin_theme = read_project_theme(code)
             entries = self._application.navigation_model.build_project_entries(fresh, login)
             return fresh, entries
 

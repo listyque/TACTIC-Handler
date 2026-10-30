@@ -1,3 +1,5 @@
+import { themeSource } from './plugins.resources.mjs';
+
 export function initial() {
     return {
         query: '',
@@ -9,10 +11,19 @@ export function initial() {
         checksum: '',
         collapsed: false,
         source: 'zip',
-        notice: ''
+        notice: '',
+        resourceAdd: false,
+        resourceKind: 'widget',
+        resourceName: '',
+        resourceType: '',
+        resourceCode: '',
+        resourceSchema: false,
+        resourceMode: 'source'
     };
 }
 export const destructive = {
+    run_resource:
+        'Run this trusted server Python action? It may modify project data.',
     activate:
         'Activate this package in the selected project? Its manifest can create or update project data and run server code.',
     replace_file: 'Replace the selected file with a local upload?',
@@ -57,6 +68,10 @@ export function transition(ui, model, event) {
         };
     if (event.type === 'completed') {
         const messages = {
+            add_resource: 'Resource added to this project and package.',
+            apply_theme:
+                'Project theme applied. Personal appearance settings are preserved.',
+            reset_theme: 'Personal appearance restored.',
             install:
                 'Package added. Review its contents, then activate it in this project.',
             download_url:
@@ -70,7 +85,9 @@ export function transition(ui, model, event) {
             deactivate:
                 'Plugin removed from this project. The package remains on the server.',
             save:
-                model.metadata?.active && !model.document?.file
+                model.metadata?.active &&
+                !model.document?.file &&
+                !model.document?.resource
                     ? 'Changes saved. Reload the plugin to apply manifest changes to this project.'
                     : 'Changes saved.',
             export: 'Package exported. Check your downloads.',
@@ -78,6 +95,7 @@ export function transition(ui, model, event) {
                 'Version published. Review the new release before activating it.'
         };
         next.notice = messages[event.action] || '';
+        if (event.action === 'add_resource') next.resourceAdd = false;
         if (
             [
                 'list',
@@ -98,7 +116,47 @@ export function transition(ui, model, event) {
     else if (event.type === 'activeOnly') next.activeOnly = event.value;
     else if (event.type === 'collapse') next.collapsed = !ui.collapsed;
     else if (event.type === 'input') next[event.field] = event.value;
-    else if (event.type === 'field' && !blocked && model.canWrite)
+    else if (event.type === 'resource-add' && clean()) {
+        next.resourceAdd = true;
+        next.resourceName = '';
+    } else if (event.type === 'resource-cancel' && !model.busy)
+        next.resourceAdd = false;
+    else if (event.type === 'resource-create' && clean())
+        request('add_resource', {
+            values: {
+                kind: ui.resourceKind,
+                name: ui.resourceName,
+                searchType: ui.resourceType,
+                code: ui.resourceCode,
+                schema: ui.resourceSchema
+            }
+        });
+    else if (event.type === 'resource' && clean()) {
+        next.resourceMode = 'source';
+        request('open_resource', { resource: event.key });
+    } else if (
+        event.type === 'resource-theme' &&
+        !blocked &&
+        model.canWrite &&
+        model.document?.resource?.kind === 'theme' &&
+        model.document.resource.palette
+    ) {
+        const resource = model.document.resource,
+            palette = JSON.parse(JSON.stringify(resource.palette));
+        if (event.field === 'style') palette.style = event.value;
+        else {
+            const parts = event.field.split('_');
+            palette[parts[0]][parts[1]] = event.value;
+        }
+        commands.push(
+            {
+                type: 'field',
+                field: 'resource_source',
+                value: themeSource(resource.source, event.field, event.value)
+            },
+            { type: 'field', field: 'resource_palette', value: palette }
+        );
+    } else if (event.type === 'field' && !blocked && model.canWrite)
         commands.push(event);
     else if (event.type === 'select' && clean()) {
         next.operation = '';
@@ -109,10 +167,17 @@ export function transition(ui, model, event) {
         next.tab = event.value;
         next.operation = '';
         next.notice = '';
-        if (event.value === 'docs') {
+        if (event.value === 'resources') {
+            const first = model.metadata?.resources?.find((item) => item.field);
+            if (first) {
+                next.resourceMode = 'preview';
+                request('open_resource', { resource: first.key });
+            }
+        } else if (event.value === 'docs') {
             if (model.metadata.docsExist)
                 request('open_file', { file: model.metadata.docs });
-        } else if (model.document?.file) request('load');
+        } else if (model.document?.file || model.document?.resource)
+            request('load');
     } else if (event.type === 'reload' && !model.busy) {
         if (model.dirty) next.operation = 'reload_catalog';
         else {
@@ -186,6 +251,10 @@ export function transition(ui, model, event) {
                     .filter(Boolean)
                     .join('/');
             if (action === 'publish') values.version = ui.value;
+            if (action === 'run_resource') {
+                values.resource = model.document?.resource?.key;
+                values.inputs = ui.resourceArguments || '{}';
+            }
             if (action === 'rename') {
                 values.path = selected;
                 values.destination = ui.value;

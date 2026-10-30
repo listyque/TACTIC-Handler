@@ -89,6 +89,21 @@ class CustomLayouts(unittest.TestCase):
     click = frames.FrameTableTests.click
     item = frames.FrameTableTests.item
 
+    def test_native_plugin_widget_embeds_nested_column_and_routes_notes(self):
+        import json
+        model=json.loads((Path(__file__).parent/'fixtures/plugin_widget.json').read_text(encoding='utf-8'))
+        services=Services(model)
+        window,view=self.create('features/table/CustomLayoutView.qml',dict(services=services,
+            controller=_TableController(),columnsController=_TableColumns(),users=None,administration=None),width=600,height=500)
+        notes=self.item(view,'customLayout_0_notesButton')
+        self.assertTrue(notes.property('enabled'))
+        self.click(window,notes)
+        event=services.events[-1]
+        self.assertEqual('record-action',event['type'])
+        self.assertEqual('notes',event['name'])
+        self.assertEqual(model['targetSearchKey'],event['targetSearchKey'])
+        self.assertEqual(65,event['record']['progress'])
+
     def test_page_regions_keep_header_footer_and_scroll_content_independently(self):
         from PySide6.QtCore import QPoint, QPointF, Qt
         from PySide6.QtGui import QWheelEvent

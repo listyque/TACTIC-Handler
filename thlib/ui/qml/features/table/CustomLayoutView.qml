@@ -107,9 +107,23 @@ Frame.FrameView {
                 component: canvasComponent
             }
         })
-    onEvent: action => {
+    property string widgetMenuNodeId: ""
+    Shell.ActionMenu {
+        id: widgetMenu
+        theme: root.theme
+        actions: []
+        onTriggered: command => root.controller.invoke_item_action(command, root.widgetMenuNodeId)
+        onSecondaryTriggered: command => root.controller.invoke_item_action(command, root.widgetMenuNodeId)
+    }
+    onEvent: (action, source) => {
         if (editing)
             return;
+        if (action.type === 'record-action' && action.name === 'context_menu' && document.nodeId) {
+            widgetMenuNodeId = document.nodeId;
+            widgetMenu.actions = action.relationMenu ? controller.relation_menu_actions(widgetMenuNodeId) : controller.item_menu_actions(widgetMenuNodeId);
+            widgetMenu.openBelow(source);
+            return;
+        }
         if (action.type === 'layout-split') {
             owner.set_state(Layout.resize(document.layoutState, action));
             return;

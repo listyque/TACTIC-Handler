@@ -1,0 +1,225 @@
+{
+  "layoutNodes": [
+    {
+      "kind": "widget",
+      "layout": {
+        "collection": "list",
+        "flow": "grid",
+        "tracks": "",
+        "columns": 12,
+        "card_width": 280,
+        "elements": [
+          {
+            "name": "title",
+            "title": "Review",
+            "kind": "title",
+            "options": {
+              "bind": "record.name"
+            },
+            "parent": "",
+            "variant": "all",
+            "search_type": "",
+            "align": "stretch",
+            "tone": "normal",
+            "layer": 0,
+            "role": "",
+            "tag": "div",
+            "flow": "grid",
+            "when": [],
+            "hidden": false,
+            "row": 1,
+            "column": 1,
+            "span": 12,
+            "rows": 1,
+            "columns": 12,
+            "height": 36
+          },
+          {
+            "name": "description",
+            "title": "Description",
+            "kind": "description",
+            "options": {
+              "bind": "record.description"
+            },
+            "parent": "",
+            "variant": "all",
+            "search_type": "",
+            "align": "stretch",
+            "tone": "normal",
+            "layer": 0,
+            "role": "",
+            "tag": "div",
+            "flow": "grid",
+            "when": [],
+            "hidden": false,
+            "row": 2,
+            "column": 1,
+            "span": 12,
+            "rows": 1,
+            "columns": 12,
+            "height": 52
+          },
+          {
+            "name": "status",
+            "title": "Review status",
+            "kind": "view",
+            "options": {
+              "view": "studio_review.column"
+            },
+            "parent": "",
+            "variant": "all",
+            "search_type": "",
+            "align": "stretch",
+            "tone": "normal",
+            "layer": 0,
+            "role": "",
+            "tag": "div",
+            "flow": "grid",
+            "when": [],
+            "hidden": false,
+            "row": 3,
+            "column": 1,
+            "span": 12,
+            "rows": 1,
+            "columns": 12,
+            "height": 64,
+            "widget_layout": {
+              "collection": "list",
+              "flow": "grid",
+              "tracks": "",
+              "columns": 12,
+              "card_width": 280,
+              "elements": [
+                {
+                  "name": "status",
+                  "title": "Status",
+                  "kind": "field",
+                  "options": {
+                    "bind": "record.status",
+                    "format": "badge",
+                    "colors": "{\"Approved\":\"green\",\"In review\":\"yellow\",\"Changes requested\":\"red\"}"
+                  },
+                  "parent": "",
+                  "variant": "all",
+                  "search_type": "",
+                  "align": "stretch",
+                  "tone": "normal",
+                  "layer": 0,
+                  "role": "",
+                  "tag": "div",
+                  "flow": "grid",
+                  "when": [],
+                  "hidden": false,
+                  "row": 1,
+                  "column": 1,
+                  "span": 12,
+                  "rows": 1,
+                  "columns": 12,
+                  "height": 24
+                },
+                {
+                  "name": "progress",
+                  "title": "Progress",
+                  "kind": "field",
+                  "options": {
+                    "bind": "record.progress",
+                    "format": "progress"
+                  },
+                  "parent": "",
+                  "variant": "all",
+                  "search_type": "",
+                  "align": "stretch",
+                  "tone": "normal",
+                  "layer": 0,
+                  "role": "",
+                  "tag": "div",
+                  "flow": "grid",
+                  "when": [],
+                  "hidden": false,
+                  "row": 2,
+                  "column": 1,
+                  "span": 12,
+                  "rows": 1,
+                  "columns": 12,
+                  "height": 20
+                }
+              ],
+              "padding": [
+                4,
+                8,
+                4,
+                8
+              ],
+              "gap": 4
+            }
+          },
+          {
+            "name": "notes",
+            "title": "Notes",
+            "kind": "button",
+            "options": {
+              "action": "notes",
+              "text": "Notes"
+            },
+            "parent": "",
+            "variant": "all",
+            "search_type": "",
+            "align": "stretch",
+            "tone": "normal",
+            "layer": 0,
+            "role": "",
+            "tag": "div",
+            "flow": "grid",
+            "when": [],
+            "hidden": false,
+            "row": 4,
+            "column": 1,
+            "span": 12,
+            "rows": 1,
+            "columns": 12,
+            "height": 36
+          }
+        ],
+        "padding": [
+          12,
+          12,
+          12,
+          12
+        ],
+        "gap": 8
+      },
+      "sample": {
+        "kind": "object",
+        "record": {
+          "id": 1,
+          "code": "STUDIO_REVIEW_001",
+          "name": "Lighting review",
+          "description": "Review the key and fill balance.",
+          "status": "In review",
+          "progress": 65,
+          "approved_by": null,
+          "timestamp": "2026-10-30 21:25:04",
+          "s_status": null,
+          "__search_key__": "studio/review?project=one&code=STUDIO_REVIEW_001"
+        },
+        "title": "Lighting review",
+        "subtitle": "Review the key and fill balance.",
+        "search_key": "studio/review?project=one&code=STUDIO_REVIEW_001"
+      }
+    }
+  ],
+  "layoutView": "studio_review.widget",
+  "targetSearchKey": "studio/review?project=one&code=STUDIO_REVIEW_001",
+  "record": {
+    "id": 1,
+    "code": "STUDIO_REVIEW_001",
+    "name": "Lighting review",
+    "description": "Review the key and fill balance.",
+    "status": "In review",
+    "progress": 65,
+    "approved_by": null,
+    "timestamp": "2026-10-30 21:25:04",
+    "s_status": null,
+    "__search_key__": "studio/review?project=one&code=STUDIO_REVIEW_001"
+  }
+}
