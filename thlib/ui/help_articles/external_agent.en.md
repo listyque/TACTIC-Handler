@@ -215,3 +215,5 @@ finished source chats can be linked to a saved draft or finished conversation.
 Send a follow-up such as “Continue” to let the selected connection read them.
 Linking alone does not start a model. Existing messages are preserved. Earlier
 attachments are listed by name; they are not copied to the new chat's uploads.
+
+Use **Connect agent** in the chat or **Configuration → AI providers** to start the executor on the TACTIC server for your current account and project. **Disconnect agent** stops it; an active task is interrupted and already committed changes remain. Closing the window does not disconnect it. A host started externally must be stopped where it was launched. Codex sign-in or other provider credentials must be configured on the server machine; this does not launch a process on the browser computer.

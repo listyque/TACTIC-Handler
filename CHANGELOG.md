@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.284 - 2026-10-30
+
+- Connect and disconnect a project-scoped server-side agent executor from chat and AI provider settings, with shared progress/errors and duplicate protection. Preserve current-session scope and explicit per-request write permission.
+
 ## 0.6.0.283 - 2026-10-30
 
 - Keep navigation badge glyphs in the theme text color for light Search Type accents; preserve automatic contrast on other previews.

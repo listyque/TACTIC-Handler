@@ -1,6 +1,7 @@
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import * as History from './history.ui.mjs';
+import * as Executor from './executor.ui.mjs';
 
 export const metrics = {
     inset: 12,
@@ -15,6 +16,7 @@ export function initial(context = {}) {
         allowChanges: false,
         allowWeb: false,
         hosts: [],
+        executor: {},
         requests: [],
         selected: '',
         request: {},
@@ -61,6 +63,7 @@ export function canSend(model) {
     const connected = host(model);
     return (
         !model.busy &&
+        !['starting', 'stopping', 'failed'].includes(model.executor?.state) &&
         !model.uploading &&
         !model.request?.library?.archived &&
         !!model.context?.project &&
@@ -244,9 +247,19 @@ export function contextItems(context, language) {
 export function status(model, language) {
     const tr = (text) => translate(text, language),
         current = model.request || {};
-    if (model.refreshError || model.error || current.error)
+    if (
+        model.refreshError ||
+        model.error ||
+        model.executor?.error ||
+        current.error
+    )
         return {
-            text: tr(model.refreshError || model.error || current.error),
+            text: tr(
+                model.refreshError ||
+                    model.error ||
+                    model.executor?.error ||
+                    current.error
+            ),
             color: 'error',
             icon: 'error'
         };
@@ -286,12 +299,25 @@ export function status(model, language) {
         failed: 'Request failed',
         interrupted: 'Request interrupted'
     };
+    if (
+        !texts[current.status] &&
+        model.executor?.state === 'connected' &&
+        Array.isArray(host(model)?.capabilities.providers) &&
+        !availableModels(model).length
+    )
+        return {
+            text: tr('No available models. Check AI providers.'),
+            color: 'error',
+            icon: 'warning'
+        };
     return {
         text: tr(
             texts[current.status] ||
-                (model.hosts.length
-                    ? 'External agent connected'
-                    : 'External agent is offline')
+                (model.executor?.state || model.executor?.error
+                    ? Executor.status(model.executor, language)
+                    : model.hosts.length
+                      ? 'External agent connected'
+                      : 'External agent is offline')
         ),
         color: 'secondaryText',
         icon: active(model) ? 'sync' : 'chat'
@@ -370,8 +396,26 @@ function describeChat(model, width, height, language, sidebarVisible) {
         ) || current.library_summary;
     const sources = current.related_conversations || [];
     const transcriptTop =
-        52 + (current.undo_operation ? 32 : 0) + (sources.length ? 26 : 0);
+        94 + (current.undo_operation ? 32 : 0) + (sources.length ? 26 : 0);
     const nodes = [
+        Executor.control(
+            model.executor,
+            rect(inset, 52, 180, 32),
+            language,
+            !model.busy
+        ),
+        label(
+            'agentExecutorScope',
+            rect(204, 52, Math.max(0, width - 216), 32),
+            model.executor?.error ||
+                ['starting', 'stopping'].includes(model.executor?.state)
+                ? Executor.status(model.executor, language)
+                : tr('Runs on the TACTIC server for this project.'),
+            {
+                color: model.executor?.error ? 'error' : 'secondaryText',
+                visible: width >= 620
+            }
+        ),
         button(
             'agentRequestHistoryToggle',
             rect(inset, 10, 32, 32),
@@ -674,7 +718,7 @@ function describeChat(model, width, height, language, sidebarVisible) {
         nodes.push(
             label(
                 'agentRequestSources',
-                rect(inset, current.undo_operation ? 82 : 50, inner, 24),
+                rect(inset, current.undo_operation ? 124 : 92, inner, 24),
                 tr('Conversation context') +
                     ': ' +
                     sources.map((source) => source.title).join(' · '),
@@ -694,7 +738,7 @@ function describeChat(model, width, height, language, sidebarVisible) {
         nodes.push(
             button(
                 'agentRequestUndo',
-                rect(width - inset - 134, 50, 134, 26),
+                rect(width - inset - 134, 92, 134, 26),
                 tr('Undo field change'),
                 'undo',
                 { type: 'undo' },

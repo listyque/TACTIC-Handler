@@ -1,6 +1,7 @@
 import { node, rect, label, button, muted } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import * as Settings from './settings.ui.mjs';
+import * as Executor from '../scripts/executor.ui.mjs';
 
 export function initial() {
     return {
@@ -13,7 +14,8 @@ export function initial() {
         baseline: {},
         busy: false,
         error: '',
-        notice: ''
+        notice: '',
+        executor: {}
     };
 }
 export function select(model, id) {
@@ -102,6 +104,15 @@ export function describe(model, width, height, language) {
             rect(12, rowHeight + 8, width - 24, 44),
             tr(
                 model.error ||
+                    (['starting', 'stopping', 'failed'].includes(
+                        model.executor?.state
+                    )
+                        ? Executor.status(model.executor, language)
+                        : '') ||
+                    (selected?.status === 'waiting' &&
+                    !['connected', 'external'].includes(model.executor?.state)
+                        ? 'Connect an agent to check this connection.'
+                        : '') ||
                     model.notice ||
                     selected?.error ||
                     {
@@ -115,7 +126,9 @@ export function describe(model, width, height, language) {
             Object.assign({}, muted, {
                 wrap: true,
                 color:
-                    model.error || selected?.status === 'failed'
+                    model.error ||
+                    model.executor?.error ||
+                    selected?.status === 'failed'
                         ? 'error'
                         : 'muted'
             })
@@ -206,7 +219,25 @@ export function describe(model, width, height, language) {
                 'Chat messages, project context and attachments go only to the selected connection after Send. Connection checks do not send project data.'
         }
     );
-    const contentY = rowHeight + 56;
+    nodes.push(
+        Executor.control(
+            model.executor,
+            rect(12, rowHeight + 56, 180, 32),
+            language,
+            !locked && !dirty(model) && !!model.selected
+        )
+    );
+    nodes.push(
+        label(
+            'agentProviderExecutorScope',
+            rect(204, rowHeight + 56, Math.max(0, width - 216), 32),
+            model.executor?.state === 'external'
+                ? Executor.status(model.executor, language)
+                : tr('Runs on the TACTIC server for this project.'),
+            { color: 'secondaryText', visible: !narrow }
+        )
+    );
+    const contentY = rowHeight + 96;
     nodes.push(
         node(
             'Box',

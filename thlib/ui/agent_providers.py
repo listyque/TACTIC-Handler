@@ -26,7 +26,7 @@ class AgentProvidersController(QObject):
 
     @staticmethod
     def initial():
-        return dict(profiles=[], kinds=[], default='codex', revision='', selected='codex', draft={}, baseline={}, busy=False, error='', notice='')
+        return dict(profiles=[], kinds=[], default='codex', revision='', selected='codex', draft={}, baseline={}, busy=False, error='', notice='', executor={})
 
     @Property('QVariantMap', notify=changed)
     def model(self):
@@ -56,6 +56,11 @@ class AgentProvidersController(QObject):
         if not project:
             self.application.notification_changed.emit('Select a project before configuring the agent')
             return False
+        if self._project and self._project != project:
+            self._generation += 1
+            self._timer.stop()
+            self._server = None
+            self._model.update(busy=False, executor={})
         if not self._server:
             from thlib import tactic_classes as tc
             try:
@@ -115,6 +120,8 @@ class AgentProvidersController(QObject):
             self.select(self._model['selected'])
         elif kind=='refresh' and not self.dirty():
             self.request('state')
+        elif kind == 'executor' and action.get('value') in ('start', 'stop') and not self.dirty() and self._model['selected']:
+            self.request(action['value'])
         elif kind in ('save','check','remove'):
             values = dict(provider=self._model['selected'],expected_revision=self._model['revision'])
             if kind=='save':
@@ -138,6 +145,11 @@ class AgentProvidersController(QObject):
     @staticmethod
     def load(server,project,action,values,generation):
         try:
+            if action in ('start', 'stop'):
+                result = server.execute_cmd('tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd', dict(action=action, project_code=project))
+                if result.get('status') != 'OK':
+                    raise RuntimeError(result.get('description') or 'Agent connection failed')
+                action = 'state'
             result = server.execute_cmd(COMMAND,dict(action=action,project_code=project,**values))
             if result.get('status')!='OK':
                 raise RuntimeError(result.get('description') or 'Provider settings could not be loaded')
@@ -164,7 +176,7 @@ class AgentProvidersController(QObject):
             self.select(selected if any(row['id']==selected for row in info['profiles']) else info['default'])
             if result['action']=='check':
                 self._model['notice']='Waiting for the external host'
-            if (self._embedded_active or self.application.window_model.is_window_visible('agent_providers')) and any(row['status']=='waiting' for row in info['profiles']):
+            if (self._embedded_active or self.application.window_model.is_window_visible('agent_providers')) and (any(row['status']=='waiting' for row in info['profiles']) or info.get('executor', {}).get('state') in ('starting', 'connected', 'stopping')):
                 self._timer.start()
         self.changed.emit()
 

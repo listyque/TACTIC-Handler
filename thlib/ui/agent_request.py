@@ -53,7 +53,7 @@ class AgentRequestController(QObject):
 
     @staticmethod
     def initial(context=None):
-        return dict(context=context or {}, prompt='', allowChanges=False, allowWeb=False, hosts=[], requests=[], selected='',
+        return dict(context=context or {}, prompt='', allowChanges=False, allowWeb=False, hosts=[], executor={}, requests=[], selected='',
                     request={}, busy=False, error='', refreshError='', pending=None, attachments=[], uploading=False, model=None, effort=None, provider=None, contextExpanded=False, previews={},
                     history=dict(visible=None,mobile=False,width=280,query='',project='',searchOpen=False,grouping='time',archived=False,collapsed={},edit=None),
                     groups=[],groups_revision='',group_revisions={},projects=[],unavailable_projects=[],total=0,next_offset=None,drafts={})
@@ -170,6 +170,9 @@ class AgentRequestController(QObject):
             value=value.toVariant()
         if self._model['busy']:
             return
+        if action == 'executor' and value in ('start', 'stop'):
+            self._request('executor_' + value)
+            return
         if action in ('historyNew','historyEdit'):
             if self._model['pending'] or self._model['uploading']:
                 return
@@ -238,6 +241,8 @@ class AgentRequestController(QObject):
             self._model['history']['edit']=None
             self.refresh()
         elif action == 'send':
+            if self._model.get('executor', {}).get('state') in ('starting', 'stopping', 'failed'):
+                return
             started=bool(self._model['selected']) and self._model['request'].get('status')!='draft'
             allowed = self._model['request'].get('document', {}).get('allow_changes', False) if started else self._model['allowChanges']
             hosts = [host for host in self._model['hosts'] if not allowed or host['capabilities']['changes']]
@@ -475,6 +480,11 @@ class AgentRequestController(QObject):
                 if result.get('status') != 'OK':
                     raise RuntimeError(result.get('description') or 'Agent request failed')
                 return json.loads(result['info']) if isinstance(result['info'], str) else result['info']
+            if action in ('executor_start', 'executor_stop'):
+                result = project_server(server, project).execute_cmd('tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd',
+                    dict(action=action.removeprefix('executor_'), project_code=project))
+                if result.get('status') != 'OK':
+                    raise RuntimeError(result.get('description') or 'Agent connection failed')
             if action == 'send':
                 selected = (call('submit', **pending) if 'document' in pending else call('message', request_id=selected, **pending))['request_id']
             elif action == 'cancel':
@@ -547,6 +557,7 @@ class AgentRequestController(QObject):
                     self._model['history'].update(query='',archived=False)
                 self._model['history']['edit']=None
             self._model.update({key: result[key] for key in ('selected', 'request', 'hosts', 'requests')})
+            self._model['executor'] = result.get('executor', {})
             self._model.update({key:result[key] for key in ('groups','groups_revision','group_revisions','projects','unavailable_projects','total','next_offset') if key in result})
             if result['request']:
                 self._model['context']=result['request']['document']['context']

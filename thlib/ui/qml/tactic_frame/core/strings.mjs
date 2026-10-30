@@ -5228,7 +5228,29 @@ const russian = {
     'Canvas settings': 'Настройки холста',
     'Editor tools': 'Инструменты редактора',
     'The source tab changed. Reload the page.':
-        'Исходная вкладка изменилась. Обновите страницу.'
+        'Исходная вкладка изменилась. Обновите страницу.',
+    'Connecting agent…': 'Подключение агента…',
+    'Agent connected': 'Агент подключён',
+    'Disconnecting agent…': 'Отключение агента…',
+    'Connected outside this UI. Stop it where it was started.':
+        'Подключён вне этого интерфейса. Остановите его там, где запустили.',
+    'Connect an agent to send requests.':
+        'Подключите агента, чтобы отправлять задания.',
+    'Stop connecting': 'Прервать подключение',
+    'Disconnect agent': 'Отключить агента',
+    'Disconnecting…': 'Отключение…',
+    'Connect agent': 'Подключить агента',
+    'Runs on the TACTIC server for this project.':
+        'Работает на сервере Тактика в текущем проекте.',
+    'Connect an agent to check this connection.':
+        'Подключите агента для проверки этого подключения.',
+    'The agent executor stopped unexpectedly. Connect again.':
+        'Исполнитель агента неожиданно остановился. Подключитесь снова.',
+    'An external agent is already connected to this project':
+        'К этому проекту уже подключён внешний агент',
+    'Agent connection failed': 'Не удалось подключить агента',
+    'No available models. Check AI providers.':
+        'Нет доступных моделей. Проверьте настройки ИИ-провайдеров.'
 };
 
 export function translate(text, language, values) {

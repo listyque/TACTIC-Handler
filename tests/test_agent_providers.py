@@ -161,3 +161,19 @@ class ProviderUI(unittest.TestCase):
             self.assertEqual(controller.model['selected'], '')
             controller.handle(dict(type='select', value='codex'))
             self.assertTrue(controller._timer.isActive())
+
+    def test_executor_controls_rebind_when_project_changes(self):
+        app = Application()
+        owner = AgentProvidersController(app, env_inst.server_pool)
+        self.addCleanup(owner.reset)
+        with patch('thlib.tactic_classes.server_start', return_value=Server()) as connect:
+            owner.set_embedded_active(True)
+            deadline = time.monotonic() + 5
+            while owner.model['busy'] and time.monotonic() < deadline:
+                QTest.qWait(10)
+            app.current_project_code = 'two'
+            owner.set_embedded_active(True)
+            while owner.model['busy'] and time.monotonic() < deadline:
+                QTest.qWait(10)
+            self.assertEqual(owner._project, 'two')
+            self.assertEqual(connect.call_args.kwargs['project'], 'two')
