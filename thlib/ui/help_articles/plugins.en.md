@@ -9,6 +9,9 @@ A package is stored on the server; activation applies its manifest to one projec
 The empty catalogue opens a getting-started screen, without an empty sidebar.
 **Plugin guide** in the header opens these instructions at any time.
 
+Viewing plugins does not prevent closing Administration. Unsaved changes or an
+unfinished operation keep the window open; save or discard the draft first.
+
 ## Install a ready-made package
 
 1. Choose **Install a package**. Select **ZIP file** to upload from this computer,

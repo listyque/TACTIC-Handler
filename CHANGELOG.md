@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.305 - 2026-10-31
+
+- Verify Administration closes after viewing Plugins and after discarding changes, while preserving unsaved drafts; synchronize plugin closing guidance with Stream's public component-ref fix.
+
 ## 0.6.0.304 - 2026-10-31
 
 - Keep plugin catalogue, resource and file-row selection and hit areas inside the shared list row bounds, so QML and browser gaps match.

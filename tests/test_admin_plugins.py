@@ -304,8 +304,30 @@ class AdminPluginsTests(unittest.TestCase):
             previous = fixture.admin.project
             fixture.admin.select_project('other')
             self.assertEqual(fixture.admin.project, previous)
+            from PySide6.QtQml import QQmlEngine, QQmlExpression
+            shell = fixture.item('administrationFrameShell')
+            close = QQmlExpression(QQmlEngine.contextForObject(shell), shell,
+                                  'dispatch({type:"close"})')
+            close.evaluate()
+            self.assertFalse(close.hasError(), close.error().toString())
+            frame(fixture.window)
+            self.assertTrue(fixture.window.isVisible())
+            self.assertEqual(editor.document['title'], 'Unsaved plugin title')
             editor.discard()
             self.assertFalse(fixture.admin.projectLocked)
+            close.evaluate()
+            QTest.qWait(30)
+            windows = fixture.fixture.application.window_model
+            self.assertFalse(windows.is_window_visible('administration'))
+            fixture.admin.open()
+            fixture.window = fixture.fixture.window('administration')
+            frame(fixture.window)
+            shell = fixture.item('administrationFrameShell')
+            close = QQmlExpression(QQmlEngine.contextForObject(shell), shell,
+                                  'dispatch({type:"close"})')
+            close.evaluate()
+            QTest.qWait(30)
+            self.assertFalse(windows.is_window_visible('administration'))
             self.assertFalse(fixture.fixture.warnings, '\n'.join(fixture.fixture.warnings))
 
 
