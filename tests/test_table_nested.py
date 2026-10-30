@@ -532,6 +532,79 @@ class NestedTableTests(unittest.TestCase):
         self.click(window,self.item(view,'nestedHeader_name'))
         self.assertEqual(scope.events[-1][0],dict(type='sort',value='name'))
 
+    def test_nested_header_menu_opens_the_selected_column_without_sorting(self):
+        from PySide6.QtCore import Qt, QPointF
+        from PySide6.QtTest import QTest
+        scope = Scope()
+        scope.state['gear'] = True
+        window, view = self.create('features/table/NestedTableView.qml', dict(controller=_TableController(),
+            columnsController=_TableColumns(), userModel=None, services=None, administration=None, scope=scope),
+            width=600, height=320)
+        header = self.item(view, 'nestedHeader_name')
+        QTest.mouseClick(window, Qt.RightButton, Qt.NoModifier,
+            header.mapToScene(QPointF(header.width()/2, header.height()/2)).toPoint())
+        QTest.qWait(100)
+        menu = view.findChild(QObject, 'nestedColumnMenu')
+        self.assertTrue(menu.property('visible'), (view.property('headerColumn'), header.mapToScene(QPointF()), header.width(), header.height()))
+        actions = menu.property('actions').toVariant()
+        self.assertTrue(next(a for a in actions if a.get('command') == 'edit_definition')['enabled'])
+        self.assertEqual(scope.events, [])
+        menu.triggered.emit('edit_definition')
+        self.assertEqual(scope.events[-1][0], dict(type='columns', column='name'))
+        menu.close()
+
+    def test_nested_definition_editor_keeps_child_scope_and_admin_guard(self):
+        from unittest.mock import Mock
+        from thlib.ui.table.services import TableServicesController
+        from thlib.ui.table.nested import NestedTableController
+        import tests.test_table_service_workflows as workflows
+        app = workflows.Application()
+        app.columns_editor_controller = Mock()
+        app.open_columns_editor = Mock()
+        owner = TableServicesController(app)
+        self.addCleanup(owner.shutdown)
+        scope = NestedTableController(owner, 'A', dict(searchType='demo/child', view='child_table', projectCode='other'))
+        scope.activate(dict(type='columns', column='name'))
+        app.columns_editor_controller.open_scoped_definition.assert_called_once_with('demo/child', 'child_table', 'other', 'name')
+        app.open_columns_editor.assert_called_once()
+        app.can_manage_tools = False
+        scope.activate(dict(type='columns', column='name'))
+        app.open_columns_editor.assert_called_once()
+
+    def test_scoped_definition_focus_accepts_a_column_and_preserves_old_callers(self):
+        from unittest.mock import patch
+        from tests.test_columns_table_view import _Application, _SType
+        from thlib.ui.columns_editor import ColumnsEditorController
+        controller = ColumnsEditorController(_Application(_SType()))
+        with patch.object(controller, 'load_definition_catalog'):
+            controller.open_scoped_definition('demo/child', 'child_table', 'other', 'name')
+            self.assertEqual(controller.requestedName, 'name')
+            self.assertEqual(controller.requestedSearchType, 'demo/child')
+            self.assertEqual(controller.requestedView, 'child_table')
+            controller.open_scoped_definition('demo/child', 'child_table', 'other')
+            self.assertEqual(controller.requestedName, '')
+
+    def test_saved_nested_definition_reloads_its_retained_scope(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from PySide6.QtTest import QTest
+        from thlib.ui.table.services import TableServicesController
+        import tests.test_table_service_workflows as workflows
+        app = workflows.Application()
+        app._sessions = {'main': SimpleNamespace(tabs=[app.tab])}
+        app.columns_editor_controller = Mock()
+        app.open_columns_editor = Mock()
+        owner = TableServicesController(app)
+        self.addCleanup(owner.shutdown)
+        with patch('thlib.ui.table.nested.NestedTableController.reload') as load:
+            owner.toggle_nested('A', dict(nestedTable=dict(searchType='demo/child',
+                view='child_table', parentKey=app.node.search_key)))
+            owner.nested_row('A').activate(dict(type='columns', column='name'))
+            load.assert_called_once()
+            app.results_view_changed.emit()
+            QTest.qWait(20)
+            self.assertEqual(load.call_count, 2)
+
     def test_connection_confirmation_captures_the_nested_project(self):
         from unittest.mock import patch,Mock
         from types import SimpleNamespace

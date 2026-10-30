@@ -2,6 +2,7 @@ import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { layout } from '../../core/foundation.mjs';
 import { metrics, paint } from './host.ui.mjs';
+import { columnActions } from './menus.ui.mjs';
 
 export const height = 320;
 export const rowHeight = 68;
@@ -113,6 +114,29 @@ export function columns(model) {
         left += width;
         return result;
     });
+}
+
+export function headerActions(model, name, language) {
+    const column = (model.columns || []).find((field) => field.name === name);
+    return columnActions(
+        {
+            column,
+            editable: !!model.gear,
+            busy: model.busy,
+            sorted: model.order?.startsWith(name + ' '),
+            direction: model.order?.endsWith(' desc') ? 'desc' : 'asc'
+        },
+        language
+    ).filter(
+        (action, index) =>
+            index === 0 ||
+            [
+                'sort:ascending',
+                'sort:descending',
+                'edit_definition',
+                'columns'
+            ].includes(action.command)
+    );
 }
 
 export function describe(model, width, extent, language) {
@@ -311,32 +335,76 @@ function content(model, width, extent, language) {
         )
     ];
     for (const field of fields) {
+        const menu = !!model.gear || field.sortable;
         children.push(
-            field.sortable
-                ? node(
-                      'Action',
-                      'nestedHeader_' + field.name,
-                      rect(field.x, 0, field.width, metrics.header),
-                      {
-                          text: field.title || field.name,
-                          action: { type: 'sort', value: field.name },
-                          enabled: !model.busy,
-                          children: [
-                              label(
-                                  'nestedHeaderText_' + field.name,
-                                  rect(10, 0, field.width - 20, metrics.header),
-                                  field.title || field.name,
-                                  { color: paint.headerText }
-                              )
-                          ]
-                      }
-                  )
-                : label(
-                      'nestedHeader_' + field.name,
-                      rect(field.x + 10, 0, field.width - 20, metrics.header),
-                      field.title || field.name,
-                      { color: paint.headerText }
-                  )
+            node(
+                'Box',
+                'nestedHeader_' + field.name,
+                rect(field.x, 0, field.width, metrics.header),
+                {
+                    contextAction:
+                        menu && !model.busy
+                            ? { type: 'header-menu', column: field.name }
+                            : null,
+                    children: [
+                        node(
+                            'Action',
+                            'nestedHeaderSort_' + field.name,
+                            rect(
+                                0,
+                                0,
+                                field.width - (menu ? 34 : 0),
+                                metrics.header
+                            ),
+                            {
+                                text: field.title || field.name,
+                                contextAction:
+                                    menu && !model.busy
+                                        ? {
+                                              type: 'header-menu',
+                                              column: field.name
+                                          }
+                                        : null,
+                                action: field.sortable
+                                    ? { type: 'sort', value: field.name }
+                                    : null,
+                                enabled: !model.busy,
+                                children: [
+                                    label(
+                                        'nestedHeaderText_' + field.name,
+                                        rect(
+                                            8,
+                                            0,
+                                            Math.max(
+                                                0,
+                                                field.width - (menu ? 44 : 20)
+                                            ),
+                                            metrics.header
+                                        ),
+                                        field.title || field.name,
+                                        { color: paint.headerText }
+                                    )
+                                ]
+                            }
+                        ),
+                        ...(menu
+                            ? [
+                                  button(
+                                      'nestedHeaderMenu_' + field.name,
+                                      rect(field.width - 34, 2, 32, 32),
+                                      t('Column actions'),
+                                      'more-vert',
+                                      {
+                                          type: 'header-menu',
+                                          column: field.name
+                                      },
+                                      !model.busy
+                                  )
+                              ]
+                            : [])
+                    ]
+                }
+            )
         );
     }
     children.push(

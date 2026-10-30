@@ -2014,9 +2014,10 @@ class ColumnsEditorController(QObject):
         self.focusRequested.emit()
 
     @Slot(str, str, str)
-    def open_scoped_definition(self, search_type, view='table', project_code=''):
+    @Slot(str, str, str, str)
+    def open_scoped_definition(self, search_type, view='table', project_code='', column=''):
         self._requested_row = -1
-        self._requested_name = ''
+        self._requested_name = str(column or '')
         self._requested_definition_target = 'definition'
         self._requested_stype = str(search_type or '').split('?', 1)[0]
         self._requested_view = str(view or 'table')

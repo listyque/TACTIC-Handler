@@ -326,7 +326,7 @@ class NestedTableController(QObject):
         elif kind in ('edit', 'create'):
             self._edit(action.get('key') if kind == 'edit' else None)
         elif kind == 'columns':
-            self._open_columns()
+            self._open_columns(action.get('column') or '')
         elif not self._model['busy']:
             if kind == 'page':
                 self._model['offset'] = max(0, self._model['offset'] + int(action['value']) * int(self.descriptor.get('initialLimit') or 50))
@@ -336,7 +336,7 @@ class NestedTableController(QObject):
                     self._model.setdefault('simpleValues', {})[action['field']] = action['value']
                 if kind == 'sort':
                     name = action['value']
-                    self._model['order'] = name + (' desc' if self._model.get('order') == name + ' asc' else ' asc')
+                    self._model['order'] = name + ' ' + (action.get('direction') or ('desc' if self._model.get('order') == name + ' asc' else 'asc'))
             self.reload()
 
     def _edit(self, key):
@@ -360,7 +360,7 @@ class NestedTableController(QObject):
             stype=stype, sobject=node.source if node else None, parent_sobject=parent, _prepared=True),
             refresh=lambda: (app.refresh_current(), self.services.completed.emit(self.descriptor['parentKey'])))
 
-    def _open_columns(self):
+    def _open_columns(self, column=''):
         app = self.application
         if self.tab is not app._current_tab() or not app.can_manage_tools:
             return
@@ -368,7 +368,9 @@ class NestedTableController(QObject):
             self.descriptor['searchType'],
             self.descriptor.get('view') or 'table',
             self.descriptor.get('projectCode') or app._current_project_code,
+            column,
         )
+        self._pending_reload = True
         app.open_columns_editor()
 
     def suspend(self):

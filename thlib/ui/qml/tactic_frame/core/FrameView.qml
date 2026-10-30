@@ -666,6 +666,14 @@ Item {
                         onPressed: root.send(wrapper.node.pressAction, undefined, actionControl)
                         onClicked: root.send(wrapper.node.action, undefined, actionControl)
                         onDoubleClicked: root.send(wrapper.node.doubleAction)
+                        TapHandler {
+                            acceptedButtons: Qt.RightButton
+                            enabled: !!wrapper.node.contextAction && root.interactive
+                            onTapped: point => root.send(wrapper.node.contextAction, {
+                                    x: point.position.x,
+                                    y: point.position.y
+                                }, actionControl)
+                        }
 
                         onActiveFocusChanged: {
                             tipDismissed = false;

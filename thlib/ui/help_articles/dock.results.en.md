@@ -129,3 +129,5 @@ When a commit has no versionless snapshot, Search displays its absence without a
 Expanded tables fit short results instead of reserving an empty 320 px panel. Long results keep a bounded, scrollable viewport; nested rows reflow without reloading cached data. The block uses one outer inset and reserves space for a horizontal scrollbar only when columns overflow. Checkbox and preview columns use compact defaults; configured widths still apply.
 
 Expanded tables use the available search viewport height. A short list stays fitted to its rows; a longer list scrolls only after filling that space. Resizing preserves selection and cached data. Explicit dashboard pane sizes still apply.
+
+Nested table headings have a column menu: right-click a heading or use its three-dot button (also accessible with Tab and Enter). **Edit Column Definition** selects that column in the native definition editor for the nested Search Type, view and project. **Column Manager** opens the whole view. Sorting remains available on sortable fields; definition editing requires administration access. Saved headings refresh in the open nested table.

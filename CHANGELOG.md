@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.277 - 2026-10-30
+
+- Add column menus to nested tables, opening the native definition editor focused on the selected child column and preserving its project/view scope.
+- Support right-click context actions on native Frame Action controls, matching the browser renderer.
+
 ## 0.6.0.276 - 2026-10-30
 
 - Let expanded tables use the search viewport height instead of a fixed 320 px cap; keep short results fitted and preserve cached data during resize.

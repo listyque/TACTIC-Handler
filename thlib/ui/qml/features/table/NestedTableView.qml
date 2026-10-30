@@ -19,6 +19,29 @@ Item {
     signal closed
     signal menuRequested(string nodeId, var anchor)
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    property string headerColumn: ""
+    function headerCommand(command) {
+        if (command === "edit_definition" || command === "columns")
+            root.scope.activate({
+                type: "columns",
+                column: command === "columns" ? "" : root.headerColumn
+            }, null);
+        else if (command.indexOf("sort:") === 0)
+            root.scope.activate({
+                type: "sort",
+                value: root.headerColumn,
+                direction: command === "sort:descending" ? "desc" : "asc"
+            }, null);
+    }
+    Tables.ActionMenu {
+        id: columnMenu
+        objectName: "nestedColumnMenu"
+        parent: root
+        theme: root.theme
+        preferredWidth: 280
+        actions: root.scope ? UI.headerActions(root.scope.model, root.headerColumn, root.language) : []
+        onTriggered: command => root.headerCommand(command)
+    }
     Frame.FrameView {
         anchors.fill: parent
         theme: root.theme
@@ -43,7 +66,10 @@ Item {
                     nodes: []
                 })
         onEvent: (action, value) => {
-            if (action.type === "close")
+            if (action.type === "header-menu") {
+                root.headerColumn = action.column;
+                columnMenu.openAt(value, action.value ? action.value.x : value.width - 8, action.value ? action.value.y : value.height, false);
+            } else if (action.type === "close")
                 root.closed();
             else if (action.type === "operate")
                 root.menuRequested(action.nodeId, value);

@@ -207,7 +207,7 @@
     "features/table/items.ui.mjs": "ff18ad3ab255ce7ad041af3b59a8b698e5b68438660fc4a6e33d824239352f9b",
     "features/table/layout.ui.mjs": "62fa3ace72846da46b31ef869e4720279282c242432aa04198566df60c03cf03",
     "features/table/menus.ui.mjs": "27c44e4c812bb63505946161054c4bcf9d20a3dbc5b5d4e281a3f35dff1cc725",
-    "features/table/nested.ui.mjs": "17d24cba21b0ec9a40e7b78cbe48ec5970ac2b981976a62ecc70a9d0c011d90e",
+    "features/table/nested.ui.mjs": "fb53115408b61b6a3d85b3e742c29b31e2c752f85cb4e3eeec82b6ceb74744c8",
     "features/table/page.filters.mjs": "5d334a1de85c1c7c38709ef9cd807b4023c964a5860a6e65f50e5c2be4d12803",
     "features/table/page.layout.mjs": "0febd73f69517c818553d4ebc28f02a3b386071702f2cb7d99c5ef3b849b261a",
     "features/table/page.ui.mjs": "3560a17cd40a2387de0e51ad1a3abb83fc665c79cc57c8054b3639b1f5ef210e",
