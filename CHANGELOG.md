@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.283 - 2026-10-30
+
+- Keep navigation badge glyphs in the theme text color for light Search Type accents; preserve automatic contrast on other previews.
+
 ## 0.6.0.282 - 2026-10-30
 
 - Add a searchable native table-view manager with create/copy, label rename, guarded deletion and column-editor navigation. Preserve view codes, default protection, project scope, native undo and revision checks; exclude service definitions from table choices.

@@ -933,6 +933,7 @@ Item {
                         source: wrapper.node.source || ""
                         fallbackText: wrapper.node.initials || ""
                         fallbackIcon: wrapper.node.icon || "person"
+                        foreground: wrapper.node.color ? root.color(wrapper.node.color) : "transparent"
                         accent: root.color(wrapper.node.accent || "action")
                         round: wrapper.node.round !== false
                         cornerRadius: wrapper.node.radius === undefined ? (round ? width / 2 : 4) : wrapper.node.radius

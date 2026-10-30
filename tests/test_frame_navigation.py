@@ -3,7 +3,7 @@
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
-from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QUrl, Qt
+from PySide6.QtCore import QObject, QCoreApplication, QEvent, QPoint, QUrl, Qt
 from PySide6.QtQml import QQmlEngine, QQmlComponent, qmlEngine
 from PySide6.QtTest import QTest
 from tests.qt_application import gui_test_application
@@ -32,7 +32,7 @@ class FrameNavigationTests(unittest.TestCase):
             + (ROOT / "thlib/ui/qml").as_uri()
             + '" as TH\n'
             "ApplicationWindow{id:window;visible:true;width:320;height:200;property int calls:0;"
-            'TH.Theme{id:theme;dark:true} TH.SidebarTreeRow{objectName:"testedNavigationRow";width:parent.width;height:implicitHeight;theme:theme;title:"Sample";glyph:"link";badge:7;selected:true;onActivated:window.calls++}}'
+            'TH.Theme{id:theme;objectName:"navigationTheme";dark:true} TH.SidebarTreeRow{objectName:"testedNavigationRow";width:parent.width;height:implicitHeight;theme:theme;title:"Sample";glyph:"link";accent:"#dddd80";badge:7;selected:true;onActivated:window.calls++}}'
         )
         component.setData(source.encode(), QUrl())
         self.assertTrue(
@@ -52,6 +52,8 @@ class FrameNavigationTests(unittest.TestCase):
             title = rows["sidebarRowTitle"]
             self.assertEqual(row.implicitHeight(), 56)
             self.assertEqual(title.width(), 184)
+            preview = rows['navigationRowIcon']
+            self.assertEqual(preview.property('fallbackColor'), window.findChild(QObject, 'navigationTheme').property('primaryText'))
             QTest.mouseClick(window, Qt.LeftButton, pos=QPoint(70, 28))
             frame(window)
             self.assertEqual(window.property("calls"), 1)

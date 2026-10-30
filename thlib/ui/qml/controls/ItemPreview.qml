@@ -9,7 +9,8 @@ Item {
     property string fallbackIcon: "image"
     property string fallbackText: ""
     property color accent: theme.contentAccent
-    readonly property color fallbackColor: theme.readableText(Qt.darker(accent, round ? 1.35 : 1.65))
+    property color foreground: "transparent"
+    readonly property color fallbackColor: foreground.a > 0 ? foreground : theme.readableText(Qt.darker(accent, round ? 1.35 : 1.65))
     property bool round: false
     property real cornerRadius: round ? width / 2 : 4
     property bool outlined: false

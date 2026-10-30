@@ -102,3 +102,5 @@ disabled, select a compatible element first or wait for the current request to f
 Text and XML remain drafts until applied. Switching page, mode or selected item applies the current text first; invalid XML keeps the editor open and preserves its contents. Unapplied text also prevents closing or changing the project. Deleting an item requires confirmation and changes the draft only.
 
 On a narrow window, choose an item in the tree to open its settings; **Back** returns to the tree without discarding edits. The tree, group permissions and settings have their own scrollbars. An unknown save result blocks another write until a confirmed reload reads the server state.
+
+Navigation badge icons follow the theme text color, including on light Search Type accents. This does not change the configured type color.
