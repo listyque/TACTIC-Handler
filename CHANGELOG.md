@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.278 - 2026-10-30
+
+- Preserve an untouched new AI connection while background host checks run or Configuration pages switch. Resume polling when returning to an existing connection.
+
 ## 0.6.0.277 - 2026-10-30
 
 - Add column menus to nested tables, opening the native definition editor focused on the selected child column and preserving its project/view scope.

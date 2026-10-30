@@ -134,3 +134,30 @@ class ProviderUI(unittest.TestCase):
             self.assertEqual(controller.model['profiles'],[])
             self.assertFalse(controller.model['draft'])
             self.assertFalse(surface.warnings,surface.warnings)
+
+    def test_waiting_host_does_not_replace_an_untouched_new_connection(self):
+        app = Application()
+        controller = AgentProvidersController(app, env_inst.server_pool)
+        self.addCleanup(controller.reset)
+        server = Server()
+        server.state['profiles'][0]['status'] = 'waiting'
+        with patch('thlib.tactic_classes.server_start', return_value=server):
+            controller.set_embedded_active(True)
+            deadline = time.monotonic() + 5
+            while controller.model['busy'] and time.monotonic() < deadline:
+                QTest.qWait(10)
+            self.assertTrue(controller._timer.isActive())
+            controller.handle(dict(type='new'))
+            self.assertEqual(controller.model['selected'], '')
+            controller._timer.timeout.emit()
+            while controller.model['busy'] and time.monotonic() < deadline:
+                QTest.qWait(10)
+            self.assertEqual(controller.model['selected'], '')
+            self.assertEqual(controller.model['draft']['name'], '')
+            controller.set_embedded_active(False)
+            controller.set_embedded_active(True)
+            while controller.model['busy'] and time.monotonic() < deadline:
+                QTest.qWait(10)
+            self.assertEqual(controller.model['selected'], '')
+            controller.handle(dict(type='select', value='codex'))
+            self.assertTrue(controller._timer.isActive())

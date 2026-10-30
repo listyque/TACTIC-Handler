@@ -64,7 +64,8 @@ class AgentProvidersController(QObject):
             except PermissionError as error:
                 self._model['error'] = str(error)
                 self.changed.emit()
-        if not self._model['busy'] and (not self.dirty() or not self._model['revision']):
+        if (not self._model['busy'] and (not self.dirty() or not self._model['revision'])
+                and (self._model['selected'] or not self._model['revision'])):
             self.request('state')
         return True
 
@@ -106,6 +107,10 @@ class AgentProvidersController(QObject):
             self._model.update(error='',notice='')
         elif kind in ('select','new') and not self.dirty():
             self.select(action.get('value','') if kind=='select' else '')
+            if kind == 'new':
+                self._timer.stop()
+            elif any(row['status'] == 'waiting' for row in self._model['profiles']):
+                self._timer.start()
         elif kind=='reset':
             self.select(self._model['selected'])
         elif kind=='refresh' and not self.dirty():
@@ -164,5 +169,5 @@ class AgentProvidersController(QObject):
         self.changed.emit()
 
     def _poll(self):
-        if not self.dirty():
+        if self._model['selected'] and not self.dirty():
             self.request('state')
