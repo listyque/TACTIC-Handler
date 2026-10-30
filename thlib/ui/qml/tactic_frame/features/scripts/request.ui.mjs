@@ -761,6 +761,7 @@ export function describe(model, width, height, language) {
     if (space.visible)
         nodes.push(
             node('Box', 'agentChatHistory', rect(0, 0, space.panel, height), {
+                radius: 0,
                 children: History.describe(
                     model,
                     space.panel,

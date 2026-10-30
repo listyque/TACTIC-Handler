@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.299 - 2026-10-30
+
+- Keep the agent conversation sidebar rectangular in both clients, including its clipping container.
+
 ## 0.6.0.298 - 2026-10-30
 
 - Remove the duplicate Search Type title and code above Summary statistics in both clients.

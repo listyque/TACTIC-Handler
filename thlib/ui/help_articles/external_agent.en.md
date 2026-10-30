@@ -145,7 +145,7 @@ row captions and panel borders remain visible with classic Windows scrollbars.
 
 ## Conversation library
 
-Conversation history is a separate left panel, with **Search conversations** and
+Conversation history is a separate rectangular left panel, with **Search conversations** and
 grouping **By time**, **By Search Type**, or **By folder** under **Conversation
 view** (three dots in the panel header). The search icon opens the search field.
 Use **Show/Hide
