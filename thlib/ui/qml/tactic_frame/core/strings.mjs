@@ -44,9 +44,6 @@ const russian = {
     'No project pages configured': 'Страницы проекта не настроены',
     'Python Script Test': 'Проверка Python-скрипта',
     'Script Path': 'Путь скрипта',
-    'Clear Side Bar Cache': 'Очистить кеш навигации',
-    'Clear the Side Bar Cache for all users':
-        'Очистить серверный кеш боковой панели для всех пользователей',
     'Running test\u2026': 'Выполняется проверка…',
     Sequential: 'Последовательно',
     Parallel: 'Параллельно',
@@ -60,7 +57,6 @@ const russian = {
     'Not accessible': 'Недоступен',
     'Email sent successfully': 'Письмо успешно отправлено',
     'Script completed': 'Скрипт выполнен',
-    'Side Bar cache cleared.': 'Кеш навигации очищен.',
     'Opened pages': 'Открыто страниц',
     'Allow pop-ups to open all pages':
         'Разрешите всплывающие окна, чтобы открыть все страницы',

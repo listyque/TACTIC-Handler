@@ -648,7 +648,6 @@ def _build_delivery(
     table_views = TableViewsController(controller, server_pool)
     agent_mcp = AgentMcpController(controller, server_pool)
     system_info = SystemInfoController(controller, server_pool)
-    system_info.navigationCleared.connect(collaboration.administration.refresh_metadata)
     collaboration.server_updates.batchReady.connect(
         script_editor.apply_server_batch
     )

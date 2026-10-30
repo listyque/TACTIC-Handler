@@ -260,8 +260,7 @@ export function describe(model, width, height, language) {
             email: 'send',
             handoff: 'folder',
             links: 'open-in-new',
-            script: 'code',
-            clear_sidebar: 'cached'
+            script: 'code'
         };
         content.push(
             button(
@@ -376,12 +375,6 @@ export function describe(model, width, height, language) {
     heading('Python Script Test');
     field('systemScriptPath', 'Script Path', model.scriptPath, 'scriptPath');
     test('systemScriptTest', 'Run script', 'script');
-    heading('Clear Side Bar Cache');
-    paragraph(
-        'systemClearExplanation',
-        tr('Clear the Side Bar Cache for all users')
-    );
-    test('systemClearSidebar', 'Clear Side Bar Cache', 'clear_sidebar');
     const nodes = [
         button(
             'systemRefresh',

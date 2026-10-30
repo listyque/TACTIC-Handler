@@ -6,7 +6,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 import tempfile
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTest import QTest
@@ -119,7 +119,6 @@ class SystemInfoTests(unittest.TestCase):
             surface.engine.rootContext().setContextProperty(name,value)
         app=SystemApplication(); app.server_url='http://fixture.invalid'
         controller=SystemInfoController(app,env_inst.server_pool); self.addCleanup(controller.shutdown)
-        refreshed=[];controller.navigationCleared.connect(refreshed.append)
         server=Server()
         with tempfile.TemporaryDirectory(prefix='handoff-fixture-') as directory, \
                 patch('thlib.environment.env_server.get_proxy',return_value={}), \
@@ -166,9 +165,8 @@ class SystemInfoTests(unittest.TestCase):
             self.assertEqual(opened.call_count,1)
             click('systemOpenLink_0')
             self.assertEqual(opened.call_count,2)
-            click('systemClearSidebar')
-            self.assertIn(('run_test',{'action':'clear_sidebar','values':{}}),server.log)
-            self.assertEqual(refreshed,['one'])
+            self.assertFalse(any(values.get('action') == 'clear_sidebar' for _, values in server.log))
+            self.assertIsNone(view.findChild(QObject, 'systemClearSidebar'))
             self.assertTrue(app.window_model.is_window_visible('system_info'))
             app.project_changed.emit('two','Two')
             self.assertFalse(app.window_model.is_window_visible('system_info'))

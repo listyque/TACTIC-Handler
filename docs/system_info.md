@@ -10,7 +10,7 @@ Local Handler version, operating system, Python and Qt are a separate section.
 The shared Frame description renders separate Server/Python/Client sections,
 load-balancing/performance tests, editable email sender/recipients, asset/handoff
 paths and test, project-page load test with built-in checkbox, saved-script path
-and Run, and fixed sidebar-cache clearing. Plain values are not a report editor.
+and Run. Plain values are not a report editor.
 The bounded body uses the shared scrollbar; clipboard copying is a toolbar action.
 
 There is no polling or persistent report cache. Close, authentication changes
@@ -19,7 +19,8 @@ cannot republish facts; already issued server writes are not undone by closing.
 The server pool owns all requests/local path checks. Parallel probes use separate
 SDK clients/transports with the captured session, up to eight concurrently.
 The page test opens the same Stream addresses in the system browser, without
-passing tickets in URLs. Cache clearing reloads the current native navigation.
+passing tickets in URLs. Navigation refresh remains with its normal owner;
+System Info does not clear an unused legacy filesystem cache.
 
 `tests/test_system_info.py` exercises all test buttons and fields with actual
 QML mouse/keyboard input, copy, narrow/wide geometry, local folder access,

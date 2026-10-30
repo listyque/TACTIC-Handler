@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.294 - 2026-10-30
+
+- Remove the unused legacy sidebar-cache clearing control from System Info in both clients, its deletion command and redundant refresh wiring. Preserve normal navigation loading and client memory.
+
 ## 0.6.0.293 - 2026-10-30
 
 - Compact the Search Types summary in both clients: group its counters, size explanations to their content and bring the relationship map closer to the statistics.

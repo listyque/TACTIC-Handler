@@ -35,9 +35,6 @@ polled while idle. Each test runs only when its button is pressed.
 - **Python Script Test** accepts the path of a saved `config/custom_script` and
   **Run script** calls the original PythonCmd in the current project. The script
   runs with administrator authority and can change data, just as in legacy.
-- **Clear Side Bar Cache** deletes the fixed server `cache/side_bar` directory for
-  all users and reloads this client's navigation. It never deletes configuration
-  or repository files. Linked cache directories and arbitrary paths are rejected.
 
 Results and failures appear under their own buttons. Closing or changing the
 session invalidates late results; it does not undo an already sent email or a

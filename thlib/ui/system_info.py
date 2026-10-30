@@ -8,7 +8,6 @@ CLASS = 'tactic.ui.app.system_info_wdg.SystemInfoWdg'
 
 class SystemInfoController(QObject):
     changed = Signal()
-    navigationCleared = Signal(str)
 
     def __init__(self, application, pool):
         super().__init__(application)
@@ -170,8 +169,6 @@ class SystemInfoController(QObject):
                 self._model['loaded'] = True
         else:
             self._model.setdefault('results', {})[kind] = dict(error=result['error']) if 'error' in result else result['data']
-            if kind == 'clear_sidebar' and 'error' not in result:
-                self.navigationCleared.emit(self._model.get('project') or self.application.current_project_code)
         self.changed.emit()
 
     @Slot('QVariantMap')
