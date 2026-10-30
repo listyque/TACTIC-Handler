@@ -425,6 +425,11 @@ def create_server(connection: StreamConnection, stream_root: Path, handler_root:
             return connection.command('editing', 'tasks_prepare', request_id=request_id, process=process, search_keys=search_keys)
 
         @mcp.tool(annotations=read_only, structured_output=True)
+        def ts_notes_read(search_key: Identifier, process: str = '', offset: Offset = 0) -> dict[str, Any]:
+            """Read 50 native comments for an object/process or task, with note revisions and has_next. Task keys resolve the same discussion target as the ordinary Task Inspector. For an object without process, read its general publish discussion. Native private-note and process permissions apply."""
+            return connection.command('editing', 'notes_read', request_id=request_id, search_key=search_key, process=process, offset=offset)
+
+        @mcp.tool(annotations=read_only, structured_output=True)
         def ts_workflow_read(search_type: Identifier) -> dict[str, Any]:
             """Read existing entity workflows, selected object assignments, columns and revision before editing."""
             return connection.command('editing', 'workflow_read', request_id=request_id, search_type=search_type)
@@ -462,6 +467,13 @@ def create_server(connection: StreamConnection, stream_root: Path, handler_root:
             writes = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
 
             @mcp.tool(annotations=writes, structured_output=True)
+            def ts_note_add(search_key: Identifier, note: Annotated[str, Field(min_length=1, max_length=12000)],
+                            process: str = '', operation_id: str = '') -> dict[str, Any]:
+                """Add a comment through the ordinary native discussion command, including triggers and author identity. Pass a task key from ts_tasks_read, or its parent object plus the actual process. This is a comment, not a status/description change: never put it in ts_tasks_save or ts_records_create. Returns the saved note and revision. Retries within a chat turn are deduplicated automatically, so no UUID or reread is needed. Long-lived MCP callers can supply an operation UUID for an intentionally repeated identical comment."""
+                return connection.command('editing', 'note_add', request_id=request_id, search_key=search_key,
+                    note=note, process=process, **({'operation_id': operation_id} if operation_id else {}))
+
+            @mcp.tool(annotations=writes, structured_output=True)
             def ts_tasks_save(changes: Annotated[list[TaskEdit], Field(min_length=1, max_length=200)]) -> dict[str, Any]:
                 """Create missing native tasks or edit existing ones in one checked transaction. Use plans/revisions from ts_tasks_prepare and add data containing only requested editable fields: description, status, assignee, supervisor, planned dates/hours or progress as offered by the native editor. Native ACLs, workflows, status journals and triggers apply. Returns persisted tasks and fresh revisions; retry is automatic and refuses later conflicts. No operation UUID or verification reread is needed."""
                 return connection.command('editing', 'tasks_save', request_id=request_id,
@@ -483,7 +495,7 @@ def create_server(connection: StreamConnection, stream_root: Path, handler_root:
 
             @mcp.tool(annotations=writes, structured_output=True)
             def ts_attachment_checkin(search_key: Identifier, process: Identifier, attachments: list[Identifier], operation_id: Identifier, context: str = '') -> dict[str, Any]:
-                """Check attached files into an existing entity process through native FileCheckin/naming. Optional context continues an existing version series returned by ts_snapshots; otherwise each original filename defines its series. Context must belong to process. Never overwrite paths to bypass a naming collision. No TH desktop hooks run."""
+                """Check attached files into an existing entity process through native FileCheckin/naming. To set the object's actual preview, pass process='icon' and exactly one image: the native icon context and main/web/icon files are used, without a workflow change. Do not substitute a reference file in another process for the requested preview. For ordinary workflow files optional context continues a series from ts_snapshots; otherwise each filename defines its series. Context must belong to process. Never overwrite paths to bypass naming collisions. No TH desktop hooks run."""
                 return connection.command('editing', 'checkin', request_id=request_id, search_key=search_key,
                                           process=process, attachments=attachments, operation_id=operation_id, **({'context': context} if context else {}))
 
@@ -526,7 +538,7 @@ def create_server(connection: StreamConnection, stream_root: Path, handler_root:
                               + (['handler_automation.trial', 'handler_automation.trial_read', 'handler_automation.trial_image'] if trials else [])
                               + (['handler_automation.activate'] if allow_automation_activate else []),
                 'existing_project_editing': allow_project_edit,
-                'existing_project_operations': ['records.read', 'workflow.read', 'snapshots.read', 'relations.read', 'tasks.read', 'tasks.prepare'] + (['records.create', 'instance.link', 'workflow.apply', 'attachment.checkin', 'record.patch', 'tasks.status', 'tasks.save'] if allow_project_edit else []),
+                'existing_project_operations': ['records.read', 'workflow.read', 'snapshots.read', 'relations.read', 'tasks.read', 'tasks.prepare', 'notes.read'] + (['records.create', 'instance.link', 'workflow.apply', 'attachment.checkin', 'record.patch', 'tasks.status', 'tasks.save', 'note.add'] if allow_project_edit else []),
                 'web_download': bool(request_id and allow_web_download),
                 'can_apply': allow_naming_save or allow_page_save or allow_project_create or allow_automation_draft or allow_automation_activate or allow_project_edit,
                 'can_execute_scripts': trials is not None, 'th_runtime_connected': False,

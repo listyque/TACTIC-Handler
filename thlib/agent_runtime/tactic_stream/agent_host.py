@@ -96,6 +96,8 @@ def task_prompt(request):
         'For an item navigator with content on the right, put items and details bricks in a row. '
         'Use type-conditioned column groups inside details; bind text/markdown fields and related tables '
         'to the selected record. Do not open a separate popup for dashboard content. '
+        'For task/process comments use ts_note_add with the task key or object/process; do not change task status or description. '
+        'For object previews use ts_attachment_checkin with process icon and one image, not a reference in another process. '
         'For ordinary task status changes use ts_tasks_read (related_type for linked assets) then '
         'one ts_task_status_set batch with the offered statuses and revisions. These tools handle sthpw/task '
         'through the native task editor; do not try entity records/workflow tools on system task types. '

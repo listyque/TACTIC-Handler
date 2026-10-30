@@ -124,3 +124,12 @@ reference/model/texture/rig, assign that exact asset and check the attached
 files into reference. If files are missing, complete the authorized workflow
 part when independent, and clearly ask for the missing files. Do not describe
 an unanswered file request as a successfully completed task.
+
+
+## Native comments and actual previews
+
+Use `ts_notes_read(search_key, process, offset)` for comments and `ts_note_add(search_key, note, process)` to add one. Task keys resolve the same target as Task Inspector: parent discussion for the primary task, task discussion for a secondary task. Object keys plus an actual process also work; omitted process uses the general publish discussion. These tools preserve native authorship, ACLs, private-note reads and note/workflow triggers. Do not put comment text into task data or use generic project-record creation for `sthpw/note`.
+
+A comment write returns its note key, body, author and revision. Within a chat turn the exact target/process/text is deduplicated internally. Retrying refuses an edited/deleted note instead of recreating it. An explicit new turn can intentionally add identical text. Long-lived MCP callers may provide an optional operation UUID to distinguish an intentional identical addition; retain it for retries. Writes still require an active authorized conversation or current write grant.
+
+For an object's actual preview use `ts_attachment_checkin(search_key, process="icon", attachments=[image_id], operation_id=...)`. Exactly one image is required, with native context `icon` and main/web/icon files, independent of workflow nodes. Ordinary process check-ins retain their naming and series behavior. Never claim that a reference file in layout/reference replaces the object preview.

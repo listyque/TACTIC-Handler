@@ -233,8 +233,10 @@ Item {
             Controls.Button {
                 objectName: "agentOperationDetails"
                 x: root.toolGeometry.x
-                width: root.toolGeometry.width
+                width: Math.min(implicitWidth, root.toolGeometry.width)
                 height: visible ? 28 : 0
+                flat: true
+                segmented: true
                 visible: !!root.frameNode.events?.length
                 theme: root.theme
                 text: root.frameNode.active ? qsTr("Working with TACTIC tools…") : qsTr("Operation details")

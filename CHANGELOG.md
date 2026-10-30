@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.289 - 2026-10-30
+
+- Let the agent read/add native task and process comments with per-turn retry protection, and set actual object previews through the built-in icon check-in.
+- Keep comments on secondary tasks in the owning project and render operation details as a compact disclosure instead of a full-width button.
+
 ## 0.6.0.288 - 2026-10-30
 
 - Run the external agent beside Handler with local Codex authentication; offer server execution as an explicit alternative in both clients.

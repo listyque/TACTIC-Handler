@@ -224,3 +224,8 @@ Choose **Run agent on** in the chat or **Configuration → AI providers**, then 
 Nothing starts on opening the chat or pressing Send. **Disconnect agent** stops the selected managed executor; applied changes remain. Closing the chat leaves it running. Closing/signing out of TH stops that TH's local executors; the server option continues independently. Externally launched hosts must be stopped where they were launched. Existing running connections remain visible until disconnected.
 
 In **All projects**, the project name appears beneath each conversation title; the working indicator stays beside the text.
+
+
+The agent can read and add task/process comments through the native discussion tools. A comment does not change task status or description. Repeated delivery in one chat turn does not add duplicates; an intentional follow-up can add the same text again. Comments appear in the ordinary Task Inspector, with your author identity and native triggers. Group tool permissions apply to `ts_notes_read` and `ts_note_add`.
+
+For an actual object preview, the agent checks one image into the built-in `icon` context. It does not need an artificial icon node in the workflow; a reference file in a work process is a separate operation. Existing files and applied changes are preserved when a task is only partly completed. Operation details open from a compact disclosure aligned with the assistant's answer.
