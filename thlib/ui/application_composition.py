@@ -638,6 +638,8 @@ def _build_delivery(
     script_editor = ScriptEditorController(
         controller, core.debug_log, users=collaboration.users
     )
+    from thlib.ui.agent_desktop import AgentDesktopController
+    controller.agent_desktop = AgentDesktopController(controller, server_pool)
     agent_request = AgentRequestController(controller, server_pool)
     agent_providers = AgentProvidersController(controller, server_pool)
     table_views = TableViewsController(controller, server_pool)

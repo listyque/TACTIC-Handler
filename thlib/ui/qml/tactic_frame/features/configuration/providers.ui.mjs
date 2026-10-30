@@ -15,7 +15,8 @@ export function initial() {
         busy: false,
         error: '',
         notice: '',
-        executor: {}
+        executor: {},
+        executorTarget: null
     };
 }
 export function select(model, id) {
@@ -50,7 +51,8 @@ export function edit(model, field, value) {
 }
 export function describe(model, width, height, language) {
     const tr = (key) => translate(key, language),
-        locked = model.busy;
+        locked = model.busy,
+        executor = Executor.current(model);
     const selected = model.profiles.find((item) => item.id === model.selected);
     const narrow = width < 620,
         rowHeight = narrow ? 80 : 40,
@@ -104,13 +106,13 @@ export function describe(model, width, height, language) {
             rect(12, rowHeight + 8, width - 24, 44),
             tr(
                 model.error ||
-                    (['starting', 'stopping', 'failed'].includes(
-                        model.executor?.state
+                    (['preparing', 'starting', 'stopping', 'failed'].includes(
+                        executor.state
                     )
-                        ? Executor.status(model.executor, language)
+                        ? Executor.status(executor, language)
                         : '') ||
                     (selected?.status === 'waiting' &&
-                    !['connected', 'external'].includes(model.executor?.state)
+                    !['connected', 'external'].includes(executor.state)
                         ? 'Connect an agent to check this connection.'
                         : '') ||
                     model.notice ||
@@ -127,7 +129,7 @@ export function describe(model, width, height, language) {
                 wrap: true,
                 color:
                     model.error ||
-                    model.executor?.error ||
+                    executor.error ||
                     selected?.status === 'failed'
                         ? 'error'
                         : 'muted'
@@ -220,21 +222,12 @@ export function describe(model, width, height, language) {
         }
     );
     nodes.push(
-        Executor.control(
-            model.executor,
-            rect(12, rowHeight + 56, 180, 32),
+        ...Executor.controls(
+            model,
+            width,
+            rowHeight + 56,
             language,
             !locked && !dirty(model) && !!model.selected
-        )
-    );
-    nodes.push(
-        label(
-            'agentProviderExecutorScope',
-            rect(204, rowHeight + 56, Math.max(0, width - 216), 32),
-            model.executor?.state === 'external'
-                ? Executor.status(model.executor, language)
-                : tr('Runs on the TACTIC server for this project.'),
-            { color: 'secondaryText', visible: !narrow }
         )
     );
     const contentY = rowHeight + 96;

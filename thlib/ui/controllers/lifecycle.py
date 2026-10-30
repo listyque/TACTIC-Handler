@@ -116,6 +116,8 @@ class LifecycleMixin:
 
     @Slot()
     def shutdown(self) -> None:
+        if getattr(self, 'agent_desktop', None):
+            self.agent_desktop.close()
         self._cancel_project_catalog()
         self._search_tab_switch_monitor.cancel()
         self._performance.shutdown()

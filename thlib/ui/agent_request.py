@@ -53,7 +53,7 @@ class AgentRequestController(QObject):
 
     @staticmethod
     def initial(context=None):
-        return dict(context=context or {}, prompt='', allowChanges=False, allowWeb=False, hosts=[], executor={}, requests=[], selected='',
+        return dict(context=context or {}, prompt='', allowChanges=False, allowWeb=False, hosts=[], executor={}, executorTarget=None, requests=[], selected='',
                     request={}, busy=False, error='', refreshError='', pending=None, attachments=[], uploading=False, model=None, effort=None, provider=None, contextExpanded=False, previews={},
                     history=dict(visible=None,mobile=False,width=280,query='',project='',searchOpen=False,grouping='time',archived=False,collapsed={},edit=None),
                     groups=[],groups_revision='',group_revisions={},projects=[],unavailable_projects=[],total=0,next_offset=None,drafts={})
@@ -170,8 +170,14 @@ class AgentRequestController(QObject):
             value=value.toVariant()
         if self._model['busy']:
             return
-        if action == 'executor' and value in ('start', 'stop'):
-            self._request('executor_' + value)
+        if action == 'executorTarget':
+            self._model['executorTarget'] = value
+            self.changed.emit()
+            return
+        if action == 'executor' and isinstance(value, dict) and value.get('action') in ('start', 'stop'):
+            if getattr(self.application, 'agent_desktop', None):
+                self.application.agent_desktop.stop_local(self._model['context']['project'], value)
+            self._request('executor_' + value['action'] + ':' + value['target'])
             return
         if action in ('historyNew','historyEdit'):
             if self._model['pending'] or self._model['uploading']:
@@ -241,7 +247,7 @@ class AgentRequestController(QObject):
             self._model['history']['edit']=None
             self.refresh()
         elif action == 'send':
-            if self._model.get('executor', {}).get('state') in ('starting', 'stopping', 'failed'):
+            if self._model.get('executor', {}).get('state') in ('preparing', 'starting', 'stopping', 'failed'):
                 return
             started=bool(self._model['selected']) and self._model['request'].get('status')!='draft'
             allowed = self._model['request'].get('document', {}).get('allow_changes', False) if started else self._model['allowChanges']
@@ -480,9 +486,9 @@ class AgentRequestController(QObject):
                 if result.get('status') != 'OK':
                     raise RuntimeError(result.get('description') or 'Agent request failed')
                 return json.loads(result['info']) if isinstance(result['info'], str) else result['info']
-            if action in ('executor_start', 'executor_stop'):
+            if action.startswith('executor_'):
                 result = project_server(server, project).execute_cmd('tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd',
-                    dict(action=action.removeprefix('executor_'), project_code=project))
+                    dict(action=action.split(':')[0].removeprefix('executor_'), target=action.split(':')[1], project_code=project))
                 if result.get('status') != 'OK':
                     raise RuntimeError(result.get('description') or 'Agent connection failed')
             if action == 'send':
@@ -558,6 +564,8 @@ class AgentRequestController(QObject):
                 self._model['history']['edit']=None
             self._model.update({key: result[key] for key in ('selected', 'request', 'hosts', 'requests')})
             self._model['executor'] = result.get('executor', {})
+            if getattr(self.application, 'agent_desktop', None):
+                self._model['executor'] = self.application.agent_desktop.decorate(self._model['executor'])
             self._model.update({key:result[key] for key in ('groups','groups_revision','group_revisions','projects','unavailable_projects','total','next_offset') if key in result})
             if result['request']:
                 self._model['context']=result['request']['document']['context']

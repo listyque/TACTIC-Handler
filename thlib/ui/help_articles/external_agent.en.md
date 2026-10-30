@@ -216,6 +216,11 @@ Send a follow-up such as “Continue” to let the selected connection read them
 Linking alone does not start a model. Existing messages are preserved. Earlier
 attachments are listed by name; they are not copied to the new chat's uploads.
 
-Use **Connect agent** in the chat or **Configuration → AI providers** to start the executor on the TACTIC server for your current account and project. **Disconnect agent** stops it; an active task is interrupted and already committed changes remain. Closing the window does not disconnect it. A host started externally must be stopped where it was launched. Codex sign-in or other provider credentials must be configured on the server machine; this does not launch a process on the browser computer.
+Choose **Run agent on** in the chat or **Configuration → AI providers**, then **Connect agent**.
+- **This computer** in TH uses your local Codex CLI sign-in and local provider API addresses. First connection installs the agent dependencies into a separate cached Python environment; global Python is unchanged. Codex CLI must already be installed and signed in.
+- In TS, choose a connected TH computer signed in to the same TACTIC account. The browser sends fixed start/stop commands through TACTIC; it does not launch local programs itself. Keep TH open.
+- **TACTIC server** is a separate, explicit option. It uses the server OS account, its Codex sign-in and its local API addresses. It is never selected silently as a fallback.
+
+Nothing starts on opening the chat or pressing Send. **Disconnect agent** stops the selected managed executor; applied changes remain. Closing the chat leaves it running. Closing/signing out of TH stops that TH's local executors; the server option continues independently. Externally launched hosts must be stopped where they were launched. Existing running connections remain visible until disconnected.
 
 In **All projects**, the project name appears beneath each conversation title; the working indicator stays beside the text.

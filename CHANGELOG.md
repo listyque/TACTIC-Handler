@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.288 - 2026-10-30
+
+- Run the external agent beside Handler with local Codex authentication; offer server execution as an explicit alternative in both clients.
+- Let the browser control its account's connected Handler through fixed project-scoped start/stop operations; stop owned local processes on sign-out/exit.
+- Bundle the portable HTTP/MCP host and indexed references independently, preparing agent dependencies in a private cached environment only on Connect.
+
 ## 0.6.0.287 - 2026-10-30
 
 - Align the project subtitle with the conversation title when the working indicator is present in All projects history.

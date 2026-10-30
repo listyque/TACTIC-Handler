@@ -18,14 +18,15 @@ from thlib.ui.agent_providers import AgentProvidersController
 class Server(requests.Server):
     def __init__(self):
         super().__init__()
-        self.executor = dict(state='stopped', managed=False, error='')
+        self.executor = dict(state='stopped', managed=False, error='', target='', targets=[dict(id='server', kind='server', label='TACTIC server', state='stopped')])
         self.settings = providers.Server()
         self.controls = []
 
     def execute_cmd(self, command, values):
         if command.endswith('AgentExecutorCmd'):
             self.controls.append(deepcopy(values))
-            self.executor = dict(state='connected' if values['action'] == 'start' else 'stopped', managed=True, error='')
+            self.executor = dict(state='connected' if values['action'] == 'start' else 'stopped', managed=True, error='', target='server')
+            self.executor['targets'] = [dict(id='server', kind='server', label='TACTIC server', state=self.executor['state'])]
             return dict(status='OK', info=self.executor)
         reply = (self.settings if command.endswith('AgentProviderCmd') else super()).execute_cmd(command, values)
         if values['action'] == 'state':
@@ -66,11 +67,12 @@ class ExecutorUI(unittest.TestCase):
                     view.setParentItem(window.contentItem())
                     window.show()
                     frame(window)
+                    owner.handle('executorTarget', 'server') if kind == 'chat' else owner.handle(dict(type='executorTarget', value='server'))
                     surface.click(window, surface.item(view, 'agentExecutorControl'))
                     wait()
                     self.assertEqual(owner.model['executor']['state'], 'connected')
                     surface.click(window, surface.item(view, 'agentExecutorControl'))
                     wait()
                     self.assertEqual(owner.model['executor']['state'], 'stopped')
-                    self.assertEqual(server.controls, [dict(action='start', project_code='one'), dict(action='stop', project_code='one')])
+                    self.assertEqual(server.controls, [dict(action='start', project_code='one', target='server'), dict(action='stop', project_code='one', target='server')])
                     self.assertFalse(surface.warnings, surface.warnings)

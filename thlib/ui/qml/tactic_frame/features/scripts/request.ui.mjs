@@ -17,6 +17,7 @@ export function initial(context = {}) {
         allowWeb: false,
         hosts: [],
         executor: {},
+        executorTarget: null,
         requests: [],
         selected: '',
         request: {},
@@ -63,7 +64,9 @@ export function canSend(model) {
     const connected = host(model);
     return (
         !model.busy &&
-        !['starting', 'stopping', 'failed'].includes(model.executor?.state) &&
+        !['preparing', 'starting', 'stopping', 'failed'].includes(
+            model.executor?.state
+        ) &&
         !model.uploading &&
         !model.request?.library?.archived &&
         !!model.context?.project &&
@@ -246,18 +249,14 @@ export function contextItems(context, language) {
 }
 export function status(model, language) {
     const tr = (text) => translate(text, language),
-        current = model.request || {};
-    if (
-        model.refreshError ||
-        model.error ||
-        model.executor?.error ||
-        current.error
-    )
+        current = model.request || {},
+        executor = Executor.current(model);
+    if (model.refreshError || model.error || executor.error || current.error)
         return {
             text: tr(
                 model.refreshError ||
                     model.error ||
-                    model.executor?.error ||
+                    executor.error ||
                     current.error
             ),
             color: 'error',
@@ -301,7 +300,7 @@ export function status(model, language) {
     };
     if (
         !texts[current.status] &&
-        model.executor?.state === 'connected' &&
+        executor.state === 'connected' &&
         Array.isArray(host(model)?.capabilities.providers) &&
         !availableModels(model).length
     )
@@ -313,8 +312,8 @@ export function status(model, language) {
     return {
         text: tr(
             texts[current.status] ||
-                (model.executor?.state || model.executor?.error
-                    ? Executor.status(model.executor, language)
+                (executor.state || executor.error
+                    ? Executor.status(executor, language)
                     : model.hosts.length
                       ? 'External agent connected'
                       : 'External agent is offline')
@@ -398,24 +397,7 @@ function describeChat(model, width, height, language, sidebarVisible) {
     const transcriptTop =
         94 + (current.undo_operation ? 32 : 0) + (sources.length ? 26 : 0);
     const nodes = [
-        Executor.control(
-            model.executor,
-            rect(inset, 52, 180, 32),
-            language,
-            !model.busy
-        ),
-        label(
-            'agentExecutorScope',
-            rect(204, 52, Math.max(0, width - 216), 32),
-            model.executor?.error ||
-                ['starting', 'stopping'].includes(model.executor?.state)
-                ? Executor.status(model.executor, language)
-                : tr('Runs on the TACTIC server for this project.'),
-            {
-                color: model.executor?.error ? 'error' : 'secondaryText',
-                visible: width >= 620
-            }
-        ),
+        ...Executor.controls(model, width, 52, language, !model.busy),
         button(
             'agentRequestHistoryToggle',
             rect(inset, 10, 32, 32),

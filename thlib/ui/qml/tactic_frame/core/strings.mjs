@@ -1,5 +1,30 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Preparing the local agent environment…':
+        'Подготовка локального окружения агента…',
+    'Choose computer': 'Выберите компьютер',
+    'TACTIC server': 'Сервер Тактика',
+    'External agent': 'Внешний агент',
+    'This computer': 'Этот компьютер',
+    'Disconnected desktop': 'ТХ отключён',
+    'Open TACTIC Handler to connect locally, or choose TACTIC server.':
+        'Для локального подключения откройте ТХ или выберите сервер Тактика.',
+    'Disconnect the current agent before starting it on another computer.':
+        'Отключите текущего агента перед запуском на другом компьютере.',
+    'Uses Codex sign-in and local API addresses on the selected computer.':
+        'Вход в Codex и локальные адреса API используются на выбранном компьютере.',
+    'Run agent on': 'Запустить агента на',
+    'Choose the computer that will run the agent':
+        'Выберите компьютер для запуска агента',
+    'Open TACTIC Handler on the selected computer and sign in to the same account.':
+        'Откройте ТХ на выбранном компьютере и войдите в ту же учётную запись.',
+    'TACTIC Handler did not accept the connection request. Open it and try again.':
+        'ТХ не принял запрос на подключение. Откройте его и повторите попытку.',
+    'The local agent stopped unexpectedly. Reconnect it to try again.':
+        'Локальный агент неожиданно остановился. Подключите его повторно.',
+    'Local agent dependency installation timed out. Check the network and retry.':
+        'Истекло время установки окружения агента. Проверьте сеть и повторите попытку.',
+
     'Find a project by name or code': 'Найти проект по названию или коду',
     'Custom rule: its effect depends on the plugin or script that checks it.':
         'Кастомное правило: его действие зависит от плагина или скрипта, который его проверяет.',

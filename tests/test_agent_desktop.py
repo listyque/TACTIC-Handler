@@ -1,0 +1,51 @@
+"""Companion registration alone never starts an executor or installs packages."""
+import unittest
+from unittest.mock import patch, Mock
+from uuid import uuid4
+
+from PySide6.QtTest import QTest
+from tests import test_agent_request as requests
+from tests import test_frame_script_tools as frames
+from thlib.environment import env_inst
+from thlib.ui.agent_desktop import AgentDesktopController
+
+
+class Desktop(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        frames.ScriptToolsTests.setUpClass()
+
+    def test_registration_deduplication_logout_and_stale_reply(self):
+        app = requests.Application()
+        app.authentication_required = False
+        local = Mock()
+        local.reports.return_value = {}
+        server = Mock()
+        server.execute_cmd.return_value = dict(status='OK', info=dict(commands=[]))
+        with patch('thlib.environment.env_server.get_ticket', return_value='fixture-ticket'), \
+             patch('thlib.environment.env_server.get_server', return_value='http://127.0.0.1:9'), \
+             patch('thlib.environment.env_server.get_user', return_value='alice'), \
+             patch('thlib.tactic_classes.server_start', return_value=server), \
+             patch('thlib.ui.agent_desktop.LocalAgents', return_value=local):
+            owner = AgentDesktopController(app, env_inst.server_pool)
+            self.addCleanup(owner.close)
+            deadline = 2000
+            while owner.worker and deadline:
+                QTest.qWait(10)
+                deadline -= 10
+            self.assertIsNone(owner.worker)
+            local.start.assert_not_called()
+            self.assertEqual(server.execute_cmd.call_args.args[1]['reports'], {})
+            self.assertNotIn('fixture-ticket', str(server.execute_cmd.call_args))
+            operation = dict(operation=str(uuid4()), action='start', project='one')
+            reply = dict(generation=owner.generation, info=dict(commands=[operation]), acks=[])
+            owner.done(reply)
+            owner.done(reply)
+            local.start.assert_called_once_with('one', operation['operation'], 'http://127.0.0.1:9', 'fixture-ticket')
+            owner.stop_local('one', dict(action='stop', target=owner.device))
+            local.stop.assert_called_once_with('one')
+            app.signing_out.emit()
+            local.close.assert_called_once()
+            owner.done(reply)
+            self.assertEqual(local.start.call_count, 1)
+            self.assertFalse(owner.timer.isActive())

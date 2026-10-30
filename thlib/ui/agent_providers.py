@@ -26,7 +26,7 @@ class AgentProvidersController(QObject):
 
     @staticmethod
     def initial():
-        return dict(profiles=[], kinds=[], default='codex', revision='', selected='codex', draft={}, baseline={}, busy=False, error='', notice='', executor={})
+        return dict(profiles=[], kinds=[], default='codex', revision='', selected='codex', draft={}, baseline={}, busy=False, error='', notice='', executor={}, executorTarget=None)
 
     @Property('QVariantMap', notify=changed)
     def model(self):
@@ -60,7 +60,7 @@ class AgentProvidersController(QObject):
             self._generation += 1
             self._timer.stop()
             self._server = None
-            self._model.update(busy=False, executor={})
+            self._model.update(busy=False, executor={}, executorTarget=None)
         if not self._server:
             from thlib import tactic_classes as tc
             try:
@@ -102,7 +102,9 @@ class AgentProvidersController(QObject):
         if self._model['busy']:
             return
         kind = action.get('type')
-        if kind=='field':
+        if kind == 'executorTarget':
+            self._model['executorTarget'] = action.get('value')
+        elif kind=='field':
             field, value = action['field'], action.get('value')
             if field not in self._model['draft']:
                 return
@@ -120,8 +122,10 @@ class AgentProvidersController(QObject):
             self.select(self._model['selected'])
         elif kind=='refresh' and not self.dirty():
             self.request('state')
-        elif kind == 'executor' and action.get('value') in ('start', 'stop') and not self.dirty() and self._model['selected']:
-            self.request(action['value'])
+        elif kind == 'executor' and isinstance(action.get('value'), dict) and action['value'].get('action') in ('start', 'stop') and not self.dirty() and self._model['selected']:
+            if getattr(self.application, 'agent_desktop', None):
+                self.application.agent_desktop.stop_local(self._project, action['value'])
+            self.request(action['value']['action'], dict(target=action['value']['target']))
         elif kind in ('save','check','remove'):
             values = dict(provider=self._model['selected'],expected_revision=self._model['revision'])
             if kind=='save':
@@ -146,10 +150,11 @@ class AgentProvidersController(QObject):
     def load(server,project,action,values,generation):
         try:
             if action in ('start', 'stop'):
-                result = server.execute_cmd('tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd', dict(action=action, project_code=project))
+                result = server.execute_cmd('tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd', dict(action=action, project_code=project, target=values.get('target')))
                 if result.get('status') != 'OK':
                     raise RuntimeError(result.get('description') or 'Agent connection failed')
                 action = 'state'
+                values = {}
             result = server.execute_cmd(COMMAND,dict(action=action,project_code=project,**values))
             if result.get('status')!='OK':
                 raise RuntimeError(result.get('description') or 'Provider settings could not be loaded')
@@ -173,10 +178,12 @@ class AgentProvidersController(QObject):
             if result['action']=='save' and not selected:
                 selected=next((row['id'] for row in info['profiles'] if row['id'] not in old),info['default'])
             self._model.update(info)
+            if getattr(self.application, 'agent_desktop', None):
+                self._model['executor'] = self.application.agent_desktop.decorate(self._model['executor'])
             self.select(selected if any(row['id']==selected for row in info['profiles']) else info['default'])
             if result['action']=='check':
                 self._model['notice']='Waiting for the external host'
-            if (self._embedded_active or self.application.window_model.is_window_visible('agent_providers')) and (any(row['status']=='waiting' for row in info['profiles']) or info.get('executor', {}).get('state') in ('starting', 'connected', 'stopping')):
+            if (self._embedded_active or self.application.window_model.is_window_visible('agent_providers')):
                 self._timer.start()
         self.changed.emit()
 

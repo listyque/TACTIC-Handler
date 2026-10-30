@@ -667,3 +667,18 @@ submit slow work through the existing API workers. The small native Frame exampl
 supports `show(records, modal=True)` and releases its window after close.
 Saving, syntax validation and activation remain separate from execution.
 An isolated trial runner is unavailable; never call a normal script run isolated.
+
+
+## Local external-agent executor
+
+`thlib.ui.agent_desktop.AgentDesktopController` owns authenticated desktop registration
+and fixed start/stop relaying; `thlib.local_agent.LocalAgents` owns local child processes
+and their private cached Python environment. Application shutdown/sign-out stops only
+this instance's children. No arbitrary desktop command API is exposed. Chat/provider
+controllers pass the selected execution target through `AgentExecutorCmd`.
+
+The client-only HTTP/MCP runtime and indexed TS reference documents are bundled under
+`thlib/agent_runtime`, independently of a Stream checkout. Refresh exact copies with
+`python tools/sync_agent_runtime.py --stream-root <TS/tactic_stream>` and verify with
+`--check`; do not copy Stream server/database code. Local Codex uses the current OS
+account's CLI authentication; TACTIC credentials stay outside model inputs.
