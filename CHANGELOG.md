@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.293 - 2026-10-30
+
+- Compact the Search Types summary in both clients: group its counters, size explanations to their content and bring the relationship map closer to the statistics.
+
 ## 0.6.0.292 - 2026-10-30
 
 - Add the complete legacy plugin manager to Administration in Handler and Stream: package creation, ZIP/URL staging, project activation, manifest/docs/files editing, export, publication and confirmed removal through native commands.

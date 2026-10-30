@@ -138,6 +138,8 @@ pipeline is enabled. You can create a type without adding any extra fields.
 
 Summary shows total, active and retired Search Objects, fields, pipelines and processes. System and
 config Search Types are included, also for administrative projects.
+The counters share a compact statistics strip, wrapping on narrow screens.
+The relationship map follows the statistics without large spacer rows.
 
 Details uses a color picker with a theme-color reset. Workflow lists pipelines linked to the
 selected type and opens their existing editor without discarding your type draft.

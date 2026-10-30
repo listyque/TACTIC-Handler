@@ -509,6 +509,45 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.assertGreater(viewport.property('contentY'), 0)
         self.assertEqual(self.ui.fixture.warnings, [])
 
+    def test_summary_groups_metrics_and_keeps_the_map_near_them(self):
+        self.click('adminSearchType_demo/asset')
+        view = self.item('adminSearchTypesView')
+        for language in ('en', 'ru'):
+            view.setProperty('language', language)
+            for width in (1800, 1100):
+                self.window.resize(width, 940)
+                self.item('adminSearchTypeForm').setProperty('contentY', 0)
+                frame(self.window)
+                self.assertEqual(self.ui.fixture.warnings, [])
+                self.assertEqual(view.property('page'), 'summary')
+                band = self.item('adminSearchTypeCount_total').parentItem()
+                while band is not None:
+                    descriptor = band.property('node')
+                    descriptor = descriptor.toVariant() if hasattr(descriptor, 'toVariant') else descriptor
+                    if isinstance(descriptor, dict) and descriptor.get('id') == 'typeSummaryMetrics':
+                        break
+                    band = band.parentItem()
+                self.assertIsNotNone(band, 'Counters belong to one statistics surface')
+                graph = self.item('adminSearchTypeRelationshipGraph')
+                help_text = self.item('typeSummaryHelp')
+                band_top = band.mapToScene(QPointF()).y()
+                graph_top = graph.mapToScene(QPointF()).y()
+                self.assertLessEqual(graph_top - band_top - band.height(), 180)
+                self.assertLess(help_text.height(), 80)
+                for name, expected in (('total', '230'), ('active', '215'), ('retired', '15')):
+                    value = self.item('adminSearchTypeCount_' + name)
+                    self.assertEqual(value.property('text'), expected)
+                    position = value.mapToItem(band, QPointF())
+                    self.assertGreaterEqual(position.x(), 8)
+                    self.assertLessEqual(position.x() + value.width(), band.width() - 8)
+                    self.assertLessEqual(position.y() + value.height(), band.height())
+                if width == 1800:
+                    total = self.item('adminSearchTypeCount_total').mapToScene(QPointF()).y()
+                    processes = self.item('adminSearchTypeCount_processes').mapToScene(QPointF()).y()
+                    self.assertEqual(total, processes)
+                self.assertFalse(self.editor.dirty)
+        self.assertEqual(self.ui.fixture.warnings, [])
+
     def test_summary_explains_native_relationship_and_link_table(self):
         self.editor._metadata.update(
             database='demo', projectLocal=True, linkTable=True, manyToMany=True,

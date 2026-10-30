@@ -799,7 +799,45 @@ function content(model, ui, width, height, language, edit, navigate) {
             y += Math.max(250, height - y);
         }
     } else if (ui.page === 'summary') {
-        heading(
+        const textHeight = (value) =>
+            String(value)
+                .split('\n')
+                .reduce(
+                    (lines, line) =>
+                        lines +
+                        Math.max(
+                            1,
+                            Math.ceil(
+                                line.length /
+                                    Math.max(12, Math.floor((width - 24) / 7))
+                            )
+                        ),
+                    0
+                ) * 20;
+        const summaryHeading = (id, title, description) => {
+            nodes.push(
+                label(id, rect(0, y, width, 28), title, {
+                    role: 'heading',
+                    level: 2,
+                    fontRole: 'section',
+                    weight: 600
+                })
+            );
+            y += 30;
+            if (description) {
+                const h = textHeight(description);
+                nodes.push(
+                    label(
+                        id + 'Description',
+                        rect(0, y, width, h),
+                        description,
+                        Object.assign({ wrap: true }, muted)
+                    )
+                );
+                y += h + 8;
+            }
+        };
+        summaryHeading(
             'typeSummaryHeading',
             doc.title || model.identity,
             model.identity
@@ -812,40 +850,76 @@ function content(model, ui, width, height, language, edit, navigate) {
                 ['pipelines', 'Pipelines'],
                 ['processes', 'Processes']
             ],
-            columns = width < 420 ? 2 : 3;
+            columns = width >= 960 ? 6 : width >= 540 ? 3 : 2,
+            rowHeight = 64,
+            metricsHeight = Math.ceil(metrics.length / columns) * rowHeight,
+            metricNodes = [];
         metrics.forEach((row, index) => {
             const x = ((index % columns) * width) / columns,
-                top = y + Math.floor(index / columns) * 72;
-            nodes.push(
+                top = Math.floor(index / columns) * rowHeight;
+            if (index % columns)
+                metricNodes.push(
+                    node(
+                        'Box',
+                        'typeMetricDivider_' + row[0],
+                        rect(x, top + 10, 1, rowHeight - 20),
+                        { background: 'outlineVariant', radius: 0 }
+                    )
+                );
+            if (index && index % columns === 0)
+                metricNodes.push(
+                    node(
+                        'Box',
+                        'typeMetricRowDivider_' + row[0],
+                        rect(12, top, width - 24, 1),
+                        { background: 'outlineVariant', radius: 0 }
+                    )
+                );
+            metricNodes.push(
                 label(
                     'adminSearchTypeCount_' + row[0],
-                    rect(x, top, width / columns - 8, 34),
+                    rect(x + 12, top + 6, width / columns - 24, 28),
                     String(
                         (meta.summary || {})[row[0]] === undefined
                             ? '—'
                             : meta.summary[row[0]]
                     ),
                     {
-                        fontRole: 'hero',
+                        fontRole: 'title',
                         weight: 600
                     }
                 ),
                 label(
                     'typeMetricLabel_' + row[0],
-                    rect(x, top + 38, width / columns - 8, 26),
+                    rect(x + 12, top + 36, width / columns - 24, 22),
                     tr(row[1]),
                     muted
                 )
             );
         });
-        y += Math.ceil(metrics.length / columns) * 72;
+        nodes.push(
+            node(
+                'Box',
+                'typeSummaryMetrics',
+                rect(0, y, width, metricsHeight),
+                {
+                    background: 'surfaceContainerHigh',
+                    border: 'outlineVariant',
+                    radius: 0,
+                    children: metricNodes
+                }
+            )
+        );
+        y += metricsHeight + 12;
+        const summaryHelp = tr(
+                'Totals include retired Search Objects. Shared system types are counted in their own database. Reload to update the summary.'
+            ),
+            summaryHelpHeight = textHeight(summaryHelp);
         nodes.push(
             label(
                 'typeSummaryHelp',
-                rect(0, y, width, 76),
-                tr(
-                    'Totals include retired Search Objects. Shared system types are counted in their own database. Reload to update the summary.'
-                ),
+                rect(0, y, width, summaryHelpHeight),
+                summaryHelp,
                 Object.assign(
                     {
                         wrap: true
@@ -854,8 +928,8 @@ function content(model, ui, width, height, language, edit, navigate) {
                 )
             )
         );
-        y += 84;
-        heading(
+        y += summaryHelpHeight + 16;
+        summaryHeading(
             'typeGraphHeading',
             tr('Relationship map'),
             tr(
@@ -885,7 +959,7 @@ function content(model, ui, width, height, language, edit, navigate) {
             )
         );
         y += 412;
-        heading(
+        summaryHeading(
             'typeRelationsHeading',
             tr('Schema relationships'),
             tr(
@@ -895,7 +969,7 @@ function content(model, ui, width, height, language, edit, navigate) {
             )
         );
         nodes.push(
-            node('Area', 'typeDataLocation', rect(0, y, width, 92), {
+            node('Area', 'typeDataLocation', rect(0, y, width, 64), {
                 text:
                     tr('Database') +
                     ': ' +
@@ -915,7 +989,7 @@ function content(model, ui, width, height, language, edit, navigate) {
                 notice: true
             })
         );
-        y += 100;
+        y += 72;
         for (
             let index = 0;
             index < (meta.relationships || []).length;
@@ -924,35 +998,42 @@ function content(model, ui, width, height, language, edit, navigate) {
             const edge = meta.relationships[index],
                 name = (id) =>
                     (model.catalog.find((row) => row.identity === id) || {})
-                        .label || id;
+                        .label || id,
+                description =
+                    name(edge.from) +
+                    ' → ' +
+                    name(edge.to) +
+                    '\n' +
+                    relationshipDescription(edge, language),
+                relationHeight = Math.max(
+                    64,
+                    Math.min(224, textHeight(description) + 16)
+                );
             nodes.push(
                 node(
                     'Area',
                     'adminSearchTypeRelation_' + index,
-                    rect(0, y, width, 164),
+                    rect(0, y, width, relationHeight),
                     {
-                        text:
-                            name(edge.from) +
-                            ' → ' +
-                            name(edge.to) +
-                            '\n' +
-                            relationshipDescription(edge, language),
+                        text: description,
                         label: tr('Schema relationships'),
                         readOnly: true,
                         notice: true
                     }
                 )
             );
-            y += 172;
+            y += relationHeight + 8;
         }
         if (!(meta.relationships || []).length) {
+            const empty = tr(
+                    'No explicit relationships for this type in the loaded schemas.'
+                ),
+                emptyHeight = textHeight(empty);
             nodes.push(
                 label(
                     'typeRelationshipsEmpty',
-                    rect(0, y, width, 72),
-                    tr(
-                        'No explicit relationships for this type in the loaded schemas.'
-                    ),
+                    rect(0, y, width, emptyHeight),
+                    empty,
                     Object.assign(
                         {
                             wrap: true
@@ -961,7 +1042,7 @@ function content(model, ui, width, height, language, edit, navigate) {
                     )
                 )
             );
-            y += 80;
+            y += emptyHeight + 8;
         }
     } else if (ui.page === 'workflow') {
         heading(
