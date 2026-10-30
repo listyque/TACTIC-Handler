@@ -6,7 +6,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from PySide6.QtCore import QCoreApplication, Qt, QUrl
+from PySide6.QtCore import QCoreApplication, QPointF, Qt, QUrl
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtGui import QColor
 from PySide6.QtTest import QTest
@@ -32,6 +32,7 @@ class Server:
         self.error = ''
         self.active = False
         self.uploads = []
+        self.empty = False
 
     def upload_file(self, path):
         self.uploads.append(path)
@@ -44,12 +45,15 @@ class Server:
         action = args['action']
         result = deepcopy(DOCUMENT)
         if action == 'list':
-            result = dict(catalog=[ROW], canWrite=True, metadata={})
+            result = dict(catalog=[] if self.empty else [ROW], canWrite=True, metadata={})
         elif action == 'new':
             result = dict(identity='', revision='', canWrite=True,
                           document=dict(code='', title='', description='', type=''),
                           metadata=dict(new=True, project='one'))
         else:
+            if action in ('install', 'download_url', 'create'):
+                self.empty = False
+                result['catalog'] = [ROW]
             if action == 'activate': self.active = True
             if action == 'deactivate':
                 assert args['confirmation'] is True
@@ -65,6 +69,79 @@ class AdminPluginsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ScriptToolsTests.setUpClass()
+
+    def test_first_package_guides_creation_installation_and_explicit_activation(self):
+        isolate_chat_settings(self)
+        surface = ScriptToolsTests(); surface.setUp(); self.addCleanup(surface.doCleanups)
+        for name, value in qml_icon_bindings(QML.parents[2], surface.engine).items():
+            surface.engine.rootContext().setContextProperty(name, value)
+        controller = PluginsEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        self.addCleanup(controller.shutdown)
+        server = Server(); server.empty = True
+        with patch('thlib.tactic_classes.server_start', return_value=server):
+            def wait():
+                deadline = time.monotonic() + 10
+                while controller.busy and time.monotonic() < deadline: QTest.qWait(5)
+                self.assertFalse(controller.busy)
+                frame(window)
+            view = surface.create(QML/'features/administration/plugins/AdminPluginsView.qml',
+                dict(theme=surface.theme,controller=controller,width=1000,height=780,saveActionsInHeader=False))
+            window = QQuickWindow(); window.setColor(QColor(surface.theme.property('workspace')))
+            window.resize(1000,780); surface.windows.append(window)
+            view.setParentItem(window.contentItem()); window.show()
+            controller.activate('one'); wait()
+
+            def capture(state, names):
+                if not os.environ.get('PLUGINS_OUTPUT'): return
+                import json
+                from pathlib import Path
+                folder = Path(os.environ['PLUGINS_OUTPUT']); folder.mkdir(parents=True,exist_ok=True)
+                for language in ('en','ru'):
+                    view.setProperty('language',language)
+                    for width in (620,1000):
+                        window.resize(width,780); view.setWidth(width); frame(window)
+                        boxes = {}
+                        for name in names:
+                            item = surface.item(view,name); point = item.mapToScene(QPointF())
+                            boxes[name] = dict(x=point.x(),y=point.y(),width=item.width(),height=item.height())
+                            self.assertLessEqual(point.x() + item.width(), width + .5)
+                            if item.property('contentHeight') is not None and item.property('text') is not None:
+                                self.assertLessEqual(item.property('contentHeight'),item.height() + .5,name)
+                        stem = 'guided-%s-%s-%s' % (state,width,language)
+                        (folder/(stem+'.json')).write_text(json.dumps(boxes),encoding='utf-8')
+                        window.grabWindow().save(str(folder/(stem+'.png')))
+                window.resize(1000,780); view.setWidth(1000); view.setProperty('language','en'); frame(window)
+
+            capture('start',['pluginWelcomeTitle','pluginWelcomeIntro','pluginEmptyInstall','pluginEmptyNew'])
+            surface.click(window,surface.item(view,'pluginEmptyNew')); wait()
+            self.assertFalse(surface.item(view,'pluginCreate').property('enabled'))
+            capture('create',['pluginTitle','pluginCreateIntro','pluginField_title','pluginField_code','pluginCreate','pluginCancelCreate'])
+            surface.click(window,surface.item(view,'pluginCancelCreate')); wait()
+            self.assertEqual(controller.document,{})
+            surface.click(window,surface.item(view,'pluginEmptyInstall')); frame(window)
+            capture('zip',['pluginOperationTitle','pluginInstallSource','pluginZipInstructions','pluginBrowseZip','pluginCancel'])
+            surface.click(window,surface.item(view,'pluginInstallSource_url')); frame(window)
+            self.assertFalse(surface.item(view,'pluginConfirm').property('enabled'))
+            surface.fill(window,surface.item(view,'pluginInstall_url'),'https://example.org/plugin.zip')
+            capture('url',['pluginOperationTitle','pluginInstallSource','pluginInstall_url','pluginConfirm','pluginCancel'])
+            surface.click(window,surface.item(view,'pluginConfirm')); wait()
+            self.assertEqual(server.calls[-1]['action'],'download_url')
+            self.assertFalse(server.active,'Staging must not activate a package')
+            self.assertIn('Package added',surface.item(view,'pluginResult').property('text'))
+            surface.click(window,surface.item(view,'pluginAction_activate')); frame(window)
+            self.assertFalse(server.active,'Review must not activate a package')
+            capture('activation',['pluginOperationTitle','pluginOperationContext','pluginConfirm','pluginCancel'])
+            surface.click(window,surface.item(view,'pluginConfirm')); wait()
+            self.assertTrue(server.active)
+            self.assertEqual(surface.item(view,'pluginResult').property('text'),'Plugin is now active in this project.')
+            surface.click(window,surface.item(view,'pluginToolsButton')); frame(window)
+            QTest.keyClick(window,Qt.Key_Escape); frame(window)
+            surface.click(window,surface.item(view,'pluginInstall')); frame(window)
+            server.empty = True
+            controller.activate('two'); wait()
+            self.assertEqual(surface.value(view,'ui'),dict(query='',activeOnly=False,tab='info',operation='',value='',url='',checksum='',collapsed=False,source='zip',notice=''))
+            self.assertTrue(surface.item(view,'pluginEmptyInstall').isVisible())
+            self.assertFalse(surface.warnings,'\n'.join(surface.warnings))
 
     def test_real_native_editor_actions_geometry_error_recovery_and_no_polling(self):
         isolate_chat_settings(self)
@@ -89,15 +166,18 @@ class AdminPluginsTests(unittest.TestCase):
             window = QQuickWindow(); window.setColor(QColor(surface.theme.property('workspace'))); window.resize(1000, 780); surface.windows.append(window)
             view.setParentItem(window.contentItem()); window.show(); frame(window)
             self.assertEqual(surface.item(view, 'pluginTitle').property('text'), 'Example plugin')
-            surface.click(window, surface.item(view, 'pluginAction_activate')); wait(); frame(window)
+            surface.click(window, surface.item(view, 'pluginAction_activate')); frame(window)
+            surface.click(window, surface.item(view, 'pluginConfirm')); wait(); frame(window)
             surface.click(window, surface.item(view, 'pluginAction_deactivate')); frame(window)
             surface.item(view, 'pluginConfirm').forceActiveFocus()
             QTest.keyClick(window, Qt.Key_Space); wait(); frame(window)
             self.assertFalse(server.active)
+            view.dispatch(dict(type='tab',value='details')); frame(window)
             surface.fill(window, surface.item(view, 'pluginField_title'), 'Edited plugin')
             surface.click(window, surface.item(view, 'pluginSave')); wait(); frame(window)
             self.assertEqual(server.calls[-1]['document']['title'], 'Edited plugin')
             self.assertIn('title', server.calls[-1]['changed_fields'])
+            view.dispatch(dict(type='tab',value='info')); frame(window)
             for language in ('en', 'ru'):
                 view.setProperty('language', language)
                 for width in (620, 1000):
@@ -115,11 +195,16 @@ class AdminPluginsTests(unittest.TestCase):
             surface.click(window, surface.item(view, 'pluginSave')); wait(); frame(window)
             self.assertEqual(server.calls[-1]['document']['file']['content'], '# Documentation changed')
             surface.click(window, surface.item(view, 'pluginNew')); wait(); frame(window)
+            self.assertFalse(surface.item(view, 'pluginCreate').property('enabled'))
+            surface.fill(window, surface.item(view, 'pluginField_title'), 'Brand new')
             surface.fill(window, surface.item(view, 'pluginField_code'), 'brand_new')
-            surface.click(window, surface.item(view, 'pluginSave')); wait(); frame(window)
+            surface.item(view, 'pluginEditorScroll').setProperty('contentY', 100)
+            surface.click(window, surface.item(view, 'pluginCreate')); wait(); frame(window)
             self.assertEqual(server.calls[-1]['action'], 'create')
+            self.assertEqual(surface.item(view, 'pluginEditorScroll').property('contentY'), 0)
             server.error = 'Fixture access denied'
-            surface.click(window, surface.item(view, 'pluginAction_activate')); wait(); frame(window)
+            surface.click(window, surface.item(view, 'pluginAction_activate')); frame(window)
+            surface.click(window, surface.item(view, 'pluginConfirm')); wait(); frame(window)
             self.assertTrue(controller.uncertain)
             self.assertFalse(surface.item(view, 'pluginAction_activate').property('enabled'))
             server.error = ''

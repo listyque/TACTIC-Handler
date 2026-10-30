@@ -3,6 +3,8 @@ import QtQuick
 import QtQuick.Dialogs
 import "../../.."
 import "../../../tactic_frame" as Frame
+import "../../../controls" as Controls
+import "../../.." as Shell
 import "../../../tactic_frame/features/administration/plugins/plugins.ui.mjs" as UI
 
 Item {
@@ -13,22 +15,25 @@ Item {
     property bool saveActionsInHeader: true
     property var ui: UI.initial()
     signal helpRequested
-    readonly property var frameModel: ({
-            catalog: controller.catalog,
-            document: controller.document,
-            metadata: controller.metadata,
-            identity: controller.identity,
-            canWrite: controller.canWrite,
-            busy: controller.busy,
-            dirty: controller.dirty,
-            uncertain: controller.writeUncertain,
-            error: controller.error
-        })
+    readonly property var frameModel: snapshot()
+    function snapshot() {
+        return ({
+                catalog: controller.catalog,
+                document: controller.document,
+                metadata: controller.metadata,
+                identity: controller.identity,
+                canWrite: controller.canWrite,
+                busy: controller.busy,
+                dirty: controller.dirty,
+                uncertain: controller.writeUncertain,
+                error: controller.error
+            });
+    }
     function toolbarScene(width) {
         return UI.toolbar(frameModel, width, language);
     }
     function dispatch(event) {
-        const result = UI.transition(ui, frameModel, event);
+        const result = UI.transition(ui, snapshot(), event);
         ui = result.ui;
         for (const command of result.commands) {
             switch (command.type) {
@@ -96,8 +101,56 @@ Item {
                 sourceEditor: root.controller.sourceEditor
             })
         describeRow: root.rowScene
+        views: ({
+                pluginTools: {
+                    component: toolsComponent,
+                    nodeProps: true
+                }
+            })
         scene: UI.describe(root.frameModel, root.ui, width, height, root.language)
         onEvent: event => root.dispatch(event)
+    }
+    Connections {
+        target: root.controller
+        function onSessionReset() {
+            root.dispatch({
+                type: "reset"
+            });
+        }
+        function onOperationCompleted(action) {
+            root.dispatch({
+                type: "completed",
+                action: action
+            });
+        }
+    }
+    Component {
+        id: toolsComponent
+        Item {
+            id: menuOwner
+            property var frameNode: ({})
+            Controls.Button {
+                id: toolsButton
+                objectName: "pluginToolsButton"
+                anchors.fill: parent
+                theme: root.theme
+                text: menuOwner.frameNode.label || ""
+                icon.name: "more-vert"
+                onClicked: toolsMenu.openBelow(toolsButton)
+            }
+            Shell.ActionMenu {
+                id: toolsMenu
+                parent: root
+                objectName: "pluginToolsMenu"
+                theme: root.theme
+                alignBelowRight: true
+                actions: menuOwner.frameNode.actions || []
+                onTriggered: command => root.dispatch({
+                        type: "operation",
+                        action: command
+                    })
+            }
+        }
     }
     FileDialog {
         id: filePicker

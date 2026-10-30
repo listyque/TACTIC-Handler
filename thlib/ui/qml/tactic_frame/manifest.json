@@ -262,6 +262,8 @@
     "features/table/views.ui.mjs": "ea438e2043f258d3aee7a025042cac07ce097592b4079aff1c40fd6ec97e4ec8",
     "features/scripts/executor.ui.mjs": "daabfae30331352908b09904438f1d0a91924d792499117d2fd08f188178ba0c",
     "features/support/diagnostics/system.ui.mjs": "a4229de0fb743b29a2627fda4e09920f010c3ef9ea0cf025ea3b3eada8991ca4",
-    "features/administration/plugins/plugins.ui.mjs": "9363cc359c4f7c1ff0fa668e76de0473d04f67fd29d6b16490b79ba63d4b9ef5"
+    "features/administration/plugins/plugins.ui.mjs": "eefcff248b0f0d5d73aaae4781bedf9398462561c68a166cac6d7d75f972179f",
+    "features/administration/plugins/plugins.guide.mjs": "3eada4dd4578bc9c2762247b6f9ed7bd5fa568e74ba5ee188db6502e2d40c093",
+    "features/administration/plugins/plugins.state.mjs": "6488443a941df5f65d0638ab6b1beb32f8397231e99687e64cbfd6411021e5eb"
   }
 }

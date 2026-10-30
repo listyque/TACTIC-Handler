@@ -19,6 +19,8 @@ def plugin_request(**arguments):
 
 class PluginsEditor(AdminDocumentEditor):
     downloadReady = Signal(str)
+    operationCompleted = Signal(str)
+    sessionReset = Signal()
 
     def __init__(self, application, parent=None):
         super().__init__(application, plugin_request, parent)
@@ -30,6 +32,10 @@ class PluginsEditor(AdminDocumentEditor):
     @property
     def uncertain(self):
         return self.writeUncertain
+
+    def reset(self, project: str = '') -> None:
+        super().reset(project)
+        self.sessionReset.emit()
 
     @Property(QObject, constant=True)
     def sourceEditor(self):
@@ -90,6 +96,7 @@ class PluginsEditor(AdminDocumentEditor):
             arguments['changed_fields'] = [key for key in ('title', 'description')
                                            if arguments['document'].get(key) != original.get(key)]
         result = server.execute_cmd(COMMAND, args=arguments)['info']
+        result.setdefault('metadata', {})['_completedAction'] = arguments['action']
         if arguments['action'] not in ('list', 'load', 'new', 'browse', 'open_file'):
             server_cache.invalidate_domains(('reference', 'search', 'relations', 'tasks'), project)
         download = result.pop('download', None)
@@ -100,12 +107,15 @@ class PluginsEditor(AdminDocumentEditor):
 
     def _document_loaded(self):
         self._mutating = False
+        action = self._metadata.pop('_completedAction', '')
         changed = self._metadata.pop('changed', False)
         download = self._metadata.pop('downloadUrl', '')
         if download:
             self.downloadReady.emit(download)
         if changed:
             self.committed.emit()
+        if action:
+            self.operationCompleted.emit(action)
 
     def fail(self, error):
         if self._mutating:
