@@ -6,8 +6,8 @@ import { metrics, paint } from './host.ui.mjs';
 export const height = 320;
 export const rowHeight = 68;
 
-// Expanded rows fit short results; long lists retain their bounded viewport.
-export function extent(state = {}, width = 0) {
+// Use the owner's viewport budget without tying row geometry to scroll position.
+export function extent(state = {}, width = 0, availableHeight = height) {
     const model = Object.assign({}, state.scope, state);
     if (model.busy && !model.loaded && !model.rows?.length) return height;
     const inner = Math.max(0, width - metrics.margin * 2);
@@ -21,11 +21,14 @@ export function extent(state = {}, width = 0) {
             : metrics.header +
               3 +
               (tableWidth(model, inner) > inner ? layout.scrollbarExtent : 0));
-    const content = rows(model, inner).reduce(
+    const content = rows(model, inner, availableHeight).reduce(
         (sum, row) => sum + row.extent,
         0
     );
-    return Math.max(chrome + rowHeight, Math.min(height, chrome + content));
+    return Math.max(
+        chrome + rowHeight,
+        Math.min(availableHeight, chrome + content)
+    );
 }
 
 function tableWidth(model, width) {
@@ -51,7 +54,7 @@ export function identity(scope = {}, project = '') {
     ]);
 }
 
-export function rows(model, width = 0) {
+export function rows(model, width = 0, availableHeight = height) {
     if (model.gallery) {
         const count = Math.max(
             1,
@@ -75,7 +78,8 @@ export function rows(model, width = 0) {
                     ? extent(
                           model.children[record.key].model ||
                               model.children[record.key],
-                          width
+                          width,
+                          availableHeight
                       )
                     : 0)
         })

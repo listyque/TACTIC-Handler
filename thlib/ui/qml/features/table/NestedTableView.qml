@@ -26,7 +26,7 @@ Item {
                 nodes: []
             })
         models: ({
-                rows: root.scope ? UI.rows(root.scope.model, root.width) : []
+                rows: root.scope ? UI.rows(root.scope.model, root.width, root.height) : []
             })
         views: ({
                 tableSearch: searchComponent,

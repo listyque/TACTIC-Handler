@@ -127,3 +127,5 @@ already loaded; counts and bulk actions distinguish loaded rows from the complet
 When a commit has no versionless snapshot, Search displays its absence without a file Online/Offline status. File availability belongs to an existing snapshot: an existing snapshot with unavailable files still displays File Offline.
 
 Expanded tables fit short results instead of reserving an empty 320 px panel. Long results keep a bounded, scrollable viewport; nested rows reflow without reloading cached data. The block uses one outer inset and reserves space for a horizontal scrollbar only when columns overflow. Checkbox and preview columns use compact defaults; configured widths still apply.
+
+Expanded tables use the available search viewport height. A short list stays fitted to its rows; a longer list scrolls only after filling that space. Resizing preserves selection and cached data. Explicit dashboard pane sizes still apply.

@@ -190,6 +190,37 @@ class NestedTableTests(unittest.TestCase):
         frames.frame(window)
         self.assertEqual(view.implicitHeight(), 320)
 
+    def test_parent_table_uses_free_height_without_reloading_on_resize(self):
+        from unittest.mock import patch
+        from thlib.ui.table.services import TableServicesController
+        from thlib.ui.workspace_models.results import WorkspaceItemModel
+        from thlib.ui.workspace_models.results_types import WorkspaceNode
+        import tests.test_table_service_workflows as workflows
+        owner = TableServicesController(workflows.Application())
+        self.addCleanup(owner.shutdown)
+        model = WorkspaceItemModel()
+        model.replace_nodes([WorkspaceNode(node_id='A', node_type='sobject',
+            search_key='demo/asset?code=A', code='A', title='Parent')])
+        with patch('thlib.ui.table.nested.NestedTableController.reload') as load:
+            owner.toggle_nested('A', dict(nestedTable=dict(searchType='demo/asset', view='child',
+                parentKey='demo/asset?code=A')))
+            scope = owner.nested_row('A')
+            scope._model.update(loaded=True, columns=[dict(name='name', title='Name', cell=dict(kind='text'))],
+                rows=[dict(key=str(i), record=dict(name='Row '+str(i)), cells={}) for i in range(4)])
+            window, view = self.create('SearchResultTable.qml', dict(controller=_TableController(),
+                columnsController=_TableColumns(), resultModel=model, tableServices=owner), width=800, height=650)
+            parent = self.item(view, 'searchResultTableRow')
+            self.assertEqual(parent.height(), view.property('effectiveRowHeight') + 410)
+            load.assert_called_once()
+            for height in (350, 650):
+                view.setHeight(height)
+                window.resize(800, height)
+                frames.frame(window)
+                viewport = self.item(view, 'searchResultsTableView')
+                expected = min(410, viewport.height() - view.property('headerHeight') - view.property('effectiveRowHeight'))
+                self.assertEqual(parent.height(), view.property('effectiveRowHeight') + expected)
+                load.assert_called_once()
+
     def test_expanded_content_has_symmetric_breathing_room(self):
         import json
         import os

@@ -364,7 +364,7 @@ Item {
             required property int childCount
             property bool viewPooled: false
             readonly property var nestedScope: root.tableServices ? root.tableServices.nested_row(nodeId, root.tableServices.nestedRevision) : null
-            readonly property real nestedHeight: nestedScope ? Nested.extent(nestedScope.model, rows.width) : 0
+            readonly property real nestedHeight: nestedScope ? Nested.extent(nestedScope.model, rows.width, Math.max(0, rows.height - root.headerHeight - root.effectiveRowHeight)) : 0
             property var nestedView: null
             function updateNestedView() {
                 if (nestedScope && inVerticalViewport && !viewPooled) {
