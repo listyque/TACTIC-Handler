@@ -650,3 +650,5 @@ Collapsed Administration navigation uses centered square section buttons. When a
 Administration uses consistent 12 px content margins. Access rules categories use compact 30 px navigation rows with unchanged text size and a separate scrollbar when needed.
 
 The Cell editor uses one window title. Its column context, value mode and Apply/Cancel actions stay inside the window when resized; long values scroll inside the text field. Applying changes the table draft only; Save to server still commits the draft.
+
+See [Plugins](plugins) for package creation, installation, activation, files and publication.

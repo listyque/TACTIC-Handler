@@ -17,6 +17,7 @@ from .admin.schema_type import SchemaTypeEditor
 from .admin.security import SecurityRulesEditor
 from .admin.users import AdminUsersEditor
 from .admin.raw_database import RawDatabaseEditor
+from .admin.plugins import PluginsEditor
 from .user_identity import user_avatar_color, user_initials
 
 if TYPE_CHECKING:
@@ -71,9 +72,11 @@ class AdministrationController(QObject):
         self._security_editor = SecurityRulesEditor(application, self)
         self._users_editor = AdminUsersEditor(application, users, self)
         self._raw_editor = RawDatabaseEditor(application, self)
+        self._plugins_editor = PluginsEditor(application, self)
         self._editors = {'raw': self._raw_editor, 'types': self._types_editor, 'schema': self._schema_editor,
                          'workflow': self._workflow_editor, 'rules': self._security_editor,
-                         'users': self._users_editor}
+                         'users': self._users_editor, 'plugins': self._plugins_editor}
+        self._plugins_editor.committed.connect(self._project_document_saved)
         self._layout_editor = LayoutEditorHost(application, self, previews=previews)
         self._editors['layouts'] = self._layout_editor
         self._dashboard_editor = DashboardEditor(application, self)
@@ -105,6 +108,10 @@ class AdministrationController(QObject):
     @Property(QObject, constant=True)
     def rawEditor(self):
         return self._raw_editor
+
+    @Property(QObject, constant=True)
+    def pluginsEditor(self):
+        return self._plugins_editor
 
     @Property(QObject, constant=True)
     def typesEditor(self):

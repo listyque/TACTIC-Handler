@@ -22,7 +22,7 @@ Neither product imports the other checkout at runtime.
 | `features/files` | Matching templates, ingest, Drop Plate, object check-in, commit/sync queues, repository prompts, screenshot selection and File Workspace | Core and neutral controls; native/browser capabilities, filesystem identities, requests, drafts, journals and mutations retain their existing owners |
 | `features/scripts` | Script workspace/source commands, shelf editor/bar and native trigger form | Core and controls; buffers, execution, ACL, revisions, scope and cleanup retain their existing owners |
 | `features/tools` | Native DCC options, Handler Server and selected-object Database tools | Core and controls; connector manifests, fixed command routing, selected identities and mutations stay with existing controllers. No additional browser Batch Manager |
-| `features/administration` | Administration shell, forms and document guards | Core and controls |
+| `features/administration` | Administration shell, forms, plugin manager and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
 | `features/support/diagnostics` | Debug sessions, event details, measurements, selection and the complete System Info diagnostics panel | Core and controls |
 | `features/support/identity` | Profile composition, account editor and local draft decisions | Core and controls |

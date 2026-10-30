@@ -11,6 +11,7 @@ AdminDocumentShell 1.0 features/administration/common/AdminDocumentShell.qml
 AdminGraphProperties 1.0 features/administration/workflow/AdminGraphProperties.qml
 AdminGraphView 1.0 features/administration/workflow/AdminGraphView.qml
 AdministrationView 1.0 features/administration/AdministrationView.qml
+AdminPluginsView 1.0 features/administration/plugins/AdminPluginsView.qml
 AdminPipelineSettings 1.0 features/administration/workflow/AdminPipelineSettings.qml
 AdminProcessFields 1.0 features/administration/workflow/AdminProcessFields.qml
 AdminProcessRuleAction 1.0 features/administration/workflow/AdminProcessRuleAction.qml

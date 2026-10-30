@@ -26,11 +26,14 @@ export function transition(ui, model, event) {
         case 'help':
             commands.push({
                 type: 'help',
-                topic: ['layouts', 'dashboards'].includes(model.section)
-                    ? 'item_layouts'
-                    : model.section === 'sidebar'
-                      ? 'sidebar_editor'
-                      : 'administration'
+                topic:
+                    model.section === 'plugins'
+                        ? 'plugins'
+                        : ['layouts', 'dashboards'].includes(model.section)
+                          ? 'item_layouts'
+                          : model.section === 'sidebar'
+                            ? 'sidebar_editor'
+                            : 'administration'
             });
             break;
         case 'return-layout':

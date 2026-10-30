@@ -10,7 +10,7 @@ Item {
     objectName: "administrationFrameShell"
     required property var theme
     readonly property var controller: administrationController
-    readonly property bool framePage: ["groups", "users", "rules", "raw", "sidebar", "columns", "types", "schema", "workflow", "layouts", "dashboards"].includes(controller.section)
+    readonly property bool framePage: ["groups", "users", "rules", "raw", "sidebar", "columns", "types", "schema", "workflow", "layouts", "dashboards", "plugins"].includes(controller.section)
     readonly property bool columnsVisible: controller.section === "columns"
     property var ui: State.initial()
     property bool columnsDirty: false
@@ -48,6 +48,7 @@ Item {
             rules: controller.securityEditor,
             users: controller.usersEditor,
             raw: controller.rawEditor,
+            plugins: controller.pluginsEditor,
             dashboards: controller.dashboardEditor,
             layouts: controller.layoutEditor
         }[section];
@@ -102,6 +103,8 @@ Item {
         switch (controller.section) {
         case "raw":
             return contentHost ? contentHost.raw : null;
+        case "plugins":
+            return contentHost ? contentHost.plugins : null;
         case "types":
             return contentHost ? contentHost.types : null;
         case "schema":
@@ -245,6 +248,7 @@ Item {
             Component.onDestruction: root.contentHost = null
             readonly property var groups: groupsView
             readonly property var raw: rawLoader.item
+            readonly property var plugins: pluginsLoader.item
             readonly property var types: typesLoader.item
             readonly property var schema: schemaLoader.item
             readonly property var workflow: workflowLoader.item
@@ -264,6 +268,22 @@ Item {
                 membersModel: administrationMemberModel
                 language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
                 saveActionsInHeader: true
+            }
+            Loader {
+                id: pluginsLoader
+                anchors.fill: parent
+                visible: root.controller.section === "plugins"
+                active: false
+                onVisibleChanged: if (visible)
+                    active = true
+                Component.onCompleted: if (visible)
+                    active = true
+                sourceComponent: AdminPluginsView {
+                    theme: root.theme
+                    controller: root.controller.pluginsEditor
+                    language: root.language
+                    onHelpRequested: windowModel.open_help("plugins")
+                }
             }
             Loader {
                 id: rawLoader

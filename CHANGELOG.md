@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.292 - 2026-10-30
+
+- Add the complete legacy plugin manager to Administration in Handler and Stream: package creation, ZIP/URL staging, project activation, manifest/docs/files editing, export, publication and confirmed removal through native commands.
+
 ## 0.6.0.291 - 2026-10-30
 
 - Port the complete legacy System Info panel to shared native/browser sections: server/client facts, load-balancing and sequential/parallel performance tests, email sender/recipient test, native handoff checks, project-page load test, saved Python script execution and fixed sidebar-cache clearing. Reuse original commands, preserve administrator authorization and report browser filesystem limits explicitly.

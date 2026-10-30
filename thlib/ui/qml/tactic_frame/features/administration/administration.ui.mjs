@@ -61,6 +61,13 @@ export const sections = [
         value: 'SideBarWdg'
     },
     {
+        id: 'plugins',
+        title: 'Plugins',
+        description: 'Packages, versions and project activation',
+        icon: 'extension',
+        type: 'config/plugin'
+    },
+    {
         id: 'users',
         title: 'Users',
         description: 'Profiles and accounts',
