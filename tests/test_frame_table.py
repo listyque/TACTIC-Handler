@@ -100,6 +100,32 @@ class FrameTableTests(unittest.TestCase):
         frame(window)
         self.assertEqual(saved, ["Модель"])
 
+    def test_plain_table_text_wraps_when_column_narrows(self):
+        value = 'robot, hero, character, rig, animation'
+        window, view = self.create(
+            'TacticTableCellDisplay.qml',
+            dict(controller=_TableController(), columnsController=None,
+                 userModel=None, nodeId='asset', kind='text', cell={'text': value},
+                 textValue=value, columnIndex=1, previewActive=False,
+                 previewUrl='', previewRevealed=False, title='Keywords',
+                 accent='#607d8b', comments=0, tasks=0, displayOptions={}),
+            width=160, height=120,
+        )
+        label = next(item for item in _visual_items(view)
+                     if item.property('text') == value
+                     and item.property('lineCount') is not None)
+        self.assertGreater(label.property('lineCount'), 1)
+        self.assertFalse(label.property('truncated'))
+        view.setWidth(600)
+        window.resize(600, 120)
+        frame(window)
+        self.assertEqual(label.property('lineCount'), 1)
+        view.setWidth(120)
+        window.resize(120, 120)
+        frame(window)
+        self.assertGreater(label.property('lineCount'), 1)
+        self.assertFalse(label.property('truncated'))
+
     def test_scrolling_mode_keeps_columns_and_uses_existing_horizontal_bar(self):
         controller, columns = _TableController(), _TableColumns()
         columns._columns = [
