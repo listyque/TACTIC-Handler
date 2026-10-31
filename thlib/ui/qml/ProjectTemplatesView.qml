@@ -67,7 +67,6 @@ Item {
         anchors.centerIn: parent
         width: Math.min(430, root.width - 32)
         padding: 0
-        headerPadding: 20
         closePolicy: Popup.NoAutoClose
         contentItem: Frame.FrameView {
             implicitHeight: 220

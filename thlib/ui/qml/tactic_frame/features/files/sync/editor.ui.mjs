@@ -1,3 +1,4 @@
+import { spacing } from '../../../core/foundation.mjs';
 import { captionedSwitch } from '../../../controls/forms/toggle.ui.mjs';
 import { node, rect, label, button, muted } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
@@ -18,7 +19,7 @@ export function actions(language) {
 export function describe(model, width, height, language) {
     const tr = (text) => translate(text, language),
         margin = 9,
-        gap = 10,
+        gap = spacing.content,
         compact = width < 760,
         inner = Math.max(0, width - margin * 2),
         footerActions = actions(language),

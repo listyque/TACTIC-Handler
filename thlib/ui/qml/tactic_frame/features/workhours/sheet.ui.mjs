@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
@@ -308,7 +309,7 @@ export function validHours(value) {
 export function editor(model, width, language) {
     const tr = (text) => translate(text, language),
         nodes = [],
-        gap = 10,
+        gap = spacing.content,
         half = Math.max(0, (width - gap) / 2),
         enabled = !model.busy;
     function field(kind, id, title, text, x, y, w, field, extra) {

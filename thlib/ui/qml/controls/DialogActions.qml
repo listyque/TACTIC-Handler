@@ -6,8 +6,8 @@ Item {
 
     required property var theme
     default property alias content: actionRow.data
-    property real horizontalMargin: 14
-    property real verticalMargin: 12
+    property real horizontalMargin: theme.spacing.content
+    property real verticalMargin: theme.spacing.content
 
     implicitWidth: actionRow.implicitWidth + horizontalMargin * 2
     implicitHeight: actionRow.implicitHeight + verticalMargin * 2
@@ -18,6 +18,6 @@ Item {
         anchors.bottom: parent.bottom
         anchors.rightMargin: root.horizontalMargin
         anchors.bottomMargin: root.verticalMargin
-        spacing: 8
+        spacing: root.theme.spacing.compact
     }
 }

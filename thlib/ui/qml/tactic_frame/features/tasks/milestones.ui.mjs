@@ -1,10 +1,11 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { parse, monthLabel } from '../../controls/forms/calendar.mjs';
 
 export function layout(width, height, controlHeight = 36) {
     const margin = 12,
-        gap = 10,
+        gap = spacing.content,
         inner = Math.max(0, width - margin * 2),
         searchY = margin + 76 + gap,
         listY = searchY + controlHeight + gap;

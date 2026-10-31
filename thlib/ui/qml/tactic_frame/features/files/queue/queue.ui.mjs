@@ -1,3 +1,4 @@
+import { spacing } from '../../../core/foundation.mjs';
 import { node, rect } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 import * as Progress from './progress.ui.mjs';
@@ -14,9 +15,13 @@ export {
 
 export function layout(model, width, height, language) {
     const compact = width < 700,
-        margin = 10,
+        margin = spacing.content,
         gap = 10,
-        progress = Progress.describe(model.progress, width - 20, language),
+        progress = Progress.describe(
+            model.progress,
+            width - margin * 2,
+            language
+        ),
         top =
             margin +
             (progress.height ? progress.height + gap : 0) +

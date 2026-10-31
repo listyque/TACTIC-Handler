@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
@@ -131,7 +132,7 @@ export function header(model, width, language) {
 }
 
 export const bodyMetrics = {
-    gap: 6,
+    gap: spacing.compact,
     minimumCellWidth: 210,
     preferredCellWidth: 240,
     maximumColumns: 2
@@ -160,7 +161,7 @@ export function body(model, width, heights = {}) {
 
 export function edit(model, width, language) {
     const tr = (text) => translate(text, language),
-        gap = 8;
+        gap = spacing.compact;
     const cancelWidth = 94,
         saveWidth = 94;
     const nodes = [

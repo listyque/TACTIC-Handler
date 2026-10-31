@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { rect } from '../../core/frame.mjs';
 export const metrics = {
     minimum: 44,
@@ -9,7 +10,7 @@ export const metrics = {
     inset: 2,
     emoji: 28,
     emojiRight: 7,
-    gap: 10,
+    gap: spacing.compact,
     compactBreakpoint: 620,
     sendWidth: 92,
     sendSize: 38

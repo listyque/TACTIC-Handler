@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { captionHeight } from '../../controls/forms/sections.ui.mjs';
@@ -6,7 +7,7 @@ export function header(model, width, language) {
     const tr = (text) => translate(text, language),
         compact = width < 660,
         height = compact ? 90 : 98,
-        margin = compact ? 16 : 22;
+        margin = spacing.content;
     const publishing = model.mode === 'publish',
         context = publishing
             ? model.recordKey || tr('New object')
@@ -314,7 +315,7 @@ export function tools(model, width, language) {
 export function footer(model, width, language) {
     const tr = (text) => translate(text, language),
         compact = width < 660,
-        margin = compact ? 16 : 22;
+        margin = spacing.content;
     const submit =
         model.submitLabel ||
         (model.mode === 'publish'

@@ -1,3 +1,4 @@
+import { spacing } from '../../../core/foundation.mjs';
 import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import { rect, label, muted, notices, toolbar } from '../admin.document.mjs';
@@ -448,7 +449,7 @@ export function cellDescribe(model, ui, width, height, language) {
             nodes: []
         };
     const tr = (text) => translate(text, language),
-        pad = 14,
+        pad = spacing.content,
         inner = Math.max(1, width - pad * 2),
         footer = height - 52,
         errorHeight = model.error ? 48 : 0,
@@ -457,7 +458,7 @@ export function cellDescribe(model, ui, width, height, language) {
     const nodes = [
         label(
             'rawCellDescription',
-            rect(pad, 14, inner, 34),
+            rect(pad, spacing.content, inner, 34),
             (model.name || '') +
                 ' · ' +
                 (model.type || '') +

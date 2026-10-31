@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import * as History from './history.ui.mjs';
@@ -5,9 +6,9 @@ import * as Executor from './executor.ui.mjs';
 import * as Rules from './rules.ui.mjs';
 
 export const metrics = {
-    inset: 12,
-    bubblePadding: 14,
-    messageGap: 16,
+    inset: spacing.content,
+    bubblePadding: spacing.content,
+    messageGap: spacing.section,
     attachmentHeight: 28
 };
 export function initial(context = {}) {

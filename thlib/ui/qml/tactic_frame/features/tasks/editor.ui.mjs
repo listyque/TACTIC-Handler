@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 export const titles = {
@@ -18,7 +19,7 @@ export const titles = {
 export function describe(model, width, language) {
     const tr = (text) => translate(text, language),
         nodes = [],
-        gap = 12,
+        gap = spacing.content,
         columns = width >= (model.live ? 420 : 520) ? 2 : 1,
         cell = (width - gap * (columns - 1)) / columns;
     let y = 0,

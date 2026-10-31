@@ -15,7 +15,7 @@ ScrollView {
     property string error: ""
     property real scrollOffset: 0
     property bool presented: true
-    property real contentInset: 14
+    property real contentInset: theme.spacing.content
     property bool restoring: false
     property int restoreEpoch: 0
     signal linkActivated(string link)
@@ -70,7 +70,7 @@ ScrollView {
         x: root.contentInset
         y: root.contentInset
         width: Math.max(0, root.width - root.contentInset * 2 - 12)
-        spacing: 14
+        spacing: root.theme.spacing.section
         Controls.SelectableText {
             width: documentColumn.width
             height: contentHeight
@@ -103,9 +103,9 @@ ScrollView {
             Controls.SelectableText {
                 id: summaryText
                 objectName: "documentSummaryText"
-                x: 40
+                x: 12 + 18 + root.theme.spacing.compact
                 y: 12
-                width: Math.max(0, parent.width - 52)
+                width: Math.max(0, parent.width - x - root.theme.spacing.content)
                 height: contentHeight
                 theme: root.theme
                 text: root.summary

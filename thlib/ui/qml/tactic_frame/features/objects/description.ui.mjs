@@ -1,10 +1,11 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
 export const metrics = {
-    margin: 8,
-    compactMargin: 6,
-    gap: 6,
+    margin: spacing.content,
+    compactMargin: spacing.compact,
+    gap: spacing.compact,
     heading: 16,
     action: 28,
     actionGap: 2,

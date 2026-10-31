@@ -1,5 +1,6 @@
 import { node, rect, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import { spacing } from '../../core/foundation.mjs';
 
 export const height = 48;
 
@@ -7,7 +8,7 @@ export function describe(model, width, language) {
     const text = (key) => translate(key, language),
         compact = !!model.compact,
         nodes = [];
-    let right = width - 7;
+    let right = width - spacing.compact;
     const view = (id, name, show) => {
         if (show) right -= 38;
         nodes.push(
@@ -16,7 +17,7 @@ export function describe(model, width, language) {
                 visible: show
             })
         );
-        if (show) right -= 3;
+        if (show) right -= spacing.tight;
     };
     view('searchHeaderPanels', 'panels', model.panels !== false);
     if (!compact) right -= 38;
@@ -31,7 +32,7 @@ export function describe(model, width, language) {
             { iconOnly: true, visible: !compact }
         )
     );
-    if (!compact) right -= 3;
+    if (!compact) right -= spacing.tight;
     view(
         'searchHeaderQuick',
         'quick',
@@ -56,14 +57,19 @@ export function describe(model, width, language) {
             }
         )
     );
-    if (!compact && model.shelf !== false) right -= 3;
-    const refreshLeft = model.reserveGrip === false ? 8 : 38;
-    const left = refreshLeft + 42;
+    if (!compact && model.shelf !== false) right -= spacing.tight;
+    const refreshLeft = model.reserveGrip === false ? spacing.compact : 38;
+    const left = refreshLeft + 38 + spacing.tight;
     nodes.push(
-        node('View', 'searchHeaderField', rect(left, 5, right - left - 8, 38), {
-            view: 'field',
-            visible: !compact || !model.collapseSearch || !!model.searchOpen
-        })
+        node(
+            'View',
+            'searchHeaderField',
+            rect(left, 5, right - left - spacing.compact, 38),
+            {
+                view: 'field',
+                visible: !compact || !model.collapseSearch || !!model.searchOpen
+            }
+        )
     );
     nodes.push(
         button(

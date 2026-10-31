@@ -1,10 +1,11 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button, muted } from '../../core/frame.mjs';
 import { captionHeight } from '../../controls/forms/sections.ui.mjs';
 import { translate } from '../../core/strings.mjs';
 
 export function layout(width, height, error) {
     const inset = 12,
-        gap = 10,
+        gap = spacing.content,
         clientWidth = Math.min(250, Math.max(190, width * 0.27));
     const right = inset + clientWidth + gap,
         inner = Math.max(0, width - right - inset);

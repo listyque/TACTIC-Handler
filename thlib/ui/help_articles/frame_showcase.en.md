@@ -6,6 +6,10 @@ order: 69
 
 # Component showcase
 
+Content spacing follows one scale in both clients: 12 logical pixels inside
+forms and panels, 8 between related controls and 16 between sections. Table/page
+bodies use their full allocated width. Custom XML spacing remains unchanged.
+
 Open **Administration -> Component showcase** to explore Tactic Frame's existing
 controls in the current theme. The catalogue contains 29 families in six groups.
 All 29 families have live examples and source descriptions.

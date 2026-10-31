@@ -4,7 +4,7 @@ export { cell, models } from './showcase.examples.mjs';
 // Local examples of shipped controls; no project, transport or persistent draft.
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
-import { lineHeights } from '../../core/foundation.mjs';
+import { lineHeights, spacing } from '../../core/foundation.mjs';
 import { listAction } from '../../controls/lists/tree.ui.mjs';
 export { catalogue } from '../../controls/catalog.data.mjs';
 
@@ -294,7 +294,7 @@ export function describe(model, catalog, width, height, language = 'en') {
     const tr = (text) => translate(text, language),
         narrow = width < 740,
         nav = narrow ? 0 : 228,
-        gap = narrow ? 0 : 20;
+        gap = narrow ? spacing.none : spacing.content;
     const x = nav + gap,
         w = Math.max(0, width - x),
         top = narrow ? 96 : 48;

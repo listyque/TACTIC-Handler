@@ -2,6 +2,7 @@ import { node, rect, label, button, muted } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { describe as confirm } from '../../controls/feedback/confirmation.ui.mjs';
 import * as Header from '../../controls/layout/page_header.ui.mjs';
+import { spacing } from '../../core/foundation.mjs';
 
 export function confirmation(model, width, height, language) {
     const text = (key) => translate(key, language);
@@ -273,7 +274,12 @@ export function describe(model, width, height, language) {
     nodes.push(
         label(
             'configurationPageTitle',
-            rect(sidebar + 24, 11, Math.max(0, actionX - sidebar - 30), 28),
+            rect(
+                sidebar + spacing.content,
+                11,
+                Math.max(0, actionX - sidebar - spacing.content * 2),
+                28
+            ),
             text(current.title),
             { fontRole: 'display', weight: 600, role: 'heading' }
         )
@@ -282,7 +288,12 @@ export function describe(model, width, height, language) {
         nodes.push(
             label(
                 'configurationPageDescription',
-                rect(sidebar + 24, 46, contentWidth - 48, 20),
+                rect(
+                    sidebar + spacing.content,
+                    46,
+                    contentWidth - spacing.content * 2,
+                    20
+                ),
                 text(current.description),
                 muted
             )

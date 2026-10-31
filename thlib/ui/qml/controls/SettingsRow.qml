@@ -12,28 +12,28 @@ Item {
     property bool showDivider: true
     property int controlAlignment: Qt.AlignVCenter
     default property alias controlData: accessory.data
-    readonly property bool stackControl: width > 0 && accessory.implicitWidth > 0 && width - 8 - settingLayout.columnSpacing - accessory.implicitWidth < 210
+    readonly property bool stackControl: width > 0 && accessory.implicitWidth > 0 && width - settingLayout.columnSpacing - accessory.implicitWidth < 210
 
     Layout.fillWidth: true
-    implicitHeight: Math.max(54, settingLayout.implicitHeight + 20)
+    implicitHeight: Math.max(theme.controlHeight, settingLayout.implicitHeight) + theme.spacing.content
 
     GridLayout {
         id: settingLayout
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: 4
-        anchors.rightMargin: 4
+        anchors.leftMargin: 0
+        anchors.rightMargin: 0
         columns: root.stackControl ? 1 : 2
-        columnSpacing: 20
-        rowSpacing: 8
+        columnSpacing: root.theme.spacing.content
+        rowSpacing: root.theme.spacing.compact
 
         ColumnLayout {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             Layout.row: 0
             Layout.column: 0
-            spacing: 3
+            spacing: root.theme.spacing.tight
 
             Label {
                 Layout.fillWidth: true
@@ -64,7 +64,7 @@ Item {
             Layout.column: root.stackControl ? 0 : 1
             Layout.fillWidth: root.stackControl
             Layout.alignment: root.stackControl ? Qt.AlignRight : root.controlAlignment | Qt.AlignRight
-            spacing: 8
+            spacing: root.theme.spacing.compact
 
             Item {
                 visible: root.stackControl
@@ -78,8 +78,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.leftMargin: 4
-        anchors.rightMargin: 4
+        anchors.leftMargin: 0
+        anchors.rightMargin: 0
         height: 1
         color: root.theme.outlineVariant
     }

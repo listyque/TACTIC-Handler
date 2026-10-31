@@ -193,7 +193,6 @@ Item {
         modal: true
         title: qsTr("Clear cached server data?")
         padding: 0
-        headerPadding: 20
         contentItem: Frame.FrameView {
             implicitHeight: 220
             theme: root.theme

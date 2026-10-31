@@ -88,7 +88,6 @@ Item {
         modal: true
         title: qsTr("Unsaved changes")
         padding: 0
-        headerPadding: 20
         closePolicy: Popup.NoAutoClose
         contentItem: Frame.FrameView {
             implicitHeight: 248

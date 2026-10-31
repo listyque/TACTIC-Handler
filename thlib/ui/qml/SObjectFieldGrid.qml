@@ -14,7 +14,7 @@ Item {
     property string editorMode: "edit"
     property real minimumCellWidth: 430
     property int maximumColumns: 3
-    property real spacing: 10
+    property real spacing: theme.spacing.content
     readonly property int columnCount: UI.columnCount(width, fields.count, minimumCellWidth, maximumColumns, spacing)
     property var positions: []
     signal previewRequested(int row)

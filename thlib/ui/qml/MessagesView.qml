@@ -266,7 +266,7 @@ Item {
         parent: Overlay.overlay
         width: Math.min(Messaging.popup("create").width + effectiveShadowMargin * 2, Math.max(320, root.width - 32))
         height: Math.min(560, Math.max(390, root.height - 32))
-        padding: 14
+        padding: root.theme.spacing.content
 
         contentItem: MessagesFeature.MessageForm {
             id: newChatTitle
@@ -298,7 +298,7 @@ Item {
         parent: Overlay.overlay
         width: Math.min(Messaging.popup("view-members").width + effectiveShadowMargin * 2, root.width - 24)
         height: Math.min(390, root.height - 30)
-        padding: 14
+        padding: root.theme.spacing.content
         contentItem: ColumnLayout {
             spacing: Messaging.popup("view-members").spacing
             Frame.FrameView {
@@ -340,7 +340,7 @@ Item {
         parent: Overlay.overlay
         width: Math.min(Messaging.popup("files").width + effectiveShadowMargin * 2, root.width - 24)
         height: Math.min(430, root.height - 30)
-        padding: 14
+        padding: root.theme.spacing.content
         contentItem: ColumnLayout {
             spacing: Messaging.popup("files").spacing
             Frame.FrameView {
@@ -413,7 +413,7 @@ Item {
         theme: root.theme
         parent: Overlay.overlay
         width: Math.min(Messaging.popup("search").width + effectiveShadowMargin * 2, root.width - 24)
-        padding: 14
+        padding: root.theme.spacing.content
         onAboutToShow: messageSearchField.text = messagesController.messageSearch
         onOpened: Qt.callLater(messageSearchField.focusEditor)
         contentItem: MessagesFeature.MessageForm {
@@ -440,7 +440,7 @@ Item {
         parent: Overlay.overlay
         width: Math.min(Messaging.popup("members").width + effectiveShadowMargin * 2, Math.max(320, root.width - 32))
         height: Math.min(560, Math.max(390, root.height - 32))
-        padding: 14
+        padding: root.theme.spacing.content
         onAboutToShow: {
             root.editedMembers = Array.from(messagesController.selectedConversation.recipients || []);
             addMemberUsers.setSelection(root.editedMembers);
@@ -583,7 +583,7 @@ Item {
         parent: Overlay.overlay
         width: Math.min(Messaging.popup("history").width + effectiveShadowMargin * 2, Math.max(280, root.width - 32))
         height: Math.min(360, Math.max(180, root.height - 40))
-        padding: 14
+        padding: root.theme.spacing.content
 
         contentItem: ColumnLayout {
             spacing: Messaging.popup("history").spacing
@@ -625,7 +625,7 @@ Item {
         parent: Overlay.overlay
         width: Math.min(Messaging.popup("pin-history").width + effectiveShadowMargin * 2, Math.max(280, root.width - 32))
         height: Math.min(360, Math.max(180, root.height - 40))
-        padding: 14
+        padding: root.theme.spacing.content
         contentItem: ColumnLayout {
             spacing: Messaging.popup("pin-history").spacing
             Frame.FrameView {

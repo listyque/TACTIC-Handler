@@ -2,7 +2,7 @@ import { node, rect, label, muted } from '../../core/frame.mjs';
 import { sections } from '../../controls/forms/sections.ui.mjs';
 import { translate } from '../../core/strings.mjs';
 import { definitions } from './settings.fields.mjs';
-import { controls } from '../../core/foundation.mjs';
+import { controls, spacing } from '../../core/foundation.mjs';
 
 export function fieldsFor(page, model) {
     const native = model.native === true;
@@ -305,12 +305,14 @@ export function field(definition, values, options, language, busy) {
 export function contentWidth(width) {
     return Math.max(
         1,
-        width - Math.min(22, width / 12) * 2 - controls.scrollBar.extent
+        width -
+            Math.min(spacing.content, width / 12) * 2 -
+            controls.scrollBar.extent
     );
 }
 
 export function describe(model, width, height, language) {
-    const margin = Math.min(22, width / 12),
+    const margin = Math.min(spacing.content, width / 12),
         viewportWidth = Math.max(1, width - margin * 2),
         inner = contentWidth(width);
     const fields = model.fields.map((definition) => {
@@ -334,7 +336,7 @@ export function describe(model, width, height, language) {
     });
     const form = sections(fields, inner, language, !model.busy, model.style);
     const nodes = [];
-    let top = 20;
+    let top = spacing.content;
     for (const [id, message, color] of [
         ['Error', model.error, 'error'],
         ['Notice', model.notice, 'secondaryText']
@@ -433,7 +435,7 @@ export function describe(model, width, height, language) {
                 'configurationSettings',
                 rect(margin, 0, viewportWidth, height),
                 {
-                    contentHeight: bottom + 20,
+                    contentHeight: bottom + spacing.content,
                     scrollbarId: 'configurationSettingsScrollBar',
                     children: nodes
                 }

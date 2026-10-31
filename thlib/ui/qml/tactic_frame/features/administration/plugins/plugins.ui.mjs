@@ -1,3 +1,4 @@
+import { spacing } from '../../../core/foundation.mjs';
 import {
     initial,
     transition,
@@ -297,7 +298,7 @@ const metaNew = (model) => !!model.metadata?.new;
 export function describe(model, ui, width, height, language) {
     const tr = (text) => translate(text, language),
         nodes = [],
-        gap = 12,
+        gap = spacing.content,
         compact = width < 760,
         hasCatalogue = !!(model.catalog || []).length,
         nav =

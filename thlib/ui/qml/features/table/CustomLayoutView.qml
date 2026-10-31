@@ -212,7 +212,7 @@ Frame.FrameView {
             property var frameNode: ({})
             theme: root.theme
             text: frameNode.text || ""
-            contentInset: frameNode.contentInset === undefined ? 14 : frameNode.contentInset
+            contentInset: frameNode.contentInset === undefined ? root.theme.spacing.content : frameNode.contentInset
             documentKey: frameNode.key || ""
             onLinkActivated: link => root.controller.open_rich_link(link)
             onFormatRequested: (document, style) => root.owner.format_document(document, style)

@@ -1,13 +1,13 @@
 import { node, rect } from '../core/frame.mjs';
-import { layout } from '../core/foundation.mjs';
+import { layout, spacing } from '../core/foundation.mjs';
 
 export const dimensions = {
     actionExtent: 30,
     actionIcon: 14,
     gripHeight: 34,
-    spacing: 8,
-    leftInset: 12,
-    rightInset: 6,
+    spacing: spacing.compact,
+    leftInset: spacing.content,
+    rightInset: spacing.compact,
     iconExtent: 16,
     surfaceInset: 5,
     floatingSurfaceInset: 6,

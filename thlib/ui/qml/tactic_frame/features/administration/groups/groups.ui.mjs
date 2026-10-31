@@ -1,10 +1,11 @@
+import { spacing } from '../../../core/foundation.mjs';
 import { node } from '../../../core/frame.mjs';
 import { permissions } from './groups.state.mjs';
 
 export const metrics = {
-    gap: 12,
-    toolbarGap: 8,
-    padding: 14,
+    gap: spacing.content,
+    toolbarGap: spacing.compact,
+    padding: spacing.content,
     control: 38,
     groupRow: 64,
     memberRow: 58,

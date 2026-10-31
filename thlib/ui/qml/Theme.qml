@@ -56,6 +56,7 @@ QtObject {
     readonly property color whiteMix: frameColor("whiteMix")
     readonly property color paletteBase: frameColor("paletteBase")
     readonly property string fontFamily: Foundation.fontFamily
+    readonly property var spacing: Foundation.spacing
     readonly property string emojiFontFamily: typeof emojiCatalog !== "undefined" ? String(emojiCatalog.fontFamily || "Segoe UI Emoji") : "Segoe UI Emoji"
     readonly property real controlHeight: frameMetrics.controlHeight
     readonly property real compactControlHeight: frameMetrics.compactControlHeight

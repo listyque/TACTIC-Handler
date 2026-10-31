@@ -385,7 +385,7 @@ Item {
         theme: root.theme
         width: UI.peoplePopup(parent ? parent.width : 420, parent ? parent.height : 540).width + effectiveShadowMargin * 2
         implicitHeight: UI.peoplePopup(parent ? parent.width : 420, parent ? parent.height : 540).height + effectiveShadowMargin * 2
-        padding: 14
+        padding: root.theme.spacing.content
         modal: false
         focus: true
 

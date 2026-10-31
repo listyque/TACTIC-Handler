@@ -7,7 +7,7 @@ Item {
 
     AdminSearchTypesView {
         anchors.fill: parent
-        anchors.margins: 14
+        anchors.margins: root.theme.spacing.content
         theme: root.theme
         controller: administrationController.schemaTypeEditor
         projectCode: administrationController.project

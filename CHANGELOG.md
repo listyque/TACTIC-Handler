@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.314 - 2026-10-31
+
+- Unify content spacing through shared Frame roles: consistent panel/form interiors, related-control gaps and section separation in both clients.
+- Align mixed form rows, remove doubled dialog/body padding and trailing form gaps, and keep table/page bodies edge-to-edge.
+- Apply the same spacing to object editors, settings, search/dock chrome, messages and file/support surfaces; preserve authored XML, scrollbar reserves and hit areas.
+- Verify actual native/browser form, panel and dialog bounds, narrow layouts and actions across three themes and both palettes.
+
 ## 0.6.0.313 - 2026-10-31
 
 - Complete live examples for all 29 component families with source, local drafts, eight state choices, real menus/confirmations, editable virtual cells, files, graphs, source editing and task fragments.

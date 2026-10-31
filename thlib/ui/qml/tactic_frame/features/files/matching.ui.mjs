@@ -1,7 +1,7 @@
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { captionHeight } from '../../controls/forms/sections.ui.mjs';
-import { controls } from '../../core/foundation.mjs';
+import { controls, spacing } from '../../core/foundation.mjs';
 
 export function testResult(text, language, matchedType) {
     return text.startsWith('Matched as ')
@@ -44,7 +44,7 @@ export function actions(model) {
 export function layout(model, width, height) {
     const compact = width < 620,
         inset = 12,
-        gap = 10;
+        gap = spacing.content;
     const available = Math.max(0, width - inset * 2);
     const left = compact
         ? available

@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import * as Header from '../../controls/layout/page_header.ui.mjs';
@@ -106,7 +107,7 @@ export function geometry(width, height, collapsed) {
     const mobile = width < 1000,
         nav = mobile ? 0 : collapsed ? 56 : 250,
         body = width - nav,
-        pad = 12;
+        pad = spacing.content;
     const header = mobile ? 166 : Header.desktopHeight,
         toolbar = Math.max(0, Math.min(body - (mobile ? 24 : 434), 620));
     return {

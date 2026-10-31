@@ -1,5 +1,5 @@
 import { node, rect, label } from '../../core/frame.mjs';
-import { controls } from '../../core/foundation.mjs';
+import { controls, spacing } from '../../core/foundation.mjs';
 import { translate } from '../../core/strings.mjs';
 
 export function columnCount(
@@ -7,7 +7,7 @@ export function columnCount(
     count,
     minimum = 430,
     maximum = 3,
-    gap = 10
+    gap = spacing.content
 ) {
     return Math.max(
         1,
@@ -19,7 +19,13 @@ export function columnCount(
     );
 }
 
-export function arrange(width, heights, minimum = 430, maximum = 3, gap = 10) {
+export function arrange(
+    width,
+    heights,
+    minimum = 430,
+    maximum = 3,
+    gap = spacing.content
+) {
     const columns = columnCount(width, heights.length, minimum, maximum, gap);
     const cellWidth = Math.max(0, (width - gap * (columns - 1)) / columns);
     const bottoms = Array(columns).fill(0);

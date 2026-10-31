@@ -1,11 +1,11 @@
 import { node, rect, label, button } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 import { filtered } from './help.state.mjs';
-import { metrics as themeMetrics } from '../../../core/foundation.mjs';
+import { metrics as themeMetrics, spacing } from '../../../core/foundation.mjs';
 
 export const metrics = {
-    margin: 12,
-    gap: 10,
+    margin: spacing.content,
+    gap: spacing.content,
     topicRow: 61,
     phoneWidth: 760,
     topicMin: 236,

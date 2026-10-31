@@ -1,3 +1,4 @@
+import { spacing } from '../../../core/foundation.mjs';
 import { node, rect, label, button, muted } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 
@@ -47,7 +48,7 @@ export function primaryAction(type) {
 export function describe(model, width, height, language) {
     const text = (key) => translate(key, language),
         compact = width < 600,
-        margin = compact ? 12 : 24,
+        margin = spacing.content,
         inner = width - margin * 2;
     const actions = [
         ['openErrorDebugLog', 'Open Debug Log', 'debug'],

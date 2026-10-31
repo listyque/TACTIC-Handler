@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import * as Columns from './columns.mjs';
 
 // Native ListView and browser virtualization consume the same row/column skeleton.
@@ -11,8 +12,8 @@ export const metrics = {
     maximumColumn: 640,
     resizeHandle: 12,
     dragThreshold: 6,
-    firstPadding: 14,
-    padding: 10,
+    firstPadding: spacing.content,
+    padding: spacing.content,
     heights: [52, 68, 84]
 };
 

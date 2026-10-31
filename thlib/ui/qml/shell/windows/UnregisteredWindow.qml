@@ -14,7 +14,7 @@ Item {
     }
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 14
+        anchors.margins: root.theme.spacing.content
         Label {
             text: qsTr("TACTIC-Handler")
             color: root.theme.primaryText

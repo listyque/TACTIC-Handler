@@ -1451,7 +1451,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             status_item.property("y"),
-            name_item.property("y") + name_item.property("height") + 10,
+            name_item.property("y") + name_item.property("height") + 12,
         )
         self.assertAlmostEqual(
             due_item.property("x"), description_item.property("x")
@@ -1459,7 +1459,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
         self.assertAlmostEqual(
             due_item.property("y"),
             description_item.property("y")
-            + description_item.property("height") + 10,
+            + description_item.property("height") + 12,
         )
         self.assertLess(
             name_item.property("width"), editor.property("width") * 0.6
@@ -1488,7 +1488,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
         editor_right = editor_host.mapToItem(
             name_frame, QPointF(editor_host.width(), 0)
         ).x()
-        self.assertLessEqual(editor_right, name_frame.width() - 13)
+        self.assertLessEqual(editor_right, name_frame.width() - 12)
         self.assertAlmostEqual(
             footer.property("height"),
             theme.property("dockWorkspaceFooterHeight"),
@@ -1510,7 +1510,7 @@ class SObjectEditorQmlTests(unittest.TestCase):
             description_item.property("y"), name_item.property("y")
         )
         self.assertLessEqual(
-            name_frame.property("width"), editor.property("width") - 40
+            name_frame.property("width"), editor.property("width") - 24
         )
         self.assertAlmostEqual(
             footer.property("height"),

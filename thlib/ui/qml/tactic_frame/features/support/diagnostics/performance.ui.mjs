@@ -1,3 +1,4 @@
+import { spacing } from '../../../core/foundation.mjs';
 import { node, rect, label, button, muted } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 
@@ -108,7 +109,7 @@ export function row(model, record, width, language) {
 export function describe(model, width, height, language) {
     const text = (key) => translate(key, language);
     const compact = width < 600,
-        margin = compact ? 10 : 16;
+        margin = spacing.content;
     const inner = Math.max(0, width - margin * 2),
         contentHeight = Math.max(height, compact ? 610 : 490);
     const toolbarHeight = compact ? 80 : 40;

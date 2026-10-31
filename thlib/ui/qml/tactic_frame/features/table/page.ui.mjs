@@ -1,5 +1,6 @@
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import { spacing } from '../../core/foundation.mjs';
 
 export function describe(model, width, height, language) {
     const tr = (text) => translate(text, language);
@@ -18,7 +19,12 @@ export function describe(model, width, height, language) {
         }),
         label(
             'workspacePageTitle',
-            rect(16, 12, Math.max(0, width - (model.canEdit ? 116 : 76)), 28),
+            rect(
+                spacing.content,
+                12,
+                Math.max(0, width - (model.canEdit ? 104 : 64)),
+                28
+            ),
             model.title || '',
             {
                 fontRole: 'heading',
@@ -27,7 +33,7 @@ export function describe(model, width, height, language) {
         ),
         button(
             'workspacePageRefresh',
-            rect(width - 48, 8, 32, 32),
+            rect(width - spacing.content - 32, 10, 32, 32),
             tr('Refresh'),
             'refresh',
             { type: 'refresh' },
@@ -39,7 +45,12 @@ export function describe(model, width, height, language) {
         nodes.push(
             button(
                 'workspacePageEdit',
-                rect(width - 88, 8, 32, 32),
+                rect(
+                    width - spacing.content - 64 - spacing.compact,
+                    10,
+                    32,
+                    32
+                ),
                 tr('Edit page layout'),
                 'edit',
                 { type: 'edit' },
@@ -51,7 +62,12 @@ export function describe(model, width, height, language) {
         nodes.push(
             label(
                 'workspacePageStatus',
-                rect(16, 64, Math.max(0, width - 32), 64),
+                rect(
+                    spacing.content,
+                    64,
+                    Math.max(0, width - spacing.content * 2),
+                    64
+                ),
                 model.error || tr('Loading interface…'),
                 { wrap: true, color: model.error ? 'error' : 'secondaryText' }
             )

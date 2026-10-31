@@ -3,12 +3,12 @@ import { translate } from '../../core/strings.mjs';
 import { prettySize, sourceIcon } from './file_values.mjs';
 import * as Confirmation from '../../controls/feedback/confirmation.ui.mjs';
 import { captionHeight } from '../../controls/forms/sections.ui.mjs';
-import { controls } from '../../core/foundation.mjs';
+import { controls, spacing } from '../../core/foundation.mjs';
 
 export function describe(model, width, height, language) {
     const tr = (text) => translate(text, language),
-        margin = 10,
-        inner = Math.max(0, width - 20),
+        margin = spacing.content,
+        inner = Math.max(0, width - margin * 2),
         stacked = width < 370,
         footerHeight = stacked ? 100 : 60,
         closeWidth = stacked ? inner : 120;

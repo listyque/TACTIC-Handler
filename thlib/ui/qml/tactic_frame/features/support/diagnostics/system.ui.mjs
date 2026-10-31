@@ -1,3 +1,4 @@
+import { spacing } from '../../../core/foundation.mjs';
 import { node, rect, label, button, muted } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 
@@ -128,7 +129,7 @@ export function resultText(result, language) {
 
 export function describe(model, width, height, language) {
     const tr = (text) => translate(text, language),
-        pad = 12,
+        pad = spacing.content,
         bodyWidth = Math.max(0, width - pad * 2),
         inner = Math.max(0, bodyWidth - 16),
         compact = inner < 580,

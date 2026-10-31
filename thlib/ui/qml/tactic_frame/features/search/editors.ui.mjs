@@ -1,7 +1,13 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
-export const editor = { inset: 14, gap: 12, groupGap: 6, optionGap: 7 };
+export const editor = {
+    inset: spacing.content,
+    gap: spacing.content,
+    groupGap: spacing.compact,
+    optionGap: spacing.compact
+};
 
 export function tabName(model, width, language) {
     const text = (key) => translate(key, language);

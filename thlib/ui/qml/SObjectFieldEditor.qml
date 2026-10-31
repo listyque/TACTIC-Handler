@@ -89,13 +89,13 @@ Item {
             Column {
                 id: formColumn
                 width: formScroll.availableWidth
-                topPadding: 18
-                bottomPadding: 20
-                spacing: 10
+                topPadding: root.theme.spacing.content
+                bottomPadding: root.theme.spacing.content
+                spacing: root.theme.spacing.content
                 Objects.ObjectEditorSurface {
-                    width: Math.max(0, parent.width - 40)
+                    width: Math.max(0, parent.width - root.theme.spacing.content * 2)
                     height: implicitHeight
-                    x: 20
+                    x: root.theme.spacing.content
                     theme: root.theme
                     model: root.model
                     part: "tools"
@@ -106,8 +106,8 @@ Item {
                 }
                 SObjectFieldGrid {
                     objectName: "sobjectEditorFieldFlow"
-                    width: Math.max(0, parent.width - 40)
-                    x: 20
+                    width: Math.max(0, parent.width - root.theme.spacing.content * 2)
+                    x: root.theme.spacing.content
                     theme: root.theme
                     fieldModel: sobjectFieldModel
                     itemPrefix: "sobjectEditorFieldItem_"

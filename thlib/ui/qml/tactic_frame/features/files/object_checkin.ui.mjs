@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { captionedSwitch } from '../../controls/forms/toggle.ui.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
@@ -76,7 +77,7 @@ export function revision(model, width, height, language) {
 
 export function describe(model, width, height, language) {
     const tr = (text) => translate(text, language),
-        margin = 10,
+        margin = spacing.content,
         inner = Math.max(0, width - margin * 2 - 16),
         nodes = [],
         body = [],

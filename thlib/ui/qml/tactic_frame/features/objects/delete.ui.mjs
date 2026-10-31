@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
@@ -150,8 +151,8 @@ export function dependency(record, width) {
 
 export function describe(model, width, height, language) {
     const tr = (text) => translate(text, language),
-        margin = 16,
-        w = Math.max(0, width - 32),
+        margin = spacing.content,
+        w = Math.max(0, width - margin * 2),
         groups = model.groups || [];
     const selected = groups.reduce(
             (sum, row) => sum + (row.checked ? row.count : 0),
@@ -168,7 +169,7 @@ export function describe(model, width, height, language) {
             background: 'panelDeep',
             radius: 0
         }),
-        node('Box', 'deleteSObjectHeader', rect(margin, 16, w, 72), {
+        node('Box', 'deleteSObjectHeader', rect(margin, margin, w, 72), {
             background: 'surfaceContainer',
             children: [
                 node('Box', 'deleteIconSurface', rect(14, 15, 42, 42), {

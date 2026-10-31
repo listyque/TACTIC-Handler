@@ -1,9 +1,10 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
 export const metrics = {
-    margin: 14,
-    gap: 12,
+    margin: spacing.content,
+    gap: spacing.content,
     header: 26,
     row: 68,
     rowGap: 6,
@@ -20,8 +21,16 @@ export function layout(width, height) {
     const inner = Math.max(0, width - 2 * metrics.margin);
     return {
         inner,
-        header: rect(14, 14, inner, 26),
-        list: rect(14, 52, inner, Math.max(0, height - 66)),
+        header: rect(metrics.margin, metrics.margin, inner, metrics.header),
+        list: rect(
+            metrics.margin,
+            metrics.margin + metrics.header + metrics.gap,
+            inner,
+            Math.max(
+                0,
+                height - metrics.margin * 2 - metrics.header - metrics.gap
+            )
+        ),
         rowWidth: Math.max(0, inner - metrics.scrollbar)
     };
 }

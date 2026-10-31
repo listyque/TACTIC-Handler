@@ -32,6 +32,12 @@ this tool is not part of ordinary product builds.
 
 ## Single owners
 
+Content spacing uses the shared foundation's semantic scale in logical pixels:
+12 for a body/panel interior, 8 between related controls and 16 between sections.
+Tables and dock/page bodies add no outer side gutter. A dialog body has one
+inset after its header; account for browser borders once. Preserve authored XML
+geometry and scrollbar/hit-area reserves. See [Content spacing](spacing.md).
+
 Workspace tab backgrounds have square corners. Keep the selection underline and
 close-button feedback rounded; tab styling must not change general panel radii.
 

@@ -15,7 +15,7 @@ Controls.PopupAction {
     property bool wrapTitle: false
     property color accent: theme.action
 
-    implicitHeight: Math.max(theme.controlHeight + Foundation.controls.editorListItem.minimumExtraHeight, content.implicitHeight + 20)
+    implicitHeight: Math.max(theme.controlHeight + Foundation.controls.editorListItem.minimumExtraHeight, content.implicitHeight + padding * 2)
     padding: Foundation.controls.editorListItem.padding
     Accessible.name: text
     Accessible.description: description

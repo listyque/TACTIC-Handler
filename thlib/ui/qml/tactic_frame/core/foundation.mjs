@@ -12,6 +12,17 @@ export const typography = {
 
 export const fontFamily = 'Segoe UI';
 
+// Content spacing is independent of palette; control hit areas and authored XML own their geometry.
+export const spacing = Object.freeze({
+    none: 0,
+    text: 2,
+    tight: 4,
+    compact: 8,
+    content: 12,
+    section: 16,
+    major: 24
+});
+
 export function fontMetricHeight(pixelSize) {
     return pixelSize * 1.328125;
 }
@@ -60,10 +71,10 @@ export const textStyles = Object.freeze({
 // House-control geometry comes from Handler; hosts supply native input and paint.
 export const controls = {
     dialog: {
-        padding: 20,
-        spacing: 12,
+        padding: spacing.content,
+        spacing: spacing.none,
         headerHeight: 40,
-        headerPadding: 12,
+        headerPadding: spacing.content,
         titleSize: 13,
         shadowY: 6,
         shadowBlur: 14
@@ -103,8 +114,17 @@ export const controls = {
         rowHeight: 48,
         avatarSize: 32
     },
-    calendar: { popupWidth: 304, padding: 10, rowHeight: 30, daySize: 28 },
-    colorPicker: { popupWidth: 380, planeHeight: 190, padding: 20 },
+    calendar: {
+        popupWidth: 304,
+        padding: spacing.content,
+        rowHeight: 30,
+        daySize: 28
+    },
+    colorPicker: {
+        popupWidth: 380,
+        planeHeight: 190,
+        padding: spacing.content
+    },
     iconPicker: { popupWidth: 560, popupHeight: 440 },
     button: {
         minimumWidth: 72,
@@ -195,31 +215,31 @@ export const controls = {
         checkedTintOpacity: 0.34
     },
     editorPanel: {
-        padding: 14,
-        spacing: 12,
-        contentSpacing: 10,
-        headerSpacing: 10,
-        textSpacing: 3,
-        actionsSpacing: 6,
+        padding: spacing.content,
+        spacing: spacing.content,
+        contentSpacing: spacing.compact,
+        headerSpacing: spacing.compact,
+        textSpacing: spacing.text,
+        actionsSpacing: spacing.compact,
         iconSize: 20
     },
     formField: {
-        padding: 14,
+        padding: spacing.content,
         labelWidth: 220,
-        columnSpacing: 20,
-        rowSpacing: 12,
+        columnSpacing: spacing.content,
+        rowSpacing: spacing.compact,
         iconExtent: 34,
         iconSize: 17,
-        labelSpacing: 11,
-        textSpacing: 2,
-        editorSpacing: 5,
+        labelSpacing: spacing.compact,
+        textSpacing: spacing.text,
+        editorSpacing: spacing.tight,
         compactBreakpoint: 700
     },
     editorListItem: {
-        padding: 12,
-        spacing: 10,
+        padding: spacing.content,
+        spacing: spacing.compact,
         iconSize: 19,
-        textSpacing: 4,
+        textSpacing: spacing.tight,
         minimumExtraHeight: 12
     },
     emptyState: {
@@ -593,6 +613,8 @@ export function cssVariables(style, dark, base, accent, preferences) {
     const colors = palette(style, dark, base, accent),
         values = metrics(style),
         result = {};
+    for (const name of Object.keys(spacing))
+        result['--space-' + name] = spacing[name] + 'px';
     for (const role of Object.keys(cssRoles))
         result[cssRoles[role]] = cssColor(colors[role]);
     for (const name of Object.keys(values)) {

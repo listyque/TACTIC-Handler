@@ -1,3 +1,4 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
@@ -5,7 +6,7 @@ export const metrics = {
     toolbar: 46,
     summary: 59,
     splitter: 8,
-    bodyMargin: 10,
+    bodyMargin: spacing.content,
     minimumRatio: 0.22,
     maximumRatio: 0.78
 };

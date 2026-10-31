@@ -1,10 +1,11 @@
+import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { bodyOrder } from './messaging.state.mjs';
 
 export const metrics = {
     header: 18,
-    gap: 6,
+    gap: spacing.compact,
     action: 28,
     minimumCellWidth: 210,
     preferredCellWidth: 240,

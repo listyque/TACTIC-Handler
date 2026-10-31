@@ -36,7 +36,6 @@ Controls.Dialog {
     width: Math.min(680, parent ? parent.width - 24 : 680)
     height: Math.min(690, parent ? parent.height - 24 : 690)
     padding: 0
-    headerPadding: 20
     modal: true
     closePolicy: Popup.NoAutoClose
     function loadProfile() {

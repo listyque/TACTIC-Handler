@@ -50,8 +50,8 @@ Item {
     }
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 10
+        anchors.margins: root.theme.spacing.content
+        spacing: root.theme.spacing.content
         Frame.FrameView {
             Layout.fillWidth: true
             Layout.preferredHeight: scene.height

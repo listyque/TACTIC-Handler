@@ -19,11 +19,11 @@ Rectangle {
     ColumnLayout {
         id: sectionLayout
         anchors.fill: parent
-        spacing: 8
+        spacing: root.theme.spacing.compact
 
         Label {
             Layout.fillWidth: true
-            Layout.leftMargin: 1
+            Layout.leftMargin: 0
             text: root.title
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
@@ -35,8 +35,8 @@ Rectangle {
         Label {
             visible: root.description.length > 0
             Layout.fillWidth: true
-            Layout.leftMargin: 1
-            Layout.rightMargin: 1
+            Layout.leftMargin: 0
+            Layout.rightMargin: 0
             text: root.description
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
@@ -49,7 +49,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             Layout.fillHeight: root.fillContentHeight
-            implicitHeight: sectionContent.implicitHeight + 32
+            implicitHeight: sectionContent.implicitHeight + root.theme.spacing.content * 2
             radius: root.theme.sectionRadius
             color: root.theme.surfaceContainerLow
             border.width: 1
@@ -58,7 +58,7 @@ Rectangle {
             ColumnLayout {
                 id: sectionContent
                 anchors.fill: parent
-                anchors.margins: 16
+                anchors.margins: root.theme.spacing.content
                 spacing: 0
             }
         }
