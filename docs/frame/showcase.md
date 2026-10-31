@@ -6,7 +6,7 @@ installation or persistent drafts. Changing projects does not change its data.
 Narrow layouts reserve two complete heading line boxes before the subtitle;
 longer family names retain the full accessible name when elided.
 
-The workbench contains **29 live families in six groups**. Source presence,
+The workbench contains **29 live families in six groups and 151 selectable control variants**. Source presence,
 individual examples and complete product behavior acceptance remain separate
 evidence: the workbench is not a mock project administration application.
 
@@ -106,3 +106,33 @@ Not every state changes a passive control: read-only identity is already passive
 for example. Hover, press, focus, input method and popup lifetime are real input
 states, not screenshot-only flags. These checks do not certify every catalogued
 variant, style, DPI or touch device.
+
+
+## Real house-control variants
+
+The family overview and individual control variants are distinct. The visible
+variant selector exposes every record in `controls/catalog/variants.mjs` (151),
+including real spin boxes/sliders, choice/segment states, badges/reactions,
+editor panels, field frames, grouped identity, list rows and overlays. Search
+also matches variant identifiers; counts describe examples, not duplicate native
+and Vue class names. Reset keeps the selected variant and resets its local model.
+
+The previews overview displays round and square photos, initials, outlines,
+contain/crop, icon fallback, loading and selection together. A shaded image-card
+composition, actual AttachmentCard image and compact file attachment follow.
+Image failure remains an explicit selectable example. Its intentional missing
+image diagnostic is expected; the native bulk creation test covers the other 150.
+
+Product-owned `ShowcaseControl` adapters instantiate existing house controls;
+the development fixtures import these same adapters. `ShowcaseVariant` maps the
+shared scene and events to local models. The code panel includes the scene,
+selected variant settings and the named port owner. Handler owns private users
+and emoji models through ShowcaseServices; the user picker accepts its model
+explicitly. Examples never use the session's real people or change active
+application emoji searches. Font/data assets remain the normal shipped ones.
+
+The shared contract test covers every selectable record and narrow geometry;
+the actual browser Administration driver selects all 151 and exercises local
+numeric input and read-only behavior. Native tests create 150 and exercise the
+same input. This coverage does not imply that every passive control responds to
+every global state, or that every style/DPI/touch combination was checked.

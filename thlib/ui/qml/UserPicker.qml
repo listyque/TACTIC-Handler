@@ -9,6 +9,7 @@ Item {
     id: root
 
     required property var theme
+    property var userModel: typeof userListModel === 'undefined' ? null : userListModel
     readonly property string language: typeof localizationController === 'undefined' ? 'en' : localizationController.current_language
     property var selectedLogins: []
     property var excludedLogins: []
@@ -23,13 +24,13 @@ Item {
 
     UserFilter {
         id: filteredUsers
-        model: userListModel
+        model: root.userModel
         searchText: searchField.text
         excludedLogins: root.excludedLogins
     }
 
     function toggle(login) {
-        const user = userListModel.lookup("login", login);
+        const user = root.userModel.lookup("login", login);
         if (!user.login || root.isExcluded(user.login, user.current))
             return;
         let values = root.selectedLogins.slice();

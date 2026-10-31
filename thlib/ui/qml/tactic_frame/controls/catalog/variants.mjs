@@ -19,6 +19,7 @@ function sample(id, family, kind, properties = {}, height = 36) {
 }
 
 export const directKinds = [
+    'previewCard',
     'Icon',
     'Grid',
     'Graph',
@@ -392,6 +393,41 @@ export const examples = [
         96
     ),
     sample(
+        'preview-round',
+        'previews',
+        'Preview',
+        { source: exampleImage, round: true },
+        96
+    ),
+    sample(
+        'preview-icon',
+        'previews',
+        'Preview',
+        { icon: 'image', round: false },
+        96
+    ),
+    sample(
+        'preview-card',
+        'previews',
+        'previewCard',
+        { source: exampleImage },
+        220
+    ),
+    sample(
+        'attachment-image',
+        'previews',
+        'attachment',
+        { source: exampleImage, extension: 'svg' },
+        220
+    ),
+    sample(
+        'attachment-file',
+        'previews',
+        'attachment',
+        { extension: 'pdf', compact: true },
+        64
+    ),
+    sample(
         'preview-outline',
         'previews',
         'Preview',
@@ -414,7 +450,7 @@ export const examples = [
         'preview-loading',
         'previews',
         'Preview',
-        { loading: true, source: 'pending-preview:example' },
+        { loading: true, source: 'pending-preview:example', round: false },
         96
     ),
     sample(
@@ -735,6 +771,12 @@ export function describe(
     const bounds = rect(20, 64, Math.max(0, width - 40), example.height);
     if (example.kind === 'Preview' || example.kind === 'Icon')
         bounds.width = bounds.height;
+    if (example.kind === 'attachment') {
+        bounds.width = Math.min(bounds.width, 320);
+        bounds.height = example.properties.compact
+            ? 64
+            : (bounds.width - 16) / 2 + 65;
+    }
     if (example.kind === 'chip') bounds.width = 140;
     if (['statusChip', 'reaction'].indexOf(example.kind) >= 0)
         bounds.width = 140;
@@ -770,8 +812,20 @@ export function describe(
         options: example.kind === 'UserChoice' ? users : options(example),
         users,
         error: example.properties.error || state === 'error',
+        selected: example.properties.selected || state === 'selected',
+        loading: example.properties.loading || state === 'loading',
         language
     });
+    if (
+        ['Preview', 'previewCard'].includes(example.kind) &&
+        ['empty', 'error'].includes(state)
+    ) {
+        values.source = '';
+        if (state === 'error') {
+            values.initials = '';
+            values.icon = 'alert';
+        }
+    }
     if (example.kind === 'CheckBox') {
         const indicator = values.prominent
             ? controls.checkBox.prominentIndicator
@@ -800,7 +854,57 @@ export function describe(
         ];
     }
     let content;
-    if (example.kind === 'Scroll') {
+    if (example.kind === 'previewCard') {
+        content = [
+            node('Box', 'sample', bounds, {
+                radius: 10,
+                clip: true,
+                children: [
+                    node(
+                        'Preview',
+                        'sampleCardImage',
+                        rect(0, 0, bounds.width, bounds.height),
+                        {
+                            source: values.source,
+                            round: false,
+                            fit: 'cover',
+                            loading: values.loading,
+                            selected: values.selected
+                        }
+                    ),
+                    node(
+                        'Box',
+                        'sampleCardShade',
+                        rect(0, 0, bounds.width, bounds.height),
+                        { background: '#000000', opacity: 0.68, radius: 10 }
+                    ),
+                    label(
+                        'sampleCardTitle',
+                        rect(16, 24, Math.max(0, bounds.width - 32), 36),
+                        'Robot Arm',
+                        { fontRole: 'title', weight: 600, color: '#ffffff' }
+                    ),
+                    label(
+                        'sampleCardDescription',
+                        rect(16, 68, Math.max(0, bounds.width - 32), 48),
+                        tr('Image preview'),
+                        { wrap: true, color: '#ffffff' }
+                    ),
+                    node(
+                        'StatusChip',
+                        'sampleCardStatus',
+                        rect(
+                            16,
+                            bounds.height - 44,
+                            Math.min(140, bounds.width - 32),
+                            28
+                        ),
+                        { text: tr('Ready'), accent: 'action' }
+                    )
+                ]
+            })
+        ];
+    } else if (example.kind === 'Scroll') {
         const contentWidth =
             example.properties.horizontal || example.properties.both
                 ? 900

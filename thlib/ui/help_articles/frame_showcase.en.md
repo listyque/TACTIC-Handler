@@ -37,3 +37,11 @@ switches surfaces and saves its draft only inside the example.
 Examples use local sample data. They do not save settings, modify the current
 project or run server commands. Code is read-only and can be copied through the
 existing source-editor controls. The window can be closed without a save prompt.
+
+Choose **Control variant** to open any of 151 concrete examples, rather than just
+the family overview. Search also finds variant names. Spin boxes, sliders,
+segmented buttons, field frames, panels, list rows and chip variants are real
+controls. **Reset** resets the selected example; **Code example** includes its
+settings. The previews overview shows round/square images and placeholders,
+contain/crop, loading/selection, an image background card and image/file
+attachments. Example attachment clicks only report a local action.

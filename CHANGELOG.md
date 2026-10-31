@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.321 - 2026-10-31
+
+- Expose 151 actual house-control variants in Component showcase, alongside the 29 family overviews. Search variant names, inspect their settings/code and reset the selected local example.
+- Show round/square image previews, initials, outlines, contain/crop, loading, selection, shaded image cards and real image/file attachments.
+- Reuse product-owned native/browser example adapters in the development fixtures. Keep showcase people and emoji models private, with explicit user-picker model injection.
+
 ## 0.6.0.320 - 2026-10-31
 
 - Replace page filter checkbox/forms with one house search and matching field/value suggestions, highlighted as users type.

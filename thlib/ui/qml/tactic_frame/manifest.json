@@ -3,7 +3,7 @@
   "sha256": {
     "controls/buttons/metrics.mjs": "da3054d7d2f6a2f4a84e925c15141b64f71fe48dff28a3bf98ad0d4aef079a91",
     "controls/catalog.ui.mjs": "3b32a9a4f23bb5b311f83074db86b61585e2a6b138142501d25c310227412b9a",
-    "controls/catalog/variants.mjs": "001994697820d9a6edc47dfc87751a6503d3c2803808509affc17aa9e9d2521d",
+    "controls/catalog/variants.mjs": "2982f1f670396165c75b667fd1ce0f2928b4dba7894711bcbe0554e7f01fe3b7",
     "controls/code/code.ui.mjs": "e4b2b925c599eb0340efa5ff366eac1e206ecd982d6b3f0f822efc51982780a8",
     "controls/display/chips.mjs": "02cf0392a0bccf30f3032126bdf188cab8a30907c2b65e2f6833528b2442b348",
     "controls/display/progress.mjs": "be891b21e9638642dc3a5cc506079f563be32b1c5d9b7be7d0ed14b98ee0c78f",
@@ -268,11 +268,12 @@
     "features/scripts/rules.ui.mjs": "e96839e2939796e573968c2c4ad70eaf1bde6a49dd1b9bae09724520d81d6822",
     "features/administration/plugins/plugins.resources.mjs": "4bc535b346b6ee01deec23ce908c4eb80d44211e05e95bb6607dabcd63f3d40c",
     "controls/charts/chart.ui.mjs": "6208b2c33aa6b29e6583162513b31b93ecb6fcbce0604071af898ee99c1df8f7",
-    "controls/catalog.data.mjs": "63f24fba0ed4ddbd1f9c23579a2d7ec6958823d5027ee3561200f6d4fd54f12b",
+    "controls/catalog.data.mjs": "d57409e5f25523eab1bfcc1b5fe01ae830aeeb02c0b8e5dcf5b3acfabb106c81",
     "controls/showcase.examples.mjs": "d2ef38513e26fdbdf46ca575a74403ed3cf5f0444b4a04a9f69396f4b9255430",
-    "features/administration/showcase.ui.mjs": "0c9fd4c52976dc94815d8ed6cc4c2aef7b26edd91572ee4d54c8333fd482c1b4",
-    "features/administration/showcase.examples.mjs": "01833ab9f08b21ab611be9170a50e3951e182423caf3e51613287a893ade21e9",
+    "features/administration/showcase.ui.mjs": "174c063076d7d90363f123a62888ff17bf861a7ec2a771b7dcb084ca4183a27e",
+    "features/administration/showcase.examples.mjs": "897325ed744a9db36af434ead9a573f124b404e0480273f646a957c36e96b0ff",
     "features/configuration/server_control.ui.mjs": "280faf5761759d43006dc49c952f70b6a447fec3d1a0e1b7e4b18c5a93139f33",
-    "controls/forms/search.mjs": "39d3c20667311ae6d7ed5e4988b1a6a4f84b210658c6d54b4cd979731b41aea1"
+    "controls/forms/search.mjs": "39d3c20667311ae6d7ed5e4988b1a6a4f84b210658c6d54b4cd979731b41aea1",
+    "features/administration/showcase.variants.mjs": "0579b607c89e78139e997346d41327e192876b0b845f8c55e74a85baef440426"
   }
 }

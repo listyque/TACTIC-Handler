@@ -1,8 +1,12 @@
 // Executable compositions of house controls; every draft belongs to this local scene.
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
-import { examples } from '../../controls/catalog/variants.mjs';
+import {
+    examples,
+    initial as variantInitial
+} from '../../controls/catalog/variants.mjs';
 import { surfaces } from '../tasks/workspace.ui.mjs';
+import { title as variantTitle } from './showcase.variants.mjs';
 
 export const families = [
     'search',
@@ -370,37 +374,72 @@ export function describe(model, family, width, language) {
             'sampleCollapse'
         );
     } else if (family === 'previews') {
-        title('Image preview');
-        const size = Math.min(width, 180);
-        add(
-            'Preview',
-            'sampleImage',
-            size,
-            {
-                source:
-                    model.state === 'error' || model.state === 'empty'
-                        ? ''
-                        : photo,
-                initials: 'RA',
-                icon: model.state === 'error' ? 'alert' : 'image',
-                round: false,
-                selected: model.previewSelected || model.state === 'selected',
-                loading: model.state === 'loading',
-                fit: model.fit
-            },
-            size
-        );
-        action('sampleImageSelect', 'Select', 'samplePreviewSelect');
-        add('Choice', 'sampleImageFit', 36, {
-            value: model.fit,
-            options: [
-                { value: 'contain', label: 'Contain' },
-                { value: 'cover', label: 'Cover' }
-            ],
-            enabled,
-            label: tr('Image fit'),
-            action: { type: 'sampleFit' }
-        });
+        const thumbnails = [
+            'preview-round',
+            'preview-square',
+            'preview-outline',
+            'preview-photo',
+            'preview-contain',
+            'preview-icon',
+            'preview-loading',
+            'preview-selected'
+        ];
+        const columns = width >= 560 ? 4 : width >= 280 ? 2 : 1;
+        const cellWidth = (width - (columns - 1) * 16) / columns;
+        for (let index = 0; index < thumbnails.length; index++) {
+            const id = thumbnails[index],
+                example = examples.find((row) => row.id === id);
+            const x = (index % columns) * (cellWidth + 16),
+                top = y + Math.floor(index / columns) * 144;
+            nodes.push(
+                node(
+                    'Preview',
+                    'sample_' + id,
+                    rect(x, top, 96, 96),
+                    Object.assign({}, example.properties, {
+                        round: example.properties.round === true,
+                        source:
+                            model.state === 'empty' || model.state === 'error'
+                                ? ''
+                                : example.properties.source,
+                        loading:
+                            model.state === 'loading' ||
+                            example.properties.loading,
+                        selected:
+                            model.state === 'selected' ||
+                            example.properties.selected,
+                        fit: id === 'preview-contain' ? 'contain' : 'cover'
+                    })
+                )
+            );
+            nodes.push(
+                label(
+                    'caption_' + id,
+                    rect(x, top + 104, cellWidth, 32),
+                    variantTitle(id, language),
+                    {
+                        fontRole: 'caption',
+                        wrap: true
+                    }
+                )
+            );
+        }
+        y += Math.ceil(thumbnails.length / columns) * 144;
+        for (const id of [
+            'preview-card',
+            'attachment-image',
+            'attachment-file'
+        ]) {
+            const example = examples.find((row) => row.id === id);
+            title(variantTitle(id, language));
+            add('View', 'sample_' + id, example.height, {
+                view: 'showcaseVariant',
+                model: variantInitial(id),
+                state: model.state,
+                language,
+                gallery: id
+            });
+        }
     } else if (family === 'drag-files') {
         title('Files');
         add(

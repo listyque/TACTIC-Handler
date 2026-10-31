@@ -14,6 +14,8 @@ class FrameShowcaseTests(unittest.TestCase):
     click=frames.FrameTableTests.click
 
     def create(self, *args, **kwargs):
+        from thlib.ui.admin.showcase import ShowcaseServices
+        args[1]['sampleServices'] = ShowcaseServices()
         window, view = frames.FrameTableTests.create(self, *args, **kwargs)
         window.requestActivate()
         QTest.qWait(20)
@@ -190,6 +192,47 @@ class FrameShowcaseTests(unittest.TestCase):
             frames.frame(window)
             self.assertGreaterEqual(self.item(view,'showcaseTitle').height(),64)
             self.assertFalse(window.grabWindow().isNull())
+
+    def test_actual_house_variants_and_local_input(self):
+        source = SourceEditorService()
+        window, view = self.create('features/administration/ComponentShowcaseView.qml', dict(sourceEditor=source),
+            width=1000, height=800, context=qml_icon_bindings(frames.QML.parents[2]))
+        # Read the same shipped JS inventory through Qt, not a duplicate Python list.
+        from PySide6.QtQml import QQmlExpression, qmlContext
+        expression = QQmlExpression(qmlContext(view), view, 'UI.variants')
+        variants = expression.evaluate()[0]
+        variants = variants.toVariant() if hasattr(variants, 'toVariant') else variants
+        self.assertEqual(len(variants), 151)
+        for example in variants:
+            if example['id'] == 'preview-broken':
+                continue  # Deliberate missing-image diagnostics are covered by the variant capture driver.
+            self.send(view, dict(type='family', value=example['family']))
+            self.send(view, dict(type='variant', value=example['id']))
+            frames.frame(window)
+            self.assertEqual(self.model(view)['variantModel']['id'], example['id'])
+            self.assertGreater(self.item(view, 'sample').height(), 0, example['id'])
+        self.send(view, dict(type='family', value='numbers'))
+        self.send(view, dict(type='variant', value='integer'))
+        control = self.item(view, 'exampleControl')
+        control.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_Up)
+        frames.frame(window)
+        self.assertEqual(self.model(view)['variantModel']['value'], 6)
+        self.send(view, dict(type='state', value='readonly'))
+        QTest.keyClick(window, Qt.Key_Up)
+        self.assertEqual(self.model(view)['variantModel']['value'], 6)
+        self.send(view, dict(type='code'))
+        self.assertGreater(self.item(view, 'showcaseCodeSource').height(), 0)
+        self.send(view, dict(type='code'))
+        self.send(view, dict(type='family', value='previews'))
+        self.send(view, dict(type='variant', value='preview-round'))
+        self.send(view, dict(type='state', value='loading'))
+        self.assertTrue(self.item(view, 'sample').property('loading'))
+        self.send(view, dict(type='state', value='empty'))
+        self.assertEqual(str(self.item(view, 'sample').property('source').toString()), '')
+        self.send(view, dict(type='state', value='selected'))
+        self.assertTrue(self.item(view, 'sample').property('selected'))
+
 
 
 if __name__=='__main__':

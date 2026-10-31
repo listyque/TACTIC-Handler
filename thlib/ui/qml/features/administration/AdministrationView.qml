@@ -277,6 +277,7 @@ Item {
                 sourceComponent: ComponentShowcaseView {
                     theme: root.theme
                     sourceEditor: root.controller.componentSourceEditor
+                    sampleServices: root.controller.componentSamples
                     language: root.language
                 }
             }

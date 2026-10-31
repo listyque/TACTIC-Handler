@@ -99,6 +99,12 @@ class AdministrationAccessTests(unittest.TestCase):
             self.admin.select_section('showcase')
         self.assertEqual(self.admin.section, 'showcase')
         self.assertIsNotNone(self.admin.componentSourceEditor)
+        with patch('thlib.tactic_classes.server_start', side_effect=AssertionError('Samples must stay local')):
+            samples = self.admin.componentSamples
+            samples.setUsers([{'login': 'sample', 'displayName': 'Local'}])
+        self.assertIs(samples, self.admin.componentSamples)
+        self.assertEqual(samples.users.lookup('login', 'sample')['displayName'], 'Local')
+        self.assertIsNot(samples.users, self.admin._users)
 
     def test_native_admin_flag_not_login_or_group_label_controls_access(self):
         self.bootstrap(native_admin=True)

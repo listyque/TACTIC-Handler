@@ -77,6 +77,7 @@ class AdministrationController(QObject):
         self._plugins_editor = PluginsEditor(application, self)
         self._server_editor = ServerControlEditor(application, self)
         self._component_source_editor = SourceEditorService(self)
+        self._component_samples = None
         self._editors = {'raw': self._raw_editor, 'types': self._types_editor, 'schema': self._schema_editor,
                          'workflow': self._workflow_editor, 'rules': self._security_editor,
                          'users': self._users_editor, 'plugins': self._plugins_editor, 'server': self._server_editor}
@@ -116,6 +117,13 @@ class AdministrationController(QObject):
     @Property(QObject, constant=True)
     def componentSourceEditor(self):
         return self._component_source_editor
+
+    @Property(QObject, constant=True)
+    def componentSamples(self):
+        if self._component_samples is None:
+            from .admin.showcase import ShowcaseServices
+            self._component_samples = ShowcaseServices(self)
+        return self._component_samples
 
     @Property(QObject, constant=True)
     def pluginsEditor(self):

@@ -1,5 +1,7 @@
 import { describe as preview } from '../../controls/showcase.examples.mjs';
 import * as Extended from './showcase.examples.mjs';
+import * as Variants from './showcase.variants.mjs';
+export { examples as variants } from './showcase.variants.mjs';
 export { cell, models } from './showcase.examples.mjs';
 // Local examples of shipped controls; no project, transport or persistent draft.
 import { node, rect, label, button } from '../../core/frame.mjs';
@@ -54,6 +56,8 @@ export function initial() {
         category: '',
         state: 'default',
         code: false,
+        variant: '',
+        variantModel: null,
         text: 'Robot Arm',
         area: 'A local example',
         checked: true,
@@ -96,8 +100,36 @@ export function transition(model, event, catalog) {
         event.type === 'family' &&
         catalog.families.some((f) => f.id === event.value)
     )
-        Object.assign(next, { family: event.value, dialogOpen: false });
+        Object.assign(next, {
+            family: event.value,
+            dialogOpen: false,
+            variant: '',
+            variantModel: null
+        });
     else if (
+        event.type === 'variant' &&
+        (event.value === '' ||
+            Variants.available(model.family).some(
+                (row) => row.id === event.value
+            ))
+    )
+        Object.assign(next, {
+            variant: event.value,
+            variantModel: event.value ? Variants.initial(event.value) : null
+        });
+    else if (event.type === 'galleryEvent')
+        next.last = event.id + ': ' + event.value.type;
+    else if (
+        event.type === 'variantEvent' &&
+        model.variantModel &&
+        !['disabled', 'readonly', 'loading'].includes(model.state)
+    ) {
+        next.variantModel = Variants.transition(
+            model.variantModel,
+            event.value
+        );
+        next.last = event.value.type;
+    } else if (
         event.type === 'category' &&
         (event.value === '' ||
             catalog.categories.some((c) => c.id === event.value))
@@ -112,6 +144,10 @@ export function transition(model, event, catalog) {
         return Object.assign(initial(), {
             resetRevision: model.resetRevision + 1,
             family: model.family,
+            variant: model.variant,
+            variantModel: model.variant
+                ? Variants.initial(model.variant)
+                : null,
             query: model.query,
             category: model.category
         });
@@ -246,7 +282,15 @@ export function families(catalog, model, language) {
             (f) =>
                 (!model.category || f.category === model.category) &&
                 (!query ||
-                    [f.id, f.title, f.label, ...f.native, ...f.vue, ...f.tokens]
+                    [
+                        f.id,
+                        f.title,
+                        f.label,
+                        ...f.native,
+                        ...f.vue,
+                        ...f.tokens,
+                        ...Variants.available(f.id).map((row) => row.id)
+                    ]
                         .join(' ')
                         .toLocaleLowerCase()
                         .includes(query))
@@ -263,7 +307,7 @@ export function families(catalog, model, language) {
             title: language === 'ru' ? f.title : f.label,
             level: f.level,
             available: live.includes(f.id),
-            count: f.native.length + f.vue.length
+            count: Variants.available(f.id).length + 1
         }));
 }
 
@@ -283,7 +327,9 @@ export function row(list, record, model, language) {
         label(
             'showcaseFamilyState_' + record.id,
             rect(12, 27, list.width - 24, 16),
-            tr(record.available ? 'Live example' : 'Catalogue entry'),
+            tr(record.available ? 'Live example' : 'Catalogue entry') +
+                ' · ' +
+                record.count,
             { fontRole: 'caption', color: 'secondaryText' }
         )
     );
@@ -446,9 +492,40 @@ export function describe(model, catalog, width, height, language = 'en') {
         );
         y += 64;
     } else if (live.includes(family.id)) {
-        const p = Extended.families.includes(family.id)
-            ? Extended.describe(model, family.id, inner, language)
-            : preview(model, family.id, inner, language);
+        const variants = Variants.available(family.id);
+        if (variants.length) {
+            content.push(
+                node('Choice', 'showcaseVariant', rect(16, y, inner, 36), {
+                    value: model.variant,
+                    label:
+                        language === 'ru'
+                            ? 'Вариант контрола'
+                            : 'Control variant',
+                    options: [
+                        {
+                            value: '',
+                            label:
+                                language === 'ru'
+                                    ? 'Обзор примеров'
+                                    : 'Example overview'
+                        },
+                        ...variants.map((row) => ({
+                            value: row.id,
+                            label: Variants.title(row.id, language)
+                        }))
+                    ],
+                    enabled: true,
+                    action: { type: 'variant' }
+                })
+            );
+            y += 48;
+        }
+        const p =
+            model.variant && model.variantModel
+                ? Variants.sample(model, inner, language)
+                : Extended.families.includes(family.id)
+                  ? Extended.describe(model, family.id, inner, language)
+                  : preview(model, family.id, inner, language);
         if (p.code) {
             if (narrow)
                 content.push(

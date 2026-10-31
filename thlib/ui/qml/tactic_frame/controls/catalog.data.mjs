@@ -935,6 +935,11 @@ export const catalogue = {
             rule: 'Карточка нейтральных данных — составной контрол; ObjectCard с командами/ACL — предметный фрагмент.',
             examples: [
                 'preview-square',
+                'preview-round',
+                'preview-icon',
+                'preview-card',
+                'attachment-image',
+                'attachment-file',
                 'preview-outline',
                 'preview-broken',
                 'preview-loading',
