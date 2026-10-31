@@ -300,6 +300,10 @@ class NestedTableTests(unittest.TestCase):
         self.assertEqual(view.implicitHeight(), 320)
 
     def test_parent_table_uses_free_height_without_reloading_on_resize(self):
+        import json
+        import os
+        from pathlib import Path
+        from PySide6.QtCore import QPointF
         from unittest.mock import patch
         from thlib.ui.table.services import TableServicesController
         from thlib.ui.workspace_models.results import WorkspaceItemModel
@@ -311,16 +315,27 @@ class NestedTableTests(unittest.TestCase):
         self.addCleanup(owner.shutdown)
         model = WorkspaceItemModel()
         model.replace_nodes([WorkspaceNode(node_id='A', node_type='sobject',
-            search_key='demo/asset?code=A', code='A', title='Parent')])
+            search_key='demo/asset?code=A', code='Parent', title='0 Parent'),
+            WorkspaceNode(node_id='NEXT', node_type='sobject', search_key='demo/asset?code=NEXT', code='Next parent', title='1 Next parent')])
         with patch('thlib.ui.table.nested.NestedTableController.reload') as load:
             owner.toggle_nested('A', dict(nestedTable=dict(searchType='demo/asset', view='child',
                 parentKey='demo/asset?code=A')))
             scope = owner.nested_row('A')
-            scope._model.update(loaded=True, columns=[dict(name='name', title='Name', cell=dict(kind='text'))],
-                rows=[dict(key=str(i), record=dict(name='Row '+str(i)), cells={}) for i in range(4)])
+            columns = [dict(name='code',title='Code',width=160,cell=dict(kind='text')),
+                dict(name='expand',title='Details',width=100,cell=dict(kind='text'))]
+            scope._model.update(loaded=True, columns=columns,
+                rows=[dict(key=str(i),nodeId='child:'+str(i),record=dict(code='Row '+str(i)),
+                    cells=dict(code=dict(text='Row '+str(i)),expand=dict(text=''))) for i in range(4)])
+            prepare_scope(scope)
+            parent_columns = _TableColumns()
+            parent_columns._columns = [dict(column,row=i,label=column['title'],kind='text') for i,column in enumerate(columns)]
+            parent_columns.cell = lambda key, column: dict(kind='text', text=('Parent' if key.endswith('=A') else 'Next parent') if column == 'code' else '')
+            from thlib.ui.icon_font import qml_icon_bindings
             window, view = self.create('SearchResultTable.qml', dict(controller=_TableController(),
-                columnsController=_TableColumns(), resultModel=model, tableServices=owner), width=800, height=650)
-            parent = self.item(view, 'searchResultTableRow')
+                columnsController=parent_columns, resultModel=model, tableServices=owner), width=800, height=650,
+                context=qml_icon_bindings(Path(__file__).resolve().parents[1], self.app))
+            window.setColor(view.property('theme').property('workspace'))
+            parent = next(item for item in _visual_items(view) if item.objectName() == 'searchResultTableRow' and item.property('nodeId') == 'A')
             self.assertEqual(parent.height(), view.property('effectiveRowHeight') + 351)
             load.assert_called_once()
             for height in (350, 650):
@@ -331,6 +346,51 @@ class NestedTableTests(unittest.TestCase):
                 expected = min(351, viewport.height() - view.property('headerHeight') - view.property('effectiveRowHeight'))
                 self.assertEqual(parent.height(), view.property('effectiveRowHeight') + expected)
                 load.assert_called_once()
+            scope._model['search'] = False
+            scope.changed.emit()
+            frames.frame(window)
+            child = view.property('focusedNestedView')
+            self.assertIsNotNone(child)
+            self.assertFalse(any(item.objectName() == 'nestedFilter' for item in _visual_items(child)))
+            self.assertFalse(any(item.objectName() == 'nestedToolbarSurface' for item in _visual_items(child)))
+            body = self.item(child, 'nestedTableBody')
+            self.assertEqual(body.y(), 0)
+            self.assertFalse(self.item(child, 'nestedReload').property('round'))
+            footer = self.item(child, 'nestedFooterSurface')
+            self.assertEqual(self.item(child, 'nestedReload').mapToItem(child, QPointF()).y(), footer.mapToItem(child, QPointF()).y() + 4)
+            self.assertEqual(self.item(child, 'nestedClose').mapToItem(child, QPointF()).y(), footer.mapToItem(child, QPointF()).y() + 4)
+            layer = next(item for item in view.childItems() if item.objectName() == 'nestedFocusLayer')
+            self.assertTrue(self.item(layer, 'nestedFocusShadow').isVisible())
+            scrim = self.item(layer, 'nestedFocusScrim_0')
+            self.assertGreater(scrim.height(), 0)
+            self.assertEqual(view.property('nestedFocusBounds').toVariant()['height'], child.height())
+            if os.environ.get('TABLE_NESTED_FOCUS_OUTPUT'):
+                output = Path(os.environ['TABLE_NESTED_FOCUS_OUTPUT'])
+                output.mkdir(parents=True, exist_ok=True)
+                window.grabWindow().save(str(output/'native-focus.png'))
+                (output/'native-focus.json').write_text(json.dumps(dict(
+                    width=window.width(), height=window.height(),
+                    bounds=view.property('nestedFocusBounds').toVariant(),
+                    bodyY=body.y(), footerY=footer.mapToItem(child, QPointF()).y())), encoding='utf-8')
+                captures = []
+                theme = view.property('theme')
+                for width in (800, 320):
+                    view.setWidth(width)
+                    window.resize(width, 650)
+                    for dark in (True, False):
+                        theme.setProperty('dark', dark)
+                        frames.frame(window)
+                        captures.append(dict(width=width,height=650,dark=dark,
+                            bounds=view.property('nestedFocusBounds').toVariant(),
+                            bodyY=body.y(),footerY=footer.mapToItem(child,QPointF()).y()))
+                        window.grabWindow().save(str(output/f'native-focus-{width}-{dark}.png'))
+                (output/'native-focus-matrix.json').write_text(json.dumps(captures),encoding='utf-8')
+                view.setWidth(800)
+                window.resize(800,650)
+                theme.setProperty('dark',True)
+                frames.frame(window)
+            self.click(window, self.item(layer, 'nestedFocusScrim_0'))
+            self.assertIsNone(owner.nested_row('A'))
 
     def test_expanded_content_fills_the_available_width(self):
         import json
@@ -616,8 +676,12 @@ class NestedTableTests(unittest.TestCase):
                 nestedTable=dict(parent,searchType=stype)) for stype,label in (('sthpw/task','Tasks'),('sthpw/snapshot','Checkins'))])
             scope.changed.emit()
             self.app.processEvents()
+            owner.close_nested(branch)
+            frames.frame(window)
             self.click(window,self.item(view,'tableSummary_0'))
             self.assertEqual(owner.nested_row(identity).descriptor['searchType'],'sthpw/task')
+            owner.close_nested(owner.nested_row(identity))
+            frames.frame(window)
             self.click(window,self.item(view,'tableSummary_1'))
             self.assertEqual(owner.nested_row(identity).descriptor['searchType'],'sthpw/snapshot')
             owner.shutdown()

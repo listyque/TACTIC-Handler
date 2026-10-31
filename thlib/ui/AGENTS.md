@@ -234,3 +234,5 @@ accessibility requirements specific to UI work:
   present. Use shared surface/divider/padding rules; preserve the hierarchy on
   resize. Do not float tools and footer actions among data rows without grouping,
   or add an empty footer when the surface has no footer content.
+
+- User clarification, 2026-10-31: round buttons are reserved for the main menu and main window chrome. Service actions (tables, nested content, local toolbars and auxiliary editors) use square icon controls, with the theme's small corner radius; never full circular rounding. In Frame descriptions reuse iconAction with round:false.

@@ -15,7 +15,7 @@ export function extent(state = {}, width = 0, availableHeight = height) {
     if (model.busy && !model.loaded && !model.rows?.length) return height;
     const inner = Math.max(0, width);
     const chrome =
-        42 +
+        toolbarHeight(model) +
         quickLayout(model, inner).height +
         40 +
         (model.gallery
@@ -29,6 +29,48 @@ export function extent(state = {}, width = 0, availableHeight = height) {
         chrome + tableRowHeight(model),
         Math.min(availableHeight, chrome + content)
     );
+}
+
+function toolbarHeight(model) {
+    return model.shelf !== false && model.search !== false ? 42 : 0;
+}
+
+// The active table is the transparent opening; the rest of its owner is inert.
+export function focusScene(bounds, width, height, language) {
+    if (!bounds) return { nodes: [] };
+    const x = Math.max(0, Math.min(width, bounds.x));
+    const y = Math.max(0, Math.min(height, bounds.y));
+    const right = Math.max(x, Math.min(width, bounds.x + bounds.width));
+    const bottom = Math.max(y, Math.min(height, bounds.y + bounds.height));
+    if (right <= x || bottom <= y) return { nodes: [] };
+    const nodes = [
+        rect(0, 0, width, y),
+        rect(0, bottom, width, height - bottom),
+        rect(0, y, x, bottom - y),
+        rect(right, y, width - right, bottom - y)
+    ]
+        .filter((part) => part.width > 0 && part.height > 0)
+        .map((part, index) =>
+            node('Action', 'nestedFocusScrim_' + index, part, {
+                text: translate('Close', language),
+                children: [],
+                enabled: true,
+                normalColor: 'scrim',
+                hoverColor: 'scrim',
+                pressedColor: 'scrim',
+                radius: 0,
+                action: { type: 'close' }
+            })
+        );
+    nodes.push(
+        node('Box', 'nestedFocusShadow', rect(x, y, right - x, bottom - y), {
+            background: 'transparent',
+            radius: 0,
+            clip: false,
+            shadow: { y: 6, blur: 14, opacity: 1 }
+        })
+    );
+    return { nodes };
 }
 
 export function quickLayout(model, width) {
@@ -97,7 +139,17 @@ export function describe(model, width, extent, language) {
 
 function content(model, width, extent, language) {
     const t = (value) => translate(value, language);
-    const toolOffset = model.embedded ? 36 : 0;
+    const top = toolbarHeight(model);
+    const tools = [
+        model.shelf !== false && model.refresh !== false && 'nestedReload',
+        model.shelf !== false && model.gear && 'nestedColumns',
+        model.shelf !== false && model.insert !== false && 'nestedCreate',
+        !model.embedded && 'nestedClose'
+    ].filter(Boolean);
+    const pages = model.searchLimit === false ? 0 : 2;
+    const toolY = top ? 0 : Math.max(0, extent - 36);
+    const toolX = (id) =>
+        Math.max(0, width - (tools.length - tools.indexOf(id)) * 36 - 4);
     const quick = quickLayout(model, width),
         quickColumns = quick.columns,
         quickHeight = quick.height;
@@ -105,7 +157,7 @@ function content(model, width, extent, language) {
         node(
             'Box',
             'nestedToolbarSurface',
-            rect(0, 0, width, 42 + quickHeight),
+            rect(0, 0, width, top + quickHeight),
             { background: model.embedded ? 'transparent' : 'panel', radius: 0 }
         ),
         node(
@@ -123,60 +175,58 @@ function content(model, width, extent, language) {
         node(
             'View',
             'nestedFilter',
-            rect(
-                0,
-                0,
-                Math.max(0, width - (model.gear ? 156 : 120) + toolOffset),
-                36
-            ),
+            rect(0, 0, Math.max(0, width - tools.length * 36 - 8), 36),
             {
                 view: 'tableSearch'
             }
         ),
         button(
             'nestedReload',
-            rect(
-                Math.max(0, width - (model.gear ? 148 : 112) + toolOffset),
-                0,
-                32,
-                32
-            ),
+            rect(toolX('nestedReload'), toolY, 32, 32),
             model.busy ? t('Loading data…') : t('Refresh'),
             model.busy ? 'loading' : 'refresh',
             { type: 'reload' },
             !model.busy,
-            { iconOnly: true }
+            { iconOnly: true, iconAction: true, round: false }
         ),
         button(
             'nestedColumns',
-            rect(Math.max(0, width - 112 + toolOffset), 0, 32, 32),
+            rect(toolX('nestedColumns'), toolY, 32, 32),
             t('Columns'),
             'view-column',
             { type: 'columns' },
             !model.busy,
-            { iconOnly: true }
+            { iconOnly: true, iconAction: true, round: false }
         ),
         button(
             'nestedCreate',
-            rect(Math.max(0, width - 76 + toolOffset), 0, 32, 32),
+            rect(toolX('nestedCreate'), toolY, 32, 32),
             t('Create'),
             'add',
             { type: 'create' },
             !model.busy && model.insert !== false,
-            { iconOnly: true }
+            { iconOnly: true, iconAction: true, round: false }
         ),
         button(
             'nestedClose',
-            rect(Math.max(0, width - 40), 0, 32, 32),
+            rect(toolX('nestedClose'), toolY, 32, 32),
             t('Close'),
             'close',
             { type: 'close' },
             true,
-            { iconOnly: true }
+            { iconOnly: true, iconAction: true, round: false }
         ),
         label(
             'nestedState',
-            rect(8, extent - 36, Math.max(0, width - 84), 32),
+            rect(
+                8,
+                extent - 36,
+                Math.max(
+                    0,
+                    width - 12 - (pages + (top ? 0 : tools.length)) * 36
+                ),
+                32
+            ),
             model.error
                 ? t(model.error)
                 : t('Results') + ': ' + (model.rows || []).length,
@@ -184,36 +234,45 @@ function content(model, width, extent, language) {
         ),
         button(
             'nestedPrevious',
-            rect(Math.max(0, width - 76), extent - 36, 32, 32),
+            rect(
+                Math.max(0, width - 76 - (top ? 0 : tools.length * 36)),
+                extent - 36,
+                32,
+                32
+            ),
             t('Previous page'),
             'chevron-left',
             { type: 'page', value: -1 },
             !model.busy && model.offset > 0,
-            { iconOnly: true }
+            { iconOnly: true, iconAction: true, round: false }
         ),
         button(
             'nestedNext',
-            rect(Math.max(0, width - 40), extent - 36, 32, 32),
+            rect(
+                Math.max(0, width - 40 - (top ? 0 : tools.length * 36)),
+                extent - 36,
+                32,
+                32
+            ),
             t('Next page'),
             'chevron-right',
             { type: 'page', value: 1 },
             !model.busy && !!model.hasNext,
-            { iconOnly: true }
+            { iconOnly: true, iconAction: true, round: false }
         )
     ];
     if (model.gallery) {
-        const toolbar =
-            model.search !== false ||
-            model.refresh !== false ||
-            model.gear ||
-            model.insert !== false ||
-            !model.embedded;
-        const top = toolbar ? 42 : 0;
+        const galleryTop = top + quickHeight;
         nodes.push(
             node(
                 'List',
                 'nestedGallery',
-                rect(0, top, width, Math.max(0, extent - top - 40)),
+                rect(
+                    0,
+                    galleryTop,
+                    width,
+                    Math.max(0, extent - galleryTop - 40)
+                ),
                 {
                     source: 'rows',
                     scrollbarId: 'nestedGalleryScrollBar',
@@ -231,14 +290,15 @@ function content(model, width, extent, language) {
             nodes.push(
                 label(
                     'nestedGalleryEmpty',
-                    rect(8, top + 12, Math.max(0, width - 16), 30),
+                    rect(8, galleryTop + 12, Math.max(0, width - 16), 30),
                     t('No snapshots found'),
                     { color: 'secondaryText' }
                 )
             );
         return {
             nodes: nodes.filter((item) => {
-                if (item.id === 'nestedToolbarSurface') return toolbar;
+                if (item.id === 'nestedToolbarSurface')
+                    return top + quickHeight > 0;
                 if (item.id === 'nestedFilter')
                     return model.shelf !== false && model.search !== false;
                 if (item.id === 'nestedReload')
@@ -262,9 +322,9 @@ function content(model, width, extent, language) {
                 'nestedTableBody',
                 rect(
                     0,
-                    42 + quickHeight,
+                    top + quickHeight,
                     width,
-                    Math.max(0, extent - 82 - quickHeight)
+                    Math.max(0, extent - top - 40 - quickHeight)
                 ),
                 { view: 'tableBody' }
             )
@@ -272,7 +332,7 @@ function content(model, width, extent, language) {
     (model.simpleFilters || []).forEach((filter, index) => {
         const part = Math.max(0, (width - 24) / quickColumns),
             x = (index % quickColumns) * part,
-            y = 42 + Math.floor(index / quickColumns) * 66;
+            y = top + Math.floor(index / quickColumns) * 66;
         nodes.push(
             label(
                 'nestedQuickLabel_' + filter.name,
@@ -300,7 +360,11 @@ function content(model, width, extent, language) {
     });
     return {
         nodes: nodes.filter((item) => {
+            if (item.id === 'nestedToolbarSurface')
+                return top + quickHeight > 0;
             if (item.id === 'nestedClose' && model.embedded) return false;
+            if (item.id === 'nestedReload' && model.refresh === false)
+                return false;
             if (
                 [
                     'nestedFilter',

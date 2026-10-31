@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
 import "features/table" as Table
 import "tactic_frame/features/table/nested.ui.mjs" as Nested
 import "tactic_frame/features/table/columns.mjs" as TableColumnLayout
@@ -31,6 +32,29 @@ Item {
             services: root.tableServices
             administration: typeof administrationController === "undefined" ? null : administrationController
             onClosed: root.tableServices.close_nested(scope)
+        }
+    }
+    property var focusedNestedView: null
+    readonly property var nestedFocusBounds: {
+        const view = focusedNestedView;
+        if (!view || !view.parent)
+            return null;
+        return {
+            x: rows.x,
+            y: rows.y + view.parent.y + view.y - rows.contentY,
+            width: view.width,
+            height: view.height
+        };
+    }
+    Frame.FrameBranch {
+        objectName: "nestedFocusLayer"
+        anchors.fill: parent
+        z: 10
+        theme: root.theme
+        scene: Nested.focusScene(root.nestedFocusBounds, width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language)
+        onEvent: action => {
+            if (action.type === "close" && root.focusedNestedView)
+                root.focusedNestedView.closed();
         }
     }
     property bool presentationActive: false
@@ -382,7 +406,7 @@ Item {
             property var nestedView: null
             function updateNestedView() {
                 if (nestedScope && inVerticalViewport && !viewPooled) {
-                    if (!nestedView)
+                    if (!nestedView) {
                         nestedView = nestedTableComponent.createObject(resultRow, {
                             scope: nestedScope,
                             height: Qt.binding(() => resultRow.nestedHeight),
@@ -390,12 +414,19 @@ Item {
                             x: Qt.binding(() => rows.contentX),
                             width: Qt.binding(() => Math.max(0, rows.width))
                         });
-                    else
+                        root.focusedNestedView = nestedView;
+                    } else
                         nestedView.scope = nestedScope;
                 } else if (nestedView) {
+                    if (root.focusedNestedView === nestedView)
+                        root.focusedNestedView = null;
                     nestedView.destroy();
                     nestedView = null;
                 }
+            }
+            Component.onDestruction: {
+                if (root.focusedNestedView === nestedView)
+                    root.focusedNestedView = null;
             }
             onNestedScopeChanged: updateNestedView()
             onInVerticalViewportChanged: updateNestedView()

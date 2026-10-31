@@ -25,3 +25,5 @@ changes still use the native configuration journal. See [Page and item layouts](
 Workflow hover previews show full-height task cards with dates and normal status/assignee fields. Hover the cards to expand them. The count button remains a direct Task Manager action and does not trigger expansion; the same action is available in the preview. Compact table row height stays unchanged.
 
 Only the cell under the pointer expands; selecting other rows does not open their previews. Bulk task editing still uses the selected rows.
+
+The active expanded related table is raised with a shadow; the remaining parent table is dimmed. Click the dimmed area or Close to collapse it. If search is disabled for that view, no empty toolbar is reserved: remaining actions use the footer. Enabled search uses the main suggestion field within the current relation.

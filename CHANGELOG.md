@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.317 - 2026-10-31
+
+- Raise the active expanded related table with a shared shadow and dim the remaining parent table. Background input closes the same expansion without selecting a parent row.
+- Remove the empty toolbar when search is disabled and put its remaining actions in the existing footer, using square service icon buttons. Enabled search retains the main suggestion workflow and related-object scope in both clients.
+
 ## 0.6.0.316 - 2026-10-31
 
 - Add Administration > Backend server with shared worker-count controls, saved/running counts and an explicit restart confirmation in Handler and Stream.
