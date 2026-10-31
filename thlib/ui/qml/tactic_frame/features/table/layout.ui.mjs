@@ -9,6 +9,7 @@ import * as Parts from './record.parts.mjs';
 import * as Composition from '../administration/layouts/layout.preview.mjs';
 import {
     textStyles,
+    spacing as frameSpacing,
     controls as controlMetrics
 } from '../../core/foundation.mjs';
 import {
@@ -232,8 +233,7 @@ export function describe(
                                   slotCapacity ?? Infinity,
                                   Number.isFinite(item.height)
                                       ? item.height
-                                      : height -
-                                            tabOffset -
+                                      : Math.min(height - tabOffset, bottom) -
                                             top -
                                             margin[2] -
                                             padding[2]
@@ -993,10 +993,11 @@ export function describe(
         );
     }
     function header(space) {
+        const innerWidth = Math.max(0, space - frameSpacing.content * 2);
         const filters = Filters.describe(
             cell.layoutFilters,
             cell.layoutFilterDraft || Filters.initial(cell.layoutFilters),
-            Math.max(0, space),
+            innerWidth,
             language,
             editable &&
                 !cell.layoutBusy &&
@@ -1004,7 +1005,7 @@ export function describe(
                 !cell.layoutEditing
         );
         const output = [];
-        const contextHeight = drawRegion('header', Math.max(0, space), output);
+        const contextHeight = drawRegion('header', innerWidth, output);
         const filterTop =
             contextHeight + (contextHeight && filters.height ? gap : 0);
         for (const item of filters.nodes) {
@@ -1013,15 +1014,26 @@ export function describe(
         }
         const extent = filterTop + filters.height;
         for (const item of output) {
-            item.y += 12;
+            item.x += frameSpacing.content;
+            item.y += frameSpacing.content;
         }
-        return { nodes: output, height: output.length ? extent + 24 : 0 };
+        return {
+            nodes: output,
+            height: output.length ? extent + frameSpacing.content * 2 : 0
+        };
     }
     let head = header(width);
     let foot = [];
-    let footerExtent = drawRegion('footer', Math.max(0, width), foot);
+    let footerExtent = drawRegion(
+        'footer',
+        Math.max(0, width - frameSpacing.content * 2),
+        foot
+    );
     footerHeight = foot.length
-        ? Math.min(footerExtent + 24, viewportHeight * 0.3)
+        ? Math.min(
+              footerExtent + frameSpacing.content * 2,
+              viewportHeight * 0.3
+          )
         : 0;
     headerHeight = Math.min(
         head.height,
@@ -1033,16 +1045,26 @@ export function describe(
     if (head.height > headerHeight)
         head = header(Math.max(0, width - controlMetrics.scrollBar.extent - 4));
     headerNodes = head.nodes;
-    if (footerExtent + 24 > footerHeight && footerHeight) {
+    if (
+        footerExtent + frameSpacing.content * 2 > footerHeight &&
+        footerHeight
+    ) {
         foot = [];
         footerExtent = drawRegion(
             'footer',
-            Math.max(0, width - controlMetrics.scrollBar.extent - 4),
+            Math.max(
+                0,
+                width -
+                    frameSpacing.content * 2 -
+                    controlMetrics.scrollBar.extent -
+                    4
+            ),
             foot
         );
     }
     for (const item of foot) {
-        item.y += 12;
+        item.x += frameSpacing.content;
+        item.y += frameSpacing.content;
     }
     footerNodes = foot;
     const bodyHeight = Math.max(
@@ -1055,12 +1077,21 @@ export function describe(
         children.length = 0;
         const flowExtent = drawRegion(
             'content',
-            contentWidth,
+            Math.max(0, contentWidth - frameSpacing.content * 2),
             children,
             0,
-            bodyHeight
+            Math.max(0, bodyHeight - frameSpacing.content * 2)
         );
-        return Math.max(flowExtent, visualBottom(children));
+        for (const item of children) {
+            item.x += frameSpacing.content;
+            item.y += frameSpacing.content;
+        }
+        return children.length
+            ? Math.max(
+                  flowExtent + frameSpacing.content * 2,
+                  visualBottom(children) + frameSpacing.content
+              )
+            : 0;
     }
     let contentWidth = Math.max(0, width),
         extent = render(contentWidth);
@@ -1072,7 +1103,12 @@ export function describe(
         children.push(
             label(
                 'layoutError',
-                rect(0, extent + gap, contentWidth, 64),
+                rect(
+                    frameSpacing.content,
+                    extent + gap,
+                    Math.max(0, contentWidth - frameSpacing.content * 2),
+                    64
+                ),
                 cell.layoutError,
                 { wrap: true, color: 'error' }
             )
@@ -1090,7 +1126,7 @@ export function describe(
             height - footerHeight,
             footerHeight,
             footerNodes,
-            footerExtent + 24
+            footerExtent + frameSpacing.content * 2
         ]
     ]) {
         if (!extent) continue;

@@ -626,3 +626,5 @@ variant. Matching real records take priority. You can select widgets and resize
 them on this canvas normally; Save writes the layout configuration only.
 Example values never create or change business records. Read and permission
 errors remain visible instead of being replaced by sample data.
+
+Page backgrounds may fill the available area. Header controls, content cards and footer actions retain shared inner spacing and scrollbar clearance; authored padding and margins are preserved inside it.

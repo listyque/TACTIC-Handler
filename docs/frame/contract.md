@@ -333,3 +333,9 @@ the ordinary native checkbox indicator, keyboard behavior and accessible name.
 Expanded related tables share `nested.ui.mjs` focus geometry: the active child remains clear, shared scrim actions cover its parent viewport and close the same scope. Shadow paint reuses the Frame Box. Disabled search reserves no toolbar; its actions move to the existing footer. Enabled search uses the main suggestion presenters and preserves nested scope.
 
 Round buttons are reserved for main-menu and main-window chrome. Local service tools use the shared square icon-action control (`iconAction:true`, `round:false`), preserving icon centering and keyboard/touch input.
+
+Panel surfaces and control interiors are separate geometry. A full-width panel
+keeps its background at the edge; header, content and footer children keep symmetric
+`spacing.content` insets and reserve scrollbar space. The viewport stays full size;
+apply this interior once without rewriting authored page/card padding.
+Verify both boundaries in native and browser rendering.

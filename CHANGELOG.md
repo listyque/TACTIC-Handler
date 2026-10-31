@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.318 - 2026-10-31
+
+- Keep page panel backgrounds full width while header, content and footer children use symmetric shared inner spacing in Handler and Stream.
+- Inset dashboard filters, report cards and footer actions without changing authored padding, margins or styles; keep scrollbar space and fitted navigator panes within their viewport.
+- Verify actual narrow/wide filter input, authored grid breakpoints, canvas selection geometry and paired native/browser bounds.
+
 ## 0.6.0.317 - 2026-10-31
 
 - Raise the active expanded related table with a shared shadow and dim the remaining parent table. Background input closes the same expansion without selecting a parent row.
