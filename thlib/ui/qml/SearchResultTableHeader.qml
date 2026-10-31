@@ -234,7 +234,7 @@ Rectangle {
                     leftPadding: headerCell.grouped ? 30 : 12
                     verticalAlignment: Text.AlignVCenter
                     horizontalAlignment: {
-                        const alignment = Cells.alignment(headerCell.modelData.displayOptions || ({}));
+                        const alignment = Cells.alignment(headerCell.modelData.displayOptions || ({}), false);
                         return alignment === "left" ? Text.AlignLeft : alignment === "right" ? Text.AlignRight : Text.AlignHCenter;
                     }
                     text: TableHost.headerAction(headerCell.modelData) ? "" : String(headerCell.modelData.label || headerCell.modelData.name || "").toUpperCase()

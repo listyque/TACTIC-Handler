@@ -1,5 +1,9 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Cell alignment': 'Выравнивание ячейки',
+    'Horizontal position of content in this column.':
+        'Горизонтальное положение содержимого в этой колонке.',
+    'Invalid cell alignment': 'Неверное выравнивание ячейки',
     'Result view': 'Вид результатов',
     'Cell text style': 'Стиль текста ячейки',
     'Size and emphasis of text values in this column.':

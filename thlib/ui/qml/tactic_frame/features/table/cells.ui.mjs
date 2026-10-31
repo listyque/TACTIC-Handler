@@ -6,7 +6,12 @@ import { buttonWidth } from '../../controls/buttons/metrics.mjs';
 
 export function presentationOptions(options = {}, attributes = {}) {
     const result = Object.assign({}, options);
-    for (const key of ['value_icon', 'value_style', 'value_text_style'])
+    for (const key of [
+        'value_icon',
+        'value_style',
+        'value_text_style',
+        'value_align'
+    ])
         if (Object.prototype.hasOwnProperty.call(attributes, key))
             result[key] = attributes[key];
     return result;
@@ -71,12 +76,7 @@ export function valueLabel(text, width, height, presentation) {
                 color: 'action'
             })
         );
-    const x =
-        presentation.align === 'left'
-            ? 6
-            : presentation.align === 'right'
-              ? width - w - 6
-              : (width - w) / 2;
+    const x = contentX(width, w, presentation.align, 6);
     return {
         nodes: [
             node(
@@ -133,9 +133,24 @@ export const metrics = {
 
 export const status = { foregroundMix: 0.45 };
 
-export function alignment(options = {}) {
-    const value = options.justify || options.align;
+export function alignment(
+    options = {},
+    content = true,
+    valueAlign = options.value_align
+) {
+    const value = (content && valueAlign) || options.justify || options.align;
     return ['left', 'right', 'center'].includes(value) ? value : 'center';
+}
+
+export function contentX(width, contentWidth, align, inset = 0) {
+    return Math.max(
+        0,
+        align === 'left'
+            ? inset
+            : align === 'right'
+              ? width - contentWidth - inset
+              : (width - contentWidth) / 2
+    );
 }
 
 export function completionGroups(count, width, height) {

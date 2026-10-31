@@ -137,7 +137,12 @@ export function describe(
                 node(
                     'Action',
                     'tableServiceAction_' + index,
-                    rect((width - w) / 2, 0, w, size),
+                    rect(
+                        Cells.contentX(width, w, Cells.alignment(options), 12),
+                        0,
+                        w,
+                        size
+                    ),
                     {
                         text,
                         icon,
@@ -212,7 +217,13 @@ export function describe(
         const rowWidth = rowCount * size + (rowCount - 1) * gap;
         const left = cell.text
             ? inner - size
-            : (width - rowWidth) / 2 + (index % capacity) * (size + gap);
+            : Cells.contentX(
+                  width,
+                  rowWidth,
+                  Cells.alignment(cell.displayOptions),
+                  12
+              ) +
+              (index % capacity) * (size + gap);
         const top = cell.text ? 0 : Math.floor(index / capacity) * (size + gap);
         children.push(
             button(

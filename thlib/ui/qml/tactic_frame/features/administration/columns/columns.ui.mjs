@@ -515,6 +515,21 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                 },
                 {
                     kind: 'Choice',
+                    id: 'definitionCatalogValueAlign',
+                    title: 'Cell alignment',
+                    description:
+                        'Horizontal position of content in this column.',
+                    field: 'valueAlign',
+                    options: [
+                        { value: '', label: tr('Automatic') },
+                        { value: 'left', label: tr('Left') },
+                        { value: 'center', label: tr('Center') },
+                        { value: 'right', label: tr('Right') }
+                    ],
+                    props: { value: element.valueAlign || '' }
+                },
+                {
+                    kind: 'Choice',
                     id: 'definitionCatalogValueStyle',
                     title: 'Value appearance',
                     description: 'Automatic shows Duration as a badge.',

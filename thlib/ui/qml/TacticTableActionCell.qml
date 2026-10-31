@@ -9,6 +9,7 @@ Item {
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     required property string kind
     required property var cell
+    property string alignment: "center"
     signal clicked
 
     readonly property var presentation: Cells.action(kind, root.language) || ({
@@ -18,7 +19,8 @@ Item {
 
     Controls.CompactIconButton {
         objectName: root.kind === "checkin" ? "tableCellCheckin" : root.kind === "sobject_detail" ? "tableCellSObjectDetail" : "tableCellAction_" + root.kind
-        anchors.centerIn: parent
+        anchors.verticalCenter: parent.verticalCenter
+        x: Cells.contentX(parent.width, width, root.alignment, 6)
         theme: root.theme
         round: false
         iconName: root.presentation.icon

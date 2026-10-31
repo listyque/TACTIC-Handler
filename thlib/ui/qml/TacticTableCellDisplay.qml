@@ -225,7 +225,8 @@ Item {
         Item {
             Controls.ItemPreview {
                 objectName: "tableCellPreview"
-                anchors.centerIn: parent
+                anchors.verticalCenter: parent.verticalCenter
+                x: Cells.contentX(parent.width, width, root.alignment, Cells.metrics.previewInset)
                 width: Cells.previewSize(parent.width, parent.height)
                 height: width
                 theme: root.theme
@@ -380,6 +381,7 @@ Item {
 
         TacticTableActionCell {
             theme: root.theme
+            alignment: root.alignment
             kind: root.kind
             cell: root.cell
             onClicked: root.controller.invoke_table_widget_action(root.kind, root.nodeId, root.cell)
