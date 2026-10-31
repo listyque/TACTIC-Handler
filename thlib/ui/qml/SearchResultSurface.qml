@@ -117,6 +117,7 @@ Item {
 
         x: 8
         y: 8
+        leftMargin: 6
         width: root.splitRight ? Math.max(220, Math.round((root.width - root.dividerThickness) * root.effectiveSplitterRatio)) - 12 : Math.max(0, root.width - 16)
         height: root.splitBottom ? Math.max(150, Math.round((root.height - root.dividerThickness) * root.effectiveSplitterRatio)) - 12 : Math.max(0, root.height - 16)
         opacity: initialResultPresentation.ready ? 1 : 0
@@ -234,6 +235,7 @@ Item {
             controller: root.controller
             presentationActive: root.presentationActive && results.visible
             compactMode: root.compactRows
+            width: Math.max(0, results.width - 12 - (resultsScrollBar.hasOverflow ? resultsScrollBar.reservedExtent : 0))
             hideVersionSnapshots: root.splitView
             externalMenuVisible: root.current && (root.itemActionMenuVisible && root.itemActionMenuNodeId === nodeId) || root.current && (root.processCountMenuVisible && root.processCountMenuNodeId === nodeId)
             selected: !root.layoutEditing && root.current && controller.selected_result_node_ids.indexOf(nodeId) >= 0

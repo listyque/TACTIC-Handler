@@ -7,11 +7,11 @@ Canvas {
     required property var theme
     required property var shadow
     property real surfaceRadius: 8
-    readonly property var palette: theme.framePalette
+    readonly property var shadowPalette: theme.framePalette
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
     onShadowChanged: requestPaint()
-    onPaletteChanged: requestPaint()
+    onShadowPaletteChanged: requestPaint()
     onSurfaceRadiusChanged: requestPaint()
     onPaint: {
         const c = getContext("2d"), inset = 16;

@@ -160,6 +160,43 @@ class SearchPaginationQmlTests(unittest.TestCase):
         )
         self.app.sendEvent(window, event)
 
+    def test_item_gutter_is_reserved_only_while_scrollbar_is_visible(self):
+        from tests.test_process_menu_latency import visual_items
+
+        for compact in (False, True):
+            with self.subTest(compact=compact), self.scene(
+                "continious", animated=False, width=640, count=1,
+            ) as (controller, _model, surface, view, window):
+                surface.setProperty("compactRows", compact)
+                self.wait_frame(window)
+                card = next(child for child in visual_items(view)
+                            if child.objectName() == "workspaceItemSurface")
+                delegate = next(child for child in visual_items(view)
+                                if child.property("nodeId") == "asset-0")
+                bar = next(child for child in view.findChildren(QQuickItem)
+                           if child.property("flickableTarget") is view
+                           and child.property("reservedExtent") is not None)
+
+                def insets():
+                    position = card.mapToItem(view, QPointF())
+                    inset = card.property("inset")
+                    return (position.x() + inset,
+                            view.width() - position.x() - card.width() + inset)
+
+                clear = insets()
+                self.assertFalse(bar.property("hasOverflow"))
+                self.assertEqual(clear[0], clear[1])
+                self.assertEqual(clear[0], 9 if compact else 10)
+                surface.setHeight(48)
+                self.wait_frame(window, lambda: bar.property("hasOverflow"))
+                self.assertEqual(insets(), (clear[0], clear[1] + bar.property("reservedExtent")))
+                self.assertEqual(controller.requests, 0)
+                surface.setHeight(360)
+                self.wait_frame(window, lambda: not bar.property("hasOverflow"))
+                self.assertEqual(insets(), clear)
+                self.assertIs(delegate, next(child for child in visual_items(view)
+                                            if child.property("nodeId") == "asset-0"))
+
     def test_wheel_reaching_bottom_requests_next_page(self):
         for mode in ("continious", "tiles"):
             for animated in (True, False):
