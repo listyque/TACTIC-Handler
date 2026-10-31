@@ -145,6 +145,49 @@ class LegacyServerModeTests(unittest.TestCase):
                 operation()
             execute.assert_not_called()
 
+    def test_stream_plugin_manager_never_sends_legacy_commands_or_uploads(self):
+        from PySide6.QtCore import QUrl
+        admin = self.admin
+        pool = Mock(is_stopped=False)
+        with patch.object(tc, 'server_start') as server, \
+                patch.object(env_inst, 'server_pool', pool):
+            for mode in ('legacy', 'unknown'):
+                env_inst.server_api = (*self.identity, mode)
+                admin.select_section('plugins')
+                editor = admin.pluginsEditor
+                editor.activate('demo')
+                editor.perform('install', {'upload_path': 'fixture.zip'})
+                editor.save()
+                editor.upload(QUrl.fromLocalFile('C:/fixture.zip'), True)
+                self.assertEqual(admin.section, 'groups')
+                self.assertFalse(editor.writeUncertain)
+                with self.assertRaises(PermissionError):
+                    editor._execute_request(dict(action='install', upload_path='fixture.zip'), 'demo', {})
+                server.assert_not_called()
+                pool.add_task.assert_not_called()
+
+    def test_stream_plugin_manager_session_loss_blocks_queued_upload(self):
+        admin = self.admin
+        pool = Mock(is_stopped=False)
+        env_inst.server_api = (*self.identity, 'stream')
+        admin._project = 'demo'
+        with patch.object(env_inst, 'server_pool', pool), \
+                patch.object(tc, 'server_start') as server:
+            with patch.object(admin.pluginsEditor, 'activate') as activate:
+                admin.select_section('plugins')
+                activate.assert_called_once_with('demo')
+            editor = admin.pluginsEditor
+            editor.reset('demo')
+            editor.perform('install', {'upload_path': 'fixture.zip'})
+            operation = pool.add_task.call_args.args[0]
+            env_inst.server_api = (*self.identity, 'legacy')
+            self.application.authentication_changed.emit()
+            self.assertEqual(admin.section, 'groups')
+            self.assertEqual(editor.document, {})
+            with self.assertRaises(PermissionError):
+                operation()
+            server.assert_not_called()
+
     def test_backend_non_json_errors_keep_http_status_and_restart_correlation(self):
         app = self.application
         env_inst.server_api = (*self.identity, 'stream')

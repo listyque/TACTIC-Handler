@@ -4,7 +4,7 @@ import os
 import time
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 from PySide6.QtCore import QCoreApplication, QPointF, Qt, QUrl
 from PySide6.QtQuick import QQuickWindow
@@ -84,7 +84,7 @@ class AdminPluginsTests(unittest.TestCase):
                     if args['action']!='save':result['info']['document']['resource']=deepcopy(resource)
                 return result
         server=ResourceServer()
-        controller=PluginsEditor(SimpleNamespace(can_manage_tools=True,debug_log=None));self.addCleanup(controller.shutdown)
+        controller=PluginsEditor(SimpleNamespace(is_stream_server=True, can_manage_tools=True,debug_log=None));self.addCleanup(controller.shutdown)
         with patch('thlib.tactic_classes.server_start',return_value=server):
             view=surface.create(QML/'features/administration/plugins/AdminPluginsView.qml',dict(theme=surface.theme,controller=controller,width=1000,height=780,saveActionsInHeader=False))
             window=QQuickWindow();window.resize(1000,780);surface.windows.append(window)
@@ -110,7 +110,7 @@ class AdminPluginsTests(unittest.TestCase):
         surface = ScriptToolsTests(); surface.setUp(); self.addCleanup(surface.doCleanups)
         for name, value in qml_icon_bindings(QML.parents[2], surface.engine).items():
             surface.engine.rootContext().setContextProperty(name, value)
-        controller = PluginsEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        controller = PluginsEditor(SimpleNamespace(is_stream_server=True, can_manage_tools=True, debug_log=None))
         self.addCleanup(controller.shutdown)
         server = Server(); server.empty = True
         with patch('thlib.tactic_classes.server_start', return_value=server):
@@ -183,7 +183,7 @@ class AdminPluginsTests(unittest.TestCase):
         surface = ScriptToolsTests(); surface.setUp(); self.addCleanup(surface.doCleanups)
         for name, value in qml_icon_bindings(QML.parents[2], surface.engine).items():
             surface.engine.rootContext().setContextProperty(name, value)
-        owner = SimpleNamespace(can_manage_tools=True, debug_log=None)
+        owner = SimpleNamespace(is_stream_server=True, can_manage_tools=True, debug_log=None)
         controller = PluginsEditor(owner)
         self.addCleanup(controller.shutdown)
         server = Server()
@@ -252,7 +252,7 @@ class AdminPluginsTests(unittest.TestCase):
 
     def test_permissions_stale_results_and_upload_keep_native_scope(self):
         isolate_chat_settings(self)
-        owner = SimpleNamespace(can_manage_tools=False, debug_log=None)
+        owner = SimpleNamespace(is_stream_server=True, can_manage_tools=False, debug_log=None)
         controller = PluginsEditor(owner); self.addCleanup(controller.shutdown)
         server = Server()
         with patch('thlib.tactic_classes.server_start', return_value=server):
@@ -285,6 +285,9 @@ class AdminPluginsTests(unittest.TestCase):
         administration_fixture.AdministrationQmlTests.setUpClass()
         fixture = administration_fixture.AdministrationQmlTests()
         self.addCleanup(fixture.doCleanups); fixture.setUp()
+        self.enterContext(patch.object(type(fixture.application), 'is_stream_server',
+                                      new_callable=PropertyMock, return_value=True))
+        fixture.admin.stateChanged.emit()
         server = Server()
         with patch('thlib.tactic_classes.server_start', return_value=server):
             fixture.admin.pluginsEditor._loaded = False

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.356 - 2026-11-01
+
+- Hide the Stream Plugin Manager on Legacy TACTIC and unknown API sessions. Guard direct requests, uploads and queued installation work before server contact; clear its state on session changes while retaining Stream management and existing legacy plugins.
+
 ## 0.6.0.355 - 2026-11-01
 
 - Hide Stream-only page/item layout authoring and its sidebar shortcut on Legacy TACTIC and unknown API sessions. Guard direct editor requests, previews and queued work; clear unavailable editor state on session changes while retaining ordinary administration and Stream layout editing.

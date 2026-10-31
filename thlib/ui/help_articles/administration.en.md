@@ -11,9 +11,11 @@ order: 38
 
 ## Window sections
 
-**Page layouts** and **Item layouts** require TACTIC Stream. Handler hides these
+**Page layouts**, **Item layouts** and **Plugins** management require TACTIC Stream. Handler hides these
 sections and their editing shortcuts on Legacy TACTIC and while the server API
 has not been identified. Ordinary administration remains available to administrators.
+Installed legacy plugins and their supported interfaces remain available; the
+Stream manager's install, upload and resource-editing commands are not sent to Legacy TACTIC.
 
 | Section | What it configures |
 | --- | --- |

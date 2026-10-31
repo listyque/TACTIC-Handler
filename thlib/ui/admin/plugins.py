@@ -23,6 +23,14 @@ class PluginsEditor(AdminDocumentEditor):
     operationCompleted = Signal(str)
     sessionReset = Signal()
 
+    @property
+    def available(self):
+        return bool(getattr(self._application, 'is_stream_server', False))
+
+    def _request(self, action, identity='', **parameters):
+        if self.available:
+            super()._request(action, identity, **parameters)
+
     def __init__(self, application, parent=None):
         super().__init__(application, plugin_request, parent)
         self._source_editor = SourceEditorService(self)
@@ -59,7 +67,7 @@ class PluginsEditor(AdminDocumentEditor):
 
     @Slot(str, 'QVariantMap')
     def perform(self, action, values):
-        if self.busy:
+        if not self.available or self.busy:
             return
         if (self.dirty or self.writeUncertain) and action not in ('save', 'discard', 'list'):
             self.fail(self.tr('Apply or discard unsaved changes first'))
@@ -71,6 +79,8 @@ class PluginsEditor(AdminDocumentEditor):
 
     @Slot()
     def save(self):
+        if not self.available:
+            return
         if self._metadata.get('new'):
             if not self.busy and not self.writeUncertain:
                 self._mutating = True
@@ -92,6 +102,8 @@ class PluginsEditor(AdminDocumentEditor):
             super().discard()
 
     def _execute_request(self, arguments, project, original):
+        if not self.available:
+            raise PermissionError('Plugin management requires a TACTIC Stream session')
         from thlib import server_cache, tactic_classes as tc
         from thlib.environment import env_server
         server = tc.server_start(project=project)
@@ -132,6 +144,8 @@ class PluginsEditor(AdminDocumentEditor):
 
     @Slot(QUrl, bool, bool)
     def upload(self, url, package, replace=False):
+        if not self.available:
+            return
         if not url.isLocalFile():
             self.fail(self.tr('Select a local file'))
             return

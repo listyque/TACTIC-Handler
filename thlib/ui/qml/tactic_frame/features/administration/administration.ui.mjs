@@ -107,7 +107,7 @@ export function availableSections(model) {
     return sections.filter(
         (row) =>
             model.streamApi !== false ||
-            !['dashboards', 'layouts'].includes(row.id)
+            !['dashboards', 'layouts', 'plugins'].includes(row.id)
     );
 }
 export function geometry(

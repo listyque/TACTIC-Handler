@@ -41,7 +41,7 @@
     "features/activity/toast.ui.mjs": "6fd7671926e67cdf3e02b39aa489a3c748329e7f80cdcaf8c2774241265a65f8",
     "features/administration/admin.document.mjs": "c9cb9c7f09571d29f23641eae56dbcc44d84b89d1577e9e8ed7cd12d23153725",
     "features/administration/administration.state.mjs": "76ec0a1e4f438f3f6378f5dbd5b5e37c1af6f9bc68bb1c71b2fc4ff37047913a",
-    "features/administration/administration.ui.mjs": "6e0c186bd7ad4e45b07abe8741e037ba81f9e51e4c8516ee47b6b8d9a82739a2",
+    "features/administration/administration.ui.mjs": "a2532dde23175fd772462fef2c5c25ea474e6b08a4160e22246f17f0ba290d57",
     "features/administration/columns/columns.state.mjs": "e2068a7fd526f9f2e8b89f6a96ab907157c6e40aeb7f480d8482c80ac2cce6d7",
     "features/administration/columns/columns.ui.mjs": "8041cd0c0d199b142f82153e49a2290dbb065fa566682e43f600f9e3e3f9193b",
     "features/administration/database/raw.state.mjs": "8501991ff6e84bd3ceb94c1e3473375c444e846adcb61764c15f589b1350c313",

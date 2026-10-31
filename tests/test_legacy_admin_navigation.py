@@ -60,12 +60,12 @@ Window {
                     frame(window)
                     self.assertEqual(warnings, [])
                     ids = [row['id'] for row in window.property('records').toVariant()]
-                    for identity in ('dashboards', 'layouts'):
+                    for identity in ('dashboards', 'layouts', 'plugins'):
                         self.assertEqual(identity in ids, stream)
                     if width >= 1000:
                         names = {item.objectName() for item in _visual_items(window.contentItem())}
                         self.assertIn('adminSection_groups', names)
-                        for identity in ('dashboards', 'layouts'):
+                        for identity in ('dashboards', 'layouts', 'plugins'):
                             self.assertEqual('adminSection_' + identity in names, stream)
                         group = next(item for item in _visual_items(window.contentItem())
                                      if item.objectName() == 'adminSection_groups')

@@ -24,6 +24,12 @@ Database observations are documented separately in
 
 ## Compatibility rule
 
+The native Plugins manager uses Stream's `PluginManagerCmd`, which is absent
+from original TACTIC's `plugin_wdg`. Hide this manager for Legacy/Unknown API
+sessions and reject queued work before uploads or command execution. Session
+changes clear its draft and return to Groups. This does not disable installed
+legacy plugins or their supported interfaces, or replace legacy installation APIs.
+
 Page/item layout authoring uses Stream's DashboardCmd and widget-configuration
 services. Hide those sections and shortcuts until a Stream session is confirmed;
 guard controller and queued/preview requests too. A session change clears their

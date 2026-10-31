@@ -288,7 +288,7 @@ class AdministrationController(QObject):
 
     @Slot(str)
     def select_section(self, section: str) -> None:
-        if section in {'dashboards', 'layouts'} and not self.streamAvailable:
+        if section in {'dashboards', 'layouts', 'plugins'} and not self.streamAvailable:
             return
         if not self.canManage or section not in {
             'columns', 'groups', 'sidebar', 'showcase', *self._editors,
@@ -609,8 +609,9 @@ class AdministrationController(QObject):
         if not self.streamAvailable:
             self._dashboard_editor.reset(self._project)
             self._layout_editor.reset(self._project)
+            self._plugins_editor.reset(self._project)
             self._layout_links.clear()
-            if self._section in {'dashboards', 'layouts'}:
+            if self._section in {'dashboards', 'layouts', 'plugins'}:
                 self._section = 'groups'
         key = (self._application.server_url, self._application.server_user)
         if key == self._server_key and self.canManage:
