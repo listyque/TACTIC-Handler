@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.355 - 2026-11-01
+
+- Hide Stream-only page/item layout authoring and its sidebar shortcut on Legacy TACTIC and unknown API sessions. Guard direct editor requests, previews and queued work; clear unavailable editor state on session changes while retaining ordinary administration and Stream layout editing.
+
 ## 0.6.0.354 - 2026-11-01
 
 - Load the physical-table editor's SecurityException through the public pyasm.common export supported by Legacy TACTIC and Stream. Remove its dependency on Stream's errors module while preserving administrator enforcement and safe table responses.

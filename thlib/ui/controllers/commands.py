@@ -46,7 +46,7 @@ from ..workspace import (
 from .types import ActionRegistry, SearchTabSession, SectionSession
 
 class CommandsMixin:
-    _stream_commands = {'open_agent_request', 'open_agent_providers', 'show_system_info'}
+    _stream_commands = {'open_agent_request', 'open_agent_providers', 'show_system_info', 'show_layout_editor'}
     _stream_windows = {'agent_request', 'agent_providers', 'agent_mcp', 'system_info'}
     def attach_workspace_layout_presets(self, controller) -> None:
         """Attach the project-scoped preset owner after core composition."""

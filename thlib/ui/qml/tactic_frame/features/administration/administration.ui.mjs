@@ -103,7 +103,19 @@ const rect = (x, y, width, height) => ({
     width: Math.max(0, width),
     height: Math.max(0, height)
 });
-export function geometry(width, height, collapsed) {
+export function availableSections(model) {
+    return sections.filter(
+        (row) =>
+            model.streamApi !== false ||
+            !['dashboards', 'layouts'].includes(row.id)
+    );
+}
+export function geometry(
+    width,
+    height,
+    collapsed,
+    sectionCount = sections.length
+) {
     const mobile = width < 1000,
         nav = mobile ? 0 : collapsed ? 56 : 250,
         body = width - nav,
@@ -117,9 +129,8 @@ export function geometry(width, height, collapsed) {
         pad,
         header,
         toolbar,
-        compactHeight: sections.length * 48 - 8,
-        compactWidth:
-            nav - (height - 88 - 12 < sections.length * 48 - 8 ? 16 : 0),
+        compactHeight: sectionCount * 48 - 8,
+        compactWidth: nav - (height - 88 - 12 < sectionCount * 48 - 8 ? 16 : 0),
         content: rect(
             nav + pad,
             header + pad,
@@ -130,11 +141,12 @@ export function geometry(width, height, collapsed) {
 }
 export function describe(model, ui, width, height, language) {
     const tr = (text) => translate(text, language),
-        g = geometry(width, height, ui.collapsed),
+        available = availableSections(model),
+        g = geometry(width, height, ui.collapsed, available.length),
         nodes = [],
         branding = [],
         current =
-            sections.find((row) => row.id === model.section) || sections[0];
+            available.find((row) => row.id === model.section) || available[0];
     const label = (id, r, text, props) =>
         node(
             'Label',
@@ -225,7 +237,7 @@ export function describe(model, ui, width, height, language) {
         const top = ui.collapsed ? 88 : 170;
         if (ui.collapsed) {
             const children = [];
-            sections.forEach((record, index) => {
+            available.forEach((record, index) => {
                 const scene = row(
                     {
                         width: g.nav,
@@ -384,7 +396,7 @@ export function describe(model, ui, width, height, language) {
                 {
                     label: tr('Administration section'),
                     value: model.section,
-                    options: sections.map((row) => ({
+                    options: available.map((row) => ({
                         value: row.id,
                         label: tr(row.title)
                     })),

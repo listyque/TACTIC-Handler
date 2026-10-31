@@ -97,12 +97,18 @@ class AdministrationController(QObject):
         application._registry.register('show_administration', self.open)
         application.window_model.windowVisibilityChanged.connect(self._visibility_changed)
         application.server_state_changed.connect(self._server_changed)
+        if hasattr(application, 'authentication_changed'):
+            application.authentication_changed.connect(self._server_changed)
         if hasattr(users, 'stateChanged'):
             users.stateChanged.connect(self.stateChanged.emit)
 
     @Property(bool, notify=stateChanged)
     def canManage(self) -> bool:
         return self._application.can_manage_tools
+
+    @Property(bool, notify=stateChanged)
+    def streamAvailable(self) -> bool:
+        return self._application.is_stream_server
 
     @Property(QObject, constant=True)
     def layoutEditor(self):
@@ -171,6 +177,8 @@ class AdministrationController(QObject):
 
     @Slot(str)
     def open_page_layout(self, name):
+        if not self.canManage or not self.streamAvailable:
+            return
         self._layout_links.clear()
         self.select_section('dashboards')
         self._dashboard_editor.focus(name)
@@ -229,7 +237,7 @@ class AdministrationController(QObject):
 
     @Slot(str, str)
     def open_page_card(self, search_type, view):
-        if not self.canManage:
+        if not self.canManage or not self.streamAvailable:
             return
         same = (self._layout_editor._loaded_scope == (self._project, search_type, view)
                 and self._layout_editor._configuration and not self._layout_editor.busy)
@@ -280,6 +288,8 @@ class AdministrationController(QObject):
 
     @Slot(str)
     def select_section(self, section: str) -> None:
+        if section in {'dashboards', 'layouts'} and not self.streamAvailable:
+            return
         if not self.canManage or section not in {
             'columns', 'groups', 'sidebar', 'showcase', *self._editors,
         }:
@@ -430,6 +440,8 @@ class AdministrationController(QObject):
 
     @Slot()
     def open_layout_editor(self) -> None:
+        if not self.canManage or not self.streamAvailable:
+            return
         project = getattr(self._application, 'current_project_code', '')
         if project and project != self._project:
             if self.projectLocked:
@@ -594,6 +606,12 @@ class AdministrationController(QObject):
 
     @Slot()
     def _server_changed(self) -> None:
+        if not self.streamAvailable:
+            self._dashboard_editor.reset(self._project)
+            self._layout_editor.reset(self._project)
+            self._layout_links.clear()
+            if self._section in {'dashboards', 'layouts'}:
+                self._section = 'groups'
         key = (self._application.server_url, self._application.server_user)
         if key == self._server_key and self.canManage:
             self.stateChanged.emit()

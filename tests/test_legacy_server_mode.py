@@ -25,6 +25,7 @@ class LegacyServerModeTests(unittest.TestCase):
         self.enterContext(patch.object(env_inst, 'exit_pools'))
         self.addCleanup(fixture.doCleanups)
         self.application = fixture.application
+        self.admin = fixture.admin
         self.enterContext(patch.object(env_inst, 'server_api', None))
         self.identity = ('http://tactic.test', 'supervisor', 'test-ticket')
         self.application._server_state = 'online'
@@ -102,6 +103,47 @@ class LegacyServerModeTests(unittest.TestCase):
             self.assertFalse(desktop.timer.isActive())
             for window in ('agent_request', 'agent_providers', 'agent_mcp', 'system_info'):
                 self.assertFalse(app.window_model.is_window_visible(window))
+
+    def test_stream_layout_entry_points_do_not_send_legacy_requests(self):
+        app, admin = self.application, self.admin
+        pool = Mock(is_stopped=False)
+        with patch.object(tc, 'server_start') as server, \
+                patch.object(env_inst, 'server_pool', pool):
+            for mode in ('legacy', 'unknown'):
+                env_inst.server_api = (*self.identity, mode)
+                admin.select_section('dashboards')
+                admin.select_section('layouts')
+                admin.open_page_layout('review')
+                admin.open_page_card('demo/asset', 'cards')
+                admin.open_layout_editor()
+                admin.dashboardEditor.activate('demo')
+                admin.dashboardEditor.load_source('demo/asset')
+                admin.dashboardEditor._document = {'name': 'review'}
+                admin.dashboardEditor._preview()
+                admin.layoutEditor.activate('demo')
+                self.assertEqual(admin.section, 'groups')
+                self.assertFalse(admin.streamAvailable)
+                server.assert_not_called()
+                pool.add_task.assert_not_called()
+
+    def test_stream_layout_session_loss_cancels_queued_requests(self):
+        app, admin = self.application, self.admin
+        pool = Mock(is_stopped=False)
+        env_inst.server_api = (*self.identity, 'stream')
+        admin._project = 'demo'
+        with patch.object(env_inst, 'server_pool', pool), \
+                patch.object(tc, 'execute_procedure_serverside') as execute:
+            admin.select_section('dashboards')
+            self.assertTrue(admin.streamAvailable)
+            self.assertEqual(admin.section, 'dashboards')
+            operation = pool.add_task.call_args.args[0]
+            env_inst.server_api = (*self.identity, 'legacy')
+            app.authentication_changed.emit()
+            self.assertEqual(admin.section, 'groups')
+            self.assertEqual(admin.dashboardEditor.document, {})
+            with self.assertRaises(PermissionError):
+                operation()
+            execute.assert_not_called()
 
     def test_backend_non_json_errors_keep_http_status_and_restart_correlation(self):
         app = self.application

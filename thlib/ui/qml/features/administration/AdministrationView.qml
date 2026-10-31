@@ -17,6 +17,7 @@ Item {
     readonly property string language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
     readonly property var frameModel: ({
             section: controller.section,
+            streamApi: controller.streamAvailable,
             layoutParent: controller.section === "layouts" && root.contentHost?.layouts?.navigationParent || controller.layoutParent,
             project: controller.project,
             projects: projectModel.allProjects.map(row => ({
@@ -208,7 +209,7 @@ Item {
         theme: root.theme
         scene: UI.describe(root.frameModel, root.ui, width, height, root.language)
         models: ({
-                sections: UI.sections
+                sections: UI.availableSections(root.frameModel)
             })
         describeRow: (list, record) => UI.row(list, record, root.frameModel, root.ui, root.language)
         views: ({

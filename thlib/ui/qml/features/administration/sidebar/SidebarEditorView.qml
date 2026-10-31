@@ -12,6 +12,7 @@ Item {
     property var ui: State.initial()
     readonly property var frameModel: ({
             ready: controller.ready,
+            streamApi: appController.is_stream_server,
             projectTitle: controller.projectTitle,
             canWrite: controller.canEdit,
             canLoad: true,

@@ -25,7 +25,7 @@ class PageRegions(unittest.TestCase):
     def test_region_picker_and_undo_change_only_the_local_document(self):
         pool = Pool()
         self.enterContext(patch.object(env_inst, 'server_pool', pool))
-        host = DashboardEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        host = DashboardEditor(SimpleNamespace(is_stream_server=True, can_manage_tools=True, debug_log=None))
         self.addCleanup(host.shutdown)
         host._project = 'demo'
         host._can_write = host._loaded = True

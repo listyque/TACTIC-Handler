@@ -811,7 +811,8 @@ function fields(model, ui, language) {
                           'No predefined search'
                       )
                   ),
-                  ...(entry.widgetType === 'custom_layout' &&
+                  ...(model.streamApi !== false &&
+                  entry.widgetType === 'custom_layout' &&
                   entry.displayView?.startsWith('dashboard.')
                       ? [
                             action(

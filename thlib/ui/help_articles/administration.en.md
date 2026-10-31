@@ -11,6 +11,10 @@ order: 38
 
 ## Window sections
 
+**Page layouts** and **Item layouts** require TACTIC Stream. Handler hides these
+sections and their editing shortcuts on Legacy TACTIC and while the server API
+has not been identified. Ordinary administration remains available to administrators.
+
 | Section | What it configures |
 | --- | --- |
 | **Search Types** | Object types, fields, presentation, naming, and linked workflows. |

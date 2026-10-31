@@ -33,7 +33,7 @@ class LayoutEditorTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):cls.app=gui_test_application()
     def setUp(self):
-        self.application=SimpleNamespace(can_manage_tools=True,debug_log=None,_current_tab=lambda:None)
+        self.application=SimpleNamespace(is_stream_server=True, can_manage_tools=True,debug_log=None,_current_tab=lambda:None)
         self.host=LayoutEditorHost(self.application);self.addCleanup(self.host.shutdown)
         stype=SimpleNamespace(get_code=lambda:'demo/asset',get_info=lambda:{'title':'Assets'})
         self.enterContext(patch.object(env_inst,'projects',{'demo':stype}))

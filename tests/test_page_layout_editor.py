@@ -81,7 +81,7 @@ class PageOwnerTests(unittest.TestCase):
     def setUp(self):
         self.pool = Pool()
         self.host = DashboardEditor(
-            SimpleNamespace(can_manage_tools=True, debug_log=None)
+            SimpleNamespace(is_stream_server=True, can_manage_tools=True, debug_log=None)
         )
         self.addCleanup(self.host.shutdown)
         self.enterContext(patch.object(env_inst, "server_pool", self.pool))
@@ -204,7 +204,7 @@ class PageChromeTests(unittest.TestCase):
         from PySide6.QtGui import QInputMethodEvent
         from tests.profile_ui_responsiveness import frame
         from tests.test_columns_table_view import _visual_items
-        host = DashboardEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        host = DashboardEditor(SimpleNamespace(is_stream_server=True, can_manage_tools=True, debug_log=None))
         self.addCleanup(host.shutdown)
         pool = Pool()
         self.enterContext(patch.object(env_inst, 'server_pool', pool))
@@ -249,6 +249,7 @@ class PageChromeTests(unittest.TestCase):
         from tests.test_workspace_result_item import _WorkspaceAppController
         from thlib.ui.layout_editor import LayoutEditorHost
         application=_WorkspaceAppController()
+        application.is_stream_server=True
         application.can_manage_tools=True
         application.debug_log=None
         host=LayoutEditorHost(application)
@@ -262,7 +263,7 @@ class PageChromeTests(unittest.TestCase):
         from tests.profile_ui_responsiveness import frame
         from tests.test_columns_table_view import _visual_items
         from PySide6.QtCore import QPoint
-        host = DashboardEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        host = DashboardEditor(SimpleNamespace(is_stream_server=True, can_manage_tools=True, debug_log=None))
         self.addCleanup(host.shutdown)
         host._document = copy.deepcopy(DOCUMENT)
         host._original = copy.deepcopy(DOCUMENT)

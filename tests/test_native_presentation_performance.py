@@ -47,7 +47,7 @@ class NativeSnapshotTests(unittest.TestCase):
         cls.app = gui_test_application()
 
     def test_page_snapshot_is_detached_and_updates_at_the_same_identity(self):
-        host = CountingEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        host = CountingEditor(SimpleNamespace(is_stream_server=True, can_manage_tools=True, debug_log=None))
         self.addCleanup(host.shutdown)
         host._document = copy.deepcopy(DOCUMENT)
         host._original = copy.deepcopy(DOCUMENT)
@@ -89,7 +89,7 @@ class NativeSnapshotTests(unittest.TestCase):
         self.assertLess(host.reads, 100)
 
     def test_item_editor_resize_does_not_refetch_the_document(self):
-        host = CountingLayoutEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        host = CountingLayoutEditor(SimpleNamespace(is_stream_server=True, can_manage_tools=True, debug_log=None))
         self.addCleanup(host.shutdown)
         host._project, host._search_type, host._view = 'demo', 'demo/asset', 'cards_example'
         elements = ''.join(

@@ -10,6 +10,14 @@ from .dashboard_api import dashboard_editor_request
 
 
 class DashboardEditor(AdminDocumentEditor):
+    @property
+    def available(self):
+        return bool(getattr(self._application, 'is_stream_server', False))
+
+    def _request(self, action, identity='', **parameters):
+        if self.available:
+            super()._request(action, identity, **parameters)
+
     def __init__(self, application, parent=None):
         super().__init__(application, dashboard_editor_request, parent)
         self._source_editor = SourceEditorService(self)
@@ -44,7 +52,7 @@ class DashboardEditor(AdminDocumentEditor):
 
     @Slot(str, "QVariant", str, str)
     def load_source(self, search_type, query=None, record_key="", edit_view="edit"):
-        if self._closed:
+        if self._closed or not self.available:
             return
         self._source_serial += 1
         self._metadata["dataError"] = ""
@@ -60,9 +68,8 @@ class DashboardEditor(AdminDocumentEditor):
             self._load_source()
 
     def _load_source(self):
-        if self._closed or not self._source_pending:
+        if self._closed or not self.available or not self._source_pending:
             return
-        from thlib import tactic_classes as tc
         from thlib.environment import env_inst
 
         arguments = self._source_pending
@@ -71,9 +78,8 @@ class DashboardEditor(AdminDocumentEditor):
         if env_inst.server_pool.is_stopped:
             env_inst.server_pool.start()
         worker = env_inst.server_pool.add_task(
-            lambda: tc.execute_procedure_serverside(
-                self._endpoint, dict(action="source", project_code=project, **arguments),
-                project=project,
+            lambda: self._execute_request(
+                dict(action="source", project_code=project, **arguments), project, {},
             )
         )
         if worker is None:
@@ -143,6 +149,8 @@ class DashboardEditor(AdminDocumentEditor):
         return self._checked_document == self._document
 
     def _execute_request(self, arguments, project, original):
+        if not self.available:
+            raise PermissionError('Page layouts require a TACTIC Stream session')
         from thlib import tactic_classes as tc
 
         if arguments["action"] == "save":
@@ -166,13 +174,13 @@ class DashboardEditor(AdminDocumentEditor):
     def _preview(self):
         if (
             self._closed
+            or not self.available
             or self.busy
             or self.writeUncertain
             or self._preview_worker is not None
             or not self._document
         ):
             return
-        from thlib import tactic_classes as tc
         from thlib.environment import env_inst
 
         generation, serial = self._generation, self._preview_serial
@@ -182,10 +190,8 @@ class DashboardEditor(AdminDocumentEditor):
             self._project,
         )
         detail_key = self._detail_key
-        server = tc.server_start(project=project)
         worker = env_inst.server_pool.add_task(
-            lambda: tc.execute_procedure_serverside(
-                self._endpoint,
+            lambda: self._execute_request(
                 dict(
                     action="preview",
                     project_code=project,
@@ -193,8 +199,7 @@ class DashboardEditor(AdminDocumentEditor):
                     expected_revision=revision,
                     detail_key=detail_key,
                 ),
-                project=project,
-                server=server,
+                project, {},
             )
         )
         if worker is None:
@@ -285,7 +290,7 @@ class DashboardEditor(AdminDocumentEditor):
 
     @Slot()
     def open_saved(self):
-        if self.dirty or self.busy or not self._identity:
+        if not self.available or self.dirty or self.busy or not self._identity:
             return
         from urllib.parse import quote
         from PySide6.QtCore import QUrl

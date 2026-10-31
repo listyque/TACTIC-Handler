@@ -24,6 +24,12 @@ Database observations are documented separately in
 
 ## Compatibility rule
 
+Page/item layout authoring uses Stream's DashboardCmd and widget-configuration
+services. Hide those sections and shortcuts until a Stream session is confirmed;
+guard controller and queued/preview requests too. A session change clears their
+state and returns to ordinary group administration. Do not probe absent commands
+or substitute a different legacy widget editor for the Stream contract.
+
 Transported server procedures import common exceptions through the public
 `pyasm.common` exports. Legacy TACTIC defines `SecurityException` in
 `common_exception.py` and re-exports it; Stream's `pyasm.common.errors` module is

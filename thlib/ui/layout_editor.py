@@ -49,6 +49,10 @@ class LayoutEditorHost(QObject):
     stateChanged = Signal()
     committed = Signal()
 
+    @property
+    def available(self):
+        return bool(getattr(self._application, 'is_stream_server', False))
+
     def __init__(self, application, parent=None, *, previews=None):
         super().__init__(parent)
         self._application = application
@@ -123,7 +127,7 @@ class LayoutEditorHost(QObject):
 
     @Property(bool, notify=stateChanged)
     def canWrite(self):
-        return bool(self._application.can_manage_tools and self._configuration and self._loaded_scope == (self._project, self._search_type, self._view))
+        return bool(self.available and self._application.can_manage_tools and self._configuration and self._loaded_scope == (self._project, self._search_type, self._view))
 
     @Property(bool, notify=stateChanged)
     def writeUncertain(self):
@@ -142,7 +146,7 @@ class LayoutEditorHost(QObject):
                     liveInterface=copy.deepcopy(self._live_interface), checked=self._checked,
                     diff=self._diff, error=self._error or self._draft_error, message=self._message, busy=self.busy,
                     dirty=self.dirty, uncertain=self._uncertain, canWrite=self.canWrite,
-                    canLoad=bool(self._application.can_manage_tools and self._project),
+                    canLoad=bool(self.available and self._application.can_manage_tools and self._project),
                     assetBase=parts.scheme + '://' + parts.netloc if parts.netloc else '')
 
     def activate(self, project):
@@ -310,6 +314,8 @@ class LayoutEditorHost(QObject):
             self._request('save')
 
     def _request(self, action):
+        if not self.available:
+            return
         if self._closed or self.busy or not self._application.can_manage_tools or not self._project or (action != 'catalog' and not self._search_type):
             return
         from thlib import tactic_classes as tc
@@ -341,7 +347,7 @@ class LayoutEditorHost(QObject):
             self._preview_model.replace_nodes([])
 
         def operation():
-            if generation != self._generation or self._closed:
+            if generation != self._generation or self._closed or not self.available:
                 raise RuntimeError('Layout request was cancelled')
             execute = tc.execute_procedure_serverside if action == 'save' else tc._execute_read_only_procedure_serverside
             result = execute(procedure, parameters, project=project, server=server)
@@ -523,7 +529,7 @@ class LayoutEditorHost(QObject):
         worker.start()
 
     def _resolve_draft(self):
-        if self._closed or self.busy or not self._configuration or self._parse_error or not self._xml:
+        if self._closed or not self.available or self.busy or not self._configuration or self._parse_error or not self._xml:
             return
         if self._draft_worker is not None:
             self._draft_timer.start()
@@ -537,7 +543,7 @@ class LayoutEditorHost(QObject):
                           xml=xml, revision=self._configuration['revision'])
         server = tc.server_start(project=project)
         worker = env_inst.server_pool.add_task(lambda: tc._execute_read_only_procedure_serverside(
-            layout_editor_request, parameters, project=project, server=server))
+            layout_editor_request, parameters, project=project, server=server) if self.available else None)
         if worker is None:
             return
         self._preview_workers.add(worker)
