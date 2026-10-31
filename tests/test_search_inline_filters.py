@@ -48,6 +48,8 @@ class SearchInlineFilterTests(unittest.TestCase):
             status = fixture.visual_control(view, "searchQuickGroup_status")
             self.assertIsNotNone(status)
             self.assertTrue(status.isVisible())
+            self.assertEqual(status.property('background').property('cornerRadius'), view.property('theme').property('fieldRadius'))
+            self.assertEqual(fixture.visual_control(status, 'searchQuickGroup_statusIcon').property('name'), 'status')
             self.assertIsNone(fixture.visual_control(view, "searchQuickGroup_process"))
             self.click(window, status)
             self.assertTrue(popup.property("opened"))
@@ -126,10 +128,12 @@ class SearchInlineFilterTests(unittest.TestCase):
             for key in ('status', 'assigned'):
                 item = fixture.visual_control(view, 'searchQuickGroup_' + key)
                 self.assertIsNotNone(item)
-                label = item.findChild(QQuickItem, 'buttonLabel')
+                label = next(child for child in fixture.visual_items(item) if child.isVisible() and child.property('lineCount') is not None and child.property('text') == item.property('text'))
                 self.assertLessEqual(label.implicitWidth(), label.width())
+                self.assertEqual(label.property('font').weight(), 400)
             output = os.environ.get('SEARCH_INLINE_OUTPUT')
             if output:
+                Path(output).mkdir(parents=True, exist_ok=True)
                 for dark in (True, False):
                     view.property('theme').setProperty('dark', dark)
                     fixture.frame(window)

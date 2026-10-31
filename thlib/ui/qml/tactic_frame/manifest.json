@@ -174,7 +174,7 @@
     "features/search/conditions.ui.mjs": "35b4514d9d38523955890e38297dacf78788f3da02d3b6b70e880559ab5eb074",
     "features/search/editors.ui.mjs": "95d3d476c28e378afa51c0d09ffe5f158716cb75277c7122d3197c84d421325a",
     "features/search/footer.ui.mjs": "0b335779e1da9fa8294abab3bc485f51d84ed73d9b15f405fbee10175bd30a0f",
-    "features/search/header.ui.mjs": "4d4487bccdc8b3b8c82f0d4a77f9d5397e32bb1b2bcdd2cd1d880745811648e5",
+    "features/search/header.ui.mjs": "7ffd5989cf3a5119d41ba1f2b5a5f57c4fed4607377112fd95bffa1653f030ce",
     "features/search/menus.ui.mjs": "e1bf49bd7afea73514580fb9c60ce8f2bd9e6545047a5669463a2d33c24cf6bb",
     "features/search/organization.mjs": "ff4a463db0ef36f971a1e97fff7f52cef4fe90a33e60592d1988f98e4928aa4d",
     "features/search/popups.ui.mjs": "bc108894c7699bfe7901c5b3b97a1ab363b1b5f128d38df17eeb07721a65e311",

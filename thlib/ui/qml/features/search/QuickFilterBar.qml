@@ -42,7 +42,7 @@ Item {
         font: Qt.font({
             family: root.theme.fontFamily,
             pixelSize: Foundation.textStyles.body,
-            weight: Font.DemiBold,
+            weight: Font.Normal,
             hintingPreference: Font.PreferVerticalHinting
         })
     }

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.343 - 2026-10-31
+
+- Match expanded search filters to Task Manager selector styling: theme field corners, quiet surface, normal text, leading semantic icons and trailing chevrons. Preserve existing popup and responsive behavior.
+
 ## 0.6.0.342 - 2026-10-31
 
 - Add per-column Automatic/Left/Center/Right content alignment while preserving widget defaults and independent heading alignment. Apply it to text, badges, previews and ordinary/related actions.

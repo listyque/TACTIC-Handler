@@ -682,7 +682,6 @@ Item {
                         round: !!wrapper.node.round
                         compact: !!wrapper.node.iconOnly
                         icon.name: wrapper.node.icon || ""
-                        iconAtEnd: !!wrapper.node.iconAtEnd
                         iconSize: wrapper.node.iconSize || 0
                         toolTip: wrapper.node.toolTip || wrapper.node.label || wrapper.node.text
                         font: root.controlFont(wrapper.node)
@@ -738,7 +737,7 @@ Item {
                             selectedColor: root.color(wrapper.node.selectedColor)
                             railVisible: !!wrapper.node.rail
                             separatorVisible: false
-                            cornerRadius: wrapper.node.radius === undefined ? 10 : wrapper.node.radius
+                            cornerRadius: wrapper.node.radiusRole ? root.effectiveTheme[wrapper.node.radiusRole] : wrapper.node.radius === undefined ? 10 : wrapper.node.radius
                             inset: 0
                         }
                         contentItem: FrameBranch {

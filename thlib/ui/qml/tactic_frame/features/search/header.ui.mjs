@@ -1,4 +1,4 @@
-import { node, rect, button } from '../../core/frame.mjs';
+import { node, rect, button, label } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { spacing } from '../../core/foundation.mjs';
 
@@ -35,20 +35,69 @@ export function quickLabel(group, language) {
 
 export function quickStrip(groups, budget, language) {
     const nodes = [];
+    const icons = {
+        process: 'process',
+        status: 'status',
+        assigned: 'user',
+        duration: 'clock',
+        pipeline_code: 'process'
+    };
     let left = 0;
     for (const group of groups.slice(0, 3)) {
-        const width = Math.max(104, Math.ceil(group.textWidth) + 56);
+        const width = Math.max(128, Math.ceil(group.textWidth) + 76);
         if (left + width + spacing.tight > budget) break;
+        const id = 'searchQuickGroup_' + group.key,
+            key = group.key.startsWith('column:')
+                ? group.key.slice(7)
+                : group.key,
+            icon = Object.prototype.hasOwnProperty.call(icons, key)
+                ? icons[key]
+                : 'filter';
         nodes.push(
-            button(
-                'searchQuickGroup_' + group.key,
-                rect(left, 0, width, 38),
-                quickLabel(group, language),
-                'expand-more',
-                { type: 'quickGroup', key: group.key },
-                !group.disabled,
-                { iconAtEnd: true, tonal: !!group.count }
-            )
+            node('Action', id, rect(left, 0, width, 38), {
+                text: quickLabel(group, language),
+                role: 'button',
+                normalColor: 'surfaceContainerLow',
+                radiusRole: 'fieldRadius',
+                enabled: !group.disabled,
+                action: { type: 'quickGroup', key: group.key },
+                children: [
+                    node('Box', id + 'Border', rect(0, 0, width, 38), {
+                        border: 'outlineVariant',
+                        radiusRole: 'fieldRadius'
+                    }),
+                    node('Icon', id + 'Icon', rect(12, 11, 16, 16), {
+                        icon,
+                        color: group.disabled
+                            ? 'disabledText'
+                            : group.count
+                              ? 'action'
+                              : 'secondaryText'
+                    }),
+                    label(
+                        id + 'Label',
+                        rect(38, 0, width - 76, 38),
+                        quickLabel(group, language),
+                        {
+                            weight: 400,
+                            color: group.disabled
+                                ? 'disabledText'
+                                : 'primaryText'
+                        }
+                    ),
+                    node(
+                        'Icon',
+                        id + 'Indicator',
+                        rect(width - 28, 11, 16, 16),
+                        {
+                            icon: 'expand-more',
+                            color: group.disabled
+                                ? 'disabledText'
+                                : 'secondaryText'
+                        }
+                    )
+                ]
+            })
         );
         left += width + spacing.tight;
     }
