@@ -19,6 +19,7 @@ Item {
     property real cardSpacing: Cells.metrics.taskGap
     property bool scrolling: false
     property bool expanded: false
+    property int columns: Math.max(1, records ? records.length : 0)
     readonly property var cardLayout: Cells.taskCardLayout(height, expanded, theme.style)
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
 
@@ -56,9 +57,8 @@ Item {
         theme: root.theme
     }
 
-    Row {
+    Item {
         anchors.fill: parent
-        spacing: root.cardSpacing
 
         Repeater {
             // Keep card objects when a pooled table row receives another sObject.
@@ -77,7 +77,8 @@ Item {
                 readonly property real editorHeight: cardLayout.editorHeight
 
                 objectName: "tableTaskRecord_" + index
-                anchors.verticalCenter: parent.verticalCenter
+                x: (index % root.columns) * (root.cardWidth + root.cardSpacing)
+                y: root.expanded ? Math.floor(index / root.columns) * (height + root.cardSpacing) : (root.height - height) / 2
                 width: root.cardWidth
                 height: cardLayout.cardHeight
                 radius: root.theme.itemRadius
@@ -118,7 +119,7 @@ Item {
                             elide: Text.ElideRight
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pointSize: root.expanded ? Controls.Typography.body : Controls.Typography.caption
+                            font.pointSize: Controls.Typography.caption
                             font.weight: Font.DemiBold
                         }
                         HoverHandler {
@@ -142,7 +143,7 @@ Item {
                         showAccent: true
                         accentColor: taskCard.taskColor
                         displayText: String(taskCard.modelData.status || qsTr("Select status"))
-                        textPointSize: root.expanded ? Controls.Typography.body : Controls.Typography.caption
+                        textPointSize: Controls.Typography.caption
                         editorComponent: Component {
                             Controls.ComboBox {
                                 objectName: "tableTaskStatusEditor_" + taskCard.index
@@ -150,7 +151,7 @@ Item {
                                 readonly property var editorRecord: root.columnsController.task_editor(root.nodeId, String(taskCard.modelData.process || ""), String(taskCard.modelData.status || ""), String(taskCard.modelData.assigned || ""))
                                 theme: root.theme
                                 actionField: true
-                                font.pointSize: root.expanded ? Controls.Typography.body : Controls.Typography.caption
+                                font.pointSize: Controls.Typography.caption
                                 model: editorRecord.statusChoices || []
                                 textRole: "label"
                                 valueRole: "value"
@@ -178,7 +179,7 @@ Item {
                         showAvatar: true
                         userModel: root.userModel
                         avatarLogin: String(taskCard.modelData.assigned || "")
-                        textPointSize: root.expanded ? Controls.Typography.body : Controls.Typography.caption
+                        textPointSize: Controls.Typography.caption
                         editorComponent: Component {
                             UserComboBox {
                                 objectName: "tableTaskAssigneeEditor_" + taskCard.index
@@ -186,7 +187,7 @@ Item {
                                 readonly property var editorRecord: root.columnsController.task_editor(root.nodeId, String(taskCard.modelData.process || ""), String(taskCard.modelData.status || ""), String(taskCard.modelData.assigned || ""))
                                 theme: root.theme
                                 actionField: true
-                                font.pointSize: root.expanded ? Controls.Typography.body : Controls.Typography.caption
+                                font.pointSize: Controls.Typography.caption
                                 userModel: root.userModel
                                 model: editorRecord.userChoices || []
                                 textRole: "label"
@@ -229,7 +230,7 @@ Item {
                                     text: Cells.taskDateRange(taskCard.modelData)
                                     color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pointSize: root.expanded ? Controls.Typography.body : Controls.Typography.caption
+                                    font.pointSize: Controls.Typography.caption
                                     elide: Text.ElideRight
                                     verticalAlignment: Text.AlignVCenter
                                 }

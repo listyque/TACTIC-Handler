@@ -151,7 +151,8 @@ Item {
             coordinateGlobally: false
             modal: false
             focus: false
-            padding: 8
+            margins: 8
+            padding: root.previewSizing.padding
             width: root.previewSizing.width
             height: root.previewSizing.height
             settledClosePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -177,6 +178,7 @@ Item {
                     id: previewSurface
 
                     HoverHandler {
+                        parent: taskPreview.contentItem ? taskPreview.contentItem.parent : null
                         onHoveredChanged: taskPreview.contentHovered = hovered
                     }
                     TapHandler {
@@ -186,24 +188,24 @@ Item {
                     Item {
                         id: previewScrollSurface
                         anchors.fill: parent
-                        anchors.rightMargin: root.previewSizing.menuWidth
+                        anchors.bottomMargin: root.previewSizing.footerHeight
                         Flickable {
                             id: previewFlick
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            anchors.bottomMargin: previewBar.hasOverflow ? previewBar.reservedExtent + 4 : 0
+                            anchors.bottomMargin: 0
                             anchors.rightMargin: previewVerticalBar.hasOverflow ? previewVerticalBar.reservedExtent + 4 : 0
                             clip: true
                             contentWidth: root.previewCardsWidth
-                            contentHeight: root.previewSizing.cardHeight
+                            contentHeight: root.previewSizing.contentHeight
                             boundsBehavior: Flickable.StopAtBounds
-                            flickableDirection: Flickable.HorizontalAndVerticalFlick
+                            flickableDirection: Flickable.VerticalFlick
 
                             TacticTaskCards {
                                 width: root.previewCardsWidth
-                                height: root.previewSizing.cardHeight
+                                height: root.previewSizing.contentHeight
                                 theme: root.theme
                                 controller: root.controller
                                 columnsController: root.columnsController
@@ -211,16 +213,10 @@ Item {
                                 nodeId: root.nodeId
                                 records: root.records || []
                                 cardWidth: root.previewSizing.cardWidth
-                                cardSpacing: root.cardSpacing
+                                cardSpacing: root.previewSizing.gap
+                                columns: root.previewSizing.columns
+                                scrolling: previewFlick.moving
                                 expanded: true
-                            }
-                            ScrollBar.horizontal: Controls.ScrollBar {
-                                id: previewBar
-                                objectName: "tableTaskCardsPreviewScrollBar"
-                                parent: previewScrollSurface
-                                orientation: Qt.Horizontal
-                                theme: root.theme
-                                flickableTarget: previewFlick
                             }
                             ScrollBar.vertical: Controls.ScrollBar {
                                 id: previewVerticalBar
@@ -232,17 +228,28 @@ Item {
                             }
                         }
                     }
-                    Controls.ItemCountActionButton {
-                        objectName: "tableTaskPreviewManager"
+                    Item {
+                        anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 28
-                        height: 28
-                        theme: root.theme
-                        iconName: "tasks"
-                        count: root.effectiveCount
-                        toolTip: qsTr("Task Manager")
-                        onClicked: root.openTaskManager()
+                        anchors.bottom: parent.bottom
+                        height: root.previewSizing.footerHeight
+                        Rectangle {
+                            width: parent.width
+                            height: 1
+                            color: root.theme.outlineVariant
+                        }
+                        Controls.Button {
+                            objectName: "tableTaskPreviewManager"
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            width: Math.min(implicitWidth, parent.width)
+                            height: 28
+                            theme: root.theme
+                            text: qsTr("Task Manager") + (root.effectiveCount ? " · " + root.effectiveCount : "")
+                            icon.name: "tasks"
+                            font.pointSize: Controls.Typography.caption
+                            onClicked: root.openTaskManager()
+                        }
                     }
                 }
             }

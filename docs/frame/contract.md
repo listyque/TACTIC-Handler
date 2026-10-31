@@ -355,6 +355,6 @@ Table headings and plain/status values share cells.ui.mjs alignment: center by d
 
 Native workspace pages pass the dock interior corner radius into the shared page chrome; web dock clipping remains the owner of its exterior. Frame Box surfaces honor bottomLeftRadius and bottomRightRadius independently. Keep the page header bottom edge square and native glyphs directly rendered without a whole-dock mask/layer.
 
-Workflow hover previews reuse task cards and the existing horizontal scroller: 160 DIP per card, 98 DIP card height and at most three visible columns, bounded by the owner viewport. Additional processes remain accessible by scrolling. Covered inline cards must not receive input through the preview.
+Workflow hover previews reuse 128 by 84 DIP task cards in a responsive one-to-three-column grid, with 8 DIP gaps, 12 DIP outer padding, a bounded vertical scroller and a separate Task Manager footer. At most three complete rows are shown before scrolling. Covered inline cards must not receive input through the preview.
 
 Task cell editors open single-value choices directly; paired dates keep their combined editor. Immediate single-field forms use the field title once. Progress uses the house slider and percentage readout; planned hours use the house quarter-hour stepper with a visible hour unit. Preserve project minute/hour conversion, per-field edit permissions and the owning task draft.

@@ -24,7 +24,7 @@ existing input and server permissions.
 Width-only changes do not add Undo or activity-history entries. Structural column
 changes still use the native configuration journal. See [Page and item layouts](item_layouts.en.md).
 
-Workflow hover previews use compact cards with editable dates, status and assignee. The preview shows up to three processes at once, stays inside the window and scrolls horizontally for additional processes. The count button remains a direct Task Manager action and does not trigger expansion; the same action is available in the preview. Compact table row height stays unchanged.
+Workflow hover previews use compact cards with editable dates, status and assignee. The preview arranges smaller cards in one to three columns with equal gaps and padding. Additional rows scroll vertically inside the bounded preview. Task Manager remains available in its separate footer. The count button remains a direct Task Manager action and does not trigger expansion; the same action is available in the preview. Compact table row height stays unchanged.
 
 Only the cell under the pointer expands; selecting other rows does not open their previews. Bulk task editing still uses the selected rows.
 

@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.329 - 2026-10-31
+
+- Arrange smaller process hover cards in a responsive grid with equal spacing, vertical scrolling and a separate Task Manager footer in both clients.
+- Keep editing and Task Inspector navigation available, keep native hover handling active across popup padding.
+
 ## 0.6.0.327 - 2026-10-31
 
 - Open Task Manager single-choice cells directly in the existing picker in Stream; preserve combined date editing and staged task changes.

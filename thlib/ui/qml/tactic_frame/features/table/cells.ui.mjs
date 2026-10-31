@@ -16,7 +16,7 @@ export const metrics = {
     taskWidth: 107,
     taskGap: 4,
     taskMenu: 32,
-    taskPreviewWidth: 160,
+    taskPreviewWidth: 128,
     taskMaximumHeight: 88,
     taskDatesHeight: 76,
     taskHeading: 15,
@@ -132,9 +132,9 @@ export function taskCardLayout(height, expanded = false, style) {
         });
     const padding = spacing.tight,
         gap = spacing.text,
-        editorHeight = 24,
-        headingHeight = 18,
-        datesHeight = 18;
+        editorHeight = 20,
+        headingHeight = 16,
+        datesHeight = 14;
     return {
         dates: true,
         editorHeight,
@@ -153,36 +153,54 @@ export function taskCardLayout(height, expanded = false, style) {
 
 export function taskPreviewLayout(count, viewportWidth, viewportHeight, style) {
     const card = taskCardLayout(0, true, style),
-        padding = spacing.compact;
-    const contentWidth = Math.max(
-        0,
-        count * (metrics.taskPreviewWidth + metrics.taskGap) - metrics.taskGap
-    );
-    const width = Math.max(
-        0,
-        Math.min(
-            viewportWidth - padding * 2,
-            Math.min(count, 3) * (metrics.taskPreviewWidth + metrics.taskGap) -
-                metrics.taskGap +
-                metrics.taskMenu +
-                padding * 2
-        )
-    );
-    const horizontal = contentWidth > width - padding * 2 - metrics.taskMenu;
+        padding = spacing.content,
+        gap = spacing.compact,
+        footerHeight = 36,
+        scrollWidth = 16,
+        availableWidth = Math.max(0, viewportWidth - 16),
+        columns = Math.max(
+            1,
+            Math.min(
+                3,
+                Math.ceil(Math.sqrt(count)),
+                Math.floor(
+                    (availableWidth - padding * 2 - scrollWidth + gap) /
+                        (metrics.taskPreviewWidth + gap)
+                )
+            )
+        ),
+        rows = Math.ceil(count / columns),
+        contentWidth = columns * metrics.taskPreviewWidth + (columns - 1) * gap,
+        contentHeight = Math.max(0, rows * card.cardHeight + (rows - 1) * gap),
+        height = Math.max(
+            0,
+            Math.min(
+                viewportHeight - 16,
+                Math.min(contentHeight, card.cardHeight * 3 + gap * 2) +
+                    padding * 2 +
+                    footerHeight
+            )
+        ),
+        vertical = contentHeight > height - padding * 2 - footerHeight;
     return {
         cardWidth: metrics.taskPreviewWidth,
         cardHeight: card.cardHeight,
         contentWidth,
-        menuWidth: metrics.taskMenu,
+        contentHeight,
+        columns,
+        rows,
+        gap,
+        footerHeight,
         padding,
-        width,
-        height: Math.max(
+        width: Math.max(
             0,
             Math.min(
-                viewportHeight - padding * 2,
-                card.cardHeight + padding * 2 + (horizontal ? 16 : 0)
+                availableWidth,
+                contentWidth + padding * 2 + (vertical ? scrollWidth : 0)
             )
-        )
+        ),
+        height,
+        vertical
     };
 }
 
