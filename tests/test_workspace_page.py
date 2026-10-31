@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 import unittest
 from PySide6.QtCore import QPointF
-from PySide6.QtGui import QGuiApplication, QInputMethodEvent
+from PySide6.QtGui import QGuiApplication, QInputMethodEvent, QColor
 from tests import test_frame_table as frames
 from tests.test_columns_table_view import _TableController, _TableColumns
 from tests.test_table_service_workflows import Application
@@ -66,6 +66,20 @@ class WorkspacePageTests(unittest.TestCase):
         scope._model.update(columns=[dict(name='name',title='Name',width=180,cell=dict(kind='text'))],
             rows=[dict(key='demo/asset?project=demo&code=A',nodeId='nested:A',record=dict(name='Robot'),cells=dict(name=dict(text='Robot')))],
             selected=[],busy=False)
+
+    def test_page_header_preserves_dock_corners_without_a_texture_layer(self):
+        app,services=self.owner()
+        services.workspaceLayout.open_result(dict(self.model(),layoutNodes=[]),'Review',app.tab.tab_id)
+        window,view=self.create('features/table/WorkspacePage.qml',dict(
+            services=services,controller=_TableController(),columnsController=_TableColumns(),users=None,administration=None),width=800,height=160)
+        outside=QColor('#e040c0');window.setColor(outside)
+        for width in (800,320):
+            window.resize(width,160);view.setWidth(width);frames.frame(window)
+            image=window.grabWindow();scale=image.width()/width
+            self.assertEqual(image.pixelColor(0,0),outside)
+            self.assertEqual(image.pixelColor(image.width()-1,0),outside)
+            self.assertNotEqual(image.pixelColor(int(width/2*scale),0),outside)
+            self.assertNotEqual(image.pixelColor(0,int(50*scale)),outside)
 
     def test_page_uses_widgets_and_real_nested_selection_without_a_window(self):
         app, services = self.owner()

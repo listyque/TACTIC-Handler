@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.324 - 2026-10-31
+
+- Match custom workspace page backgrounds and header corners to the native rounded dock interior.
+- Keep the header bottom edge straight and text directly rendered; no whole-dock opacity mask or texture layer.
+
 ## 0.6.0.322 - 2026-10-31
 
 - Center table headings, plain values and status chips on the same column axis, retaining explicit display justify/align choices.

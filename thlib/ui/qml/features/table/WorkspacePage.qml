@@ -15,6 +15,7 @@ Item {
     readonly property var owner: services.workspaceLayout
     readonly property var document: owner.document
     readonly property var scene: Page.describe({
+        cornerRadius: Math.max(0, theme.surfaceRadius - 1),
         title: document.title || "",
         busy: !!document.layoutBusy,
         error: document.layoutError || "",

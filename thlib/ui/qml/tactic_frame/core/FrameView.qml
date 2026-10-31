@@ -412,6 +412,7 @@ Item {
                         border.width: wrapper.node.border ? wrapper.node.borderWidth || 1 : 0
                         border.color: root.color(wrapper.node.border)
                         radius: wrapper.node.radiusRole ? root.effectiveTheme[wrapper.node.radiusRole] : wrapper.node.radius === undefined ? root.effectiveTheme.surfaceRadius : wrapper.node.radius
+                        bottomLeftRadius: wrapper.node.bottomLeftRadius === undefined ? radius : wrapper.node.bottomLeftRadius
                         bottomRightRadius: wrapper.node.bottomRightRadius === undefined ? radius : wrapper.node.bottomRightRadius
                         clip: wrapper.node.clip !== false
                         Loader {

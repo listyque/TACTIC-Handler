@@ -210,7 +210,7 @@
     "features/table/nested.ui.mjs": "0441ebe7f01e8863e8df32309882a4262dae7e57c31711d8497de7ddd7b3c291",
     "features/table/page.filters.mjs": "9a6d174367bd0f651110e34e95342bef3edc2f06dc65586baf7d1868dfb12c90",
     "features/table/page.layout.mjs": "0febd73f69517c818553d4ebc28f02a3b386071702f2cb7d99c5ef3b849b261a",
-    "features/table/page.ui.mjs": "55f95f7657003f2ea47f80d4f8e64964c538d45accfb024c9561ac2700c14a8d",
+    "features/table/page.ui.mjs": "62bedcf308ceefb8a93dd940c4ea7d0bd2c63aa17393e1be0f8392d391c2cbf6",
     "features/table/parallel.ui.mjs": "7fa5c0bda1485bdcdfe2402450cbbcbd70bb5494f230c0ff053f714b7a5bc690",
     "features/table/parent.state.mjs": "7e34d88454a8bd9c183e473212f8545fa2a4de0b8781cc7ce7bd28a908eeaa07",
     "features/table/parent.ui.mjs": "cc1ab3f54981fffe80d0d4d992aa52f7fc85ecb4ec324668efe28ea383acd2a1",

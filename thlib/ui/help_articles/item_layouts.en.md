@@ -5,6 +5,8 @@ order: 39
 ---
 # Build your own view
 
+In Handler, a custom page follows the dock frame's rounded upper corners. Its header remains a single continuous edge above the page content.
+
 > Open **Administration → Item layouts**. Start from a template, arrange one
 > card or row, check the result, then save your view. Ordinary layouts need no XML.
 
