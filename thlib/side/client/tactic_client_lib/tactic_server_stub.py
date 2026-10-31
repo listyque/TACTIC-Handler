@@ -3730,6 +3730,12 @@ class TacticServerStub(object):
         return self.server.execute_python_script(self.ticket, script_path, kwargs)
 
 
+    def execute_class_method(self, class_name, method, kwargs=None):
+        """Call a server class method using the current authenticated project."""
+        return self.server.execute_class_method(
+            self.ticket, class_name, method, {} if kwargs is None else kwargs)
+
+
     def execute_cmd(self, class_name, args={}, values={}):
         '''API Function: execute_cmd(class_name, args={}, values={}) 
         Execute a command

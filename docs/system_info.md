@@ -18,6 +18,11 @@ and shutdown cancel pending work and invalidate its generation. Stale replies
 cannot republish facts; already issued server writes are not undone by closing.
 The server pool owns all requests/local path checks. Parallel probes use separate
 SDK clients/transports with the captured session, up to eight concurrently.
+The SDK forwards `execute_class_method(class_name, method, kwargs=None)` with
+its current ticket and project through either XML-RPC or JSON. Parallel clients
+copy the server address from `get_server_name()`, never the transport proxy
+returned by `get_server()`. Server-side execution and administrator checks remain
+authoritative; remote faults propagate through the existing error presentation.
 The page test opens the same Stream addresses in the system browser, without
 passing tickets in URLs. Navigation refresh remains with its normal owner;
 System Info does not clear an unused legacy filesystem cache.
@@ -29,3 +34,8 @@ are mocked at the remote boundary; no live email or working script is invoked.
 The server projection, independent API/security tests and legacy exclusions are
 documented in Stream's `docs/SYSTEM_INFO.md`; user-facing scope is in the local
 EN/RU `system_info` Help topic.
+
+`tests/test_system_info_transport.py` exercises the shipped SDK over loopback
+HTTP in both protocols, including facts, load-balancing samples, independent
+parallel clients, method arguments, and remote permission denial. Only the
+remote diagnostic implementation is a fixture; the SDK and transport are real.

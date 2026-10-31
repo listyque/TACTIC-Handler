@@ -38,7 +38,7 @@ class Server:
         self.transport = SimpleNamespace(proxy={})
         self.login_ticket = 'fixture'
 
-    def get_server(self): return 'http://fixture.invalid'
+    def get_server_name(self): return 'http://fixture.invalid'
     def set_transport(self, value): self.transport = value
     def set_server(self, value): pass
     def set_project(self, value): pass

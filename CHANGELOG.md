@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.310 - 2026-10-31
+
+- Restore System Info facts and diagnostics through the shipped client SDK's authenticated class-method API for XML-RPC and JSON.
+- Clone the server address rather than its RPC proxy for parallel performance probes; verify real HTTP transports, session forwarding and remote permission errors.
+
 ## 0.6.0.308 - 2026-10-31
 
 - Reserve two full shared heading line boxes for narrow showcase titles, so long EN/RU family names do not clip or collide with the subtitle.

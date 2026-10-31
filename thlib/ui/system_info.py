@@ -117,7 +117,7 @@ class SystemInfoController(QObject):
                     transport = proxy.UrllibTransport()
                     transport.update_proxy(server.transport.proxy)
                     client.set_transport(transport)
-                    client.set_server(server.get_server())
+                    client.set_server(server.get_server_name())
                     client.set_project(project)
                     client.set_ticket(server.login_ticket)
                     try:
