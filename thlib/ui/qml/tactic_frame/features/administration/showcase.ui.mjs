@@ -1,4 +1,6 @@
 import { describe as preview } from '../../controls/showcase.examples.mjs';
+import * as Extended from './showcase.examples.mjs';
+export { cell, models } from './showcase.examples.mjs';
 // Local examples of shipped controls; no project, transport or persistent draft.
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
@@ -23,9 +25,27 @@ export const live = [
     'badges',
     'lists',
     'charts'
+].concat(Extended.families);
+export const states = [
+    'default',
+    'disabled',
+    'readonly',
+    'error',
+    'long',
+    'loading',
+    'empty',
+    'selected'
 ];
-export const states = ['default', 'disabled', 'readonly', 'error', 'long'];
-const stateLabels = ['Default', 'Disabled', 'Read only', 'Error', 'Long text'];
+const stateLabels = [
+    'Default',
+    'Disabled',
+    'Read only',
+    'Error',
+    'Long text',
+    'Loading',
+    'Empty',
+    'Selected'
+];
 
 export function initial() {
     return {
@@ -45,6 +65,27 @@ export function initial() {
         number: '42',
         row: 'assets',
         tab: 'overview',
+        search: '',
+        menuChecked: true,
+        dialogOpen: false,
+        progress: 42,
+        cells: {},
+        revision: 0,
+        split: 0.5,
+        files: [],
+        fit: 'contain',
+        previewSelected: false,
+        editorText: 'def example():\n    return 42\n',
+        graphPositions: [],
+        graphSelected: [],
+        resetRevision: 0,
+        presses: 0,
+        activations: 0,
+        cancels: 0,
+        ime: '',
+        surface: 'cards',
+        taskDraft: 'Review the model',
+        savedTaskDraft: '',
         last: ''
     };
 }
@@ -55,7 +96,7 @@ export function transition(model, event, catalog) {
         event.type === 'family' &&
         catalog.families.some((f) => f.id === event.value)
     )
-        next.family = event.value;
+        Object.assign(next, { family: event.value, dialogOpen: false });
     else if (
         event.type === 'category' &&
         (event.value === '' ||
@@ -63,17 +104,102 @@ export function transition(model, event, catalog) {
     )
         next.category = event.value;
     else if (event.type === 'state' && states.includes(event.value))
-        next.state = event.value;
+        Object.assign(next, { state: event.value, dialogOpen: false });
     else if (event.type === 'query')
         next.query = String(event.value || '').slice(0, 200);
     else if (event.type === 'code') next.code = !model.code;
     else if (event.type === 'reset')
         return Object.assign(initial(), {
+            resetRevision: model.resetRevision + 1,
             family: model.family,
             query: model.query,
             category: model.category
         });
     else if (
+        event.type.startsWith('sample') ||
+        ['search', 'searchAccept', 'searchSubmit', 'surface'].includes(
+            event.type
+        )
+    ) {
+        if (
+            ['disabled', 'readonly', 'loading'].includes(model.state) &&
+            event.type !== 'sampleDialog'
+        )
+            return model;
+        next.last = event.type;
+        if (event.type === 'search')
+            next.search = String(event.value || '').slice(0, 200);
+        else if (event.type === 'searchAccept')
+            next.search = String(event.value.title || '');
+        else if (event.type === 'sampleMenu') {
+            next.last = String(event.value);
+            if (event.value === 'toggle') next.menuChecked = !model.menuChecked;
+        } else if (event.type === 'sampleDialogOpen') next.dialogOpen = true;
+        else if (event.type === 'sampleDialog') {
+            next.dialogOpen = false;
+            next.last = String(event.value);
+        } else if (event.type === 'sampleAdvance')
+            next.progress = Math.min(100, model.progress + 10);
+        else if (event.type === 'sampleRetry') {
+            next.progress = 0;
+            next.state = 'default';
+        } else if (event.type === 'sampleCell') {
+            next.cells = Object.assign({}, model.cells);
+            next.cells[event.row + ':' + event.column] = event.value;
+            next.revision++;
+        } else if (event.type === 'sampleSplit' && event.width > 0)
+            next.split = Math.max(
+                0,
+                Math.min(1, Number(event.value) / event.width)
+            );
+        else if (event.type === 'sampleCollapse')
+            next.split = model.split < 0.2 ? 0.5 : 0;
+        else if (event.type === 'sampleFit')
+            next.fit = event.value === 'cover' ? 'cover' : 'contain';
+        else if (event.type === 'samplePreviewSelect')
+            next.previewSelected = !model.previewSelected;
+        else if (event.type === 'sampleFiles')
+            next.files = fileLabels(event.value);
+        else if (event.type === 'sampleFilesClear') next.files = [];
+        else if (event.type === 'sampleEditor')
+            next.editorText = String(event.value);
+        else if (event.type === 'sampleGraphSelect')
+            next.graphSelected = Array.isArray(event.value) ? event.value : [];
+        else if (event.type === 'sampleGraphMove')
+            next.graphPositions = Array.isArray(event.value) ? event.value : [];
+        else if (event.type === 'sampleGraphReset') {
+            next.resetRevision++;
+            next.graphSelected = [];
+            next.graphPositions = [];
+        } else if (event.type === 'sampleGraph' && event.value) {
+            if (event.value.type === 'clear') next.graphSelected = [];
+            if (event.value.type === 'selectNodes')
+                next.graphSelected = event.value.identities || [];
+            else if (event.value.type === 'moveNodes') {
+                const positions = event.value.positions || [];
+                next.graphPositions = model.graphPositions
+                    .filter(
+                        (old) =>
+                            !positions.some(
+                                (row) => row.identity === old.identity
+                            )
+                    )
+                    .concat(positions);
+            }
+        } else if (event.type === 'sampleActivate') next.activations++;
+        else if (event.type === 'samplePress') next.presses++;
+        else if (event.type === 'sampleCancel') next.cancels++;
+        else if (event.type === 'sampleIME') next.ime = String(event.value);
+        else if (
+            event.type === 'surface' &&
+            ['cards', 'compact', 'workspace'].includes(event.value)
+        )
+            next.surface = event.value;
+        else if (event.type === 'sampleTaskDraft')
+            next.taskDraft = String(event.value);
+        else if (event.type === 'sampleTaskSave')
+            next.savedTaskDraft = model.taskDraft;
+    } else if (
         [
             'text',
             'area',
@@ -91,6 +217,24 @@ export function transition(model, event, catalog) {
         next[event.type] = event.value;
     else next.last = event.type;
     return next;
+}
+
+// Browser File handles and native URLs remain in their respective owners; no uploads.
+export function fileLabels(values) {
+    if (!Array.isArray(values)) return [];
+    return values
+        .slice(0, 100)
+        .map((value) => {
+            const raw = typeof value === 'string' ? value : value && value.name;
+            if (!raw || (typeof value === 'string' && !raw.startsWith('file:')))
+                return null;
+            let name = String(raw).split(/[\\/]/).pop();
+            try {
+                name = decodeURIComponent(name);
+            } catch (_) {}
+            return { name: name.slice(0, 240) };
+        })
+        .filter(Boolean);
 }
 
 export function families(catalog, model, language) {
@@ -272,6 +416,7 @@ export function describe(model, catalog, width, height, language = 'en') {
                 weight: 600,
                 wrap: true,
                 maxLines: 2,
+                verticalAlign: 'top',
                 role: 'heading',
                 level: 2
             }
@@ -301,7 +446,9 @@ export function describe(model, catalog, width, height, language = 'en') {
         );
         y += 64;
     } else if (live.includes(family.id)) {
-        const p = preview(model, family.id, inner, language);
+        const p = Extended.families.includes(family.id)
+            ? Extended.describe(model, family.id, inner, language)
+            : preview(model, family.id, inner, language);
         if (p.code) {
             if (narrow)
                 content.push(

@@ -73,6 +73,14 @@ are cached independently from card contents, including the software Qt backend.
 ### Controls, infrastructure and forms
 
 Classify by responsibility, not location, filename, size or nested element count.
+Search, Identity, Progress, Empty and FileField nodes adapt the existing house
+search/identity/progress/empty/file controls. Search emits action (text),
+acceptAction (prepared suggestion record) and commitAction; its host owns results.
+Progress receives value/min/max or indeterminate, without starting an operation.
+FileField emits browser Files or native file URLs; the host owns files, validation
+and uploads. Native FileInput itself uses Frame, so its adapter must resolve that
+type lazily by URL rather than introduce a static recursive type dependency.
+
 The base library contains primitives and neutral composite controls. Several
 buttons/fields do not automatically make a component a domain form.
 

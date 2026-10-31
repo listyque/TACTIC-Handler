@@ -4,7 +4,7 @@ import { textStyles } from './foundation.mjs';
 
 /** @typedef {{x:number, y:number, width:number, height:number}} Bounds Logical pixels. */
 /** @typedef {{type:string, [key:string]:unknown}} Action UI event or adapter command. */
-/** @typedef {'Box'|'Label'|'Icon'|'Button'|'Action'|'CheckBox'|'Field'|'Area'|'Preview'|'List'|'Scroll'|'Choice'|'Grid'|'IconChoice'|'Splitter'|'Switch'|'Graph'|'Chart'|'View'|'ColorChoice'|'Code'|'DateChoice'|'UserChoice'|'SummaryChip'|'StatusChip'|'Segmented'} ControlKind */
+/** @typedef {'Box'|'Label'|'Icon'|'Button'|'Action'|'CheckBox'|'Field'|'Area'|'Preview'|'List'|'Scroll'|'Choice'|'Grid'|'IconChoice'|'Splitter'|'Switch'|'Graph'|'Chart'|'View'|'ColorChoice'|'Code'|'DateChoice'|'UserChoice'|'SummaryChip'|'StatusChip'|'Segmented'|'Search'|'Identity'|'Progress'|'Empty'|'FileField'} ControlKind */
 /** @typedef {Bounds & {kind:ControlKind, id:string, children:FrameNode[], fontRole:keyof typeof textStyles, fontSize:number, action:Action|null, [key:string]:unknown}} FrameNode */
 /** @typedef {{nodes:FrameNode[]}} Scene */
 
@@ -34,7 +34,12 @@ export const controlKinds = Object.freeze([
     'Code',
     'SummaryChip',
     'StatusChip',
-    'Segmented'
+    'Segmented',
+    'Search',
+    'Identity',
+    'Progress',
+    'Empty',
+    'FileField'
 ]);
 
 export function rect(x, y, width, height) {
@@ -219,7 +224,8 @@ export function validateScene(scene, models, views) {
             'commitAction',
             'cancelAction',
             'dropAction',
-            'dragStartAction'
+            'dragStartAction',
+            'acceptAction'
         ])
             if (
                 value[key] != null &&
@@ -288,6 +294,20 @@ export function validateScene(scene, models, views) {
             throw Error(
                 'Grid needs headers and positive cell geometry: ' + value.id
             );
+        if (
+            value.kind === 'Search' &&
+            value.suggestions !== undefined &&
+            !sequence(value.suggestions)
+        )
+            throw Error('Search needs prepared suggestions: ' + value.id);
+        if (
+            value.kind === 'Progress' &&
+            (!Number.isFinite(value.min ?? 0) ||
+                !Number.isFinite(value.max ?? 1) ||
+                (value.max ?? 1) <= (value.min ?? 0) ||
+                (!value.indeterminate && !Number.isFinite(value.value)))
+        )
+            throw Error('Progress needs a finite range/value: ' + value.id);
         if (
             value.kind === 'View' &&
             (typeof value.view !== 'string' || !value.view)

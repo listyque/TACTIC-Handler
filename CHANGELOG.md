@@ -3,10 +3,17 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.313 - 2026-10-31
+
+- Complete live examples for all 29 component families with source, local drafts, eight state choices, real menus/confirmations, editable virtual cells, files, graphs, source editing and task fragments.
+- Add neutral Frame adapters for existing search, identity, progress, empty-state and file controls; keep native file input behind a URL loader so Frame's type dependency remains acyclic and Handler starts normally.
+- Keep sample operations local, preserve project records and validate real QML input, popup lifetime and both palettes alongside the browser implementation.
+
 ## 0.6.0.312 - 2026-10-31
 
 - Sample all 50 load-balancing requests with up to eight independent authenticated clients, without stopping after repeated replies from one worker.
 - Preserve the captured site in diagnostic clients and clarify that observed workers are a sample, not the configured process count, in both clients and EN/RU Help.
+
 
 ## 0.6.0.310 - 2026-10-31
 

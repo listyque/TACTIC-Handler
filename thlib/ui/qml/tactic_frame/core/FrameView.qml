@@ -337,11 +337,71 @@ Item {
                         return splitterBrick;
                     case "Switch":
                         return switchBrick;
+                    case "Search":
+                        return searchBrick;
+                    case "Identity":
+                        return identityBrick;
+                    case "Progress":
+                        return progressBrick;
+                    case "Empty":
+                        return emptyBrick;
+                    case "FileField":
+                        return fileBrick;
                     default:
                         throw Error("Unsupported Tactic Frame control: " + kind);
                     }
                 }
                 sourceComponent: brick(wrapper.node.kind)
+                Component {
+                    id: searchBrick
+                    Forms.FrameSearch {
+                        node: wrapper.node
+                        theme: root.effectiveTheme
+                        interactive: root.interactive
+
+                        onEvent: action => root.send(action)
+                    }
+                }
+                Component {
+                    id: identityBrick
+                    Display.FrameIdentity {
+                        node: wrapper.node
+                        theme: root.effectiveTheme
+                        interactive: root.interactive
+                        accent: root.color(wrapper.node.accent || "action")
+                        onEvent: action => root.send(action)
+                    }
+                }
+                Component {
+                    id: progressBrick
+                    Display.FrameProgress {
+                        node: wrapper.node
+                        theme: root.effectiveTheme
+                        interactive: root.interactive
+
+                        onEvent: action => root.send(action)
+                    }
+                }
+                Component {
+                    id: emptyBrick
+                    Display.FrameEmpty {
+                        node: wrapper.node
+                        theme: root.effectiveTheme
+                        interactive: root.interactive
+
+                        onEvent: action => root.send(action)
+                    }
+                }
+                Component {
+                    id: fileBrick
+                    Forms.FrameFileField {
+                        node: wrapper.node
+                        theme: root.effectiveTheme
+                        interactive: root.interactive
+
+                        onEvent: action => root.send(action)
+                    }
+                }
                 Component {
                     id: boxBrick
                     Rectangle {
@@ -427,7 +487,7 @@ Item {
                             }
                         }
                         font: root.controlFont(wrapper.node)
-                        verticalAlignment: Text.AlignVCenter
+                        verticalAlignment: wrapper.node.verticalAlign === "top" ? Text.AlignTop : Text.AlignVCenter
                         horizontalAlignment: wrapper.node.align === "center" ? Text.AlignHCenter : wrapper.node.align === "right" ? Text.AlignRight : Text.AlignLeft
                         wrapMode: wrapper.node.wrapAnywhere ? Text.WrapAnywhere : wrapper.node.wrap ? Text.WordWrap : Text.NoWrap
                         maximumLineCount: wrapper.node.maxLines || 2147483647

@@ -27,6 +27,8 @@ Item {
     signal event(var action)
 
     objectName: node.id
+    Accessible.role: Accessible.Table
+    Accessible.name: node.text || node.label || ""
     function cellAt(row, column): var {
         return grid.itemAtCell(Qt.point(column, row));
     }
@@ -76,7 +78,7 @@ Item {
         interactive: false
         clip: true
         Rectangle {
-            width: parent.width
+            width: Math.max(parent.width, root.width - root.node.labelWidth - 16)
             height: parent.height
             color: root.theme.surfaceContainerHigh
         }

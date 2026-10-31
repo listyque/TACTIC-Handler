@@ -5,7 +5,8 @@ Handler ships an independent copy in `thlib/ui/qml/tactic_frame`.
 Neither product imports the other checkout at runtime.
 
 Administration's Component showcase uses the canonical `controls/catalog.data.mjs`
-inventory and executable `controls/showcase.examples.mjs` samples. The same data
+inventory, neutral `controls/showcase.examples.mjs` samples and specialized
+`features/administration/showcase.examples.mjs` compositions. The same data
 drives `tools/frame_controls/elements.py`; source presence is separate from live
 example coverage. See `docs/frame/showcase.md` for the reference audit and limits.
 
