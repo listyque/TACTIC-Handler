@@ -152,6 +152,7 @@ export function describe(model, ui, width, height, language) {
             text: tr(text),
             icon,
             iconOnly: true,
+            iconAction: true,
             action,
             enabled: enabled !== false
         });
@@ -330,7 +331,7 @@ export function describe(model, ui, width, height, language) {
             'View',
             'administrationToolbar',
             rect(
-                g.mobile ? 12 : g.body - g.toolbar - 174,
+                g.mobile ? 12 : g.body - g.toolbar - 96,
                 g.mobile ? 116 : 10,
                 g.toolbar,
                 38
@@ -404,7 +405,16 @@ export function describe(model, ui, width, height, language) {
             { background: 'outlineVariant' }
         )
     );
-    nodes.push(Header.describe('administrationHeader', width, g.header, head));
+    const header = Header.describe(
+        'administrationHeader',
+        width,
+        g.header,
+        head
+    );
+    // The outer window owns round chrome; this header contains service actions.
+    for (const child of header.children)
+        if (child.kind === 'Button') child.round = false;
+    nodes.push(header);
     nodes.push(
         node('View', 'administrationContent', g.content, {
             view: 'content'

@@ -249,7 +249,7 @@ export function toolbar(model, width, language) {
             'refresh',
             { type: 'reload' },
             !model.busy,
-            40
+            34
         ]
     ];
     if (model.dirty || model.uncertain) {
@@ -259,7 +259,7 @@ export function toolbar(model, width, language) {
             'undo',
             { type: 'discard' },
             !model.busy,
-            compact ? 40 : 120
+            compact ? 34 : 120
         ]);
         if (!model.metadata?.new)
             commands.push([
@@ -277,7 +277,7 @@ export function toolbar(model, width, language) {
         'help',
         { type: 'help' },
         true,
-        40
+        34
     ]);
     let x = Math.max(
         0,
@@ -285,8 +285,10 @@ export function toolbar(model, width, language) {
     );
     for (const [id, title, icon, event, enabled, w] of commands) {
         nodes.push(
-            button(id, rect(x, 0, w, 40), tr(title), icon, event, enabled, {
-                iconOnly: w === 40
+            button(id, rect(x, 2, w, 34), tr(title), icon, event, enabled, {
+                iconOnly: w === 34,
+                iconAction: w === 34,
+                round: false
             })
         );
         x += w + 4;
@@ -323,7 +325,7 @@ export function describe(model, ui, width, height, language) {
             nodes.push(
                 label(
                     'pluginCatalogueCaption',
-                    rect(0, 0, nav - 36, 28),
+                    rect(0, 0, nav - 42, 34),
                     tr('Plugin catalogue'),
                     { weight: 600 }
                 )
@@ -331,25 +333,25 @@ export function describe(model, ui, width, height, language) {
         nodes.push(
             btn(
                 'pluginCollapse',
-                rect(ui.collapsed ? 0 : nav - 28, 0, 28, 28),
+                rect(ui.collapsed ? 0 : nav - 34, 0, 34, 34),
                 'Plugin catalogue',
                 ui.collapsed ? 'next' : 'previous',
                 { type: 'collapse' },
                 true,
-                { iconOnly: true }
+                { iconOnly: true, iconAction: true, round: false }
             )
         );
     }
     if (nav && !ui.collapsed) {
         nodes.push(
-            btn('pluginNew', rect(0, 36, nav, 36), 'New', 'add', {
+            btn('pluginNew', rect(0, 42, nav, 36), 'New', 'add', {
                 type: 'new'
             })
         );
         nodes.push(
             btn(
                 'pluginInstall',
-                rect(0, 80, nav, 36),
+                rect(0, 86, nav, 36),
                 'Install a package',
                 'upload',
                 { type: 'install' },
@@ -358,7 +360,7 @@ export function describe(model, ui, width, height, language) {
             )
         );
         nodes.push(
-            node('Field', 'pluginSearch', rect(0, 128, nav, 36), {
+            node('Field', 'pluginSearch', rect(0, 134, nav, 36), {
                 text: ui.query,
                 placeholder: tr('Search plugins'),
                 action: { type: 'query' },
@@ -366,7 +368,7 @@ export function describe(model, ui, width, height, language) {
             })
         );
         nodes.push(
-            node('CheckBox', 'pluginActiveOnly', rect(0, 172, nav, 36), {
+            node('CheckBox', 'pluginActiveOnly', rect(0, 178, nav, 36), {
                 text: tr('Active in this project'),
                 checked: ui.activeOnly,
                 action: { type: 'activeOnly' }
@@ -376,7 +378,7 @@ export function describe(model, ui, width, height, language) {
             node(
                 'List',
                 'pluginCatalogue',
-                rect(0, 216, nav, Math.max(0, height - 216)),
+                rect(0, 222, nav, Math.max(0, height - 222)),
                 {
                     source: 'plugins',
                     keyField: 'identity',
@@ -401,7 +403,7 @@ export function describe(model, ui, width, height, language) {
         nodes.push(
             label(
                 'pluginNoMatches',
-                rect(8, 224, nav - 24, 80),
+                rect(8, 230, nav - 24, 80),
                 tr(
                     'No matching plugins. Change the search or the project filter.'
                 ),

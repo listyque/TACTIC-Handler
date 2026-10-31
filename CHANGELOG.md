@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.335 - 2026-10-31
+
+- Keep Administration page actions square and align plugin toolbar and catalogue controls at 34 DIP; retain round outer window chrome.
+
 ## 0.6.0.334 - 2026-10-31
 
 - Match automatic compact item density in Stream and Handler below 445 DIP of panel width, reusing existing cards while preserving selection and expanded children during resize.
