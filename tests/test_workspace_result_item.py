@@ -1074,13 +1074,35 @@ class WorkspaceResultItemTests(unittest.TestCase):
         result_surface = (
             ROOT / "thlib" / "ui" / "qml" / "SearchResultSurface.qml"
         ).read_text(encoding="utf-8")
-        self.assertIn("readonly property bool autoCompact: width < 445", results_pane)
+        self.assertIn('Card.compactRows("continious", width)', results_pane)
         self.assertIn(
-            'effectiveViewMode === "compact"', results_pane,
+            'Card.compactRows(effectiveViewMode, root.width)', results_pane,
         )
         self.assertIn("compactMode: root.compactRows", result_surface)
         self.assertIn("color: root.theme.workspace", results_pane)
         self.assertNotIn("remove: Transition", results_pane)
+
+        engine = QQmlEngine()
+        component = QQmlComponent(engine)
+        component.setData(b'''import QtQml
+import "tactic_frame/features/search/card.ui.mjs" as Card
+QtObject {
+    property real paneWidth: 800
+    property string mode: "continious"
+    readonly property bool compactRows: Card.compactRows(mode, paneWidth)
+}''', QUrl.fromLocalFile(str(ROOT / "thlib/ui/qml/_DensityTest.qml")))
+        density = component.create()
+        self.assertIsNotNone(density, "\n".join(error.toString() for error in component.errors()))
+        for mode, width, expected in (
+            ("continious", 800, False), ("continious", 444, True),
+            ("continious", 445, False), ("table", 320, False),
+            ("compact", 800, True), ("tiles", 320, True),
+        ):
+            density.setProperty("mode", mode)
+            density.setProperty("paneWidth", width)
+            self.app.processEvents()
+            self.assertEqual(density.property("compactRows"), expected)
+        density.deleteLater()
 
     def test_snapshot_date_shows_pretty_value_and_exact_value_on_hover(self):
         qml_dir = ROOT / "thlib" / "ui" / "qml"

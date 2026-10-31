@@ -1,2 +1,3 @@
 *.mjs text eol=lf
 *.qml text eol=lf
+thlib/ui/qml/tactic_frame/**/*.json text eol=lf

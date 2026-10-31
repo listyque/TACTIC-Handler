@@ -358,3 +358,5 @@ Native workspace pages pass the dock interior corner radius into the shared page
 Workflow hover previews reuse 128 by 84 DIP task cards in a responsive one-to-three-column grid, with 8 DIP gaps, 12 DIP outer padding, a bounded vertical scroller and a separate Task Manager footer. At most three complete rows are shown before scrolling. Covered inline cards must not receive input through the preview.
 
 Task cell editors open single-value choices directly; paired dates keep their combined editor. Immediate single-field forms use the field title once. Progress uses the house slider and percentage readout; planned hours use the house quarter-hour stepper with a visible hour unit. Preserve project minute/hour conversion, per-field edit permissions and the owning task draft.
+
+Result density follows `features/search/card.ui.mjs:compactRows`: below 445 DIP of the owning pane, existing item cards use compact geometry. Explicit compact mode stays compact; table mode is unchanged. Resize only changes presentation, retaining loaded nodes, expansion and selection.

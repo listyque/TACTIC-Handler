@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.334 - 2026-10-31
+
+- Match automatic compact item density in Stream and Handler below 445 DIP of panel width, reusing existing cards while preserving selection and expanded children during resize.
+
 ## 0.6.0.333 - 2026-10-31
 
 - Keep the primary search workspace header actions round; preserve square icon buttons in local service toolbars.

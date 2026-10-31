@@ -1,6 +1,10 @@
 import { node, rect, label } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 
+export function compactRows(mode, width) {
+    return mode === 'compact' || (width > 0 && width < 445 && mode !== 'table');
+}
+
 export const tileShade = [
     { position: 0, opacity: 0.82 },
     { position: 0.58, opacity: 0.82 },

@@ -1,4 +1,5 @@
 import QtQuick
+import "tactic_frame/features/search/card.ui.mjs" as Card
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
@@ -13,8 +14,8 @@ Rectangle {
     required property var surfacesModel
     required property var versionResultsModel
     property bool presentationActive: visible
-    readonly property bool autoCompact: width < 445
-    readonly property bool compactRows: (autoCompact && controller.results_view_mode !== "table") || controller.results_view_mode === "compact"
+    readonly property bool autoCompact: Card.compactRows("continious", width)
+    readonly property bool compactRows: Card.compactRows(controller.results_view_mode, width)
     readonly property bool splitRight: !compactRows && controller.results_view_mode === "splitted_vertical"
     readonly property bool splitBottom: !compactRows && controller.results_view_mode === "splitted_horizontal"
     readonly property bool splitView: splitRight || splitBottom
@@ -50,7 +51,7 @@ Rectangle {
             columnsController: root.columnsController
             userModel: root.userModel
             presentationActive: root.presentationActive && current
-            compactRows: (root.autoCompact && effectiveViewMode !== "table") || effectiveViewMode === "compact"
+            compactRows: Card.compactRows(effectiveViewMode, root.width)
             splitRight: current && root.splitRight
             splitBottom: current && root.splitBottom
             splitView: current && root.splitView

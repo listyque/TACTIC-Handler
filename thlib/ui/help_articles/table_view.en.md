@@ -36,4 +36,6 @@ A progress node is an aggregate, with a ring and a completed-object/total-object
 
 Counts follow the configured related Search Type, process, pipeline and local/global scope. For objects with pipelines, completion comes from their workflow status messages, as in legacy TACTIC. For objects without pipelines, Complete object/task statuses are used. Multiple completed tasks on one object count once. Ordinary task cards retain their inline editors, with aligned quiet rows and a single process accent.
 
+Item views automatically use the same compact density as Handler when their panel is narrower than 445 logical pixels. The existing object cards become 64 pixels high with 42-pixel previews. Widen the panel to restore the selected view. Resizing retains selection and expanded children and does not reload the records. Explicit Compact rows remains compact at any width; table views keep their table layout.
+
 The primary search toolbar keeps round buttons for Refresh, Script shelf, Tags, Quick filters, Help and Workspace panels. Local service toolbar buttons remain square.
