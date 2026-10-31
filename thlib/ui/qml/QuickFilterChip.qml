@@ -11,7 +11,7 @@ Controls.PopupAction {
     property color accent: theme.action
     property bool showAccentMarker: false
     property bool subtle: false
-    property real cornerRadius: height / 2
+    property real cornerRadius: theme.buttonRadius
     property real emphasis: 0
     readonly property var geometry: Chips.filterGeometry(emphasis)
     property real maximumChipWidth: 10000

@@ -127,7 +127,7 @@ Item {
                                 ? root.theme.action : root.theme.primaryText
                             backgroundColor: resultMenus.sortOpened
                                 ? root.theme.secondaryContainer : "transparent"
-                            round: true
+                            round: false
                             toolTip: qsTr("Sort items")
                             onClicked: resultMenus.openSort(sortButton)
                         }
@@ -142,7 +142,7 @@ Item {
                                 ? root.theme.action : root.theme.primaryText
                             backgroundColor: resultMenus.groupOpened
                                 ? root.theme.secondaryContainer : "transparent"
-                            round: true
+                            round: false
                             toolTip: qsTr("Group items")
                             onClicked: resultMenus.openGroup(groupButton)
                         }

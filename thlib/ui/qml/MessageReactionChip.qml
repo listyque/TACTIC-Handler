@@ -20,7 +20,7 @@ Item {
     Rectangle {
         id: surface
         anchors.fill: parent
-        radius: height / 2
+        radius: root.theme.buttonRadius
         color: Qt.tint(root.theme.surfaceContainerHighest, Qt.rgba(root.theme.cyan.r, root.theme.cyan.g, root.theme.cyan.b, root.checked ? Foundation.controls.reactionChip.checkedTintOpacity : Foundation.controls.reactionChip.tintOpacity))
 
         Behavior on color {

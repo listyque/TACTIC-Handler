@@ -25,7 +25,7 @@ Rectangle {
     readonly property real auxiliaryWidth: (iconName.length ? (compact ? 14 : 16) + content.spacing : 0) + (showDot ? Foundation.controls.summaryChip.dot + content.spacing : 0) + (showCount ? countText.implicitWidth + content.spacing : 0)
     implicitWidth: caption.implicitWidth + auxiliaryWidth + horizontalPadding * 2
     implicitHeight: compact ? Foundation.controls.summaryChip.compactHeight : Foundation.controls.summaryChip.height
-    radius: height / 2
+    radius: clickable ? theme.buttonRadius : height / 2
     color: clickable && chipAction.hovered ? theme.rowHover : theme.surfaceContainerHigh
     border.width: compact ? 0 : 1
     border.color: clickable && chipAction.activeFocus ? theme.action : theme.outlineVariant

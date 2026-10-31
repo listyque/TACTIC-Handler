@@ -32,7 +32,7 @@ Item {
         id: optionsComponent
         Controls.CompactIconButton {
             theme: root.theme
-            round: true
+            round: false
             backgroundColor: root.theme.surfaceContainerHigh
             iconName: "more_vert"
             iconSize: 16

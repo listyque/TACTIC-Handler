@@ -121,7 +121,7 @@ export function describe(model, width, height, language) {
                   : 'arrow-forward',
             { type: 'transfer' },
             !model.busy && !model.uncertain && model.canTransfer,
-            { iconOnly: true, round: true, iconSize: 18 }
+            { iconOnly: true, round: false, iconSize: 18 }
         )
     );
     if (errorHeight)

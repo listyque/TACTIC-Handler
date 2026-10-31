@@ -52,7 +52,7 @@ export function describe(model, width, language) {
                 iconOnly: true,
                 visible: !compact && model.shelf !== false,
                 iconAction: true,
-                round: true,
+                round: false,
                 iconColor: model.shelfOpen ? 'action' : 'secondaryText'
             }
         )

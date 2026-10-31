@@ -186,7 +186,7 @@ Item {
                 iconName: "tags"
                 iconColor: tagCloudPopup.opened || appController.active_tag_count > 0 ? root.theme.action : root.theme.primaryText
                 backgroundColor: tagCloudPopup.opened ? root.theme.secondaryContainer : "transparent"
-                round: true
+                round: false
                 toolTip: qsTr("Tags")
                 onPressed: tagCloudPopup.sourceWasOpen = tagCloudPopup.opened
                 onClicked: {
@@ -232,7 +232,7 @@ Item {
                 iconName: "filter"
                 iconColor: quickFilterPopup.opened || appController.active_quick_filter_count > 0 ? root.theme.action : root.theme.primaryText
                 backgroundColor: quickFilterPopup.opened ? root.theme.secondaryContainer : "transparent"
-                round: true
+                round: false
                 toolTip: qsTr("Quick filters")
                 onPressed: quickFilterPopup.sourceWasOpen = quickFilterPopup.opened
                 Component.onCompleted: root.quickFilterAnchor = this
@@ -275,7 +275,7 @@ Item {
                 height: parent.height
                 theme: root.theme
                 iconName: "more-vert"
-                round: true
+                round: false
                 toolTip: root.compactTabActions ? qsTr("More search actions") : qsTr("Workspace panels")
                 Component.onCompleted: root.headerMoreAnchor = this
                 onPressed: searchHeaderOverflowMenu.sourceWasOpen = searchHeaderOverflowMenu.opened
@@ -398,7 +398,7 @@ Item {
                 Layout.preferredHeight: 40
                 theme: root.theme
                 iconName: "add"
-                round: true
+                round: false
                 toolTip: qsTr("Add new search tab")
                 onClicked: {
                     workspaceState.add_search_tab();
@@ -412,7 +412,7 @@ Item {
                 Layout.preferredHeight: 40
                 theme: root.theme
                 iconName: "advanced-search"
-                round: true
+                round: false
                 toolTip: qsTr("Search filters and presets")
                 onClicked: resultMenus.openFilters(tabFilterButton)
             }
@@ -654,7 +654,7 @@ Item {
                 Layout.preferredHeight: 40
                 theme: root.theme
                 iconName: "keyboard_arrow_down"
-                round: true
+                round: false
                 toolTip: qsTr("All search tabs")
                 onPressed: tabOverflowMenu.sourceWasOpen = tabOverflowMenu.opened
                 onClicked: {
@@ -680,7 +680,7 @@ Item {
                 iconName: "sort-items"
                 iconColor: resultMenus.sortOpened || appController.result_sort_mode !== "name_asc" ? root.theme.action : root.theme.primaryText
                 backgroundColor: resultMenus.sortOpened ? root.theme.secondaryContainer : "transparent"
-                round: true
+                round: false
                 toolTip: qsTr("Sort items")
                 onClicked: resultMenus.openSort(resultSortButton)
             }
@@ -693,7 +693,7 @@ Item {
                 iconName: "group-items"
                 iconColor: resultMenus.groupOpened || appController.result_group_mode !== "none" ? root.theme.action : root.theme.primaryText
                 backgroundColor: resultMenus.groupOpened ? root.theme.secondaryContainer : "transparent"
-                round: true
+                round: false
                 toolTip: qsTr("Group items")
                 onClicked: resultMenus.openGroup(resultGroupButton)
             }
@@ -704,7 +704,7 @@ Item {
                 Layout.preferredHeight: 40
                 theme: root.theme
                 iconName: root.resultViewIcon(appController.results_view_mode)
-                round: true
+                round: false
                 toolTip: qsTr("Change search results view")
                 onClicked: resultsViewMenu.openBelow(resultsViewButton)
             }
@@ -717,7 +717,7 @@ Item {
                 Layout.preferredHeight: 40
                 theme: root.theme
                 iconName: "more-vert"
-                round: true
+                round: false
                 toolTip: qsTr("Result actions")
                 onPressed: searchTabActionsMenu.sourceWasOpen = searchTabActionsMenu.opened
                 onClicked: searchTabActionsMenu.toggleBelow(searchTabActionsOverflowButton)
@@ -737,7 +737,7 @@ Item {
                     opacity: enabled ? 1 : 0.38
                     theme: root.theme
                     iconName: "history"
-                    round: true
+                    round: false
                     toolTip: enabled ? tabHistoryControl.closedTabCount + (tabHistoryControl.closedTabCount === 1 ? qsTr(" recently closed search tab") : qsTr(" recently closed search tabs")) : qsTr("No recently closed search tabs")
                     onPressed: tabHistoryMenu.sourceWasOpen = tabHistoryMenu.opened
                     onClicked: tabHistoryMenu.toggleBelow(tabHistoryButton)

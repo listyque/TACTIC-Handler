@@ -261,7 +261,7 @@ Item {
                             Rectangle {
                                 width: Foundation.controls.calendar.daySize
                                 height: Foundation.controls.calendar.daySize
-                                radius: height / 2
+                                radius: root.theme.buttonRadius
                                 anchors.centerIn: parent
                                 color: dayCell.selected ? root.theme.selected : dayCell.down ? root.theme.surfaceContainerHighest : dayCell.hovered ? root.theme.rowHover : "transparent"
                                 border.width: dayCell.today && !dayCell.selected ? 1 : 0

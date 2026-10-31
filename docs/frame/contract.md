@@ -339,3 +339,5 @@ keeps its background at the edge; header, content and footer children keep symme
 `spacing.content` insets and reserve scrollbar space. The viewport stays full size;
 apply this interior once without rewriting authored page/card padding.
 Verify both boundaries in native and browser rendering.
+
+Service Button and icon-action controls default to 4 DIP corners in all themes. Frame titlebar Boxes explicitly mark their direct Button children round; native Button and AppButton honor that flag. Primary navigation/window chrome opts in, while table, search, dock and editor controls never force circular rounding. Media, avatars, static chips, status/radio/switch indicators and ripples are separate paint roles.

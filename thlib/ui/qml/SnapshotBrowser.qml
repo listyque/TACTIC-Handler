@@ -221,7 +221,7 @@ Item {
                 width: 34
                 height: 34
                 theme: root.theme
-                round: true
+                round: false
                 backgroundColor: root.theme.surfaceContainerHigh
                 iconName: "more_vert"
                 iconSize: 16

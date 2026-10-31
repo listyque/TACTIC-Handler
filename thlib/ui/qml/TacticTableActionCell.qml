@@ -20,7 +20,7 @@ Item {
         objectName: root.kind === "checkin" ? "tableCellCheckin" : root.kind === "sobject_detail" ? "tableCellSObjectDetail" : "tableCellAction_" + root.kind
         anchors.centerIn: parent
         theme: root.theme
-        round: true
+        round: false
         iconName: root.presentation.icon
         iconColor: root.kind === "delete" ? root.theme.error : root.theme.action
         enabled: root.cell.available !== false

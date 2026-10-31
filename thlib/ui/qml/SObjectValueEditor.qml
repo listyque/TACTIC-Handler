@@ -394,7 +394,7 @@ Item {
                         visible: previewSurface.previewPaths.length > 0
                         theme: root.theme
                         iconName: "delete-sweep"
-                        round: true
+                        round: false
                         enabled: !root.editorBusy
                         toolTip: qsTr("Clear preview images")
                         onClicked: root.previewFilesCleared()
@@ -488,7 +488,7 @@ Item {
                                         theme: root.theme
                                         iconName: "close"
                                         iconSize: 14
-                                        round: true
+                                        round: false
                                         elevated: true
                                         enabled: !root.editorBusy
                                         toolTip: qsTr("Remove preview image")

@@ -37,7 +37,7 @@ export function views(model, width, height, language) {
             'view-column',
             { type: 'menu', kind: 'views' },
             true,
-            { iconOnly: true, iconAction: true, round: true }
+            { iconOnly: true, iconAction: true, round: false }
         )
     );
     x += h + 4;

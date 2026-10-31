@@ -160,7 +160,7 @@ Rectangle {
                 height: 30
                 theme: root.theme
                 iconName: "arrow-left"
-                round: true
+                round: false
                 backgroundColor: root.theme.panelRaised
                 toolTip: qsTr("Back one level")
                 onClicked: root.controller.leave_card_level()
@@ -269,7 +269,7 @@ Rectangle {
                 height: 24
                 theme: root.theme
                 iconName: "close"
-                round: true
+                round: false
                 toolTip: qsTr("Cancel search")
                 onClicked: root.controller.cancel_search()
             }

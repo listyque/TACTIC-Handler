@@ -247,7 +247,7 @@ Rectangle {
                                 theme: root.theme
                                 iconName: "close"
                                 iconSize: 13
-                                round: true
+                                round: false
                                 elevated: true
                                 visible: !root.controller.busy
                                 toolTip: qsTr("Remove attachment")

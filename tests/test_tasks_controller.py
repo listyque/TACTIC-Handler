@@ -5734,7 +5734,7 @@ class TasksQmlTests(unittest.TestCase):
         )
         compact = control.findChild(QObject, "itemCountCompactButton")
         self.assertIsNotNone(compact)
-        self.assertTrue(compact.property("round"))
+        self.assertFalse(compact.property("round"))
         self.assertEqual(compact.property("badgeCount"), 4)
         self.assertEqual(compact.property("iconName"), "comment")
         self.assertEqual(compact.property("toolTip"), "Open notes")

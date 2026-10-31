@@ -137,6 +137,12 @@ export function node(kind, id, rect, properties) {
     for (const key of ['kind', 'id', 'x', 'y', 'width', 'height', 'fontSize'])
         if (Object.prototype.hasOwnProperty.call(options, key))
             throw Error('Reserved Frame property: ' + id + '.' + key);
+    if (options.titlebar && options.children)
+        options.children = options.children.map((child) =>
+            child.kind === 'Button'
+                ? Object.assign({}, child, { round: true })
+                : child
+        );
     const fontRole = options.fontRole === undefined ? 'body' : options.fontRole;
     if (!Object.prototype.hasOwnProperty.call(textStyles, fontRole))
         throw Error('Unknown Frame font role: ' + id + '.' + fontRole);

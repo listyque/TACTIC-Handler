@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.319 - 2026-10-31
+
+- Make modern service buttons square with the same small corner across themes: tables/count actions, search/paging tools, editors, pickers, chips, spin controls and dock tools.
+- Reserve circular actions for primary navigation and window titlebars. Keep circular avatars, media, status marks and input indicators unchanged.
+- Share button shape defaults and titlebar exceptions in Frame, with matching native/browser input and state checks.
+
 ## 0.6.0.318 - 2026-10-31
 
 - Keep page panel backgrounds full width while header, content and footer children use symmetric shared inner spacing in Handler and Stream.

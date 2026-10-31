@@ -403,7 +403,7 @@ Flickable {
         iconSize: 23
         iconColor: messages.theme.primaryText
         backgroundColor: messages.theme.surfaceContainerHighest
-        round: true
+        round: false
         elevated: true
         toolTip: qsTr("Jump to latest message")
 

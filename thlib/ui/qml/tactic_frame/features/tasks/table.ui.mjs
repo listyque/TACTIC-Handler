@@ -427,7 +427,7 @@ export function row(model, geometry, language) {
                         iconOnly: true,
                         iconAction: true,
                         iconSize: 17,
-                        round: true,
+                        round: false,
                         iconColor: model.notes ? 'action' : 'secondaryText',
                         badgeCount: model.notes || 0
                     }
@@ -479,7 +479,7 @@ export function row(model, geometry, language) {
                     iconOnly: true,
                     iconAction: true,
                     iconSize: 17,
-                    round: true,
+                    round: false,
                     iconColor: model.notes ? 'action' : 'secondaryText',
                     badgeCount: model.notes || 0
                 }

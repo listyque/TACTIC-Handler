@@ -1,0 +1,44 @@
+[
+  {
+    "id": "serviceText",
+    "text": "Refresh",
+    "icon": "refresh"
+  },
+  {
+    "id": "serviceIcon",
+    "text": "Row actions",
+    "icon": "more",
+    "iconOnly": true
+  },
+  {
+    "id": "serviceFilled",
+    "text": "Create",
+    "icon": "add",
+    "filledAction": true
+  },
+  {
+    "id": "serviceSelected",
+    "text": "Selected",
+    "icon": "tasks",
+    "tonal": true
+  },
+  {
+    "id": "serviceDisabled",
+    "text": "Unavailable",
+    "icon": "delete",
+    "enabled": false
+  },
+  {
+    "id": "serviceDanger",
+    "text": "Delete",
+    "icon": "delete",
+    "destructive": true
+  },
+  {
+    "id": "serviceAction",
+    "text": "Filter",
+    "icon": "filter",
+    "iconOnly": true,
+    "iconAction": true
+  }
+]

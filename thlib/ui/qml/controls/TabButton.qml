@@ -26,7 +26,7 @@ Basic.TabButton {
     }
 
     background: Rectangle {
-        radius: control.theme.itemRadius
+        radius: control.theme.buttonRadius
         color: control.checked ? control.theme.secondaryContainer : control.hovered ? control.theme.rowHover : "transparent"
         border.width: control.checked ? 1 : 0
         border.color: control.theme.action

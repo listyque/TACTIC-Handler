@@ -6,6 +6,6 @@ Controls.CompactIconButton {
     height: 38
     iconName: "refresh"
     iconSize: 17
-    round: true
+    round: false
     opacity: enabled ? 1 : 0.38
 }

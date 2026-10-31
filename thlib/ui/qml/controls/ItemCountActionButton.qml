@@ -32,7 +32,7 @@ Item {
             iconName: root.iconName
             iconColor: root.count > 0 ? root.activeColor : root.theme.secondaryText
             iconSize: 17
-            round: true
+            round: false
             badgeCount: root.count
             badgeColor: root.badgeColor
             toolTip: root.toolTipsAllowed ? root.toolTip : ""

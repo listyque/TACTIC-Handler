@@ -627,7 +627,7 @@ Item {
                 height: frameGeometry.height
                 visible: frameGeometry.visible !== false
                 theme: root.theme
-                round: true
+                round: false
                 iconName: "help"
                 iconSize: DockChrome.dimensions.actionIcon
                 iconColor: root.theme.secondaryText
@@ -645,7 +645,7 @@ Item {
                 height: frameGeometry.height
                 visible: frameGeometry.visible !== false
                 theme: root.theme
-                round: true
+                round: false
                 iconName: "open-in-new"
                 iconSize: DockChrome.dimensions.actionIcon
                 iconColor: root.theme.secondaryText
@@ -663,7 +663,7 @@ Item {
                 height: frameGeometry.height
                 visible: frameGeometry.visible !== false
                 theme: root.theme
-                round: true
+                round: false
                 iconName: "close"
                 iconSize: DockChrome.dimensions.actionIcon
                 iconColor: root.theme.secondaryText

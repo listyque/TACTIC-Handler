@@ -608,6 +608,7 @@ Item {
                         objectName: wrapper.node.id
                         theme: root.effectiveTheme
                         iconName: wrapper.node.icon || ""
+                        round: !!wrapper.node.round
                         compact: !!wrapper.node.iconOnly
                         text: wrapper.node.text
                         toolTip: wrapper.node.label || wrapper.node.text
@@ -676,6 +677,7 @@ Item {
                         highlighted: !!wrapper.node.highlighted
                         destructive: !!wrapper.node.destructive
                         tonal: !!wrapper.node.tonal
+                        round: !!wrapper.node.round
                         compact: !!wrapper.node.iconOnly
                         icon.name: wrapper.node.icon || ""
                         iconSize: wrapper.node.iconSize || 0

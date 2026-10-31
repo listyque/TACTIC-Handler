@@ -10,6 +10,7 @@ Item {
     property string iconName: ""
     property string text: ""
     property string toolTip: ""
+    property bool round: false
     property bool compact: false
     property real horizontalPadding: 15
     readonly property real surfaceInset: 2
@@ -17,7 +18,7 @@ Item {
     readonly property bool lastActivationWasTouch: buttonTap.lastActivationWasTouch
     readonly property double lastActivationAt: buttonTap.lastActivationAt
     readonly property real desiredContentWidth: (iconName.length > 0 ? 18 : 0) + (hasLabel && iconName.length > 0 ? 7 : 0) + (hasLabel ? buttonLabel.implicitWidth : 0)
-    readonly property real cornerRadius: theme.itemRadius
+    readonly property real cornerRadius: round ? height / 2 : theme.buttonRadius
     activeFocusOnTab: enabled
     property int pendingActivationKey: 0
     Accessible.role: Accessible.Button

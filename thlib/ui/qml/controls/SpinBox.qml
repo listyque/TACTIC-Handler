@@ -91,7 +91,7 @@ QtControls.SpinBox {
         toolTip: qsTr("Increase value")
         iconName: "chevron-up"
         iconSize: Foundation.controls.number.iconSize
-        round: true
+        round: false
         enabled: control.enabled && !control.readOnly && control.value < control.to
         onClicked: {
             control.increase();
@@ -105,7 +105,7 @@ QtControls.SpinBox {
         toolTip: qsTr("Decrease value")
         iconName: "chevron-down"
         iconSize: Foundation.controls.number.iconSize
-        round: true
+        round: false
         enabled: control.enabled && !control.readOnly && control.value > control.from
         onClicked: {
             control.decrease();

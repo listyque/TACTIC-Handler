@@ -41,7 +41,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Math.min(height / 2, root.theme.itemRadius)
+        radius: root.theme.buttonRadius
         color: root.outlined ? "transparent" : root.theme.surfaceContainerHigh
         border.width: root.outlined ? 0 : 1
         border.color: root.theme.outlineVariant

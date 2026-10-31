@@ -68,7 +68,7 @@ Loader {
                 iconColor: root.selected
                     ? root.theme.contentSelectionText
                     : root.theme.secondaryText
-                round: true
+                round: false
                 toolTip: qsTr(String(actionDelegate.modelData.title || ""))
                 Accessible.role: Accessible.Button
                 Accessible.name: toolTip

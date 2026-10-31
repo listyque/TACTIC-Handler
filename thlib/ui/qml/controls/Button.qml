@@ -13,6 +13,7 @@ Basic.Button {
     hoverEnabled: true
     property bool destructive: false
     property bool tonal: false
+    property bool round: false
     property bool compact: false
     property bool segmented: false
     property real iconSize: 0
@@ -88,7 +89,7 @@ Basic.Button {
     }
 
     background: Rectangle {
-        radius: control.segmented ? Math.max(3, control.effectiveTheme.itemRadius - 2) : Math.min(height / 2, control.effectiveTheme.buttonRadius)
+        radius: control.round ? height / 2 : control.effectiveTheme.buttonRadius
         color: control.paint.pressedMix ? control.effectiveTheme.blend(control.effectiveTheme.error, control.effectiveTheme.workspace, 0.18) : control.paint.background === "transparent" ? "transparent" : control.effectiveTheme[control.paint.background]
         border.width: control.paint.borderWidth
         border.color: control.effectiveTheme[control.paint.border]

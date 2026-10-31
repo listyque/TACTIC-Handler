@@ -1044,7 +1044,7 @@ Item {
                     theme: root.theme
                     iconName: modelData.icon
                     iconSize: root.fullObjectCard ? 18 : root.compactObjectCard ? 14 : 16
-                    round: true
+                    round: false
                     backgroundColor: modelData.success ? "transparent" : modelData.active ? root.theme.contentSelection : "transparent"
                     iconColor: modelData.success ? root.theme.green : (modelData.active || root.selected) ? root.theme.contentSelectionText : root.theme.secondaryText
                     toolTip: modelData.tip || ""
