@@ -24,6 +24,12 @@ Database observations are documented separately in
 
 ## Compatibility rule
 
+Transported server procedures import common exceptions through the public
+`pyasm.common` exports. Legacy TACTIC defines `SecurityException` in
+`common_exception.py` and re-exports it; Stream's `pyasm.common.errors` module is
+not a portable server dependency. Raw-table procedure regressions run both
+product sources without that module and retain the administrator guard.
+
 Server-side aggregate procedures use the legacy `Search.add_column` signature:
 set `Search.get_select().set_quoted_mode('none')` before adding a fixed aggregate
 expression without a `quoted` keyword. This includes security-group journal

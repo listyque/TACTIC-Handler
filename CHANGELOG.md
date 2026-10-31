@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.354 - 2026-11-01
+
+- Load the physical-table editor's SecurityException through the public pyasm.common export supported by Legacy TACTIC and Stream. Remove its dependency on Stream's errors module while preserving administrator enforcement and safe table responses.
+
 ## 0.6.0.353 - 2026-11-01
 
 - Fix the remaining Legacy TACTIC Search.add_column quoted-keyword failure in security-group catalog loading. Preserve batched journal revision markers, administrator checks and safe user projections using the native Select quoting mode, matching Stream group catalogs.

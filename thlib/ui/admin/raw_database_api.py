@@ -14,8 +14,7 @@ def raw_database_request(action: str, project_code: str = '', identity: str = ''
     import math
     import re
     from pyasm.biz import Project
-    from pyasm.common import Environment
-    from pyasm.common.errors import SecurityException
+    from pyasm.common import Environment, SecurityException
     from pyasm.search import Search, Sql, DbContainer, DbResource
 
     if not Environment.get_security().is_admin():
