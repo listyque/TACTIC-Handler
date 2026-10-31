@@ -10,7 +10,7 @@ Item {
     objectName: "administrationFrameShell"
     required property var theme
     readonly property var controller: administrationController
-    readonly property bool framePage: ["groups", "users", "rules", "raw", "sidebar", "columns", "types", "schema", "workflow", "layouts", "dashboards", "plugins"].includes(controller.section)
+    readonly property bool framePage: ["groups", "users", "rules", "raw", "sidebar", "columns", "types", "schema", "workflow", "layouts", "dashboards", "plugins", "showcase"].includes(controller.section)
     readonly property bool columnsVisible: controller.section === "columns"
     property var ui: State.initial()
     property bool columnsDirty: false
@@ -268,6 +268,17 @@ Item {
                 membersModel: administrationMemberModel
                 language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
                 saveActionsInHeader: true
+            }
+            Loader {
+                id: showcaseLoader
+                anchors.fill: parent
+                active: root.controller.section === "showcase"
+                visible: active
+                sourceComponent: ComponentShowcaseView {
+                    theme: root.theme
+                    sourceEditor: root.controller.componentSourceEditor
+                    language: root.language
+                }
             }
             Loader {
                 id: pluginsLoader

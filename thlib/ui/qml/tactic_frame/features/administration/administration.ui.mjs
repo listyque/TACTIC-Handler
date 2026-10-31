@@ -68,6 +68,13 @@ export const sections = [
         type: 'config/plugin'
     },
     {
+        id: 'showcase',
+        title: 'Component showcase',
+        description: 'Foundations, controls and interaction states',
+        icon: 'view-grid',
+        type: ''
+    },
+    {
         id: 'users',
         title: 'Users',
         description: 'Profiles and accounts',

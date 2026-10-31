@@ -4,6 +4,11 @@ This directory contains portable UI descriptions and presentation state.
 Handler ships an independent copy in `thlib/ui/qml/tactic_frame`.
 Neither product imports the other checkout at runtime.
 
+Administration's Component showcase uses the canonical `controls/catalog.data.mjs`
+inventory and executable `controls/showcase.examples.mjs` samples. The same data
+drives `tools/frame_controls/elements.py`; source presence is separate from live
+example coverage. See `docs/frame/showcase.md` for the reference audit and limits.
+
 ## Read from the bottom up
 
 | Folder | Responsibility | May depend on |

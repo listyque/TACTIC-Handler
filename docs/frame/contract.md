@@ -216,7 +216,7 @@ captured server/ticket. Late replies cannot change another project's editor.
 ## Verification and source navigation
 
 From TS's product directory, `tools/frame_controls/elements.py --handler-root`
-reproduces the control inventory; `element_catalog.json` records families/variants.
+reproduces the control inventory; `controls/catalog.data.mjs` records families/variants.
 Presence, paired screenshots and tested behavior are separate evidence. Sample
 or state counts do not count base control types or certify the whole library.
 

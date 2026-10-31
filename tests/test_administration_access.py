@@ -90,6 +90,16 @@ class AdministrationAccessTests(unittest.TestCase):
         self.admin.select_project('demo')
         self.assertTrue(self.application.window_model.is_window_visible('administration'))
 
+    def test_showcase_uses_admin_authority_without_project_requests(self):
+        self.bootstrap(native_admin=False)
+        self.admin.select_section('showcase')
+        self.assertNotEqual(self.admin.section, 'showcase')
+        self.bootstrap(native_admin=True)
+        with patch('thlib.tactic_classes.server_start', side_effect=AssertionError('Showcase must stay local')):
+            self.admin.select_section('showcase')
+        self.assertEqual(self.admin.section, 'showcase')
+        self.assertIsNotNone(self.admin.componentSourceEditor)
+
     def test_native_admin_flag_not_login_or_group_label_controls_access(self):
         self.bootstrap(native_admin=True)
         self.assertTrue(self.application.can_administer)

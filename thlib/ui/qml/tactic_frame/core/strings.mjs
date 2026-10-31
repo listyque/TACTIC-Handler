@@ -1,5 +1,27 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Semantic colors': 'Смысловые цвета',
+    'Sizes and icons': 'Размеры и иконки',
+    Counters: 'Счётчики',
+    'Two-line list': 'Двухстрочный список',
+    'Section heading': 'Заголовок раздела',
+    'Panel heading': 'Заголовок панели',
+    'Native controls': 'Компоненты QML',
+    'Vue controls': 'Компоненты Vue',
+    'Standalone example not added yet':
+        'Отдельный живой пример пока не добавлен',
+    'Component showcase': 'Каталог компонентов',
+    'Foundations, controls and interaction states':
+        'Основа, компоненты и состояния',
+    'Search components': 'Найти компонент',
+    'All component groups': 'Все группы компонентов',
+    'Live example': 'Живой пример',
+    'Catalogue entry': 'Справочная карточка',
+    'Component state': 'Состояние компонента',
+    'Code example': 'Пример кода',
+    'Local demo; project data stays unchanged':
+        'Локальный пример без изменений данных проекта',
+    'No matching components': 'Компоненты не найдены',
     'Project chat rules': 'Правила чатов проекта',
     'Shared by all chats in this project. Changes apply on the next send; the current turn keeps its captured rules.':
         'Общие для всех чатов проекта. Изменения действуют со следующей отправки; текущий ход сохранит прежние правила.',

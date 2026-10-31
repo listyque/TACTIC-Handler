@@ -18,6 +18,7 @@ from .admin.security import SecurityRulesEditor
 from .admin.users import AdminUsersEditor
 from .admin.raw_database import RawDatabaseEditor
 from .admin.plugins import PluginsEditor
+from .source_editor import SourceEditorService
 from .user_identity import user_avatar_color, user_initials
 
 if TYPE_CHECKING:
@@ -73,6 +74,7 @@ class AdministrationController(QObject):
         self._users_editor = AdminUsersEditor(application, users, self)
         self._raw_editor = RawDatabaseEditor(application, self)
         self._plugins_editor = PluginsEditor(application, self)
+        self._component_source_editor = SourceEditorService(self)
         self._editors = {'raw': self._raw_editor, 'types': self._types_editor, 'schema': self._schema_editor,
                          'workflow': self._workflow_editor, 'rules': self._security_editor,
                          'users': self._users_editor, 'plugins': self._plugins_editor}
@@ -108,6 +110,10 @@ class AdministrationController(QObject):
     @Property(QObject, constant=True)
     def rawEditor(self):
         return self._raw_editor
+
+    @Property(QObject, constant=True)
+    def componentSourceEditor(self):
+        return self._component_source_editor
 
     @Property(QObject, constant=True)
     def pluginsEditor(self):
@@ -267,7 +273,7 @@ class AdministrationController(QObject):
     @Slot(str)
     def select_section(self, section: str) -> None:
         if not self.canManage or section not in {
-            'columns', 'groups', 'sidebar', *self._editors,
+            'columns', 'groups', 'sidebar', 'showcase', *self._editors,
         }:
             return
         self._section = section

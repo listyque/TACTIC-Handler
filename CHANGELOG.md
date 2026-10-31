@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.307 - 2026-10-31
+
+- Add Administration's local Component showcase: 29 inventoried families in six groups, with live examples for 16 families, search, state selection and read-only shared-API examples.
+- Reuse the same canonical inventory for both clients and the source audit; distinguish shipped components, completed examples and remaining gaps. Cover typography, semantic surfaces, headings, badge/counter sets and grouped list rows alongside existing inputs and charts.
+- Keep examples independent of project records and server commands, with EN/RU guidance and the shared source-editor service for native code presentation.
+
 ## 0.6.0.306 - 2026-10-31
 
 - Add shared native bar, line and donut charts with hover values, signed/null handling and accessible labels; keep chart types editable through the page editor.

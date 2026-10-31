@@ -27,13 +27,15 @@ export function transition(ui, model, event) {
             commands.push({
                 type: 'help',
                 topic:
-                    model.section === 'plugins'
-                        ? 'plugins'
-                        : ['layouts', 'dashboards'].includes(model.section)
-                          ? 'item_layouts'
-                          : model.section === 'sidebar'
-                            ? 'sidebar_editor'
-                            : 'administration'
+                    model.section === 'showcase'
+                        ? 'frame_showcase'
+                        : model.section === 'plugins'
+                          ? 'plugins'
+                          : ['layouts', 'dashboards'].includes(model.section)
+                            ? 'item_layouts'
+                            : model.section === 'sidebar'
+                              ? 'sidebar_editor'
+                              : 'administration'
             });
             break;
         case 'return-layout':
