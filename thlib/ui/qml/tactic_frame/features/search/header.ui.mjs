@@ -29,7 +29,7 @@ export function describe(model, width, language) {
             'help',
             { type: 'help' },
             true,
-            { iconOnly: true, visible: !compact }
+            { iconOnly: true, round: true, visible: !compact }
         )
     );
     if (!compact) right -= spacing.tight;
@@ -52,7 +52,7 @@ export function describe(model, width, language) {
                 iconOnly: true,
                 visible: !compact && model.shelf !== false,
                 iconAction: true,
-                round: false,
+                round: true,
                 iconColor: model.shelfOpen ? 'action' : 'secondaryText'
             }
         )
@@ -81,6 +81,7 @@ export function describe(model, width, language) {
             !model.busy,
             {
                 iconOnly: true,
+                round: true,
                 visible: !compact || !model.collapseSearch || !!model.searchOpen
             }
         )

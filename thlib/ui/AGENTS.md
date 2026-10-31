@@ -238,3 +238,5 @@ accessibility requirements specific to UI work:
 - User clarification, 2026-10-31: round buttons are reserved for the main menu and main window chrome. Service actions (tables, nested content, local toolbars and auxiliary editors) use square icon controls, with the theme's small corner radius; never full circular rounding. In Frame descriptions reuse iconAction with round:false.
 
 - User clarification, 2026-10-31: edge-to-edge panel backgrounds do not make their controls edge-to-edge. Keep symmetric inner content padding (the shared spacing token), including checkboxes and action rows; preserve authored layout spacing and scrollbar reserves. Check the surface bounds and the control bounds separately.
+
+- The primary search workspace header belongs to main-window chrome: refresh, shelf, tags, quick filters, Help and panel-menu actions stay round. Local/nested service toolbars remain square.

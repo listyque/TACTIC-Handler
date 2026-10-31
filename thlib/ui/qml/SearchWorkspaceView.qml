@@ -186,7 +186,7 @@ Item {
                 iconName: "tags"
                 iconColor: tagCloudPopup.opened || appController.active_tag_count > 0 ? root.theme.action : root.theme.primaryText
                 backgroundColor: tagCloudPopup.opened ? root.theme.secondaryContainer : "transparent"
-                round: false
+                round: true
                 toolTip: qsTr("Tags")
                 onPressed: tagCloudPopup.sourceWasOpen = tagCloudPopup.opened
                 onClicked: {
@@ -232,7 +232,7 @@ Item {
                 iconName: "filter"
                 iconColor: quickFilterPopup.opened || appController.active_quick_filter_count > 0 ? root.theme.action : root.theme.primaryText
                 backgroundColor: quickFilterPopup.opened ? root.theme.secondaryContainer : "transparent"
-                round: false
+                round: true
                 toolTip: qsTr("Quick filters")
                 onPressed: quickFilterPopup.sourceWasOpen = quickFilterPopup.opened
                 Component.onCompleted: root.quickFilterAnchor = this
@@ -275,7 +275,7 @@ Item {
                 height: parent.height
                 theme: root.theme
                 iconName: "more-vert"
-                round: false
+                round: true
                 toolTip: root.compactTabActions ? qsTr("More search actions") : qsTr("Workspace panels")
                 Component.onCompleted: root.headerMoreAnchor = this
                 onPressed: searchHeaderOverflowMenu.sourceWasOpen = searchHeaderOverflowMenu.opened

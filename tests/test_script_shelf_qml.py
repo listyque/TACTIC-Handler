@@ -353,6 +353,17 @@ class ScriptShelfQmlTests(unittest.TestCase):
             self.fixture.controller.window_model.helpTopic, "search"
         )
 
+    def test_main_search_header_buttons_remain_round(self):
+        from tests.test_service_button_shapes import surface_radius
+        with self.fixture.scene(width=900, shelf=_Shelf()) as (window, view):
+            for name in ("searchRefreshButton", "scriptShelfButton", "searchTagButton",
+                         "searchQuickFilterButton", "searchWorkspaceHelpButton",
+                         "searchHeaderOverflowButton"):
+                control = self._item(view, name)
+                self.assertEqual(control.width(), control.height(), name)
+                self.assertTrue(control.property("round"), name)
+                self.assertGreaterEqual(surface_radius(control), control.height() / 2 - 1, name)
+
     def test_shelf_keeps_actions_visible_at_narrow_and_wide_sizes(self):
         for width in (480, 1400):
             with self.subTest(width=width):

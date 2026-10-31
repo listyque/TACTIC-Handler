@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.333 - 2026-10-31
+
+- Keep the primary search workspace header actions round; preserve square icon buttons in local service toolbars.
+
 ## 0.6.0.330 - 2026-10-31
 
 - Render pipeline progress nodes as legacy-style completed-object rings with related-task navigation, and give ordinary workflow cards quiet aligned rows. Keep native lazy task editors and compact preview geometry.
