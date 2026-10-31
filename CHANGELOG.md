@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.340 - 2026-10-31
+
+- Show a compact tree/cards/table segmented switcher when search tabs leave enough toolbar space. Preserve all six original view choices, narrow/mobile menu access, loading guards and existing view state.
+
 ## 0.6.0.339 - 2026-10-31
 
 - Clarify horizontal table row separators without adding outer frames. Add Standard, Heading and Small text styles per column, including configured value badges/icons and related-count labels.

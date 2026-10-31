@@ -23,6 +23,9 @@ Item {
     signal requestDockMenu(var sourceItem)
     readonly property bool presentationActive: parent ? parent.visible : visible
     readonly property bool compactTabActions: width < 720
+    readonly property bool inlineResultViews: !compactTabActions && SearchMenus.inlineViews(width, searchTabsView.naturalContentWidth, tabHistoryControl.visible ? 42 : 0)
+    onInlineResultViewsChanged: if (resultsViewMenu)
+        resultsViewMenu.close()
     readonly property var activeResultSurface: resultsArea.activeResultSurface
     property var lastTabTiming: ({})
     property bool tabTimingVisible: false
@@ -697,13 +700,30 @@ Item {
                 toolTip: qsTr("Group items")
                 onClicked: resultMenus.openGroup(resultGroupButton)
             }
+            Frame.FrameView {
+                objectName: "searchResultsViewsInline"
+                visible: root.inlineResultViews
+                Layout.preferredWidth: visible ? SearchMenus.viewPicker.width : 0
+                Layout.preferredHeight: SearchMenus.viewPicker.height
+                theme: root.theme
+                scene: SearchMenus.describeViewPicker({
+                    mode: appController.results_view_mode,
+                    busy: appController.search_state === "loading"
+                }, root.language)
+                onEvent: action => {
+                    if (action.type === "view" && appController.search_state !== "loading")
+                        appController.set_results_view_mode(action.value);
+                }
+            }
             Controls.CompactIconButton {
                 id: resultsViewButton
+                objectName: "searchResultsViewMenuButton"
                 visible: !root.compactTabActions
                 Layout.preferredWidth: visible ? 40 : 0
                 Layout.preferredHeight: 40
                 theme: root.theme
-                iconName: root.resultViewIcon(appController.results_view_mode)
+                iconName: root.inlineResultViews && ["continious", "tiles", "table"].indexOf(appController.results_view_mode) >= 0 ? "expand-more" : root.resultViewIcon(appController.results_view_mode)
+                iconColor: root.inlineResultViews && ["continious", "tiles", "table"].indexOf(appController.results_view_mode) < 0 ? root.theme.action : root.theme.primaryText
                 round: false
                 toolTip: qsTr("Change search results view")
                 onClicked: resultsViewMenu.openBelow(resultsViewButton)
@@ -1071,6 +1091,7 @@ Item {
     }
     ActionMenu {
         id: resultsViewMenu
+        objectName: "searchResultViewsMenu"
         parent: Overlay.overlay
         theme: root.theme
         actions: SearchMenus.viewActions(appController.results_view_mode, appController.search_state === "loading")

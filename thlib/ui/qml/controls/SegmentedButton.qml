@@ -15,6 +15,7 @@ Item {
     property real contentPadding: 3
     property bool outlined: false
     property bool iconOnly: false
+    property real iconSize: 15
     property string segmentObjectNamePrefix: "segmentedButtonSegment_"
     signal activated(string value)
 
@@ -90,7 +91,7 @@ Item {
                             id: segmentIcon
                             visible: String(segment.modelData.icon || "").length > 0
                             name: String(segment.modelData.icon || "")
-                            size: 15
+                            size: root.iconSize
                             color: !segment.enabled ? root.theme.disabledText : segment.selected ? (root.outlined ? root.theme.action : root.theme.selectedText) : root.theme.secondaryText
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -111,8 +112,8 @@ Item {
                 }
 
                 background: Rectangle {
-                    radius: Math.max(3, root.theme.itemRadius - 2)
-                    border.width: root.outlined && segment.selected ? 1 : 0
+                    radius: root.theme.buttonRadius
+                    border.width: segment.activeFocus || (root.outlined && segment.selected) ? 1 : 0
                     border.color: root.theme.action
                     color: !segment.enabled ? "transparent" : root.outlined && segment.selected ? root.theme.surfaceContainerHigh : segment.down ? root.theme.surfaceContainerHighest : segment.selected ? root.theme.selected : segment.hovered ? root.theme.rowHover : "transparent"
                 }

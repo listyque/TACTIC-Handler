@@ -1,5 +1,6 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Result view': 'Вид результатов',
     'Cell text style': 'Стиль текста ячейки',
     'Size and emphasis of text values in this column.':
         'Размер и начертание текстовых значений в этой колонке.',

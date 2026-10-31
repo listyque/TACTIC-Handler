@@ -648,6 +648,7 @@ Item {
                         currentValue: wrapper.node.value || ""
                         segmentObjectNamePrefix: wrapper.node.id + "_"
                         iconOnly: !!wrapper.node.iconOnly
+                        iconSize: wrapper.node.iconSize || 15
                         enabled: !!wrapper.node.enabled
                         Accessible.name: wrapper.node.label || ""
                         onActivated: value => root.send(wrapper.node.action, value)

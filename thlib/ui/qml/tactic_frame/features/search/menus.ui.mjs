@@ -21,6 +21,43 @@ export const views = [
         icon: 'MDI_VIEW_AGENDA'
     }
 ];
+
+export const viewPicker = { width: 114, height: 40, iconSize: 20 };
+
+export function inlineViews(width, tabsWidth = 0, historyWidth = 0) {
+    // Reserve existing toolbar actions and comfortable natural tab widths.
+    return (
+        width >= 720 &&
+        width - 240 - historyWidth - Math.max(220, tabsWidth) >=
+            viewPicker.width + 8
+    );
+}
+
+export function describeViewPicker(model, language) {
+    return {
+        nodes: [
+            node(
+                'Segmented',
+                'searchResultViewPicker',
+                rect(0, 0, viewPicker.width, viewPicker.height),
+                {
+                    label: translate('Result view', language),
+                    options: views.slice(0, 3).map((view) =>
+                        Object.assign({}, view, {
+                            label: translate(view.label, language),
+                            translate: false
+                        })
+                    ),
+                    value: model.mode,
+                    enabled: !model.busy,
+                    iconOnly: true,
+                    iconSize: viewPicker.iconSize,
+                    action: { type: 'view' }
+                }
+            )
+        ]
+    };
+}
 export const groups = [
     { value: 'none', label: 'No grouping', icon: 'list-alt' },
     { value: 'status', label: 'SObject status', icon: 'group-items' },
