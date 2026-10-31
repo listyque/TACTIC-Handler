@@ -31,6 +31,7 @@ Item {
     property bool effectsEnabled: true
     property string widgetClass: ""
     property bool scrolling: false
+    readonly property string alignment: Cells.alignment(displayOptions)
 
     property var tableServices: typeof tableServicesController === "undefined" ? null : tableServicesController
     property var administration: typeof administrationController === "undefined" ? null : administrationController
@@ -114,8 +115,9 @@ Item {
                 id: label
                 anchors.fill: parent
                 leftPadding: root.columnIndex === 0 ? 14 : 10
-                rightPadding: 10
+                rightPadding: leftPadding
                 verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: root.alignment === "left" ? Text.AlignLeft : root.alignment === "right" ? Text.AlignRight : Text.AlignHCenter
                 textFormat: Text.PlainText
                 text: Cells.text(root.cell, root.textValue, root.language)
                 wrapMode: Text.Wrap
@@ -156,10 +158,10 @@ Item {
                 property color sourceColor: root.cell.statusColor
                 objectName: "tableStatusBadge"
                 theme: root.theme
-                anchors.left: parent.left
-                anchors.leftMargin: root.columnIndex === 0 ? 14 : 10
+                readonly property real inset: root.columnIndex === 0 ? 14 : 10
+                x: root.alignment === "left" ? inset : root.alignment === "right" ? parent.width - width - inset : (parent.width - width) / 2
                 anchors.verticalCenter: parent.verticalCenter
-                maximumWidth: Math.max(0, parent.width - (root.columnIndex === 0 ? 24 : 20))
+                maximumWidth: Math.max(0, parent.width - 2 * inset)
                 text: Cells.text(root.cell, root.textValue, root.language)
                 accentColor: root.theme.overlay(sourceColor, root.theme.primaryText, Cells.status.foregroundMix)
             }

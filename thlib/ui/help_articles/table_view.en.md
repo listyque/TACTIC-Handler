@@ -6,6 +6,8 @@ order: 93
 
 # Tables
 
+Column headings, plain values and status chips share a centered column axis by default. Explicit display options `justify` or `align` keep their `left`, `center` or `right` alignment. Wrapped labels retain that alignment when the column is resized.
+
 Main and embedded tables share the same square header, context menus, editors,
 selection and virtualized rows. A normal click focuses a row; checkboxes or Shift
 select records for bulk actions. Double-click opens the object or its cell editor.

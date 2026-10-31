@@ -33,6 +33,11 @@ export const metrics = {
 
 export const status = { foregroundMix: 0.45 };
 
+export function alignment(options = {}) {
+    const value = options.justify || options.align;
+    return ['left', 'right', 'center'].includes(value) ? value : 'center';
+}
+
 export function completionGroups(count, width, height) {
     const rowHeight = 18,
         gap = 4;

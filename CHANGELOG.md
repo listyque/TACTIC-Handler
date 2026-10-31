@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.322 - 2026-10-31
+
+- Center table headings, plain values and status chips on the same column axis, retaining explicit display justify/align choices.
+- Use symmetric cell/header insets and preserve wrapping, status colors, selection, column grouping and resize behavior in Handler and Stream.
+
 ## 0.6.0.321 - 2026-10-31
 
 - Expose 151 actual house-control variants in Component showcase, alongside the 29 family overviews. Search variant names, inspect their settings/code and reset the selected local example.

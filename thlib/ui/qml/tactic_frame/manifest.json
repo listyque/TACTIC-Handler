@@ -195,7 +195,7 @@
     "features/support/identity/profile.editor.ui.mjs": "bbf497cc68ce4413a0912ebf4a79be3f312a4f632d51ad90bccc8bca9254b392",
     "features/support/identity/profile.ui.mjs": "5151f796e433adbb9fc5141ab66b07567015be99a642413eaa601ae7d1367796",
     "features/table/actions.state.mjs": "2c49095a3da0081306412baf123e67c4cb59714374486cc2f4081ab7cc7da3e7",
-    "features/table/cells.ui.mjs": "9da2a9ab7eb28a265e36aa558c2e4c4190831c9240ba37b06b191ad84de6a95e",
+    "features/table/cells.ui.mjs": "928d06390d130dc8c3f04bfeafe529c046fa44031e785d55ec87c60b1fdf57aa",
     "features/table/columns.mjs": "8e6356c81574f564007600a5954f5f349cb2da3e0489f5ccd83f48ccb38d19ac",
     "features/table/connections.ui.mjs": "d9de4e4f782eb1e1a6a2aef695cef6e2abe459c4246072f894645c9f7991317a",
     "features/table/dependencies.state.mjs": "4ac3e56334250a4860ee5c382e81e93eb00832a60c7b00ed5973e0add6d085af",

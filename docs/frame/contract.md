@@ -350,3 +350,5 @@ current window while navigating hints so IME and keyboard focus stay in the fiel
 Filter values are local page state. The server's CustomLayoutReadCmd resolves only
 configured widget scopes, source constraints and native read permissions; see the
 Stream Frame contract for the server boundary.
+
+Table headings and plain/status values share cells.ui.mjs alignment: center by default, retaining explicit display justify/align left/center/right. Both engines keep symmetric insets, wrapped-label alignment and column-axis badge placement across resize.

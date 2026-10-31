@@ -5,6 +5,7 @@ import QtQuick.Controls
 import "controls" as Controls
 import "tactic_frame/features/table/menus.ui.mjs" as TableMenus
 import "tactic_frame/features/table/host.ui.mjs" as TableHost
+import "tactic_frame/features/table/cells.ui.mjs" as Cells
 
 Rectangle {
     id: root
@@ -230,8 +231,12 @@ Rectangle {
                 Label {
                     objectName: "tableColumnHeaderLabel_" + String(headerCell.modelData.name || "")
                     anchors.fill: parent
-                    leftPadding: headerCell.index === 0 ? 14 : 10
+                    leftPadding: headerCell.grouped ? 30 : 12
                     verticalAlignment: Text.AlignVCenter
+                    horizontalAlignment: {
+                        const alignment = Cells.alignment(headerCell.modelData.displayOptions || ({}));
+                        return alignment === "left" ? Text.AlignLeft : alignment === "right" ? Text.AlignRight : Text.AlignHCenter;
+                    }
                     text: TableHost.headerAction(headerCell.modelData) ? "" : String(headerCell.modelData.label || headerCell.modelData.name || "").toUpperCase()
                     elide: Text.ElideRight
                     color: root.theme[TableHost.paint.headerText]
