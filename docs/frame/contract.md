@@ -363,4 +363,9 @@ Result density follows `features/search/card.ui.mjs:compactRows`: below 445 DIP 
 
 Wide search headers reveal up to three configured quick-filter groups through the shared search header budget and quickStrip description. Label widths use the rendered control font; whole groups return to the existing full popup as space contracts. Both engines reuse their existing quick-filter selection/configuration owners. Inline quick-filter triggers use the theme field radius and low surface, normal-weight labels, leading semantic icons and a separate trailing chevron. Action nodes honor radiusRole through the existing ItemSurface in both engines; all glyphs retain the same parent activation target.
 
+Apply cached native quick-filter configuration after the groups binding settles
+(`Qt.callLater`), because applying settings emits the groups notification again.
+The browser already loads its catalog asynchronously. Native/browser inline-filter
+regressions verify that expanding a compact header shows the configured groups.
+
 Column `value_align` overrides content alignment only (left/center/right, empty inherits authored display justify/align). Headings call the same alignment helper with content=false. Shared contentX positions value badges and related actions; native text/status and ordinary preview/action presenters retain their existing input owners. Full-width authored widgets keep their internal layout.

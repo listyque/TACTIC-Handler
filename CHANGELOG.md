@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.351 - 2026-11-01
+
+- Defer cached quick-filter configuration until QML group bindings settle. Prevent binding-loop warnings and stale inline groups when returning to a wide search header; retain configured visibility and the existing selection owner on Legacy TACTIC and Stream.
+
 ## 0.6.0.350 - 2026-11-01
 
 - Detect Legacy TACTIC versus Stream during authenticated bootstrap and bind the result to the current server/login/ticket. Hide and guard Stream-only agent, MCP, drafts, diagnostics, database resources and process controls; retain legacy administration, scripts, DCC and periodic updates without overwriting saved SSE preferences. Preserve HTTP status errors for empty or HTML configuration responses.

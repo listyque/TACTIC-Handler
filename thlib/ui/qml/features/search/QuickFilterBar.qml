@@ -28,8 +28,9 @@ Item {
     signal groupRequested(string key, var source)
 
     implicitWidth: scene.width
+    // Cached settings emit groupsChanged; apply them after this binding settles.
     onGroupsChanged: if (groups.length > 0)
-        editorController.ensure_current()
+        Qt.callLater(editorController.ensure_current)
     Connections {
         target: root.controller
         enabled: root.groups.length > 0

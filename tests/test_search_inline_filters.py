@@ -23,6 +23,31 @@ class SearchInlineFilterTests(unittest.TestCase):
         QTest.mouseClick(item.window(), Qt.LeftButton, Qt.NoModifier, point)
         fixture.frame(window)
 
+    def test_cached_configuration_does_not_reenter_groups_binding(self):
+        tab = self.controller._current_tab()
+        tab.search_text = 'hero'
+        tab.stype = _Stype()
+        self.controller.workspace_model.replace_nodes([])
+        self.enterContext(patch.object(QuickFilterEditorController, '_run'))
+        self.enterContext(patch.object(self.controller, '_active_quick_filter_facets', return_value=[]))
+        with self.scene(width=900, animated=False, shelf=QObject()) as (window, view):
+            popup = view.findChild(QObject, 'searchQuickFilterPopup')
+            editor = popup.property('editorController')
+            key = editor._key(editor._context(include_groups=False))
+            editor._context_key = ('demo', 'other/type', 'other/type')
+            editor._loaded[key] = {
+                'groups': [{'key': 'status', 'enabled': False}],
+                'defaultSelections': {},
+            }
+            window.resize(1460, 650)
+            view.setWidth(1460)
+            fixture.frame(window)
+            self.assertEqual(editor._context_key, key)
+            status_visible = fixture.visual_control(view, 'searchQuickGroup_status') is not None
+            assigned_visible = fixture.visual_control(view, 'searchQuickGroup_assigned') is not None
+        self.assertFalse(status_visible)
+        self.assertTrue(assigned_visible)
+
     def test_scoped_groups_use_existing_selection_and_resize_fallback(self):
         controller = self.controller
         tab = controller._current_tab()
