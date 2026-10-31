@@ -9,6 +9,7 @@ import * as Parent from './parent.ui.mjs';
 import * as Publish from './publish.ui.mjs';
 import * as Nested from './nested.ui.mjs';
 import { buttonWidth } from '../../controls/buttons/metrics.mjs';
+import * as Cells from './cells.ui.mjs';
 
 export function describe(
     cell,
@@ -19,6 +20,13 @@ export function describe(
     expanded = {},
     server = ''
 ) {
+    if (cell.valuePresentation)
+        return Cells.valueLabel(
+            cell.text,
+            width,
+            height,
+            cell.valuePresentation
+        );
     if (cell.publish)
         return Publish.describe(
             cell,
@@ -108,8 +116,19 @@ export function describe(
             view: action.view || ''
         };
         if (combined) {
-            const text = String(cell.text),
-                w = Math.min(inner, buttonWidth(text.length * 7, true));
+            const options = cell.displayOptions || {},
+                leadingIcon = Object.prototype.hasOwnProperty.call(
+                    options,
+                    'value_icon'
+                )
+                    ? options.value_icon
+                    : options.icon || options.title_icon || '',
+                text = Cells.relatedLabel(cell.text, options),
+                left = leadingIcon ? 36 : 12,
+                w = Math.min(
+                    inner,
+                    buttonWidth(text.length * 7, true) + (leadingIcon ? 24 : 0)
+                );
             children.push(
                 node(
                     'Action',
@@ -137,7 +156,7 @@ export function describe(
                             ),
                             label(
                                 'tableServiceValue',
-                                rect(12, 0, Math.max(0, w - 48), size),
+                                rect(left, 0, Math.max(0, w - left - 36), size),
                                 text,
                                 {
                                     weight: 600,
@@ -146,6 +165,21 @@ export function describe(
                                         : 'disabledText'
                                 }
                             ),
+                            ...(leadingIcon
+                                ? [
+                                      node(
+                                          'Icon',
+                                          'tableServiceLeadingIcon',
+                                          rect(12, (size - 16) / 2, 16, 16),
+                                          {
+                                              icon: leadingIcon,
+                                              color: enabled
+                                                  ? 'action'
+                                                  : 'disabledText'
+                                          }
+                                      )
+                                  ]
+                                : []),
                             node(
                                 'Icon',
                                 'tableServiceDisclosure',

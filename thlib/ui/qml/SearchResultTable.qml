@@ -10,6 +10,7 @@ import "tactic_frame/features/table/nested.ui.mjs" as Nested
 import "tactic_frame/features/table/columns.mjs" as TableColumnLayout
 import "tactic_frame/features/table/host.ui.mjs" as TableHost
 import "tactic_frame/features/table/parent.ui.mjs" as ParentUI
+import "tactic_frame/features/table/cells.ui.mjs" as Cells
 
 Item {
     id: root
@@ -589,6 +590,7 @@ Item {
                                 cell: cellDelegate.cell
                                 textValue: cellDelegate.textValue
                                 columnIndex: cellDelegate.index
+                                fieldName: cellDelegate.modelData.name || ""
                                 previewActive: resultRow.previewActive
                                 previewUrl: resultRow.previewUrl
                                 previewRevealed: resultRow.previewRevealed
@@ -596,7 +598,7 @@ Item {
                                 accent: resultRow.accent
                                 comments: resultRow.comments
                                 tasks: resultRow.tasks
-                                displayOptions: cellDelegate.modelData.displayOptions || ({})
+                                displayOptions: Cells.presentationOptions(cellDelegate.modelData.displayOptions || ({}), cellDelegate.modelData.attributes || ({}))
                                 widgetClass: cellDelegate.modelData.widgetClass || cellDelegate.modelData.resolvedClass || ""
                                 effectsEnabled: !rows.moving
                                 scrolling: rows.moving

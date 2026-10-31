@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.338 - 2026-10-31
+
+- Show Duration as a compact clock badge; add configurable value icons and badge/plain appearance in Columns Editor. Related-object count buttons retain their configured leading icons and use type/count captions.
+
 ## 0.6.0.337 - 2026-10-31
 
 - Combine related-table counts and disclosure arrows into one compact button; retain scoped toggle/loading behavior and native keyboard interaction.

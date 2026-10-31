@@ -6,6 +6,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
 import "features/table" as Table
+import "tactic_frame" as Frame
 
 Item {
     id: root
@@ -28,6 +29,7 @@ Item {
     required property int tasks
     required property var displayOptions
     property var selectionOwner: controller
+    property string fieldName: ""
     property bool effectsEnabled: true
     property string widgetClass: ""
     property bool scrolling: false
@@ -38,6 +40,7 @@ Item {
     readonly property string safeHref: Cells.link(cell.href, controller ? controller.server_url || "" : "")
     readonly property bool clickableLink: kind === "link" && safeHref.length > 0
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    readonly property var valuePresentation: kind === "text" && !cell.error && !cell.statusColor ? Cells.valuePresentation(fieldName, displayOptions) : null
 
     signal processCountMenuRequested(string panel, var anchorItem)
 
@@ -80,6 +83,8 @@ Item {
                 return summaryCell;
             if (root.kind === "task_summary" || root.kind === "tasks")
                 return tasksCell;
+            if (root.valuePresentation)
+                return decoratedValueCell;
             return root.cell.statusColor && !root.cell.error ? statusCell : textCell;
         }
     }
@@ -145,6 +150,22 @@ Item {
                 theme: root.theme
                 visible: hover.hovered && (String(root.cell.error || "").length > 0 || String(root.cell.tooltip || "").length > 0 || label.truncated)
                 text: String(root.cell.error || root.cell.tooltip || "") || root.textValue
+            }
+        }
+    }
+
+    Component {
+        id: decoratedValueCell
+        Frame.FrameView {
+            theme: root.theme
+            scene: Cells.valueLabel(Cells.text(root.cell, root.textValue, root.language), width, height, root.valuePresentation)
+            HoverHandler {
+                id: valueHover
+            }
+            Controls.ToolTip {
+                theme: root.theme
+                visible: valueHover.hovered
+                text: String(root.cell.tooltip || "") || Cells.text(root.cell, root.textValue, root.language)
             }
         }
     }

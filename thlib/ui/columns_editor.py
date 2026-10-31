@@ -696,6 +696,9 @@ class ColumnsEditorController(QObject):
                     ),
                     "width": tactic_definition.width(element.get("width")),
                     "widget": str(widget),
+                    **({"valueIcon": element.get("value_icon")} if "value_icon" in element.attrib else
+                       {"valueIcon": display.findtext("icon")} if display is not None and display.find("icon") is not None else {}),
+                    **({"valueStyle": element.get("value_style")} if "value_style" in element.attrib else {}),
                 })
         had_error = bool(self._error)
         self._error = ""
@@ -742,6 +745,13 @@ class ColumnsEditorController(QObject):
                 )
             elif field == "width":
                 node.set("width", str(tactic_definition.width(value)))
+            elif field in {"valueIcon", "valueStyle"}:
+                value = str(value or "").strip()
+                if field == "valueStyle" and value not in {"", "text", "badge"}:
+                    raise ValueError(self.tr("Invalid value appearance"))
+                if field == "valueIcon" and (len(value) > 128 or value and not re.fullmatch(r"[\w:.-]+", value, flags=re.ASCII)):
+                    raise ValueError(self.tr("Invalid icon name"))
+                node.set("value_icon" if field == "valueIcon" else "value_style", value)
             elif field == "widget":
                 display = node.find("display")
                 if display is None:
@@ -989,7 +999,10 @@ class ColumnsEditorController(QObject):
                     item.get("dataType") or info.get("data_type") or "text"
                 ) in {"text", "boolean", "link"}
                 and not (name in self._protected or not editable),
-                "displayOptions": dict(item.get("displayOptions") or {}),
+                "displayOptions": {
+                    **dict(item.get("displayOptions") or {}),
+                    **{key: attrs[key] for key in ("value_icon", "value_style") if key in attrs},
+                },
                 "displayXml": str(item.get("displayXml") or ""),
                 "editClass": str(item.get("editClass") or ""),
                 "editWidget": str(item.get("editWidget") or ""),

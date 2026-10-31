@@ -2,6 +2,85 @@ import { translate } from '../../core/strings.mjs';
 import { node, rect, label } from '../../core/frame.mjs';
 import { textStyles, spacing } from '../../core/foundation.mjs';
 import * as Chart from '../../controls/charts/chart.ui.mjs';
+import { buttonWidth } from '../../controls/buttons/metrics.mjs';
+
+export function presentationOptions(options = {}, attributes = {}) {
+    const result = Object.assign({}, options);
+    for (const key of ['value_icon', 'value_style'])
+        if (Object.prototype.hasOwnProperty.call(attributes, key))
+            result[key] = attributes[key];
+    return result;
+}
+
+export function valuePresentation(field, options = {}) {
+    const badge = options.value_style
+        ? options.value_style === 'badge'
+        : field === 'duration';
+    const icon = Object.prototype.hasOwnProperty.call(options, 'value_icon')
+        ? options.value_icon
+        : badge && field === 'duration'
+          ? 'clock'
+          : '';
+    return badge || icon ? { badge, icon, align: alignment(options) } : null;
+}
+
+export function valueLabel(text, width, height, presentation) {
+    text = String(text ?? '');
+    const icon = presentation.icon || '',
+        h = Math.max(0, Math.min(30, height)),
+        w = Math.min(
+            Math.max(0, width - 12),
+            buttonWidth(text.length * 7, !!icon)
+        ),
+        left = icon ? 36 : 12;
+    const children = [
+        label(
+            'tableValueLabel',
+            rect(left, 0, Math.max(0, w - left - 12), h),
+            text
+        )
+    ];
+    if (icon)
+        children.unshift(
+            node('Icon', 'tableValueIcon', rect(12, (h - 16) / 2, 16, 16), {
+                icon,
+                color: 'action'
+            })
+        );
+    const x =
+        presentation.align === 'left'
+            ? 6
+            : presentation.align === 'right'
+              ? width - w - 6
+              : (width - w) / 2;
+    return {
+        nodes: [
+            node(
+                'Box',
+                'tableValueBadge',
+                rect(Math.max(0, x), (height - h) / 2, w, h),
+                {
+                    background: presentation.badge
+                        ? 'surfaceContainerHigh'
+                        : undefined,
+                    border: presentation.badge ? 'outlineVariant' : undefined,
+                    radius: 4,
+                    children
+                }
+            )
+        ]
+    };
+}
+
+export function relatedLabel(text, options = {}) {
+    text = String(text ?? '').trim();
+    const count =
+        String(options.label || '').includes('@COUNT(') &&
+        text.match(/^(\d+)\s+(.+)$/);
+    return count
+        ? count[2].charAt(0).toUpperCase() + count[2].slice(1) + ' ' + count[1]
+        : text;
+}
 
 const actions = {
     sobject_detail: ['search', 'Open details'],

@@ -481,6 +481,38 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                     }
                 },
                 {
+                    id: 'definitionCatalogValueIcon',
+                    kind: 'IconChoice',
+                    title: 'Cell icon',
+                    description:
+                        'Icon beside text values and related-table counts.',
+                    field: 'valueIcon',
+                    props: {
+                        value: Object.prototype.hasOwnProperty.call(
+                            element,
+                            'valueIcon'
+                        )
+                            ? element.valueIcon
+                            : element.name === 'duration'
+                              ? 'clock'
+                              : '',
+                        tacticCompatibleOnly: true
+                    }
+                },
+                {
+                    kind: 'Choice',
+                    id: 'definitionCatalogValueStyle',
+                    title: 'Value appearance',
+                    description: 'Automatic shows Duration as a badge.',
+                    field: 'valueStyle',
+                    options: [
+                        { value: '', label: tr('Automatic') },
+                        { value: 'text', label: tr('Text') },
+                        { value: 'badge', label: tr('Badge') }
+                    ],
+                    props: { value: element.valueStyle || '' }
+                },
+                {
                     kind: 'Choice',
                     id: 'definitionCatalogWidget',
                     title: 'Display widget',

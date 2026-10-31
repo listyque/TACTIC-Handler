@@ -1,5 +1,14 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Cell icon': 'Иконка значения',
+    'Icon beside text values and related-table counts.':
+        'Иконка рядом с текстом и количеством связанных объектов.',
+    'Value appearance': 'Оформление значения',
+    'Automatic shows Duration as a badge.':
+        'Автоматически: Duration отображается баджем.',
+    Badge: 'Бадж',
+    'Invalid value appearance': 'Неверное оформление значения',
+    'Invalid icon name': 'Неверное имя иконки',
     'Search this page…': 'Поиск по странице…',
     'Choose a configured page filter': 'Выберите настроенный фильтр страницы',
     'Choose a suggestion or enter Field: value':

@@ -492,6 +492,7 @@ class NestedTableTests(unittest.TestCase):
         self.addCleanup(owner.shutdown)
         history = dict(searchType='sthpw/snapshot', view='history', parentKey=application.node.search_key)
         cells = [dict(text='4 assets', columnName=name, nestedTable=scope,
+            displayOptions=dict(icon='FAS_CUBE', label='{@COUNT(demo/asset)} assets'),
             actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
             for name, scope in [('history', history), ('tasks', dict(history, view='tasks')), ('history_copy', history)] * 2]
         surfaces = [self.create('features/table/ServiceCell.qml', dict(controller=_TableController(),
@@ -501,7 +502,8 @@ class NestedTableTests(unittest.TestCase):
         for _, view in surfaces:
             action = view.property('scene').toVariant()['nodes'][0]['children'][0]
             self.assertEqual(action['kind'], 'Action')
-            self.assertEqual(action['text'], '4 assets')
+            self.assertEqual(action['text'], 'Assets 4')
+            self.assertEqual(next(child['icon'] for child in action['children'] if child['id'] == 'tableServiceLeadingIcon'), 'FAS_CUBE')
             self.assertLess(action['width'], view.width())
         captures = []
         def icons():
