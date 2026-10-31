@@ -1,5 +1,10 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Search this page…': 'Поиск по странице…',
+    'Choose a configured page filter': 'Выберите настроенный фильтр страницы',
+    'Choose a suggestion or enter Field: value':
+        'Выберите подсказку или введите Поле: значение',
+    'Choose a value': 'Выберите значение',
     'Backend server': 'Сервер ТС',
     'Worker processes and server restart': 'Процессы и перезапуск сервера',
     'Server processes': 'Процессы сервера',

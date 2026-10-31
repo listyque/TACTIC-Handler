@@ -310,11 +310,15 @@ limit. If more groups exist, the widget shows a truncation notice. The report gr
 uses normal native scrolling and virtualization; charts support negative values.
 No matching rows leave numeric aggregates empty instead of inventing zero.
 
-On the published page, enable filters, enter values and click Apply.
-Typing or resizing does not start a query. Reset filters restores the saved
-defaults. These are temporary values, not edits to the page configuration. Invalid
-values show an error and preserve the previous result. The authoring preview
-shows saved defaults read-only; publish through the usual validated Save.
+On the published page, use the single **Search this page…** field. Type a value
+or a filter name, choose a suggestion with the mouse or arrows and Enter, or
+enter `Field: value`. Matching text is highlighted. A chosen condition appears
+below the search and immediately refreshes the page's charts, metrics and tables.
+Click the condition's close action to disable it. Numbers, booleans, dates and
+empty values keep their native types. Search and conditions are local runtime
+state; they never rewrite the saved dashboard. Resizing does not start a query.
+Suggestions retain the source/project/read-access constraints and are limited;
+an explicit field and typed value can be submitted without choosing a hint.
 
 The internal agent uses the same dashboard schema and native tools for shared
 filters, explicit mappings, groupings and measures. Source permissions, revision

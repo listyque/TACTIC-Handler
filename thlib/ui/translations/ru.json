@@ -6018,5 +6018,9 @@
   "Project chat rules changed. Reopen the editor before saving.": "Правила чатов проекта изменились. Откройте редактор заново перед сохранением.",
   "Project chat rules must be text of at most 16000 characters": "Правила чатов проекта должны содержать не более 16000 символов",
   "Select a user project before editing chat rules": "Выберите пользовательский проект для настройки правил чата",
-  "Reconnect the agent to load project chat rules": "Переподключите агента, чтобы загрузить правила чатов проекта"
+  "Reconnect the agent to load project chat rules": "Переподключите агента, чтобы загрузить правила чатов проекта",
+  "Search this page…": "Поиск по странице…",
+  "Choose a configured page filter": "Выберите настроенный фильтр страницы",
+  "Choose a suggestion or enter Field: value": "Выберите подсказку или введите Поле: значение",
+  "Choose a value": "Выберите значение"
 }

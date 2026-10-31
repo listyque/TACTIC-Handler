@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.320 - 2026-10-31
+
+- Replace page filter checkbox/forms with one house search and matching field/value suggestions, highlighted as users type.
+- Apply and remove typed conditions immediately across dashboard metrics, charts and tables; retain the focused input and all saved configuration.
+- Read hints through the existing native custom-layout command with project/ACL constraints, query limits and stale-result guards in Handler and Stream.
+
 ## 0.6.0.319 - 2026-10-31
 
 - Make modern service buttons square with the same small corner across themes: tables/count actions, search/paging tools, editors, pickers, chips, spin controls and dock tools.

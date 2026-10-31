@@ -91,6 +91,9 @@ Frame.FrameView {
     models: owner.tableModels || ({})
     describeCell: Report.cell
     views: ({
+            pageFilterSearch: {
+                component: filterSearchComponent
+            },
             layoutItems: {
                 component: itemsComponent,
                 nodeProps: true
@@ -143,6 +146,15 @@ Frame.FrameView {
             filterDraft = Filters.change(filterDraft, action);
             return;
         }
+        if (action.type === 'page-filter-remove') {
+            filterDraft = Filters.change(filterDraft, {
+                name: action.name,
+                field: 'enabled',
+                value: false
+            });
+            owner.apply_filters(Filters.values(document.layoutFilters, filterDraft));
+            return;
+        }
         if (action.type === 'page-filter-apply' || action.type === 'page-filter-reset') {
             try {
                 if (action.type === 'page-filter-reset')
@@ -167,6 +179,21 @@ Frame.FrameView {
         ignoreUnknownSignals: true
         function onFormSettled(identity, result) {
             root.recordForms = Parts.settled(root.recordForms, identity, result, result.failure);
+        }
+    }
+    Component {
+        id: filterSearchComponent
+        PageFilterSearch {
+            theme: root.theme
+            owner: root.owner
+            definitions: root.document.layoutFilters || []
+            values: root.filterDraft
+            language: root.language
+            enabled: !root.editing && !root.document.layoutBusy
+            onApplied: values => {
+                root.filterDraft = values;
+                root.owner.apply_filters(values);
+            }
         }
     }
     Component {

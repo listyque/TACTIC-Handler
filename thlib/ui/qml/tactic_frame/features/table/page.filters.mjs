@@ -1,7 +1,8 @@
-import { node, rect, label, button } from '../../core/frame.mjs';
+import { node, rect, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
-import { type, value } from '../administration/layouts/page.data.mjs';
+import { value } from '../administration/layouts/page.data.mjs';
 import { buttonWidth } from '../../controls/buttons/metrics.mjs';
+import { textStyles } from '../../core/foundation.mjs';
 
 export function initial(definitions = []) {
     const result = {};
@@ -30,120 +31,130 @@ export function values(definitions, draft) {
     }
     return result;
 }
-export function describe(definitions, draft, width, language, enabled = true) {
+export function query(definitions, text) {
+    const colon = text.indexOf(':');
+    if (colon < 0) return { field: '', text: text.trim() };
+    const key = text.slice(0, colon).trim().toLocaleLowerCase();
+    const field = definitions.find((item) =>
+        [item.name, item.title].some((name) => name.toLocaleLowerCase() === key)
+    );
+    if (!field) throw Error('Choose a configured page filter');
+    return { field: field.name, text: text.slice(colon + 1).trim() };
+}
+export function suggestions(definitions, text, records = [], language = 'en') {
+    if (!text.trim()) return [];
+    const tr = (text) => translate(text, language),
+        request = query(definitions, text);
+    const fields = request.field
+        ? []
+        : definitions
+              .filter((item) =>
+                  [item.name, item.title].some((name) =>
+                      name
+                          .toLocaleLowerCase()
+                          .includes(request.text.toLocaleLowerCase())
+                  )
+              )
+              .map((item) => ({
+                  title: item.title + ':',
+                  description: tr('Choose a value'),
+                  name: item.name,
+                  field: true
+              }));
+    return fields
+        .concat(
+            records
+                .map((record) => {
+                    const field = definitions.find(
+                        (item) => item.name === record.name
+                    );
+                    return field
+                        ? Object.assign({}, record, {
+                              title:
+                                  record.value === null
+                                      ? tr('Is empty')
+                                      : String(record.value),
+                              description: field.title
+                          })
+                        : null;
+                })
+                .filter(Boolean)
+        )
+        .slice(0, 20);
+}
+export function choose(definitions, draft, record) {
+    const field = definitions.find((item) => item.name === record.name);
+    if (!field) throw Error('Choose a configured page filter');
+    if (record.field) return { text: field.title + ': ', draft, apply: false };
+    return {
+        text: '',
+        draft: Object.assign({}, draft, {
+            [field.name]: { enabled: true, value: record.value }
+        }),
+        apply: true
+    };
+}
+export function submit(definitions, draft, text, records) {
+    const request = query(definitions, text);
+    if (request.field) {
+        const field = definitions.find((item) => item.name === request.field);
+        const raw = request.text.replace(/^"(.*)"$/, '$1');
+        return choose(definitions, draft, {
+            name: field.name,
+            value: value({ dataType: field.dataType }, raw)
+        });
+    }
+    const candidates = records.filter((record) => !record.field);
+    if (candidates.length === 1)
+        return choose(definitions, draft, candidates[0]);
+    throw Error('Choose a suggestion or enter Field: value');
+}
+export function describe(
+    definitions,
+    draft,
+    width,
+    language,
+    enabled = true,
+    measure = (text) => text.length * 7
+) {
     if (!definitions?.length) return { height: 0, nodes: [] };
     const tr = (text) => translate(text, language),
-        nodes = [],
-        gap = 12;
-    const applyWidth = Math.min(
+        nodes = [
+            node('View', 'pageRuntimeSearch', rect(0, 0, width, 38), {
+                view: 'pageFilterSearch'
+            })
+        ];
+    let x = 0,
+        y = 46;
+    for (const field of definitions) {
+        const row = draft[field.name] || field;
+        if (!row.enabled) continue;
+        const caption =
+            field.title +
+            ' ' +
+            (field.relation === '=' ? ':' : field.relation) +
+            ' ' +
+            (row.value === null ? tr('Is empty') : String(row.value));
+        const size = Math.min(
             width,
-            buttonWidth(tr('Apply').length * 8, true)
-        ),
-        resetWidth = Math.min(width, buttonWidth(tr('Reset').length * 8, true)),
-        actionsWidth = applyWidth + resetWidth + 8,
-        inline = width >= definitions.length * 250 + actionsWidth + gap,
-        fieldsWidth = inline ? width - actionsWidth - gap : width;
-    const maximum = Math.max(1, Math.floor((fieldsWidth + gap) / 260)),
-        columns = Math.ceil(
-            definitions.length / Math.ceil(definitions.length / maximum)
-        ),
-        size = (fieldsWidth - gap * (columns - 1)) / columns;
-    definitions.forEach((item, index) => {
-        const x = (index % columns) * (size + gap),
-            y = Math.floor(index / columns) * 44,
-            row = draft[item.name] || item;
+            buttonWidth(measure(caption, textStyles.body, 600), true)
+        );
+        if (x && x + size > width) {
+            x = 0;
+            y += 38;
+        }
         nodes.push(
-            node(
-                'CheckBox',
-                'pageRuntime_' + item.name + '_enabled',
-                rect(x, y + 5, 24, 24),
-                {
-                    checked: row.enabled,
-                    enabled,
-                    label: item.title,
-                    action: {
-                        type: 'page-filter',
-                        name: item.name,
-                        field: 'enabled'
-                    }
-                }
+            button(
+                'pageRuntimeRemove_' + field.name,
+                rect(x, y, size, 32),
+                caption,
+                'close',
+                { type: 'page-filter-remove', name: field.name },
+                enabled,
+                { tonal: true }
             )
         );
-        nodes.push(
-            label(
-                'pageRuntime_' + item.name + '_title',
-                rect(x + 28, y, Math.min(88, size * 0.28), 34),
-                item.title,
-                { weight: 500, maxLines: 1 }
-            )
-        );
-        const action = { type: 'page-filter', name: item.name, field: 'value' },
-            field = type({ dataType: item.dataType });
-        if (item.value == null && ['=', '!='].includes(item.relation))
-            nodes.push(
-                label(
-                    'pageRuntime_' + item.name + '_value',
-                    rect(x + 120, y, Math.max(0, size - 120), 34),
-                    tr(item.relation === '=' ? 'Is empty' : 'Is not empty'),
-                    { color: 'secondaryText' }
-                )
-            );
-        else
-            nodes.push(
-                node(
-                    field === 'boolean'
-                        ? 'Choice'
-                        : field === 'date'
-                          ? 'DateChoice'
-                          : 'Field',
-                    'pageRuntime_' + item.name + '_value',
-                    rect(x + 120, y, Math.max(0, size - 120), 34),
-                    {
-                        label: item.title,
-                        text: String(row.value ?? ''),
-                        value: String(row.value),
-                        enabled: enabled && row.enabled,
-                        inputMode: field === 'number' ? 'decimal' : 'text',
-                        includeTime: /time/i.test(item.dataType),
-                        action,
-                        options:
-                            field === 'boolean'
-                                ? [
-                                      { value: 'true', label: tr('Yes') },
-                                      { value: 'false', label: tr('No') }
-                                  ]
-                                : undefined
-                    }
-                )
-            );
-    });
-    const y = inline ? 1 : Math.ceil(definitions.length / columns) * 44;
-    const actionX = inline ? width - actionsWidth : 0;
-    const stacked = actionsWidth > width;
-    nodes.push(
-        button(
-            'pageRuntimeApply',
-            rect(actionX, y, applyWidth, 32),
-            tr('Apply'),
-            'filter',
-            { type: 'page-filter-apply' },
-            enabled
-        )
-    );
-    nodes.push(
-        button(
-            'pageRuntimeReset',
-            rect(
-                stacked ? 0 : actionX + applyWidth + 8,
-                y + (stacked ? 40 : 0),
-                resetWidth,
-                32
-            ),
-            tr('Reset'),
-            'restore',
-            { type: 'page-filter-reset' },
-            enabled
-        )
-    );
-    return { height: inline ? 40 : y + (stacked ? 84 : 40), nodes };
+        x += size + 8;
+    }
+    return { height: nodes.length > 1 ? y + 32 : 38, nodes };
 }

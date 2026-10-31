@@ -341,3 +341,12 @@ apply this interior once without rewriting authored page/card padding.
 Verify both boundaries in native and browser rendering.
 
 Service Button and icon-action controls default to 4 DIP corners in all themes. Frame titlebar Boxes explicitly mark their direct Button children round; native Button and AppButton honor that flag. Primary navigation/window chrome opts in, while table, search, dock and editor controls never force circular rounding. Media, avatars, static chips, status/radio/switch indicators and ripples are separate paint roles.
+
+Shared dashboard conditions use the `pageFilterSearch` port and house SearchField.
+The shared `page.filters.mjs` owns matching, typed values, chip layout and removal.
+The native CustomLayoutController owns bounded asynchronous value hints and ignores
+old page/query results; its close path cancels pending hints. Search remains in the
+current window while navigating hints so IME and keyboard focus stay in the field.
+Filter values are local page state. The server's CustomLayoutReadCmd resolves only
+configured widget scopes, source constraints and native read permissions; see the
+Stream Frame contract for the server boundary.

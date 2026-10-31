@@ -1,11 +1,12 @@
 """A configured native document owns its embedded tables and script lifetime."""
 
-from PySide6.QtCore import QObject, Slot, QTimer, Signal, Property
+from PySide6.QtCore import QObject, Slot, QTimer, Signal, Property, Qt
 
 
 class CustomLayoutController(QObject):
     changed = Signal()
     formSettled = Signal(str, 'QVariantMap')
+    filterSuggestionsReady = Signal(str, 'QVariantList', str)
 
     def __init__(self, services, *, workspace=False):
         super().__init__(services)
@@ -24,6 +25,9 @@ class CustomLayoutController(QObject):
         self._previous_maximized = ''
         self._view = self._title = self._target = ''
         self._report_models = {}
+        self._filter_worker = None
+        self._filter_pending = None
+        self._filter_generation = 0
         if workspace:
             services._application.results_view_changed.connect(self.changed)
             services._application.selected_node_changed.connect(self.select_detail)
@@ -103,12 +107,63 @@ class CustomLayoutController(QObject):
         self.document_data['layoutError'] = message
         self.notify_document()
 
+    @Slot('QVariantMap', str)
+    def request_filter_suggestions(self, query, request):
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+        self._filter_generation += 1
+        if self._filter_worker is not None:
+            self._filter_pending = (dict(query), request)
+            self._filter_worker.cancel()
+            return
+        self._filter_pending = None
+        generation = self._filter_generation
+        document_generation = self.document_generation
+        try:
+            server = tc.server_start(project=self.context['project'])
+            arguments = dict(view=self.document_data['layoutView'], search_key=self.document_data['targetSearchKey'],
+                filter_values=self.document_data.get('layoutFilterValues'), filter_query=dict(query))
+            if env_inst.server_pool.is_stopped:
+                env_inst.server_pool.start()
+            worker = env_inst.server_pool.add_task(lambda: server.execute_cmd('tactic.ui.table.CustomLayoutReadCmd', arguments))
+            if worker is None:
+                raise RuntimeError(self.tr('Server worker is unavailable'))
+        except (PermissionError, RuntimeError) as error:
+            self.filterSuggestionsReady.emit(request, [], str(error))
+            return
+        self._filter_worker = worker
+        def current():
+            return generation == self._filter_generation and document_generation == self.document_generation
+        def loaded(result):
+            if current():
+                self.filterSuggestionsReady.emit(request, result['info']['filterSuggestions'], '')
+        def failed(error):
+            if current():
+                self.filterSuggestionsReady.emit(request, [], str(error[0].get('exception') or error))
+        worker.result.connect(loaded, Qt.QueuedConnection)
+        worker.error.connect(failed, Qt.QueuedConnection)
+        worker.settled.connect(self._filter_settled, Qt.QueuedConnection)
+        worker.start()
+
+    @Slot(object)
+    def _filter_settled(self, worker):
+        if self._filter_worker is not worker:
+            return
+        self._filter_worker = None
+        pending, self._filter_pending = self._filter_pending, None
+        if pending:
+            self.request_filter_suggestions(*pending)
+
     @Slot(QObject, 'QVariantMap')
     def format_document(self, document, style):
         from ..rich_text_document import format_readonly_document
         format_readonly_document(document, style)
 
     def close(self):
+        self._filter_generation += 1
+        self._filter_pending = None
+        if self._filter_worker is not None:
+            self._filter_worker.cancel()
         self.generation += 1
         self._detail_generation += 1
         if self.runner:

@@ -112,7 +112,7 @@ class CustomLayouts(unittest.TestCase):
         services = Services(dict(layoutView='dashboard.regions', layoutFilters=[
             dict(name='filter'+str(i), title='Filter '+str(i), value='value', enabled=True, relation='=', dataType='text')
             for i in range(4)], layoutNodes=[
-                dict(kind='text', text='Header instructions', region='header', editorPath=[0]),
+                dict(kind='text', text='Header instructions', height=450, region='header', editorPath=[0]),
                 dict(kind='metric', text='Scrollable report', value=25, height=1000, editorPath=[1]),
                 dict(kind='button', text='Open project', href='https://example.com/project', region='footer', editorPath=[2])]))
         window, view = self.create('features/table/CustomLayoutView.qml', dict(
@@ -130,12 +130,9 @@ class CustomLayouts(unittest.TestCase):
                 block = self.item(view, name)
                 self.assertEqual(block.mapToItem(view, QPointF()).x(), 12)
                 self.assertLessEqual(block.mapToItem(view, QPointF()).x() + block.width(), width - 12)
-            check = self.item(view, 'pageRuntime_filter0_enabled')
-            self.assertEqual(check.mapToItem(header, QPointF()).x(), 12)
-            for name in ('pageRuntime_filter0_value', 'pageRuntimeApply', 'pageRuntimeReset'):
-                control = self.item(view, name)
-                self.assertGreaterEqual(control.mapToItem(header, QPointF()).x(), 12)
-                self.assertLessEqual(control.mapToItem(header, QPointF()).x() + control.width(), width - 12)
+            search = self.item(view, 'pageRuntimeSearch')
+            self.assertEqual(search.mapToItem(header, QPointF()).x(), 12)
+            self.assertLessEqual(search.mapToItem(header, QPointF()).x() + search.width(), width - 12)
             self.assertAlmostEqual(body.mapToItem(view,QPointF()).y(), header.mapToItem(view,QPointF()).y()+header.height())
             self.assertAlmostEqual(body.mapToItem(view,QPointF()).y()+body.height(), footer.mapToItem(view,QPointF()).y())
             self.assertAlmostEqual(footer.mapToItem(view,QPointF()).y()+footer.height(),height)
@@ -248,6 +245,9 @@ class CustomLayouts(unittest.TestCase):
 
     def test_page_filters_apply_typed_values_and_report_grid_is_native(self):
         from PySide6.QtCore import QCoreApplication
+        from PySide6.QtGui import QInputMethodEvent
+        from PySide6.QtTest import QTest
+        from PySide6.QtCore import Qt
         report=dict(columns=[dict(key='group_0',title='Status',kind='group'),dict(key='count',title='Count',kind='measure')],
                     rows=[dict(group_0='ready',count=0)],measure='count',truncated=False)
         services=Services(dict(layoutView='dashboard.report',layoutFilters=[dict(name='amount',title='Amount',
@@ -255,20 +255,21 @@ class CustomLayouts(unittest.TestCase):
             layoutNodes=[dict(kind='summary',text='Report',height=250,report=report),dict(kind='metric',text='Empty sum',value=None)]))
         window,view=self.create('features/table/CustomLayoutView.qml',dict(services=services,controller=_TableController(),
             columnsController=_TableColumns(),users=None,administration=None),width=1000,height=600)
-        self.click(window,self.item(view,'pageRuntime_amount_enabled'))
-        self.click(window,self.item(view,'pageRuntimeApply'))
+        self.click(window,self.item(view,'pageFilterSearch'))
+        event=QInputMethodEvent();event.setCommitString('Amount: 0');self.app.sendEvent(window,event)
+        QTest.keyClick(window,Qt.Key_Return);frames.frame(window)
         self.assertEqual(services.events[-1],dict(type='filters',values=dict(amount=dict(enabled=True,value=0))))
         services.documentChanged.emit();frames.frame(window)
         window.resize(850,600);view.setWidth(850);frames.frame(window)
-        self.assertTrue(self.item(view,'pageRuntime_amount_enabled').property('checked'))
+        self.assertIsNotNone(self.item(view,'pageRuntimeRemove_amount'))
         self.assertEqual(self.item(view,'customLayout_0_grid_cell_0_1').property('text'),'0')
         self.assertEqual(self.item(view,'customLayout_1_value').property('text'),'—')
-        self.click(window,self.item(view,'pageRuntimeReset'))
-        self.assertEqual(services.events[-1],dict(type='filters',values={}))
+        self.click(window,self.item(view,'pageRuntimeRemove_amount'))
+        self.assertEqual(services.events[-1],dict(type='filters',values=dict(amount=dict(enabled=False,value=0))))
         view.setProperty('editing',True);frames.frame(window)
-        self.assertFalse(self.item(view,'pageRuntimeApply').isEnabled())
+        self.assertFalse(self.item(view,'pageFilterSearch').isEnabled())
 
-    def test_russian_page_filter_buttons_show_complete_captions(self):
+    def test_russian_page_search_uses_the_shared_translated_placeholder(self):
         import os
         from PySide6.QtGui import QFontDatabase
         for name in ('segoeui.ttf', 'segoeuib.ttf'):
@@ -280,14 +281,7 @@ class CustomLayouts(unittest.TestCase):
         window, view = self.create('features/table/CustomLayoutView.qml', dict(services=services,
             controller=_TableController(), columnsController=_TableColumns(), users=None,
             administration=None, language='ru'), width=1000, height=300)
-        for key in ('pageRuntimeApply', 'pageRuntimeReset'):
-            captions = [item for item in _visual_items(self.item(view, key))
-                        if item.property('text') in ('Применить фильтры', 'Сбросить фильтры')
-                        and item.metaObject().indexOfProperty('truncated') >= 0]
-            self.assertTrue(captions, key)
-            self.assertFalse(any(item.property('truncated') for item in captions),
-                             (key, self.item(view, key).width(),
-                              [(item.width(), item.implicitWidth()) for item in captions]))
+        self.assertEqual(self.item(view,'pageFilterSearch').property('placeholderText'),'Поиск по странице…')
 
     def test_planner_embeds_two_live_tables_and_reflows_without_clipping(self):
         model = dict(

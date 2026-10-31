@@ -14,6 +14,7 @@ Controls.TextField {
     property var suggestions: null
     property string errorText: ""
     property bool openSuggestionsInNewTab: false
+    property string highlightQuery: text
     property bool suggestionsUsePopupWindow: true
     property string suggestionObjectNamePrefix: "searchSuggestion"
     readonly property Controls.SearchSuggestionsPopup suggestionsPopup: suggestionLoader.item as Controls.SearchSuggestionsPopup
@@ -91,6 +92,7 @@ Controls.TextField {
         sourceComponent: Controls.SearchSuggestionsPopup {
             theme: root.theme
             rows: root.suggestions || []
+            highlightQuery: root.highlightQuery
             namePrefix: root.suggestionObjectNamePrefix
             errorText: root.errorText
             openInNewTab: root.openSuggestionsInNewTab

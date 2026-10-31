@@ -1002,7 +1002,8 @@ export function describe(
             editable &&
                 !cell.layoutBusy &&
                 !cell.layoutFilterBusy &&
-                !cell.layoutEditing
+                !cell.layoutEditing,
+            measure
         );
         const output = [];
         const contextHeight = drawRegion('header', innerWidth, output);

@@ -1,4 +1,5 @@
 import "../../tactic_frame/core/foundation.mjs" as Foundation
+import "../../tactic_frame/controls/forms/search.mjs" as SearchText
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -9,6 +10,7 @@ Controls.Popup {
     required property var rows
     property string namePrefix: "searchSuggestion"
     property string errorText: ""
+    property string highlightQuery: ""
     property bool openInNewTab: false
     property alias currentIndex: list.currentIndex
     readonly property int count: list.count
@@ -105,7 +107,8 @@ Controls.Popup {
             Label {
                 Layout.preferredWidth: Math.min(190, Math.max(90, implicitWidth))
                 Layout.minimumWidth: 0
-                text: row.suggestion.title
+                text: SearchText.highlight(row.suggestion.title, root.highlightQuery, root.theme.action)
+                textFormat: Text.StyledText
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
                 font.pixelSize: 12
@@ -115,7 +118,8 @@ Controls.Popup {
             Label {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                text: row.suggestion.description ? "– " + row.suggestion.description : ""
+                text: SearchText.highlight(row.suggestion.description ? "– " + row.suggestion.description : "", root.highlightQuery, root.theme.action)
+                textFormat: Text.StyledText
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
                 font.pixelSize: 13
