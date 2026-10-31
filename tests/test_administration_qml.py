@@ -32,6 +32,8 @@ class AdministrationQmlTests(unittest.TestCase):
             editor._project = 'demo'
             editor._loaded = editor._can_write = True
         self.admin.usersEditor._project = 'sthpw'
+        self.seed(self.admin.serverEditor, 'server', {'workers': '3'}, {
+            'runtime': {'available': True, 'state': 'running', 'web_workers': 3}})
         self.seed(self.admin.schemaEditor, 'demo', {'xml': SCHEMA}, {
             'searchTypes': [{'identity': 'demo/asset', 'label': 'Assets'},
                             {'identity': 'demo/shot', 'label': 'Shots'}]})
@@ -111,6 +113,14 @@ class AdministrationQmlTests(unittest.TestCase):
                 target = next(index for index, row in enumerate(rows) if row['value'] == name[13:])
                 self.fixture.choose_combo_option(self.window, picker, target)
                 return
+        if name.startswith('adminSection_'):
+            navigation = self.item('administrationNavigation')
+            rows = navigation.property('sourceRows')
+            if rows is not None:
+                rows = rows.toVariant() if hasattr(rows, 'toVariant') else rows
+                index = next(index for index, row in enumerate(rows) if row['id'] == name[13:])
+                navigation.focusListRow('administrationNavigation', index, '')
+                frame(self.window)
         item = self.item(name)
         if name.startswith('adminSection_') and any(item.objectName() == 'administrationNavigation' and item.isVisible()
                 for item in windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())):
@@ -159,7 +169,7 @@ class AdministrationQmlTests(unittest.TestCase):
     def test_sections_create_real_views_without_warnings_at_narrow_and_wide_sizes(self):
         for width,height in ((900,620),(1400,940)):
          self.window.resize(width,height);frame(self.window)
-         for section in ('types','schema','workflow','rules','groups','raw','sidebar','columns','users','layouts'):
+         for section in ('server','types','schema','workflow','rules','groups','raw','sidebar','columns','users','layouts'):
           self.click('adminSection_'+section)
           self.assertEqual(self.admin.section,section)
           content=self.item('administrationContent')

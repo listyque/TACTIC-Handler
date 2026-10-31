@@ -1,5 +1,25 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Backend server': 'Сервер ТС',
+    'Worker processes and server restart': 'Процессы и перезапуск сервера',
+    'Server processes': 'Процессы сервера',
+    'Running web workers': 'Работает веб-процессов',
+    'Restart TACTIC Stream': 'Перезапустить ТС',
+    'Restarting TACTIC Stream…': 'ТС перезапускается…',
+    'TACTIC Stream restarted': 'ТС перезапущен',
+    'Save changes before restarting.':
+        'Сохраните изменения перед перезапуском.',
+    'Saved settings are applied only after restarting the server.':
+        'Сохранённые настройки применяются после перезапуска сервера.',
+    'This server is not managed by TacticMonitor.':
+        'Этот сервер запущен без TacticMonitor.',
+    'The server monitor is unavailable or outdated.':
+        'Монитор сервера недоступен или требует обновления.',
+    'The server has not returned yet. Reconnect and check its status.':
+        'Сервер ещё не ответил. Подключитесь заново и проверьте его состояние.',
+    'Restart TACTIC Stream? Connections and running operations may be interrupted while saved settings are applied. Unsaved changes will not be applied.':
+        'Перезапустить ТС? Соединения и текущие операции могут прерваться при применении сохранённых настроек. Несохранённые изменения применены не будут.',
+    'Web workers': 'Веб-воркеры',
     'Something went wrong': 'Произошла ошибка',
     'Search suggestions': 'Подсказки поиска',
     Example: 'Пример',

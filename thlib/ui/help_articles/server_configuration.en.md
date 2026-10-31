@@ -14,7 +14,7 @@ order: 30
 | --- | --- |
 | **Server address** | The TACTIC HTTP endpoint used by the current draft and by **Test**. Changing it does not authenticate an account. |
 | **Server preset** | Selects a saved bundle of endpoint, account state, portal site, and proxy routing. |
-| **Query execution** | **Local** sends procedure source with each call and needs no server install. **Server plugin** uses a native TACTIC command from a versioned `tactic_handler_queries` package. An administrator session installs missing versions automatically and retries while workers discover the package. If a worker still cannot import it, restart the TACTIC service through its service manager; Handler does not restart a shared server over XML-RPC. If the plugin is unavailable, only the project catalog, project metadata, and initial cache query use the existing script path so sign-in remains possible. Other query failures remain visible. The mode is stored per server address for this installation. Other custom scripts remain local. |
+| **Query execution** | **Local** sends procedure source with each call and needs no server install. **Server plugin** uses a native TACTIC command from a versioned `tactic_handler_queries` package. An administrator session installs missing versions automatically and retries while workers discover the package. If a worker still cannot import it, administrators can explicitly restart a managed Stream server through Administration → Backend server, or use its service manager. If the plugin is unavailable, only the project catalog, project metadata, and initial cache query use the existing script path so sign-in remains possible. Other query failures remain visible. The mode is stored per server address for this installation. Other custom scripts remain local. |
 | **Edit presets and routing** | Opens Server Presets without saving the current page. |
 | **Current account** | Shows the login attached to the active ticket, or **Not signed in** when no valid account is active. |
 | **Test** | Tests the address and routing currently visible on the page. It does not save the draft or request credentials. |
@@ -138,3 +138,21 @@ This connection selector belongs to Handler. The Stream browser connects to its 
 Help and Debug Log remain available before sign-in. Enter submits only a complete login/password pair while no authentication is pending. Handler keeps its existing server presets, ticket generation and proxy/site routing; preset edits are applied through the existing Configuration owner. Stream signs in to the current browser origin and does not expose native server-preset routing. Password entry is cleared when its sign-in window closes.
 
 Handler updates keep the existing release controller, changelog, portable-install eligibility, cancellation and install confirmation. Maintainers retain Ctrl-double-click on the current version to open release creation. The browser does not install native client ZIPs. Connection menus and session expiry retain the existing shell owners; a shared layout never grants permissions or retries an unknown mutation.
+
+## Server processes and restart
+
+Administrators can open **Administration → Backend server** in Handler or Stream.
+**Web workers** edits the installation's `services/process_count`; **Running web
+workers** shows the ready processes reported by its monitor. Save first, then use
+**Restart TACTIC Stream** and confirm the connection interruption. Saving alone
+never restarts the server. Refresh reloads saved values; Discard explicitly drops
+the draft. Concurrent configuration changes require a reload before restarting.
+
+The existing monitor recreates its workers/listeners using saved configuration;
+no remote shell or new launcher is started by the interface. The interface waits
+up to 90 seconds for the matching restart to become ready, without resending the
+restart command. The endpoint must be managed by a current TacticMonitor and the
+account must be an administrator. Explicit startup overrides still take priority.
+If network settings changed, open the new address and reconnect. Closing the
+interface does not cancel an accepted restart; the short interruption affects
+other clients too. Schedule it when no critical operations are in progress.

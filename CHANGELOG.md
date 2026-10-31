@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.316 - 2026-10-31
+
+- Add Administration > Backend server with shared worker-count controls, saved/running counts and an explicit restart confirmation in Handler and Stream.
+- Apply saved configuration through the authenticated Stream monitor, reject stale revisions and repeated restart requests, and reconnect with a bounded status check.
+- Preserve application, executor and project data ownership; require administrator access for remote server control.
+
 ## 0.6.0.315 - 2026-10-31
 
 - Keep the task-count action clickable without triggering workflow expansion on hover; retain its Task Manager route and bulk selected-row editing.
