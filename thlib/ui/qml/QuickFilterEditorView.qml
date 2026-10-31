@@ -63,6 +63,8 @@ Item {
             controller.set_group_enabled(action.index, action.value);
         else if (action.type === "move")
             controller.move_group(action.index, action.delta);
+        else if (action.type === "icon" || action.type === "iconReset")
+            controller.set_group_icon(action.index, action.type === "icon" ? action.value : "");
     }
 
     Rectangle {

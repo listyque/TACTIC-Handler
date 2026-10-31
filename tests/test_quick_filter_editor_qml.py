@@ -14,7 +14,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Material")
 
 from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QPointF, Qt, QUrl
-from PySide6.QtGui import QGuiApplication, QWheelEvent
+from PySide6.QtGui import QFontDatabase, QGuiApplication, QWheelEvent
 from PySide6.QtQuick import QQuickItem
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtTest import QSignalSpy, QTest
@@ -36,6 +36,8 @@ class QuickFilterEditorQmlTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QGuiApplication.instance() or QGuiApplication([])
+        for font in ('segoeui.ttf', 'seguisb.ttf'):
+            QFontDatabase.addApplicationFont('C:/Windows/Fonts/' + font)
         cls.icon_bindings = qml_icon_bindings(ROOT, cls.app)
 
     def setUp(self):
@@ -61,6 +63,7 @@ class QuickFilterEditorQmlTests(unittest.TestCase):
         locale_component = QQmlComponent(self.engine)
         locale_component.setData(('import QtQuick\nQtObject {property string current_language: "'+('ru' if russian else 'en')+'"}').encode(), QUrl())
         self.fixture_locale = locale_component.create()
+        self.fixture_locale.setParent(self.engine)
         self.engine.rootContext().setContextProperty("localizationController", self.fixture_locale)
         self.engine.addImportPath(str(QML))
         self.warnings = []
@@ -84,6 +87,7 @@ import "." as App
 
 ApplicationWindow {
     id: owner
+    property alias fixtureDark: theme.dark
     width: 1024; height: 900; visible: true
     App.Theme {
         id: theme
@@ -147,6 +151,59 @@ ApplicationWindow {
         center = item.mapToScene(QPointF(item.width() / 2, item.height() / 2))
         QTest.mouseClick(self.window, Qt.LeftButton, pos=center.toPoint())
         frame(self.window)
+
+    def test_icon_picker_saves_and_resets_to_the_column_icon(self):
+        self.application.context['groups'][0]['columnIcon'] = 'material-design:clock'
+        self.scene()
+        picker = self.item('quickFilterIcon_0')
+        self.assertEqual(picker.property('iconName'), 'material-design:clock')
+        self.click('quickFilterIcon_0')
+        def descendants(parent):
+            yield parent
+            for child in parent.childItems():
+                yield from descendants(child)
+        popup = next(window for window in self.app.allWindows() if window.isVisible() and any(item.objectName() == 'sidebarIconSearch' for item in descendants(window.contentItem())))
+        search = next(item for item in descendants(popup.contentItem()) if item.objectName() == 'sidebarIconSearch')
+        search.forceActiveFocus()
+        for key in 'rocket':
+            QTest.keyClick(popup, ord(key.upper()))
+        frame(self.window)
+        option = next(item for item in descendants(popup.contentItem()) if item.property('modelData') == 'rocket' and item.isVisible())
+        point = option.mapToScene(QPointF(option.width()/2, option.height()/2)).toPoint()
+        QTest.mouseClick(popup, Qt.LeftButton, pos=point)
+        frame(self.window)
+        self.assertEqual(self.controller.groups[0]['icon'], 'material-design:rocket')
+        self.click('saveQuickFilterEditorButton')
+        self.controller.discard()
+        self.controller.begin_session()
+        frame(self.window)
+        self.assertEqual(self.item('quickFilterIcon_0').property('iconName'), 'material-design:rocket')
+        self.click('quickFilterIconReset_0')
+        self.assertEqual(self.controller.groups[0]['icon'], '')
+        self.assertEqual(self.item('quickFilterIcon_0').property('iconName'), 'material-design:clock')
+
+    def test_icon_controls_in_both_themes_and_languages(self):
+        self.application.context.update(groups=[dict(key='column:duration', title='Duration',
+            enabled=True, columnIcon='clock', options=[dict(key='2', title='2 Minutes', enabled=True)])], selections={})
+        self.controller.discard()
+        self.controller.begin_session()
+        self.scene()
+        output = os.environ.get('QUICK_FILTER_ICON_CAPTURE')
+        for language in ('en', 'ru'):
+            self.fixture_locale.setProperty('current_language', language)
+            for dark in (True, False):
+                self.owner.setProperty('fixtureDark', dark)
+                frame(self.window)
+                picker = self.item('quickFilterIcon_0')
+                reset = self.item('quickFilterIconReset_0')
+                self.assertTrue(picker.isVisible())
+                self.assertTrue(picker.isEnabled())
+                self.assertFalse(reset.isEnabled())
+                self.assertGreaterEqual(picker.x(), 0)
+                if output:
+                    path = Path(output) / f'native-{language}-{"dark" if dark else "light"}.png'
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    self.assertTrue(self.window.grabWindow().save(str(path)))
 
     def test_standard_save_reload_and_reopen_through_native_modal_inputs(self):
         self.controller.discard()

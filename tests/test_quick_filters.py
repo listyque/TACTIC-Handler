@@ -143,6 +143,25 @@ class _CachedFacetHarness(ViewStateMixin):
 
 
 class QuickFilterCatalogTests(unittest.TestCase):
+    def test_icons_come_from_column_metadata_and_filter_configuration(self):
+        stype = _Stype()
+        with patch.object(stype, "get_definition", create=True, return_value='<config><table><element name="duration" value_icon="material-design:clock" /></table></config>'):
+            groups = self.catalog.base_groups(stype, [self.asset_a, self.asset_b])
+        duration = next(group for group in groups if group['key'] == 'column:duration')
+        self.assertEqual(duration['columnIcon'], 'material-design:clock')
+        self.assertNotIn('icon', duration)
+        configured = self.catalog.configured_groups([duration], {'groups': [{'key': duration['key'], 'icon': 'material-design:rocket'}]}, include_hidden=False)[0]
+        self.assertEqual(configured['icon'], 'material-design:rocket')
+        self.assertEqual(configured['columnIcon'], 'material-design:clock')
+        reset = self.catalog.configured_groups([configured], {'groups': [{'key': duration['key'], 'icon': ''}]}, include_hidden=False)[0]
+        self.assertEqual(reset['icon'], '')
+        self.assertEqual(reset['columnIcon'], 'material-design:clock')
+
+    def test_icon_configuration_rejects_invalid_values(self):
+        for icon in (None, 12, [], '<svg>', 'javascript:alert(1)', 'x' * 129):
+            with self.subTest(icon=icon), self.assertRaises(ValueError):
+                self.catalog.validate_configuration({'groups': [{'icon': icon}], 'defaultSelections': {}})
+
     def setUp(self):
         self.catalog = QuickFilterCatalog()
         self.asset_a = _Record(

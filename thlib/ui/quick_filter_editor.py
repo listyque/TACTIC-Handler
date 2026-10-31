@@ -212,6 +212,7 @@ class QuickFilterEditorController(QObject):
             record = {
                 "key": str(group.get("key") or ""),
                 "enabled": bool(group.get("enabled", True)),
+                **({"icon": group["icon"]} if "icon" in group else {}),
             }
             enabled = [
                 str(option.get("key") or "")
@@ -401,6 +402,18 @@ class QuickFilterEditorController(QObject):
         self._standard_selections = self._configuration_from_groups()[
             "defaultSelections"
         ]
+        self.stateChanged.emit()
+
+    @Slot(int, str)
+    def set_group_icon(self, row: int, icon: str) -> None:
+        if not self.canEdit or self.busy or not 0 <= row < len(self._groups):
+            return
+        try:
+            QuickFilterCatalog.validate_configuration({"groups": [{"icon": icon}], "defaultSelections": {}})
+        except ValueError as error:
+            self._set_busy(False, self.tr(str(error)))
+            return
+        self._groups[row]["icon"] = icon
         self.stateChanged.emit()
 
     @Slot(str, str, bool)

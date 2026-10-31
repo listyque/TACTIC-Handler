@@ -33,26 +33,19 @@ export function quickLabel(group, language) {
     return title + (group.count ? ' · ' + group.count : '');
 }
 
+export function quickIcon(group) {
+    return group.icon || group.columnIcon || '';
+}
+
 export function quickStrip(groups, budget, language) {
     const nodes = [];
-    const icons = {
-        process: 'process',
-        status: 'status',
-        assigned: 'user',
-        duration: 'clock',
-        pipeline_code: 'process'
-    };
     let left = 0;
     for (const group of groups.slice(0, 3)) {
-        const width = Math.max(128, Math.ceil(group.textWidth) + 76);
+        const icon = quickIcon(group),
+            decoration = icon ? 76 : 50,
+            width = Math.max(128, Math.ceil(group.textWidth) + decoration);
         if (left + width + spacing.tight > budget) break;
-        const id = 'searchQuickGroup_' + group.key,
-            key = group.key.startsWith('column:')
-                ? group.key.slice(7)
-                : group.key,
-            icon = Object.prototype.hasOwnProperty.call(icons, key)
-                ? icons[key]
-                : 'filter';
+        const id = 'searchQuickGroup_' + group.key;
         nodes.push(
             node('Action', id, rect(left, 0, width, 38), {
                 text: quickLabel(group, language),
@@ -68,6 +61,7 @@ export function quickStrip(groups, budget, language) {
                     }),
                     node('Icon', id + 'Icon', rect(12, 11, 16, 16), {
                         icon,
+                        visible: !!icon,
                         color: group.disabled
                             ? 'disabledText'
                             : group.count
@@ -76,7 +70,7 @@ export function quickStrip(groups, budget, language) {
                     }),
                     label(
                         id + 'Label',
-                        rect(38, 0, width - 76, 38),
+                        rect(icon ? 38 : 12, 0, width - decoration, 38),
                         quickLabel(group, language),
                         {
                             weight: 400,

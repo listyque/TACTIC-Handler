@@ -31,6 +31,7 @@ class SearchInlineFilterTests(unittest.TestCase):
         tab.quick_filter_tasks = {"any": [{"status": "Review", "process": "model", "assigned": "artist"}]}
         tab.quick_filter_layout = [{"key": key} for key in ("status", "assigned", "column:category")]
         tab.quick_filter_layout.append({"key": "process", "enabled": False})
+        tab.quick_filter_layout[0]["icon"] = "status"
         controller.workspace_model.replace_nodes([])
         facets = [{"key": "column:category", "title": "Category", "source": "column", "accent": "#607d8b", "options": [{"key": "Props", "title": "Props"}]}]
         self.enterContext(patch.object(controller, "_active_quick_filter_facets", return_value=facets))

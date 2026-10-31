@@ -258,8 +258,9 @@ Item {
                             }
                         }
                         onClicked: {
-                            root.iconSelected(root.storedIconName(iconDelegate.modelData));
+                            const icon = root.storedIconName(iconDelegate.modelData);
                             pickerPopup.close();
+                            root.iconSelected(icon);
                         }
                     }
 

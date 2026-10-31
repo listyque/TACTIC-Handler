@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.346 - 2026-10-31
+
+- Configure quick-filter icons with the shared icon picker; inherit a column Cell icon when unset. Persist tab and shared icons instead of choosing icons from field names. Close the native icon popup before publishing a selection that may rebuild its owner.
+
 ## 0.6.0.345 - 2026-10-31
 
 - Keep object-info statistic containers rectangular so digits and captions are not clipped by invisible rounded corners. Preserve the outer summary card styling.

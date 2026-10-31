@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
+import re
+from xml.etree import ElementTree
 
 from .tel_filters import CURRENT_LOGIN_FILTER
 from .workflow_data import process_task_configuration
@@ -102,6 +104,10 @@ class QuickFilterCatalog:
             raise ValueError(
                 "Quick-filter defaultSelections values must be lists"
             )
+        for group in groups:
+            icon = group.get("icon", "")
+            if not isinstance(icon, str) or len(icon) > 128 or (icon and not re.fullmatch(r"[\w:.-]+", icon, flags=re.ASCII)):
+                raise ValueError("Invalid icon name")
         return {
             "groups": deepcopy(groups),
             "defaultSelections": {
@@ -399,6 +405,8 @@ class QuickFilterCatalog:
                 continue
             group = deepcopy(source)
             group_settings = settings.get(key, {})
+            if "icon" in group_settings:
+                group["icon"] = group_settings["icon"]
             enabled = group_settings.get("enabled", group.get("enabled", True)) is not False
             if not enabled and not include_hidden:
                 continue
@@ -430,13 +438,34 @@ class QuickFilterCatalog:
             else self.discover_facets(stype, sobjects)
         )
         direct = self._decorate_direct_groups(direct, stype, sobjects)
-        return direct + self._task_groups(
+        groups = direct + self._task_groups(
             stype,
             sobjects,
             task_records or {},
             current_login,
             selected or {},
         )
+        try:
+            definition = stype.get_definition("table", processed=False)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            definition = ""
+        icons = {}
+        if isinstance(definition, str) and definition:
+            try:
+                root = ElementTree.fromstring(definition)
+            except ElementTree.ParseError:
+                root = ElementTree.Element("table")
+            view = root.find("table") if root.tag == "config" else root
+            if view is None:
+                view = root.find("view[@name='table']")
+            if view is not None:
+                icons = {
+                    element.get("name"): element.get("value_icon", element.findtext("display/icon", ""))
+                    for element in view.findall("element")
+                }
+        for group in groups:
+            group["columnIcon"] = icons.get(group.get("column") or group["key"], "")
+        return groups
 
     def groups(
         self, scope_key, stype, sobjects, selected,
@@ -535,6 +564,8 @@ class QuickFilterCatalog:
             "title": group["title"],
             "accent": group["accent"],
             "enabled": group.get("enabled", True),
+            "columnIcon": group.get("columnIcon", ""),
+            **({"icon": group["icon"]} if "icon" in group else {}),
             "options": [] if group.get("userPicker") else [
                 {
                     "key": option["key"],

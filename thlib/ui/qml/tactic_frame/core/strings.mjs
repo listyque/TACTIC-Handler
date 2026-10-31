@@ -1,5 +1,9 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Filter icon': 'Иконка фильтра',
+    'Use column icon': 'Использовать иконку колонки',
+    'Icon beside text values and related-table counts. Used by quick filters unless overridden.':
+        'Иконка рядом со значениями и счётчиками связей. Используется быстрыми фильтрами, если для них не выбрана своя иконка.',
     'Cell alignment': 'Выравнивание ячейки',
     'Horizontal position of content in this column.':
         'Горизонтальное положение содержимого в этой колонке.',

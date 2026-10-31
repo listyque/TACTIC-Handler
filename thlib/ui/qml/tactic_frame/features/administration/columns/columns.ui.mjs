@@ -485,7 +485,7 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                     kind: 'IconChoice',
                     title: 'Cell icon',
                     description:
-                        'Icon beside text values and related-table counts.',
+                        'Icon beside text values and related-table counts. Used by quick filters unless overridden.',
                     field: 'valueIcon',
                     props: {
                         value: Object.prototype.hasOwnProperty.call(

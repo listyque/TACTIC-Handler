@@ -89,6 +89,8 @@ class _Application:
         for group in self.context["groups"]:
             setting = settings.get(group["key"], {})
             group["enabled"] = setting.get("enabled", True)
+            if "icon" in setting:
+                group["icon"] = setting["icon"]
             for option in group["options"]:
                 option["enabled"] = ("options" not in setting
                                      or option["key"] in setting["options"])
@@ -228,6 +230,26 @@ class _DeferredPool(_Pool):
 
 
 class QuickFilterEditorTests(unittest.TestCase):
+    def test_icon_is_saved_for_the_tab_and_shared_defaults(self):
+        application = _Application()
+        controller = QuickFilterEditorController(application, _Users())
+        key = controller._key(application.context)
+        controller._loaded[key] = {}
+        controller.begin_session()
+        controller.set_group_icon(0, 'material-design:rocket')
+        self.assertTrue(controller.dirty)
+        controller.save()
+        self.assertEqual(application.local_saves[-1][1]['groups'][0]['icon'], 'material-design:rocket')
+        controller.begin_session()
+        self.assertEqual(controller.groups[0]['icon'], 'material-design:rocket')
+        controller.set_group_icon(0, '')
+        server = _RuntimeServer()
+        runtime = type('Runtime', (), {'server_pool': _Pool()})()
+        with patch('thlib.tactic_classes.server_start', return_value=server), patch('thlib.environment.env_inst', runtime):
+            controller.save_defaults()
+        self.assertEqual(controller._loaded[key]['groups'][0]['icon'], '')
+        self.assertEqual(application.local_saves[-1][1]['groups'][0]['icon'], 'material-design:rocket')
+
     def test_supervisor_has_independent_current_tab_and_shared_save(self):
         application = _Application()
         controller = QuickFilterEditorController(application, _Users())

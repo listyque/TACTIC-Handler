@@ -1,6 +1,7 @@
 import { spacing } from '../../core/foundation.mjs';
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import { quickIcon } from './header.ui.mjs';
 
 export const editor = {
     inset: spacing.content,
@@ -173,9 +174,33 @@ export function group(model, width, language) {
                 { type: 'move', index: model.index, delta: 1 },
                 enabled && model.index < model.total - 1,
                 { iconOnly: true }
+            ),
+            label(
+                'quickFilterIconLabel_' + model.index,
+                rect(0, 44, 112, 32),
+                text('Filter icon')
+            ),
+            node(
+                'IconChoice',
+                'quickFilterIcon_' + model.index,
+                rect(120, 44, 32, 32),
+                {
+                    value: quickIcon(model),
+                    enabled,
+                    action: { type: 'icon', index: model.index }
+                }
+            ),
+            button(
+                'quickFilterIconReset_' + model.index,
+                rect(160, 44, 32, 32),
+                text('Use column icon'),
+                'refresh',
+                { type: 'iconReset', index: model.index },
+                enabled && !!model.icon,
+                { iconOnly: true }
             )
         ],
-        contentHeight: 36
+        contentHeight: 76
     };
 }
 
