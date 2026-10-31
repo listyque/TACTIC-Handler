@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.325 - 2026-10-31
+
+- Keep worker settings and explicit Stream restart in Configuration > Server; remove the duplicate Backend server section from Administration in both clients.
+- Move the native editor/presenter to configuration ownership and embed its existing card in the server settings scroll before connection fields.
+- Include remote worker drafts in configuration Save/Apply/Close guards, await save acknowledgement and discard stale continuations on session loss. Preserve restart confirmation and server-side access checks.
+
 ## 0.6.0.324 - 2026-10-31
 
 - Match custom workspace page backgrounds and header corners to the native rounded dock interior.

@@ -3,6 +3,7 @@ import { sections } from '../../controls/forms/sections.ui.mjs';
 import { translate } from '../../core/strings.mjs';
 import { definitions } from './settings.fields.mjs';
 import { controls, spacing } from '../../core/foundation.mjs';
+import * as ServerControl from './server_control.ui.mjs';
 
 export function fieldsFor(page, model) {
     const native = model.native === true;
@@ -352,6 +353,18 @@ export function describe(model, width, height, language) {
             )
         );
         top += rows * 20 + 12;
+    }
+    if (model.serverControls) {
+        const height = ServerControl.describe({}, inner, language).height;
+        nodes.push(
+            node(
+                'View',
+                'configurationServerControl',
+                rect(0, top, inner, height),
+                { view: 'serverControl' }
+            )
+        );
+        top += height + spacing.section;
     }
     for (const item of form.nodes)
         nodes.push(Object.assign({}, item, { y: item.y + top }));

@@ -8,6 +8,7 @@ Item {
     required property var controller
     property string language: "en"
     property bool confirming: false
+    Component.onCompleted: controller.open()
     readonly property var frameModel: ({
             workers: controller.document.workers,
             runtime: controller.metadata.runtime,
@@ -18,10 +19,11 @@ Item {
             notice: controller.notice,
             confirm: confirming
         })
+    implicitHeight: UI.describe(frameModel, width, language).height
     Frame.FrameView {
         anchors.fill: parent
         theme: root.theme
-        scene: UI.viewport(root.frameModel, root.width, root.height, root.language)
+        scene: UI.describe(root.frameModel, root.width, root.language)
         onEvent: action => {
             if (root.controller.busy || root.controller.restarting)
                 return;

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
 
@@ -144,10 +145,17 @@ class ConfigurationController(QObject):
         apply_appearance_configuration=None,
         checkin_values=None,
         dcc_runtime_values=None,
+        server_control=None,
     ) -> None:
         super().__init__(parent)
         self._apply_server_configuration = apply_server_configuration
         self._notify = notify
+        self._server_control = server_control
+        self._server_save_action = None
+        if server_control is not None:
+            server_control.setParent(self)
+            server_control.stateChanged.connect(self._server_control_changed)
+            server_control.committed.connect(self._server_control_saved)
         self._global_values = global_values
         self._apply_global_configuration = apply_global_configuration
         self._appearance_values = appearance_values
@@ -534,15 +542,46 @@ class ConfigurationController(QObject):
 
     @Property(bool, notify=dirtyChanged)
     def dirty(self) -> bool:
-        return bool(self._dirty_pages)
+        return bool(self.dirty_pages)
 
     @Property("QVariantList", notify=dirtyChanged)
     def dirty_pages(self) -> list[str]:
-        return sorted(self._dirty_pages)
+        return sorted(self._dirty_pages | ({'server'} if self._server_control_dirty() else set()))
 
     @Property(bool, notify=dirtyChanged)
     def current_page_dirty(self) -> bool:
-        return self._current_page in self._dirty_pages
+        return self._current_page in self.dirty_pages
+
+    @Property(QObject, constant=True)
+    def serverControl(self):
+        return self._server_control
+
+    @Property(bool, notify=dirtyChanged)
+    def busy(self) -> bool:
+        return bool(self._server_control and self._server_control.busy)
+
+    def _server_control_dirty(self) -> bool:
+        return bool(self._server_control and (self._server_control.dirty or self._server_control.writeUncertain))
+
+    def _server_control_changed(self) -> None:
+        if self._server_control.error or self._server_control.writeUncertain or not self._server_control.identity:
+            self._server_save_action = None
+        self.dirtyChanged.emit()
+
+    def _server_control_saved(self) -> None:
+        action, self._server_save_action = self._server_save_action, None
+        if action:
+            action()
+
+    def _save_server_control(self, action: Callable[[], object]) -> bool:
+        if self.busy:
+            return True
+        if not self._server_control_dirty():
+            return False
+        if not self._server_control.writeUncertain:
+            self._server_save_action = action
+            self._server_control.save()
+        return True
 
     @Property(bool, notify=currentPageChanged)
     def can_reset_current_page(self) -> bool:
@@ -859,10 +898,14 @@ class ConfigurationController(QObject):
 
     @Slot(result=bool)
     def apply_current(self) -> bool:
+        if self._current_page == 'server' and self._save_server_control(self.apply_current):
+            return False
         return self._apply_page(self._current_page)
 
     @Slot(result=bool)
     def save_all(self) -> bool:
+        if self._save_server_control(self.save_all):
+            return False
         page_order = (
             "server",
             "appearance",
@@ -880,14 +923,20 @@ class ConfigurationController(QObject):
 
     @Slot()
     def save_and_close(self) -> None:
+        if self._save_server_control(self.save_and_close):
+            return
         if self.save_all():
             self.closeAllowed.emit()
 
     @Slot()
     def reset_current(self) -> None:
+        if self.busy:
+            return
         if self._current_page not in self._resettable_pages:
             return
         previous = set(self._dirty_pages)
+        if self._current_page == 'server' and self._server_control is not None:
+            self._server_control.discard()
         self._pending_values.pop(self._current_page, None)
         self._dirty_pages.discard(self._current_page)
         self._emit_dirty_if_changed(previous)
@@ -895,13 +944,20 @@ class ConfigurationController(QObject):
 
     @Slot()
     def request_close(self) -> None:
-        if self._dirty_pages:
+        if self.busy:
+            return
+        if self.dirty:
             self.confirmationRequested.emit()
         else:
             self.closeAllowed.emit()
 
     @Slot()
     def discard_and_close(self) -> None:
+        if self.busy:
+            return
+        if self._server_control is not None and self._server_control_dirty():
+            self._server_save_action = None
+            self._server_control.discard()
         previous = set(self._dirty_pages)
         self._pending_values.clear()
         self._dirty_pages.clear()

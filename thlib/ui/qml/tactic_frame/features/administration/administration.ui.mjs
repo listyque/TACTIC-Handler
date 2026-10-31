@@ -4,13 +4,6 @@ import { translate } from '../../core/strings.mjs';
 import * as Header from '../../controls/layout/page_header.ui.mjs';
 export const sections = [
     {
-        id: 'server',
-        title: 'Backend server',
-        description: 'Worker processes and server restart',
-        icon: 'cloud',
-        type: ''
-    },
-    {
         id: 'types',
         title: 'Search Types',
         description: 'Entities and fields',

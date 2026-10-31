@@ -76,6 +76,7 @@ class AppearanceConfigurationTests(unittest.TestCase):
             apply_global_configuration=bridge.apply_global,
             appearance_values=bridge.appearance_values,
             apply_appearance_configuration=bridge.apply_appearance,
+            server_control=getattr(self, "server_control", None),
         )
         self.config.begin_session()
         self.addCleanup(self.config.deleteLater)

@@ -176,9 +176,11 @@ class Surface:
         language="en",
         dark=True,
         style="md3",
+        server_control=None,
     ):
         self.closed = False
         self.case = AppearanceConfigurationTests()
+        self.case.server_control = server_control
         self.case.setUpClass()
         self.case.setUp()
         self.app = self.case.app

@@ -2,20 +2,6 @@ import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
 import { describe as confirmation } from '../../controls/feedback/confirmation.ui.mjs';
 
-export function viewport(model, width, height, language) {
-    const card = describe(model, Math.max(1, width - 24), language);
-    return {
-        nodes: [
-            node(
-                'Scroll',
-                'serverControlBody',
-                rect(12, 12, Math.max(1, width - 24), Math.max(1, height - 24)),
-                { contentHeight: card.height, children: card.nodes }
-            )
-        ]
-    };
-}
-
 export function describe(model, width, language) {
     const tr = (text) => translate(text, language);
     const compact = width < 480;

@@ -41,7 +41,7 @@
     "features/activity/toast.ui.mjs": "6fd7671926e67cdf3e02b39aa489a3c748329e7f80cdcaf8c2774241265a65f8",
     "features/administration/admin.document.mjs": "c9cb9c7f09571d29f23641eae56dbcc44d84b89d1577e9e8ed7cd12d23153725",
     "features/administration/administration.state.mjs": "76ec0a1e4f438f3f6378f5dbd5b5e37c1af6f9bc68bb1c71b2fc4ff37047913a",
-    "features/administration/administration.ui.mjs": "f80676555711d6c2e15c8c410213973be7f1103fea623c6ea2e85768bce9b964",
+    "features/administration/administration.ui.mjs": "c55d568f5b51ab43be7e19ebc8e8beef46a015c1a2e0df2cc630affc698fbeef",
     "features/administration/columns/columns.state.mjs": "e2068a7fd526f9f2e8b89f6a96ab907157c6e40aeb7f480d8482c80ac2cce6d7",
     "features/administration/columns/columns.ui.mjs": "470424bf66561991ce7db58fdf12fc7f456f1d99e97af622c9b4da2de47e397c",
     "features/administration/database/raw.state.mjs": "8501991ff6e84bd3ceb94c1e3473375c444e846adcb61764c15f589b1350c313",
@@ -92,7 +92,7 @@
     "features/configuration/repository.ui.mjs": "7bcb7ddd303329f6dff79d3e110b95e7ced10099686199f569fe26d629ece90d",
     "features/configuration/server.ui.mjs": "a5600d130c6b09a7beb8d52af612428d5f61950cad6cf44ea9f9594bb9104fb4",
     "features/configuration/settings.fields.mjs": "e6c150bd2fbe1225bf1923600792311d7d84930dc84d1d0ae5011ba720cecf18",
-    "features/configuration/settings.ui.mjs": "39beeb8d2c92fa9cf2d14dca5f8727b669b101651109dbbfa91e6b23ced614ba",
+    "features/configuration/settings.ui.mjs": "0c4835b8f310d1adbaa60570f5395ac48a438beb46e7cfe5fecaff7e02172316",
     "features/files/drop_plate.ui.mjs": "0bd7ae8519d385f525663ad3be5a4718646addf9f26994f0b449aee65b25fe70",
     "features/files/file_values.mjs": "2fce0cc8b2a81fb909ca01cebbcb739c12a3a3ed7bfb0ad8c06ef4850d06a716",
     "features/files/ingest.ui.mjs": "7d243c374ffa74c115f4c5f40e94227659414f9aab03c09503f46c89d9cd4285",
@@ -272,7 +272,7 @@
     "controls/showcase.examples.mjs": "d2ef38513e26fdbdf46ca575a74403ed3cf5f0444b4a04a9f69396f4b9255430",
     "features/administration/showcase.ui.mjs": "174c063076d7d90363f123a62888ff17bf861a7ec2a771b7dcb084ca4183a27e",
     "features/administration/showcase.examples.mjs": "897325ed744a9db36af434ead9a573f124b404e0480273f646a957c36e96b0ff",
-    "features/configuration/server_control.ui.mjs": "280faf5761759d43006dc49c952f70b6a447fec3d1a0e1b7e4b18c5a93139f33",
+    "features/configuration/server_control.ui.mjs": "3370ff4e30b7cc308c75a5f3b4fa83dc1c35ecc641a500068bdde1a5d9d1427a",
     "controls/forms/search.mjs": "39d3c20667311ae6d7ed5e4988b1a6a4f84b210658c6d54b4cd979731b41aea1",
     "features/administration/showcase.variants.mjs": "0579b607c89e78139e997346d41327e192876b0b845f8c55e74a85baef440426"
   }

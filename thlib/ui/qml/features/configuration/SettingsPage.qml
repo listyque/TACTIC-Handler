@@ -9,6 +9,7 @@ Item {
     required property var theme
     required property string pageId
     property bool managed: false
+    readonly property var serverControl: root.canonicalPage === "server" ? configurationController.serverControl : null
     property var values: ({})
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     readonly property string canonicalPage: {
@@ -39,6 +40,7 @@ Item {
             }
         return {
             native: true,
+            serverControls: !!root.serverControl && root.serverControl.managementAvailable,
             values: projected,
             style: theme.style,
             columns: root.canonicalPage === "tasks" ? values.columns || [] : [],
@@ -152,10 +154,19 @@ Item {
             fields: root.fields
         }), width, height, root.language)
         views: ({
+                serverControl: backendServer,
                 lightAccent: lightPalette,
                 darkAccent: darkPalette
             })
         onEvent: action => root.dispatch(action)
+    }
+    Component {
+        id: backendServer
+        ServerControl {
+            theme: root.theme
+            controller: root.serverControl
+            language: root.language
+        }
     }
     Component {
         id: lightPalette

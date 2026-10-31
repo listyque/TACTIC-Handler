@@ -11,7 +11,7 @@ from tests.test_agent_request import isolate_chat_settings
 from tests import test_frame_script_tools as script_tools
 QML = script_tools.QML
 from tests.profile_ui_responsiveness import frame
-from thlib.ui.admin.server_control import ServerControlEditor
+from thlib.ui.configuration_server import ServerControlEditor
 from thlib.ui.icon_font import qml_icon_bindings
 
 
@@ -83,8 +83,8 @@ class ServerControlTests(unittest.TestCase):
             while (controller.busy or controller.restarting) and time.monotonic()<deadline: QTest.qWait(5)
             self.assertFalse(controller.busy or controller.restarting, controller.error)
         with patch.object(controller, '_execute_request', side_effect=lambda args, _project, _original: execute(None, args)):
-            controller.activate('one'); wait()
-            view = surface.create(QML/'features/administration/AdminServerControl.qml',
+            controller.activate('admin'); wait()
+            view = surface.create(QML/'features/configuration/ServerControl.qml',
                 dict(theme=surface.theme, controller=controller, width=800, height=650))
             window = QQuickWindow(); window.resize(800,650); surface.windows.append(window)
             view.setParentItem(window.contentItem()); window.show(); frame(window)
@@ -104,7 +104,7 @@ class ServerControlTests(unittest.TestCase):
             window.resize(344,650); view.setWidth(344); frame(window)
             for name in ('serverWorkersSave','serverRestart'):
                 item=surface.item(view,name)
-                self.assertLessEqual(item.x()+item.width(),320)
+                self.assertLessEqual(item.x()+item.width(),344)
             self.assertFalse(surface.warnings,surface.warnings)
 
 

@@ -14,7 +14,7 @@ order: 30
 | --- | --- |
 | **Server address** | The TACTIC HTTP endpoint used by the current draft and by **Test**. Changing it does not authenticate an account. |
 | **Server preset** | Selects a saved bundle of endpoint, account state, portal site, and proxy routing. |
-| **Query execution** | **Local** sends procedure source with each call and needs no server install. **Server plugin** uses a native TACTIC command from a versioned `tactic_handler_queries` package. An administrator session installs missing versions automatically and retries while workers discover the package. If a worker still cannot import it, administrators can explicitly restart a managed Stream server through Administration → Backend server, or use its service manager. If the plugin is unavailable, only the project catalog, project metadata, and initial cache query use the existing script path so sign-in remains possible. Other query failures remain visible. The mode is stored per server address for this installation. Other custom scripts remain local. |
+| **Query execution** | **Local** sends procedure source with each call and needs no server install. **Server plugin** uses a native TACTIC command from a versioned `tactic_handler_queries` package. An administrator session installs missing versions automatically and retries while workers discover the package. If a worker still cannot import it, administrators can explicitly restart a managed Stream server through Configuration → Server, or use its service manager. If the plugin is unavailable, only the project catalog, project metadata, and initial cache query use the existing script path so sign-in remains possible. Other query failures remain visible. The mode is stored per server address for this installation. Other custom scripts remain local. |
 | **Edit presets and routing** | Opens Server Presets without saving the current page. |
 | **Current account** | Shows the login attached to the active ticket, or **Not signed in** when no valid account is active. |
 | **Test** | Tests the address and routing currently visible on the page. It does not save the draft or request credentials. |
@@ -141,7 +141,7 @@ Handler updates keep the existing release controller, changelog, portable-instal
 
 ## Server processes and restart
 
-Administrators can open **Administration → Backend server** in Handler or Stream.
+Administrators can open **Configuration → Server** in Handler or Stream.
 **Web workers** edits the installation's `services/process_count`; **Running web
 workers** shows the ready processes reported by its monitor. Save first, then use
 **Restart TACTIC Stream** and confirm the connection interruption. Saving alone
@@ -156,3 +156,5 @@ account must be an administrator. Explicit startup overrides still take priority
 If network settings changed, open the new address and reconnect. Closing the
 interface does not cancel an accepted restart; the short interruption affects
 other clients too. Schedule it when no critical operations are in progress.
+
+Worker settings and the explicit restart action belong to **Configuration → Server**. They are not project administration. In Handler this card is followed by the local connection settings. The Configuration close guard includes unsaved worker changes and waits for a remote save acknowledgement; a failed or uncertain write keeps the window open.

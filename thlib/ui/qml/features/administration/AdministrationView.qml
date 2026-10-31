@@ -282,16 +282,6 @@ Item {
                 }
             }
             Loader {
-                anchors.fill: parent
-                active: root.controller.section === "server"
-                visible: active
-                sourceComponent: AdminServerControl {
-                    theme: root.theme
-                    controller: root.controller.serverEditor
-                    language: root.language
-                }
-            }
-            Loader {
                 id: pluginsLoader
                 anchors.fill: parent
                 visible: root.controller.section === "plugins"

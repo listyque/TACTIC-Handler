@@ -1,10 +1,10 @@
-"""Remote server worker settings using the existing administration draft owner."""
+"""Remote server worker settings owned by Configuration."""
 import time
 from uuid import uuid4
 
 from PySide6.QtCore import Property, QTimer, Signal, Slot
 
-from .editor import AdminDocumentEditor
+from .admin.editor import AdminDocumentEditor
 
 
 def server_control_request(configuration, action):
@@ -33,13 +33,36 @@ class ServerControlEditor(AdminDocumentEditor):
         self._timer.timeout.connect(lambda: self._request('runtime', request_id=self._restart_id))
         self.stateChanged.connect(self._restart_state)
         self.stateChanged.connect(self.statusChanged.emit)
+        self._server_key = self._connection_key()
+        if hasattr(application, 'server_state_changed'):
+            application.server_state_changed.connect(self._session_changed)
+
+    def _connection_key(self):
+        return (getattr(self._application, 'server_url', ''), getattr(self._application, 'server_user', ''))
+
+    @Property(bool, notify=statusChanged)
+    def managementAvailable(self):
+        return bool(self._application.can_manage_tools)
+
+    @Slot()
+    def open(self):
+        if self.managementAvailable:
+            self.activate('admin')
+
+    @Slot()
+    def _session_changed(self):
+        key = self._connection_key()
+        if key != self._server_key or not self.managementAvailable:
+            self._server_key = key
+            self.reset()
+        self.statusChanged.emit()
 
     def _execute_request(self, arguments, project, original):
         import json
         from urllib.error import HTTPError
         from urllib.request import Request
         from thlib import tactic_classes as tc
-        from ..server_address import normalize_tactic_server_url
+        from .server_address import normalize_tactic_server_url
         server = tc.server_start(project='admin')
         action = arguments['action']
         payload = {'ticket': server.login_ticket}

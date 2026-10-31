@@ -18,7 +18,6 @@ from .admin.security import SecurityRulesEditor
 from .admin.users import AdminUsersEditor
 from .admin.raw_database import RawDatabaseEditor
 from .admin.plugins import PluginsEditor
-from .admin.server_control import ServerControlEditor
 from .source_editor import SourceEditorService
 from .user_identity import user_avatar_color, user_initials
 
@@ -75,12 +74,11 @@ class AdministrationController(QObject):
         self._users_editor = AdminUsersEditor(application, users, self)
         self._raw_editor = RawDatabaseEditor(application, self)
         self._plugins_editor = PluginsEditor(application, self)
-        self._server_editor = ServerControlEditor(application, self)
         self._component_source_editor = SourceEditorService(self)
         self._component_samples = None
         self._editors = {'raw': self._raw_editor, 'types': self._types_editor, 'schema': self._schema_editor,
                          'workflow': self._workflow_editor, 'rules': self._security_editor,
-                         'users': self._users_editor, 'plugins': self._plugins_editor, 'server': self._server_editor}
+                         'users': self._users_editor, 'plugins': self._plugins_editor}
         self._plugins_editor.committed.connect(self._project_document_saved)
         self._layout_editor = LayoutEditorHost(application, self, previews=previews)
         self._editors['layouts'] = self._layout_editor
@@ -128,10 +126,6 @@ class AdministrationController(QObject):
     @Property(QObject, constant=True)
     def pluginsEditor(self):
         return self._plugins_editor
-
-    @Property(QObject, constant=True)
-    def serverEditor(self):
-        return self._server_editor
 
     @Property(QObject, constant=True)
     def typesEditor(self):

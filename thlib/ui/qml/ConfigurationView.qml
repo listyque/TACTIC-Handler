@@ -38,7 +38,7 @@ Item {
                 return entry ? entry.id : id;
             }),
             canReset: configurationController.can_reset_current_page,
-            busy: false
+            busy: configurationController.busy
         })
     function dispatch(action) {
         if (action.type === "page") {
