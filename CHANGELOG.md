@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.312 - 2026-10-31
+
+- Sample all 50 load-balancing requests with up to eight independent authenticated clients, without stopping after repeated replies from one worker.
+- Preserve the captured site in diagnostic clients and clarify that observed workers are a sample, not the configured process count, in both clients and EN/RU Help.
+
 ## 0.6.0.310 - 2026-10-31
 
 - Restore System Info facts and diagnostics through the shipped client SDK's authenticated class-method API for XML-RPC and JSON.

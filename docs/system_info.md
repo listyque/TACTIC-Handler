@@ -23,6 +23,10 @@ its current ticket and project through either XML-RPC or JSON. Parallel clients
 copy the server address from `get_server_name()`, never the transport proxy
 returned by `get_server()`. Server-side execution and administrator checks remain
 authoritative; remote faults propagate through the existing error presentation.
+Load balancing always samples 50 requests with at most eight independent clients
+in flight. It does not stop after repeated replies from one worker. The result
+is explicitly a sample, not the configured worker count. Browser pooling or
+upstream affinity may still route all requests to one worker.
 The page test opens the same Stream addresses in the system browser, without
 passing tickets in URLs. Navigation refresh remains with its normal owner;
 System Info does not clear an unused legacy filesystem cache.

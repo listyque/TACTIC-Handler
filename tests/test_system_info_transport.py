@@ -35,7 +35,7 @@ class SystemInfoTransportTests(unittest.TestCase):
                         raise ValueError('Unexpected API method: ' + method)
                     auth, class_name, name, kwargs = args
                     sessions.append(auth)
-                    if auth['ticket'] != 'fixture-ticket' or auth['project'] != 'one':
+                    if auth['ticket'] != 'fixture-ticket' or auth['project'] != 'one' or auth['site'] != 'fixture-site':
                         raise ValueError('Invalid session')
                     result = remote.execute_class_method(class_name, name, kwargs)
                     data = (json.dumps(dict(codec=CODEC, result=encode(result))).encode()
@@ -62,7 +62,7 @@ class SystemInfoTransportTests(unittest.TestCase):
         self.http.server_close()
 
     def client(self, protocol):
-        client = tc.TacticServerStub(protocol=protocol, setup=False)
+        client = tc.TacticServerStub(protocol=protocol, setup=False, site='fixture-site')
         transport = proxy.UrllibTransport()
         transport.update_proxy({})
         client.set_transport(transport)
@@ -75,7 +75,8 @@ class SystemInfoTransportTests(unittest.TestCase):
         for protocol in ('xmlrpc', 'json'):
             with self.subTest(protocol=protocol), patch.object(proxy.env_server, 'get_proxy', return_value={}):
                 client = self.client(protocol)
-                with patch.object(tc, 'server_start', return_value=client):
+                with patch.object(tc, 'server_start', return_value=client), \
+                        patch.object(tc, 'TacticServerStub', wraps=tc.TacticServerStub) as clients:
                     for kind in ('info', 'balance', 'performance'):
                         result = fixtures.SystemInfoController.load('one', 7, kind, plan={'iterations': 2})
                         self.assertNotIn('error', result, (protocol, kind, result))
@@ -83,12 +84,23 @@ class SystemInfoTransportTests(unittest.TestCase):
                         if kind == 'info':
                             self.assertEqual(result['data']['sections'][0], fixtures.FACTS['sections'][0])
                         elif kind == 'balance':
-                            self.assertEqual(len(result['data']['samples']), 11)
+                            self.assertEqual(len(result['data']['samples']), 50)
                         else:
                             self.assertEqual(result['data']['count'], 2)
                             self.assertEqual(result['data']['parallel'], 2)
-        self.assertEqual(len(self.sessions), 32)
+                    self.assertEqual(clients.call_count, 52)
+        self.assertEqual(len(self.sessions), 110)
         self.assertEqual(sum(name == 'performance_probe' for name, _ in self.remote.log), 8)
+
+    def test_cancelled_balance_does_not_send_requests(self):
+        cancelled = threading.Event()
+        cancelled.set()
+        with patch.object(proxy.env_server, 'get_proxy', return_value={}):
+            client = self.client('xmlrpc')
+            with patch.object(tc, 'server_start', return_value=client):
+                result = fixtures.SystemInfoController.load('one', 9, 'balance', cancelled=cancelled)
+        self.assertIn('Test cancelled', result['error'])
+        self.assertEqual(self.sessions, [])
 
     def test_kwargs_default_and_remote_denial_are_preserved(self):
         for protocol in ('xmlrpc', 'json'):

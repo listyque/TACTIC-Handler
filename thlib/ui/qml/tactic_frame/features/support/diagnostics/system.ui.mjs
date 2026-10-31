@@ -51,17 +51,8 @@ export function testPlan(model) {
         parallel: 8
     };
 }
-export function balanceComplete(samples) {
-    return (
-        samples.length >= 50 ||
-        (samples.length >= 11 &&
-            samples.every(
-                (item) =>
-                    item.pid === samples[0].pid &&
-                    item.node === samples[0].node &&
-                    item.port === samples[0].port
-            ))
-    );
+export function balancePlan() {
+    return { iterations: 50, parallel: 8 };
 }
 export function resultText(result, language) {
     const tr = (text) => translate(text, language);
@@ -118,7 +109,9 @@ export function resultText(result, language) {
             '\n' +
             tr('Samples') +
             ': ' +
-            result.samples.length
+            result.samples.length +
+            '\n' +
+            tr('This sample does not show the configured worker count.')
         );
     }
     if (result.paths)

@@ -37,6 +37,7 @@ class Server:
         self.protocol = 'xmlrpc'
         self.transport = SimpleNamespace(proxy={})
         self.login_ticket = 'fixture'
+        self.site = None
 
     def get_server_name(self): return 'http://fixture.invalid'
     def set_transport(self, value): self.transport = value
@@ -143,7 +144,12 @@ class SystemInfoTests(unittest.TestCase):
             def click(name):
                 surface.click(window,reveal(name));wait();frame(window)
             click('systemBalanceTest')
-            self.assertEqual(len(controller.model['results']['balance']['samples']),11)
+            self.assertEqual(len(controller.model['results']['balance']['samples']),50)
+            for width in (320, 800):
+                window.resize(width, 600); view.setWidth(width); frame(window)
+                summary = surface.item(view, 'systemBalanceTestResult')
+                self.assertIn('This sample does not show', summary.property('text'))
+                self.assertLessEqual(summary.property('contentHeight'), summary.height())
             click('systemPerformanceTest')
             self.assertEqual(controller.model['results']['performance']['count'],2)
             self.assertEqual(sum(method=='performance_probe' for method,_ in server.log),4)

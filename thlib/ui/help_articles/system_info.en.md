@@ -11,9 +11,11 @@ browser identity/time zone. Refresh reads facts; Copy copies them. Nothing is
 polled while idle. Each test runs only when its button is pressed.
 
 - **Load Balancing / Test load balancing** samples responding workers and ports:
-  11 requests when one worker is observed, up to 50 otherwise. Worker IDs also
-  distinguish processes sharing one listener. A single observed worker does not
-  prove balancing is disabled.
+  50 requests with up to eight in flight, even if one worker answers initially.
+  Handler uses independent client connections; browsers manage their connection
+  pool. Worker IDs distinguish processes sharing one listener. The result is an
+  observed sample, not the configured worker count; one worker does not prove
+  balancing is disabled.
 - **Performance Test / Test performance** performs sequential and parallel reads
   of the Users table definition and up to 20 rows. It uses the CPU count (at most
   256 requests, at most eight in flight) and reports real elapsed request time.

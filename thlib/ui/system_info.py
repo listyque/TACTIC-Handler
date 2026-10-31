@@ -82,12 +82,30 @@ class SystemInfoController(QObject):
         from thlib.update_functions import current_version, version_text
         import platform
         import sys
+        from concurrent.futures import ThreadPoolExecutor
+        from thlib import proxy
         try:
             server = tc.server_start(project=project)
             def call(method, **kwargs):
                 if cancelled and cancelled.is_set():
                     raise RuntimeError('Test cancelled')
                 return server.execute_class_method(CLASS, method, kwargs)
+            def probe(method):
+                if cancelled and cancelled.is_set():
+                    raise RuntimeError('Test cancelled')
+                client = tc.TacticServerStub(protocol=server.protocol, setup=False, site=server.site)
+                transport = proxy.UrllibTransport()
+                transport.update_proxy(server.transport.proxy)
+                client.set_transport(transport)
+                client.set_server(server.get_server_name())
+                client.set_project(project)
+                client.set_ticket(server.login_ticket)
+                try:
+                    return client.execute_class_method(CLASS, method, {})
+                except Exception:
+                    if cancelled:
+                        cancelled.set()
+                    raise
             if kind == 'info':
                 result = call('get_info')
                 result['sections'].append(dict(title='TACTIC Handler', fields=[
@@ -95,40 +113,19 @@ class SystemInfoController(QObject):
                     ['OS', platform.platform()], ['Python', sys.version], ['Qt', qVersion()],
                 ]))
             elif kind == 'balance':
-                samples = []
-                for _ in range(50):
-                    samples.append(call('connection_probe'))
-                    if len(samples) >= 11 and len({(row['node'], row['pid'], row['port']) for row in samples}) == 1:
-                        break
+                with ThreadPoolExecutor(max_workers=8) as executor:
+                    samples = list(executor.map(probe, ['connection_probe'] * 50))
                 result = dict(samples=samples)
             elif kind == 'performance':
-                from concurrent.futures import ThreadPoolExecutor
                 from time import perf_counter
-                from thlib import proxy
                 count = max(1, min(256, int((plan or {}).get('iterations', 1))))
                 started = perf_counter()
                 for _ in range(count):
                     call('performance_probe')
                 sequential = (perf_counter() - started) * 1000
-                def probe(_):
-                    if cancelled and cancelled.is_set():
-                        return None
-                    client = tc.TacticServerStub(protocol=server.protocol, setup=False)
-                    transport = proxy.UrllibTransport()
-                    transport.update_proxy(server.transport.proxy)
-                    client.set_transport(transport)
-                    client.set_server(server.get_server_name())
-                    client.set_project(project)
-                    client.set_ticket(server.login_ticket)
-                    try:
-                        return client.execute_class_method(CLASS, 'performance_probe', {})
-                    except Exception:
-                        if cancelled:
-                            cancelled.set()
-                        raise
                 started = perf_counter()
                 with ThreadPoolExecutor(max_workers=min(8,count)) as executor:
-                    list(executor.map(probe, range(count)))
+                    list(executor.map(probe, ['performance_probe'] * count))
                 result = dict(sequentialMs=sequential, parallelMs=(perf_counter()-started)*1000,
                               count=count, parallel=min(8,count))
             elif kind == 'handoff':
