@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import "../../controls" as Controls
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/tasks/editor.ui.mjs" as UI
@@ -13,7 +14,7 @@ Controls.ScrollablePopup {
     readonly property string taskCode: record.taskCode || ""
     readonly property string parentKey: record.parentKey || ""
     parent: Overlay.overlay
-    preferredSurfaceWidth: 440
+    preferredSurfaceWidth: field === "dates" ? 440 : 340
     minimumSurfaceWidth: 240
     maximumSurfaceHeight: 500
     contentSpacing: 0
@@ -91,28 +92,57 @@ Controls.ScrollablePopup {
     }
     Component {
         id: hoursPort
-        Controls.SpinBox {
-            objectName: "taskInlineHours"
-            theme: root.theme
-            decimals: 2
-            from: 0
-            to: 10000000
-            stepSize: 25
-            value: Math.round((root.record.plannedHours || 0) * 100)
-            onValueModified: root.controller.stage_advanced_context_value(root.taskCode, root.parentKey, "plannedHours", String(realValue))
+        RowLayout {
+            spacing: 8
+            Controls.MaterialIcon {
+                name: "schedule"
+                size: 18
+                color: root.theme.secondaryText
+            }
+            Controls.SpinBox {
+                objectName: "taskInlineHours"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                theme: root.theme
+                decimals: 2
+                from: 0
+                to: 10000000
+                stepSize: 25
+                value: Math.round((root.record.plannedHours || 0) * 100)
+                onValueModified: root.controller.stage_advanced_context_value(root.taskCode, root.parentKey, "plannedHours", String(realValue))
+            }
+            Text {
+                text: qsTr("h")
+                color: root.theme.secondaryText
+                font.family: root.theme.fontFamily
+                font.pixelSize: 13
+            }
         }
     }
     Component {
         id: progressPort
-        Controls.TextField {
-            objectName: "taskInlineProgress"
-            theme: root.theme
-            text: String(root.record.progress || 0)
-            validator: IntValidator {
-                bottom: 0
-                top: 100
+        RowLayout {
+            spacing: 8
+            Controls.Slider {
+                id: progressSlider
+                objectName: "taskInlineProgress"
+                Layout.fillWidth: true
+                theme: root.theme
+                from: 0
+                to: 100
+                stepSize: 1
+                value: root.record.progress || 0
+                Accessible.name: qsTr("Progress")
+                onMoved: root.controller.stage_advanced_context_value(root.taskCode, root.parentKey, "progress", String(Math.round(value)))
             }
-            onTextEdited: root.controller.stage_advanced_context_value(root.taskCode, root.parentKey, "progress", text)
+            Text {
+                text: Math.round(progressSlider.value) + "%"
+                color: root.theme.primaryText
+                font.family: root.theme.fontFamily
+                font.pixelSize: 13
+                Layout.minimumWidth: 32
+                horizontalAlignment: Text.AlignRight
+            }
         }
     }
 }

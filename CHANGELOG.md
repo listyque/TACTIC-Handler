@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.327 - 2026-10-31
+
+- Open Task Manager single-choice cells directly in the existing picker in Stream; preserve combined date editing and staged task changes.
+- Use shared progress sliders with percentage readouts and quarter-hour planned-time steppers with visible units in both clients.
+- Keep immediate single-field editors compact with one field title and preserve project duration units and field permissions.
+
 ## 0.6.0.326 - 2026-10-31
 
 - Compact workflow hover cards in both clients; show up to three processes with horizontal scrolling for additional processes, bounded by the current window.

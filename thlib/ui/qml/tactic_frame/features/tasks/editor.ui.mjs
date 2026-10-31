@@ -19,6 +19,8 @@ export const titles = {
 export function describe(model, width, language) {
     const tr = (text) => translate(text, language),
         nodes = [],
+        single = model.inline && model.immediate && model.fields?.length === 1,
+        rowHeight = single ? 40 : 72,
         gap = spacing.content,
         columns = width >= (model.live ? 420 : 520) ? 2 : 1,
         cell = (width - gap * (columns - 1)) / columns;
@@ -29,7 +31,11 @@ export function describe(model, width, language) {
             label(
                 'taskInlineTitle',
                 rect(0, 0, width - 40, 28),
-                tr(model.title || 'Edit task draft'),
+                tr(
+                    single
+                        ? titles[model.fields[0].name] || model.fields[0].name
+                        : model.title || 'Edit task draft'
+                ),
                 { fontRole: 'body', weight: 600 }
             )
         );
@@ -87,7 +93,7 @@ export function describe(model, width, language) {
                     }
                 )
             );
-        else
+        else if (!single)
             nodes.push(
                 label(
                     'taskEditorTitle_' + field.name,
@@ -101,7 +107,7 @@ export function describe(model, width, language) {
             node(
                 'View',
                 'taskEditorValue_' + field.name,
-                rect(x, y + 28, w, h),
+                rect(x, y + (single ? 0 : 28), w, h),
                 {
                     view: 'field',
                     field,
@@ -117,11 +123,11 @@ export function describe(model, width, language) {
             slot++;
             if (slot === columns) {
                 slot = 0;
-                y += 72;
+                y += rowHeight;
             }
         }
     }
-    if (slot) y += 72;
+    if (slot) y += rowHeight;
     if (!model.immediate) {
         const hasApply = !model.live || model.staging;
         const stacked = hasApply && width < 256;

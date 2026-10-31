@@ -225,7 +225,7 @@
     "features/tasks/cells.ui.mjs": "87c11e1e95000b1d193ccbed183a24df43786212b24d5dbbbeea1c5e505562c8",
     "features/tasks/columns.ui.mjs": "a55ef84084b9479fb45b9e15f89aea5a3a471f1165af83dff9e27456d86a2513",
     "features/tasks/details.ui.mjs": "8151f528f47c76c02ac8b3e382d5608a7d530659f9b6c802a3561025bc446d71",
-    "features/tasks/editor.ui.mjs": "da3d32c122fb2a8ad040e1d2cfe8eaf5abe561e5717cb1412cf953c6b458d35f",
+    "features/tasks/editor.ui.mjs": "dace198258cb851c9ee429edfef605bc487f7496b767d514a6b4985b9ed0a91a",
     "features/tasks/empty.ui.mjs": "4ea83f7ab9dfb7b519c1634066ff0141fab880081fe99d8ec503097042f5f7c7",
     "features/tasks/filters.ui.mjs": "9ef464087fa73dfd73ef6d87162684c97d045eb16556db930a1b7e60c65e5c1c",
     "features/tasks/gantt.state.mjs": "685e580fd563ead3aa0fa775b6dba459ac9da8770851106459a35930ad2bfcf4",
