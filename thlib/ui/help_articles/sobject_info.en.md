@@ -71,3 +71,5 @@ Examples use test data and show the panel content. The surrounding window or doc
 ![Object report header](media/frame-objects-report-header-en.png)
 
 Object reports and record editors are modal windows. Close the report to return to the workspace; selecting a task, note or linked object closes it and opens that context. Tasks use their own project, including when opened from another project, and show logged hours for that exact task.
+
+Summary statistics keep digits and captions fully visible; only the surrounding card has rounded corners.

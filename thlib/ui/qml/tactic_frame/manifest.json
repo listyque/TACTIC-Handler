@@ -153,7 +153,7 @@
     "features/objects/inspector.ui.mjs": "4841aad65d656aa026207a52438b035dafacdc44cc19d5eb8d9207a4deee01b2",
     "features/objects/links.ui.mjs": "6aabfbf2a0ac924034edc0c5f8ccd1589e587d75e05767d545e0e7566a2b9003",
     "features/objects/note.ui.mjs": "8dbd54494e6650597f3571b7aef10c07e495426898ff224d4f103fe8e106e10e",
-    "features/objects/report.ui.mjs": "22ed3fb0e2c0e985e571224d281bc2ffb0b13a6d3eb2ca053bd1e82db2871a78",
+    "features/objects/report.ui.mjs": "be1e1705eb3fc243d6055e1fe62278a3e7162e88209df560534af99e3da37097",
     "features/objects/snapshot.ui.mjs": "98783ec4f4d36d623bcda4347f6ae5a0293c40c7c8f5084d968d44c16217023a",
     "features/objects/snapshot_tree.ui.mjs": "375fda91134306b8be2c50c0a24da7dac03874d53294db4e9af178db8eb52449",
     "features/objects/watch.ui.mjs": "29f3fa6ebc4dcb7ab2df52489f51c8b739b971abd84222127662548a12e44aa8",

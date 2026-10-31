@@ -249,6 +249,36 @@ class SObjectInfoQmlTests(unittest.TestCase):
             (empty_model, child_model, activity_model, note_model), view,
         )
 
+    def test_statistic_values_do_not_have_rounded_clip_corners(self):
+        (
+            engine, theme_component, component, theme,
+            controller, models, view,
+        ) = self._create_view()
+        window = QQuickWindow()
+        window.resize(800, 700)
+        view.setParentItem(window.contentItem())
+        window.show()
+        try:
+            for width in (320, 560, 760, 1040, 1600):
+                window.resize(width, 700)
+                view.setSize(window.size())
+                QTest.qWait(30)
+                header = visual_item(view, "sobjectInfoPresentationHeader")
+                surface = visual_item(header, "objectReportHeaderSurface")
+                self.assertGreater(surface.property("radius"), 0)
+                for index in range(8):
+                    metric = visual_item(header, "objectReportMetric_" + str(index))
+                    self.assertIsNotNone(metric)
+                    self.assertEqual(metric.property("radius"), 0)
+                    self.assertGreater(metric.width(), 0)
+                    self.assertLessEqual(metric.mapToItem(header, QPointF()).y() + metric.height(), header.height())
+        finally:
+            window.close()
+            view.setParentItem(None)
+            view.deleteLater()
+            theme.deleteLater()
+            engine.deleteLater()
+
     def test_report_pages_are_created_only_after_first_activation(self):
         (
             engine, theme_component, component, theme,

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.345 - 2026-10-31
+
+- Keep object-info statistic containers rectangular so digits and captions are not clipped by invisible rounded corners. Preserve the outer summary card styling.
+
 ## 0.6.0.344 - 2026-10-31
 
 - Keep all custom window and dock title-bar actions round, including dock Help, detach and close. Local service toolbars retain their existing shapes.
