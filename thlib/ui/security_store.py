@@ -16,7 +16,8 @@ def query_security_groups() -> str:
         log.add_filter('search_type', 'sthpw/login_group')
         log.add_filters('search_code', [str(item.get_value('code')) for item in objects])
         log.add_column('search_code')
-        log.add_column('MAX(id)', as_column='id', quoted=False)
+        log.get_select().set_quoted_mode('none')
+        log.add_column('MAX(id)', as_column='id')
         log.add_group_by('search_code')
         log.order_by = False  # The journal's default timestamp sort would split the aggregate.
         markers = {str(item.get_value('search_code')): item.get_value('id') for item in log.get_sobjects()}

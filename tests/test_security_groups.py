@@ -68,7 +68,13 @@ class SecurityStoreTests(unittest.TestCase):
             def add_filters(self, name, values):
                 self.filters.append((name, values))
 
-            def add_column(self, *_, **__):
+            def get_select(self):
+                return self
+
+            def set_quoted_mode(self, _mode):
+                pass
+
+            def add_column(self, column, distinct=False, table=None, as_column=None):
                 pass
 
             def add_group_by(self, *_):

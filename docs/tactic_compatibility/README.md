@@ -24,6 +24,13 @@ Database observations are documented separately in
 
 ## Compatibility rule
 
+Server-side aggregate procedures use the legacy `Search.add_column` signature:
+set `Search.get_select().set_quoted_mode('none')` before adding a fixed aggregate
+expression without a `quoted` keyword. This includes security-group journal
+revision markers as well as note counts and work-hour summaries. Group catalog
+checks run against the strict legacy signature and real Stream SQL, comparing
+batched markers with each group's latest journal revision.
+
 TACTIC is authoritative for search types, configuration precedence, widget
 classes, expressions and display values. The desktop client transports a
 QML-safe description of the resolved result. It must not invent a second XML

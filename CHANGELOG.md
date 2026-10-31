@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.353 - 2026-11-01
+
+- Fix the remaining Legacy TACTIC Search.add_column quoted-keyword failure in security-group catalog loading. Preserve batched journal revision markers, administrator checks and safe user projections using the native Select quoting mode, matching Stream group catalogs.
+
 ## 0.6.0.352 - 2026-11-01
 
 - Preserve native Tab eligibility until focus leaves deselected workspace tabs, result-view segments and hidden search tables. Prevent Qt activeFocusOnTab warnings and stale Tab stops while keeping keyboard selection and focus transfer intact.
