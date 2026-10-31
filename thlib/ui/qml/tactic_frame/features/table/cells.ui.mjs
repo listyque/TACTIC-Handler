@@ -6,10 +6,25 @@ import { buttonWidth } from '../../controls/buttons/metrics.mjs';
 
 export function presentationOptions(options = {}, attributes = {}) {
     const result = Object.assign({}, options);
-    for (const key of ['value_icon', 'value_style'])
+    for (const key of ['value_icon', 'value_style', 'value_text_style'])
         if (Object.prototype.hasOwnProperty.call(attributes, key))
             result[key] = attributes[key];
     return result;
+}
+
+const valueFonts = {
+    heading: { role: 'title', size: textStyles.title, weight: 600 },
+    small: { role: 'secondary', size: textStyles.secondary, weight: 400 },
+    body: { role: 'body', size: textStyles.body, weight: 0 }
+};
+
+export function valueFont(options = {}) {
+    return Object.prototype.hasOwnProperty.call(
+        valueFonts,
+        options.value_text_style
+    )
+        ? valueFonts[options.value_text_style]
+        : valueFonts.body;
 }
 
 export function valuePresentation(field, options = {}) {
@@ -21,23 +36,32 @@ export function valuePresentation(field, options = {}) {
         : badge && field === 'duration'
           ? 'clock'
           : '';
-    return badge || icon ? { badge, icon, align: alignment(options) } : null;
+    return badge || icon
+        ? {
+              badge,
+              icon,
+              align: alignment(options),
+              value_text_style: options.value_text_style || ''
+          }
+        : null;
 }
 
 export function valueLabel(text, width, height, presentation) {
     text = String(text ?? '');
-    const icon = presentation.icon || '',
+    const font = valueFont(presentation),
+        icon = presentation.icon || '',
         h = Math.max(0, Math.min(30, height)),
         w = Math.min(
             Math.max(0, width - 12),
-            buttonWidth(text.length * 7, !!icon)
+            buttonWidth((text.length * 7 * font.size) / textStyles.body, !!icon)
         ),
         left = icon ? 36 : 12;
     const children = [
         label(
             'tableValueLabel',
             rect(left, 0, Math.max(0, w - left - 12), h),
-            text
+            text,
+            { fontRole: font.role, weight: font.weight || 400 }
         )
     ];
     if (icon)

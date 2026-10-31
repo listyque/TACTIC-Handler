@@ -470,7 +470,7 @@ export function palette(style, dark, base, accent) {
     colors.tableDivider = blend(
         colors.panel,
         colors.primaryText,
-        dark ? 0.075 : 0.1
+        dark ? 0.13 : 0.14
     );
     colors.contentAccent = blend(
         accent,

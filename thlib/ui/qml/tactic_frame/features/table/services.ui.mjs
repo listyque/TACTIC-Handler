@@ -117,6 +117,7 @@ export function describe(
         };
         if (combined) {
             const options = cell.displayOptions || {},
+                font = Cells.valueFont(options),
                 leadingIcon = Object.prototype.hasOwnProperty.call(
                     options,
                     'value_icon'
@@ -127,7 +128,10 @@ export function describe(
                 left = leadingIcon ? 36 : 12,
                 w = Math.min(
                     inner,
-                    buttonWidth(text.length * 7, true) + (leadingIcon ? 24 : 0)
+                    buttonWidth(
+                        (text.length * 7 * font.size) / Cells.metrics.bodyFont,
+                        true
+                    ) + (leadingIcon ? 24 : 0)
                 );
             children.push(
                 node(
@@ -159,7 +163,8 @@ export function describe(
                                 rect(left, 0, Math.max(0, w - left - 36), size),
                                 text,
                                 {
-                                    weight: 600,
+                                    fontRole: font.role,
+                                    weight: font.weight || 600,
                                     color: enabled
                                         ? 'primaryText'
                                         : 'disabledText'

@@ -699,6 +699,7 @@ class ColumnsEditorController(QObject):
                     **({"valueIcon": element.get("value_icon")} if "value_icon" in element.attrib else
                        {"valueIcon": display.findtext("icon")} if display is not None and display.find("icon") is not None else {}),
                     **({"valueStyle": element.get("value_style")} if "value_style" in element.attrib else {}),
+                    **({"valueTextStyle": element.get("value_text_style")} if "value_text_style" in element.attrib else {}),
                 })
         had_error = bool(self._error)
         self._error = ""
@@ -752,6 +753,11 @@ class ColumnsEditorController(QObject):
                 if field == "valueIcon" and (len(value) > 128 or value and not re.fullmatch(r"[\w:.-]+", value, flags=re.ASCII)):
                     raise ValueError(self.tr("Invalid icon name"))
                 node.set("value_icon" if field == "valueIcon" else "value_style", value)
+            elif field == "valueTextStyle":
+                value = str(value or "").strip()
+                if value not in {"", "heading", "small"}:
+                    raise ValueError(self.tr("Invalid cell text style"))
+                node.set("value_text_style", value)
             elif field == "widget":
                 display = node.find("display")
                 if display is None:
@@ -1001,7 +1007,7 @@ class ColumnsEditorController(QObject):
                 and not (name in self._protected or not editable),
                 "displayOptions": {
                     **dict(item.get("displayOptions") or {}),
-                    **{key: attrs[key] for key in ("value_icon", "value_style") if key in attrs},
+                    **{key: attrs[key] for key in ("value_icon", "value_style", "value_text_style") if key in attrs},
                 },
                 "displayXml": str(item.get("displayXml") or ""),
                 "editClass": str(item.get("editClass") or ""),

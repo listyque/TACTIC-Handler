@@ -501,6 +501,20 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                 },
                 {
                     kind: 'Choice',
+                    id: 'definitionCatalogTextStyle',
+                    title: 'Cell text style',
+                    description:
+                        'Size and emphasis of text values in this column.',
+                    field: 'valueTextStyle',
+                    options: [
+                        { value: '', label: tr('Standard') },
+                        { value: 'heading', label: tr('Heading') },
+                        { value: 'small', label: tr('Small text') }
+                    ],
+                    props: { value: element.valueTextStyle || '' }
+                },
+                {
+                    kind: 'Choice',
                     id: 'definitionCatalogValueStyle',
                     title: 'Value appearance',
                     description: 'Automatic shows Duration as a badge.',

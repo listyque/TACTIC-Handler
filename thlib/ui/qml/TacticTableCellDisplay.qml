@@ -41,6 +41,7 @@ Item {
     readonly property bool clickableLink: kind === "link" && safeHref.length > 0
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     readonly property var valuePresentation: kind === "text" && !cell.error && !cell.statusColor ? Cells.valuePresentation(fieldName, displayOptions) : null
+    readonly property var valueFont: Cells.valueFont(displayOptions)
 
     signal processCountMenuRequested(string panel, var anchorItem)
 
@@ -132,8 +133,8 @@ Item {
                 }
                 color: root.cell.error ? root.theme.error : root.clickableLink ? root.theme.action : root.theme[Cells.textRole(root.cell)]
                 font.family: root.theme.fontFamily
-                font.pixelSize: Cells.metrics.bodyFont
-                font.weight: root.columnIndex === 0 ? Font.DemiBold : Font.Normal
+                font.pixelSize: root.valueFont.size
+                font.weight: root.valueFont.weight || (root.columnIndex === 0 ? Font.DemiBold : Font.Normal)
                 font.underline: root.clickableLink
             }
             TapHandler {

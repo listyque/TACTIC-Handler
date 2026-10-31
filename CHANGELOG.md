@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.339 - 2026-10-31
+
+- Clarify horizontal table row separators without adding outer frames. Add Standard, Heading and Small text styles per column, including configured value badges/icons and related-count labels.
+
 ## 0.6.0.338 - 2026-10-31
 
 - Show Duration as a compact clock badge; add configurable value icons and badge/plain appearance in Columns Editor. Related-object count buttons retain their configured leading icons and use type/count captions.
