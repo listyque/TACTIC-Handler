@@ -8,6 +8,7 @@ import * as Connections from './connections.ui.mjs';
 import * as Parent from './parent.ui.mjs';
 import * as Publish from './publish.ui.mjs';
 import * as Nested from './nested.ui.mjs';
+import { buttonWidth } from '../../controls/buttons/metrics.mjs';
 
 export function describe(
     cell,
@@ -69,7 +70,11 @@ export function describe(
         !!nested?.open &&
         String(nested.column || '') === String(cell.columnName || '') &&
         Nested.identity(nested.scope) === Nested.identity(cell.nestedTable);
-    const size = 28,
+    const combined =
+        !!cell.text &&
+        actions.length === 1 &&
+        actions[0].name === 'nested-table';
+    const size = combined ? Math.max(0, Math.min(34, height)) : 28,
         gap = 4;
     const inner = Math.max(0, width - 24);
     const textWidth = cell.text ? Math.max(0, inner - size - 8) : 0;
@@ -79,7 +84,7 @@ export function describe(
         Math.ceil(actions.length / capacity) * (size + gap) - gap
     );
     const children = [];
-    if (cell.text)
+    if (cell.text && !combined)
         children.push(
             label(
                 'tableServiceValue',
@@ -88,6 +93,81 @@ export function describe(
             )
         );
     actions.forEach((action, index) => {
+        const icon =
+            action.name === 'nested-table'
+                ? nestedOpen && nested.busy
+                    ? 'loading'
+                    : nestedOpen
+                      ? 'expand-more'
+                      : action.icon || 'chevron-right'
+                : action.icon;
+        const enabled = editable && action.enabled !== false;
+        const command = {
+            type: 'service',
+            name: action.name,
+            view: action.view || ''
+        };
+        if (combined) {
+            const text = String(cell.text),
+                w = Math.min(inner, buttonWidth(text.length * 7, true));
+            children.push(
+                node(
+                    'Action',
+                    'tableServiceAction_' + index,
+                    rect((width - w) / 2, 0, w, size),
+                    {
+                        text,
+                        icon,
+                        enabled,
+                        role: 'button',
+                        expanded: nestedOpen,
+                        description:
+                            action.translateLabel === false
+                                ? action.label
+                                : translate(action.label, language),
+                        normalColor: 'surfaceContainerHigh',
+                        radius: 4,
+                        action: command,
+                        children: [
+                            node(
+                                'Box',
+                                'tableServiceBorder',
+                                rect(0, 0, w, size),
+                                { border: 'outlineVariant', radius: 4 }
+                            ),
+                            label(
+                                'tableServiceValue',
+                                rect(12, 0, Math.max(0, w - 48), size),
+                                text,
+                                {
+                                    weight: 600,
+                                    color: enabled
+                                        ? 'primaryText'
+                                        : 'disabledText'
+                                }
+                            ),
+                            node(
+                                'Icon',
+                                'tableServiceDisclosure',
+                                rect(
+                                    Math.max(0, w - 28),
+                                    (size - 16) / 2,
+                                    16,
+                                    16
+                                ),
+                                {
+                                    icon,
+                                    color: enabled
+                                        ? action.iconColor || 'action'
+                                        : 'disabledText'
+                                }
+                            )
+                        ]
+                    }
+                )
+            );
+            return;
+        }
         const rowStart = Math.floor(index / capacity) * capacity;
         const rowCount = Math.min(capacity, actions.length - rowStart);
         const rowWidth = rowCount * size + (rowCount - 1) * gap;
@@ -102,15 +182,9 @@ export function describe(
                 action.translateLabel === false
                     ? action.label
                     : translate(action.label, language),
-                action.name === 'nested-table'
-                    ? nestedOpen && nested.busy
-                        ? 'loading'
-                        : nestedOpen
-                          ? 'expand-more'
-                          : action.icon || 'chevron-right'
-                    : action.icon,
-                { type: 'service', name: action.name, view: action.view || '' },
-                editable && action.enabled !== false,
+                icon,
+                command,
+                enabled,
                 {
                     iconOnly: true,
                     destructive: !!action.destructive,

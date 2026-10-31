@@ -41,3 +41,5 @@ Item views automatically use the same compact density as Handler when their pane
 The primary search toolbar keeps round buttons for Refresh, Script shelf, Tags, Quick filters, Help and Workspace panels. Local service toolbar buttons remain square.
 
 Item lists keep equal left and right insets while their contents fit. Extra space on the right is reserved only when the scrollbar appears, and is released when the viewport fits again. Full and compact cards keep their existing internal padding and row spacing.
+
+Related-table counts and their arrow form one compact button. Click the count, label or arrow to expand or collapse the same related table; keyboard activation and loading feedback stay within that row and column.

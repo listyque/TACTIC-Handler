@@ -217,7 +217,7 @@
     "features/table/publish.ui.mjs": "f0c7e29bb287f946609ae98ffdc87ebc56dfa6516d40e77decdfc1cea2db17c3",
     "features/table/record.parts.mjs": "a431fc5bea82f3b15862466b1267f2f90c5d215d95ba01c135d495db93886725",
     "features/table/report.ui.mjs": "a410f26fef2952a4f76d8844c8c147da923df1595bdae328e410670d4ff0327a",
-    "features/table/services.ui.mjs": "d906cd72ec2bf5c7e7eaf0a5ecb346ab1a95fb017d2885a3829942a71cd1796d",
+    "features/table/services.ui.mjs": "2e33ae2d0cb156dfdb023b185374bad5c26de424fc348e5af172718e426df577",
     "features/table/time.ui.mjs": "b4ffa9eb388ae6735e574850e314b733cbf7ed5eec6e7bdf1e0acd38ff43365d",
     "features/table/widgets.json": "002089830c92f879de89cdcd8d3b4b3e0959f638dd6b0db89dcfe845d12e7bb6",
     "features/tasks/bulk.ui.mjs": "24df7ff54cd1def494d5f50a9f07d79195dd6e9c44c011b3ccee78bfd0d5d707",

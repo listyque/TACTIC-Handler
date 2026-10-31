@@ -474,6 +474,9 @@ class NestedTableTests(unittest.TestCase):
             self.assertTrue(button.hasActiveFocus())
 
     def test_disclosure_state_belongs_to_its_row_column_and_scope(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QFontDatabase
+        from PySide6.QtTest import QTest
         import json
         import os
         from pathlib import Path
@@ -481,16 +484,25 @@ class NestedTableTests(unittest.TestCase):
         from unittest.mock import patch
         from thlib.ui.table.services import TableServicesController
         import tests.test_table_service_workflows as workflows
+        from thlib.ui.icon_font import qml_icon_bindings
+        for font in ('segoeui.ttf', 'seguisb.ttf'):
+            QFontDatabase.addApplicationFont('C:/Windows/Fonts/' + font)
         application = workflows.Application()
         owner = TableServicesController(application)
         self.addCleanup(owner.shutdown)
         history = dict(searchType='sthpw/snapshot', view='history', parentKey=application.node.search_key)
-        cells = [dict(text='', columnName=name, nestedTable=scope,
+        cells = [dict(text='4 assets', columnName=name, nestedTable=scope,
             actions=[dict(name='nested-table', label='Show related table', icon='chevron-right')])
             for name, scope in [('history', history), ('tasks', dict(history, view='tasks')), ('history_copy', history)] * 2]
         surfaces = [self.create('features/table/ServiceCell.qml', dict(controller=_TableController(),
-            nodeId='B' if index >= 3 else 'A', services=owner, administration=None, cell=cell), width=100, height=58)
+            nodeId='B' if index >= 3 else 'A', services=owner, administration=None, cell=cell), width=180, height=58,
+            context=qml_icon_bindings(Path(__file__).resolve().parents[1]))
             for index, cell in enumerate(cells)]
+        for _, view in surfaces:
+            action = view.property('scene').toVariant()['nodes'][0]['children'][0]
+            self.assertEqual(action['kind'], 'Action')
+            self.assertEqual(action['text'], '4 assets')
+            self.assertLess(action['width'], view.width())
         captures = []
         def icons():
             self.app.processEvents()
@@ -523,10 +535,30 @@ class NestedTableTests(unittest.TestCase):
             child = owner.nested_row('nested:R')
             self.assertEqual(child.expansionState['column'], 'child')
             self.assertEqual(child.expansionState['scope']['view'], 'files')
+            window, view = surfaces[3]
+            arrow = self.item(view, 'tableServiceDisclosure')
+            from PySide6.QtCore import QPointF
+            QTest.mouseClick(window, Qt.LeftButton, pos=arrow.mapToScene(QPointF(8, 8)).toPoint())
+            self.assertIsNone(owner.nested_row('B'))
+            action = self.item(view, 'tableServiceAction_0')
+            window.requestActivate()
+            frames.frame(window)
+            action.forceActiveFocus()
+            frames.frame(window)
+            QTest.keyClick(window, Qt.Key_Space)
+            frames.frame(window)
+            self.assertTrue(owner.nested_row('B').open)
+            view.setProperty('editable', False)
+            frames.frame(window)
+            self.click(window, action)
+            self.assertTrue(owner.nested_row('B').open)
         if os.environ.get('TABLE_DISCLOSURE_OUTPUT'):
             output = Path(os.environ['TABLE_DISCLOSURE_OUTPUT'])
             output.mkdir(parents=True, exist_ok=True)
             (output/'native.json').write_text(json.dumps(captures), encoding='utf-8')
+            window, view = surfaces[0]
+            window.setColor(view.property('theme').property('workspace'))
+            window.grabWindow().save(str(output/'native-count-button.png'))
 
     def test_script_context_uses_the_nested_selection_and_view(self):
         from unittest.mock import patch, Mock

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.337 - 2026-10-31
+
+- Combine related-table counts and disclosure arrows into one compact button; retain scoped toggle/loading behavior and native keyboard interaction.
+
 ## 0.6.0.336 - 2026-10-31
 
 - Match item-list insets in Handler and Stream, reserving right-hand space only when the scrollbar is visible; retain card sizes and row spacing.
