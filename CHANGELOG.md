@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.348 - 2026-11-01
+
+- Fix Legacy TACTIC aggregate reads that reject the quoted keyword in Search.add_column. Preserve grouped note counts and object/project work-hour totals using the native Select quoting mode, matching Stream summaries.
+
 ## 0.6.0.347 - 2026-11-01
 
 - Preserve Legacy TACTIC script hooks through the standard SDK when Stream automation commands are unavailable, retaining editing, Before/After execution, revision checks and transaction rollback. Restore the login ticket after aborting and skip unsupported automatic desktop-executor polling until the next authenticated session.

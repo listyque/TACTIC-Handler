@@ -1,5 +1,13 @@
 # Tactic Frame table contract
 
+Legacy aggregate queries use `Search.get_select().set_quoted_mode('none')`
+before adding fixed COUNT/SUM expressions through `Search.add_column` without
+the `quoted` keyword. Older TACTIC Search/Select signatures do not accept it.
+This applies to grouped note counts and object/project work-hour summaries;
+native filters, note visibility and summary scope remain authoritative. The
+Stream compound-search and table-summary SQL tests exercise the actual Handler
+procedures with the older Search signature, including the grouped fallback.
+
 Handler table activation calls `ColumnsEditorController.begin_session` whenever
 the current table workspace is presented, including with an empty `_stype_code`
 before the first definition. An inactive workspace is not bootstrapped by
