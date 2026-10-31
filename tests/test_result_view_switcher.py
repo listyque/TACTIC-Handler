@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import unittest
 
-from PySide6.QtCore import QObject, QPointF, Qt
+from PySide6.QtCore import QObject, QPointF, Qt, qInstallMessageHandler
 from PySide6.QtQuick import QQuickItem
 from PySide6.QtTest import QTest
 import tests.test_process_menu_latency as fixture
@@ -11,8 +11,31 @@ import tests.test_process_menu_latency as fixture
 
 class ResultViewSwitcherTests(unittest.TestCase):
     setUpClass = classmethod(fixture.ProcessMenuLatencyTests.setUpClass.__func__)
-    setUp = fixture.ProcessMenuLatencyTests.setUp
     scene = fixture.ProcessMenuLatencyTests.scene
+
+    def setUp(self):
+        fixture.ProcessMenuLatencyTests.setUp(self)
+        self.focus_warnings = []
+
+        def capture(_kind, _context, message):
+            if 'activeFocusOnTab' in message:
+                self.focus_warnings.append(message)
+
+        previous = qInstallMessageHandler(capture)
+        self.addCleanup(qInstallMessageHandler, previous)
+
+    def tearDown(self):
+        self.assertEqual(self.focus_warnings, [])
+
+    def test_inactive_result_surface_leaves_tab_order_after_focus_moves(self):
+        self.controller.workspace_model.replace_nodes([])
+        with self.scene(width=1100, animated=False) as (window, view):
+            rows = fixture.visual_control(view, 'searchResultsListView')
+            rows.forceActiveFocus()
+            self.assertTrue(rows.hasActiveFocus())
+            rows.parentItem().setProperty('current', False)
+            view.forceActiveFocus()
+            self.assertFalse(rows.property('activeFocusOnTab'))
 
     def click(self, window, item):
         cursor=item.findChild(QObject,'compactIconButtonCursorArea')
@@ -38,6 +61,8 @@ class ResultViewSwitcherTests(unittest.TestCase):
             fixture.frame(window)
             self.assertEqual(self.controller.results_view_mode,'table')
             focused=fixture.visual_control(view,'searchResultViewPicker_table')
+            self.assertTrue(focused.hasActiveFocus())
+            self.assertFalse(radio.property('activeFocusOnTab'))
             from PySide6.QtQml import QQmlEngine, QQmlExpression
             border=QQmlExpression(QQmlEngine.contextForObject(focused),focused,'background.border.width')
             self.assertEqual(border.evaluate()[0],1)

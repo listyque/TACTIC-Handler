@@ -6,7 +6,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QPoint, QPointF, Qt, QUrl
+from PySide6.QtCore import QObject, QPoint, QPointF, Qt, QUrl, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem, QQuickWindow
@@ -164,6 +164,31 @@ class SectionTabRailQmlTests(unittest.TestCase):
         self.assertTrue(all(
             model.CurrentRole in change[2] for change in changes
         ))
+
+    def test_deselected_focused_tab_leaves_tab_order_after_focus_moves(self):
+        engine, theme, model, component, rail, window = self._create_rail()
+        messages = []
+        previous = qInstallMessageHandler(
+            lambda _kind, _context, message: messages.append(message)
+        )
+        try:
+            tabs = self._visual_children(rail, 'sectionTabDelegate')
+            tabs[0].forceActiveFocus()
+            self.assertTrue(tabs[0].hasActiveFocus())
+            model.replace([
+                SectionTab('assets', 'Assets', '#6f9fc1', False, 'assets'),
+                SectionTab('shots', 'Shots', '#9f80c1', True, 'movie'),
+            ])
+            tabs[1].forceActiveFocus()
+            self.assertEqual([m for m in messages if 'activeFocusOnTab' in m], [])
+            self.assertFalse(tabs[0].property('activeFocusOnTab'))
+            self.assertTrue(tabs[1].property('activeFocusOnTab'))
+            self.assertTrue(tabs[1].hasActiveFocus())
+        finally:
+            qInstallMessageHandler(previous)
+            window.close()
+            window.deleteLater()
+            del model, engine
 
     def test_collapsed_rail_does_not_block_workspace_actions(self):
         engine, theme, model, component, rail, window = self._create_rail()

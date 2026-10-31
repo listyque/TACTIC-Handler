@@ -49,6 +49,12 @@ geometry and scrollbar/hit-area reserves. See [Content spacing](spacing.md).
 Workspace tab backgrounds have square corners. Keep the selection underline and
 close-button feedback rounded; tab styling must not change general panel radii.
 
+Native tabs, segmented choices and search tables keep `activeFocusOnTab` enabled
+while they hold active focus, even as selection or visibility changes. Once focus
+moves, an inactive entry leaves Tab order. Qt rejects disabling that flag on the
+active focus item; browser `tabindex` has no such restriction. Test native Qt
+messages as well as QML engine warnings when checking these transitions.
+
 Tag editors measure labels in the rendered font and include the existing button
 icon, spacing and padding. Pack whole chips onto the next row; only labels wider
 than the popup's available label area may elide.

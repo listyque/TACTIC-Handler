@@ -264,7 +264,7 @@ Item {
         flickableDirection: Flickable.AutoFlickDirection
         contentWidth: root.tableWidth
         headerPositioning: ListView.OverlayHeader
-        activeFocusOnTab: root.visible
+        activeFocusOnTab: root.visible || activeFocus
         focus: root.visible
 
         function requestMoreFromScroll() {

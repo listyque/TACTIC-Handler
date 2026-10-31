@@ -68,7 +68,7 @@ Item {
                 width: Math.max(0, (root.width - root.contentPadding * 2) / Math.max(1, root.segmentCount))
                 height: Math.max(0, root.height - root.contentPadding * 2)
                 enabled: Segments.selectable(modelData)
-                activeFocusOnTab: index === Segments.entry(root.model, root.currentValue)
+                activeFocusOnTab: index === Segments.entry(root.model, root.currentValue) || activeFocus
                 padding: 0
                 focusPolicy: Qt.TabFocus
                 Accessible.role: Accessible.RadioButton

@@ -10,7 +10,7 @@ Item {
     property bool vertical: false
     signal command(var action)
     signal keyboardInput
-    activeFocusOnTab: selected
+    activeFocusOnTab: selected || activeFocus
     Accessible.role: Accessible.PageTab
     Accessible.name: label
     Accessible.selected: selected

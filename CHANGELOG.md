@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.352 - 2026-11-01
+
+- Preserve native Tab eligibility until focus leaves deselected workspace tabs, result-view segments and hidden search tables. Prevent Qt activeFocusOnTab warnings and stale Tab stops while keeping keyboard selection and focus transfer intact.
+
 ## 0.6.0.351 - 2026-11-01
 
 - Defer cached quick-filter configuration until QML group bindings settle. Prevent binding-loop warnings and stale inline groups when returning to a wide search header; retain configured visibility and the existing selection owner on Legacy TACTIC and Stream.
