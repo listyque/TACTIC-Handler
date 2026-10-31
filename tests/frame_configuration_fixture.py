@@ -177,10 +177,12 @@ class Surface:
         dark=True,
         style="md3",
         server_control=None,
+        database_resources=None,
     ):
         self.closed = False
         self.case = AppearanceConfigurationTests()
         self.case.server_control = server_control
+        self.case.database_resources = database_resources
         self.case.setUpClass()
         self.case.setUp()
         self.app = self.case.app
@@ -244,6 +246,7 @@ class Surface:
             )
             + """
 property bool has_ticket: true
+property bool is_stream_server: true
 property bool authentication_required: false
 property string login_name: "artist"
 property string current_project_code: "cg"

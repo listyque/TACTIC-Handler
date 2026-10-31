@@ -1,0 +1,11 @@
+# Database resources
+
+Open **Configuration → Database resources** as a TACTIC administrator. This page manages named project database connections stored in `sthpw/db_resource`; the system database connection remains in the server configuration.
+
+Choose **New resource**, enter an immutable code, database engine and connection parameters, then **Save connection**. PostgreSQL and local SQLite are supported. SQLite files must already exist inside the server data directory. A saved password is never displayed: leave the replacement empty to retain it, enter a new one to replace it, or explicitly choose **Clear stored password**.
+
+Enter a database name and choose **Test connection**. Save pending connection changes first. Choose a project to populate its database name, then **Bind project**. The target must already contain a TACTIC project schema. Binding changes routing for subsequent requests; it does not create, copy or migrate databases. **Use server defaults** removes the selected project's resource override after verifying the default target. Changes to a connection already used by projects require confirmation. A referenced resource cannot be deleted, including references from retired projects.
+
+**Update schema** applies the adopted project configuration migrations only to a database bound to the selected resource. PostgreSQL updates hold a transaction-scoped advisory lock; failures roll back that database. Repeated updates are safe and preserve project data. The ordinary server `upgrade` command, also used by the standard launcher/update workflow, now includes registered external project resources and deduplicates identical connections. Updates are transactional per database, not across the whole installation. An unavailable external database or missing schema permissions causes the upgrade to fail; correct the connection/permissions before retrying. Keep database backups before applying server updates.
+
+Apply saves the current Configuration page; Save includes pending pages. Reset/discard restores the current connection draft. If a write result is unknown, reload before retrying. All operations are server-side and administrator-only; Handler and browser users do not connect directly to PostgreSQL. Deleting a connection does not delete its database. Database creation, data transfer and backups are separate operations.

@@ -1,5 +1,91 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'Database resources': 'Ресурсы БД',
+    'Project connections and schema updates':
+        'Подключения проектов и обновление схем',
+    'Database resources require administrator access':
+        'Управление ресурсами БД доступно только администратору',
+    'New resource': 'Новый ресурс',
+    'Database resource': 'Ресурс БД',
+    'Resource code': 'Код ресурса',
+    'Database engine': 'СУБД',
+    'Database host': 'Сервер БД',
+    'Database port': 'Порт БД',
+    'Database user': 'Пользователь БД',
+    'Database password': 'Пароль БД',
+    'Replacement password (leave empty to keep)':
+        'Новый пароль (пусто — сохранить текущий)',
+    'Clear stored password': 'Удалить сохранённый пароль',
+    'Save connection changes before testing or changing project bindings.':
+        'Перед проверкой или привязкой проекта сохраните изменения подключения.',
+    'Save connection': 'Сохранить подключение',
+    'Delete connection': 'Удалить подключение',
+    'Connection and schema': 'Подключение и схема',
+    'Database name': 'Имя базы данных',
+    'Update schema': 'Обновить схему',
+    'Project connection': 'Подключение проекта',
+    'Bind project': 'Привязать проект',
+    'Use server defaults': 'Подключение из конфигурации сервера',
+    'Binding changes the connection only. It does not create a database or copy project data.':
+        'Привязка меняет только подключение. База данных не создаётся, данные проекта не переносятся.',
+    'Bound projects': 'Привязанные проекты',
+    'No projects use this connection':
+        'Это подключение не используется проектами',
+    'The save result is unknown. Reload before editing again.':
+        'Результат сохранения неизвестен. Перед продолжением загрузите данные заново.',
+    'Delete this unused connection? Project databases and their data will remain intact.':
+        'Удалить неиспользуемое подключение? Базы проектов и их данные будут сохранены.',
+    'Change the project connection? Existing data is not moved. Verify that the target database contains the project data.':
+        'Изменить подключение проекта? Данные не переносятся. Убедитесь, что целевая база содержит данные проекта.',
+    'Use the server default connection for this project? Existing data is not moved.':
+        'Использовать для проекта подключение из конфигурации сервера? Данные не переносятся.',
+    'Update the bound project database schema? Configuration migrations run in a transaction. Back up this database before proceeding.':
+        'Обновить схему привязанной базы проекта? Изменения выполняются в транзакции. Перед обновлением создайте резервную копию базы.',
+    'Change this connection for its bound projects? Their next requests will use the new connection. Existing data is not moved.':
+        'Изменить подключение привязанных проектов? Следующие запросы пойдут через новое подключение. Данные не переносятся.',
+    'Database connection succeeded': 'Подключение к базе проверено',
+    'Database schema updated': 'Схема базы обновлена',
+    'Database schema is already current': 'Схема базы уже актуальна',
+    'Database connection failed. Check the host, database, user and password.':
+        'Не удалось подключиться к базе. Проверьте сервер, имя базы, пользователя и пароль.',
+    'The target database must contain an existing TACTIC project schema':
+        'Целевая база должна содержать существующую схему проекта TACTIC',
+    'Resource code already exists': 'Ресурс с таким кодом уже существует',
+    'Resource code cannot be changed':
+        'Код существующего ресурса нельзя изменить',
+    'Resource is used by a project. Change its connection first.':
+        'Ресурс используется проектом. Сначала измените подключение проекта.',
+    'Database resources changed. Reload before saving.':
+        'Ресурсы БД изменились. Перед сохранением загрузите их заново.',
+    'Database resources changed. Reload before continuing.':
+        'Ресурсы БД изменились. Перед продолжением загрузите их заново.',
+    'Choose a database bound to this resource':
+        'Выберите базу, привязанную к этому ресурсу',
+    'Choose an active project': 'Выберите активный проект',
+    'Choose a saved database resource': 'Выберите сохранённый ресурс БД',
+    'Database resource no longer exists': 'Ресурс БД больше не существует',
+    'Confirm this database resource operation':
+        'Подтвердите операцию с ресурсом БД',
+    'Project does not use this resource': 'Проект не использует этот ресурс',
+    'The SQLite database does not exist': 'База SQLite не существует',
+    'Choose PostgreSQL or SQLite': 'Выберите PostgreSQL или SQLite',
+    'Enter a single database host': 'Укажите один сервер базы данных',
+    'Database port must be between 1 and 65535':
+        'Порт БД должен быть от 1 до 65535',
+    'SQLite resources must be local and have no connection credentials':
+        'Ресурсы SQLite должны быть локальными и без учётных данных подключения',
+    'Resource code must contain letters, digits, underscores or hyphens':
+        'Код ресурса может содержать латинские буквы, цифры, подчёркивания и дефисы',
+    'Enter a database name containing letters, digits, underscores or hyphens':
+        'Имя базы может содержать латинские буквы, цифры, подчёркивания и дефисы',
+    'Choose a replacement password or clear it':
+        'Укажите новый пароль или выберите удаление текущего',
+    'Invalid database resource fields': 'Некорректные поля ресурса БД',
+    'Invalid database resource request': 'Некорректный запрос к ресурсу БД',
+    'Schema update failed and was rolled back. Check database permissions and server diagnostics.':
+        'Обновление схемы отменено из-за ошибки. Проверьте права на базу и диагностику сервера.',
+    'Database resource operation failed. Check the connection and database permissions.':
+        'Операция с ресурсом БД не выполнена. Проверьте подключение и права на базу.',
     'Filter icon': 'Иконка фильтра',
     'Use column icon': 'Использовать иконку колонки',
     'Icon beside text values and related-table counts. Used by quick filters unless overridden.':

@@ -24,7 +24,7 @@ Controls.ScrollablePopup {
             close();
         groupKey = key;
         editorController.ensure_current();
-        toggleBelowItem(sourceItem, true, 6);
+        toggleBelowItem(sourceItem, !key, 6);
     }
 
     function updateGroups() {

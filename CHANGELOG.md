@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.349 - 2026-11-01
+
+- Add Configuration database resource management with the shared browser/native form: connection testing, project binding, schema updates, protected passwords, confirmations and guarded drafts. Use the authenticated Stream resource endpoint; external database schema migrations and routing are owned by Stream. Anchor scoped quick-filter menus to the selected group on first opening and keyboard reopening, keeping the full menu trigger.
+
 ## 0.6.0.348 - 2026-11-01
 
 - Fix Legacy TACTIC aggregate reads that reject the quoted keyword in Search.add_column. Preserve grouped note counts and object/project work-hour totals using the native Select quoting mode, matching Stream summaries.

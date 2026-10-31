@@ -55,6 +55,7 @@ class SearchInlineFilterTests(unittest.TestCase):
             self.click(window, status)
             self.assertTrue(popup.property("opened"))
             self.assertEqual(popup.property("groupKey"), "status")
+            self.assertAlmostEqual(popup.property('_requestedSurfaceGlobalX'), status.mapToGlobal(QPointF()).x(), delta=1)
             groups = popup.property("groups").toVariant()
             self.assertEqual([group["key"] for group in groups], ["status"])
             # Actual chip activation, not direct controller invocation.
@@ -94,6 +95,7 @@ class SearchInlineFilterTests(unittest.TestCase):
             QTest.keyClick(window, Qt.Key_Space)
             fixture.frame(window)
             self.assertTrue(popup.property("opened"))
+            self.assertAlmostEqual(popup.property('_requestedSurfaceGlobalX'), status.mapToGlobal(QPointF()).x(), delta=1)
             window.resize(900, 650)
             view.setWidth(900)
             fixture.frame(window)

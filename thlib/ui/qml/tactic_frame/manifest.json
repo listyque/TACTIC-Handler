@@ -33,7 +33,7 @@
     "core/icons.mjs": "94967d67725d7c557602f1f5b4430f971aca2bd9c2cd1116921b9ab7f8554f49",
     "core/interaction.mjs": "fd043ede2490d7d70735d1c98ebc968506828d7130009cbf7e095d76158f9405",
     "core/legacy_icons.mjs": "a9bae9608d3c24bc369071f80ab4301ec7833bcb1daf9a9792922bcaa2940d14",
-    "core/strings.mjs": "89f0c053c09916c05948f6eff4bcbb89ae5c90167ec1faad9f7ac3c5fb0531f1",
+    "core/strings.mjs": "296dc7e76d17b37ed6004d1764864099e9996d8675447fea7bbb109a0f4a56f2",
     "features/activity/calendar.ui.mjs": "16f09ceb0f88c4a7465885c7757842063ac2f7a9ec42e6e5fde503f352f71d2e",
     "features/activity/event.ui.mjs": "9293c7051f72b0553ee8227e03788e5f9f196f6f296f550aaafff94dae36560e",
     "features/activity/feed.ui.mjs": "15de6d00da9e61260a8ca17335c333ec9381831fc721422d33b1dc7a37228f43",
@@ -86,7 +86,7 @@
     "features/administration/workflow/process_rules.state.mjs": "47edb398eff284558f80f5a23145e1b388f7db7a23fb84816d49eff9b9b79c23",
     "features/administration/workflow/process_rules.ui.mjs": "17c0d18afefc1954725c1d17c89684e4ccecfd5093a5d3c1764a394cd7321ddb",
     "features/administration/workflow/workflow.fields.mjs": "222da521eeba55ef77b59a9f1c4113b85a8ab93ce376b3e45a27ea0156c8220d",
-    "features/configuration/configuration.ui.mjs": "ac688c5adcf8ffea6d150ca9adca8cd862b77cd29284337fb6e55747190156bc",
+    "features/configuration/configuration.ui.mjs": "a40742e3cc2c39a48c0090d0f85e2f2541e4fc44481d6573af2d127cb001a038",
     "features/configuration/mcp.ui.mjs": "0fbc3a480f916b0c9726a9fe901038922c34c327c6d8c658167b653ba14b4371",
     "features/configuration/providers.ui.mjs": "70a1ed4a26de911debd3d7540971dfdba62e397ef9b54c36f5ca1dd093bb2b61",
     "features/configuration/repository.ui.mjs": "7bcb7ddd303329f6dff79d3e110b95e7ced10099686199f569fe26d629ece90d",
@@ -274,6 +274,7 @@
     "features/administration/showcase.examples.mjs": "897325ed744a9db36af434ead9a573f124b404e0480273f646a957c36e96b0ff",
     "features/configuration/server_control.ui.mjs": "3370ff4e30b7cc308c75a5f3b4fa83dc1c35ecc641a500068bdde1a5d9d1427a",
     "controls/forms/search.mjs": "39d3c20667311ae6d7ed5e4988b1a6a4f84b210658c6d54b4cd979731b41aea1",
-    "features/administration/showcase.variants.mjs": "0579b607c89e78139e997346d41327e192876b0b845f8c55e74a85baef440426"
+    "features/administration/showcase.variants.mjs": "0579b607c89e78139e997346d41327e192876b0b845f8c55e74a85baef440426",
+    "features/configuration/database_resources.ui.mjs": "4e4be8d778374e1eaeb1a7b76bac8bbeeb674751d8ced5d7a6c9b317ceb75baa"
   }
 }

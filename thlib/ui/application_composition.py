@@ -36,6 +36,7 @@ from thlib.ui.configuration import (
 )
 from thlib.ui.controller import ApplicationController
 from thlib.ui.configuration_server import ServerControlEditor
+from thlib.ui.configuration_database_resources import DatabaseResourcesEditor
 from thlib.ui.debug_logging import DebugLogController
 from thlib.ui.drop_plate import DropPlateController
 from thlib.ui.editor_tools import ScreenshotController, ServerPresetsController
@@ -881,6 +882,7 @@ def _build_editors(
         checkin_values=settings.checkin_values,
         dcc_runtime_values=delivery.handler_server.selected_scene_info,
         server_control=ServerControlEditor(controller),
+        database_resources=DatabaseResourcesEditor(controller),
     )
     delivery.handler_server.stateChanged.connect(
         configuration.refresh_dcc_runtime
@@ -1098,6 +1100,7 @@ def build_application_runtime(
     lifecycle.add_services(
         (
             editors.configuration.serverControl,
+            editors.configuration.databaseResources,
             editors.project_creation,
             editors.related_objects,
             editors.table_services,

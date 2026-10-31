@@ -77,6 +77,7 @@ class AppearanceConfigurationTests(unittest.TestCase):
             appearance_values=bridge.appearance_values,
             apply_appearance_configuration=bridge.apply_appearance,
             server_control=getattr(self, "server_control", None),
+            database_resources=getattr(self, "database_resources", None),
         )
         self.config.begin_session()
         self.addCleanup(self.config.deleteLater)

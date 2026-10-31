@@ -14,7 +14,16 @@ Item {
 
     Loader {
         anchors.fill: parent
-        sourceComponent: page.pageId === "ai" ? agentProvidersForm : page.pageId === "server" ? serverForm : page.pageId === "repository" ? repositoryForm : page.pageId === "project" ? projectForm : page.pageId === "checkin_preferences" ? checkinOptionsPageForm : page.pageId === "global_preferences" ? globalPreferencesForm : page.pageId === "appearance" ? appearanceForm : page.pageId === "cache" ? cacheForm : page.pageId === "tasks_preferences" ? taskPreferencesForm : Object.keys(page.dccSchema).length ? dccPreferencesForm : null
+        sourceComponent: page.pageId === "database_resources" ? databaseResourcesForm : page.pageId === "ai" ? agentProvidersForm : page.pageId === "server" ? serverForm : page.pageId === "repository" ? repositoryForm : page.pageId === "project" ? projectForm : page.pageId === "checkin_preferences" ? checkinOptionsPageForm : page.pageId === "global_preferences" ? globalPreferencesForm : page.pageId === "appearance" ? appearanceForm : page.pageId === "cache" ? cacheForm : page.pageId === "tasks_preferences" ? taskPreferencesForm : Object.keys(page.dccSchema).length ? dccPreferencesForm : null
+    }
+
+    Component {
+        id: databaseResourcesForm
+        Configuration.DatabaseResources {
+            theme: page.theme
+            controller: configurationController.databaseResources
+            language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+        }
     }
 
     Component {

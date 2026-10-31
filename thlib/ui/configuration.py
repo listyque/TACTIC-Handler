@@ -111,6 +111,7 @@ class ConfigurationController(QObject):
     _builtin_pages = {
         "ai",
         "server",
+        "database_resources",
         "repository",
         "project",
         "checkin_preferences",
@@ -120,7 +121,7 @@ class ConfigurationController(QObject):
         "cache",
     }
     _builtin_resettable_pages = {
-        "server", "checkin_preferences",
+        "server", "database_resources", "checkin_preferences",
         "global_preferences", "appearance", "tasks_preferences", "cache",
     }
 
@@ -146,16 +147,22 @@ class ConfigurationController(QObject):
         checkin_values=None,
         dcc_runtime_values=None,
         server_control=None,
+        database_resources=None,
     ) -> None:
         super().__init__(parent)
         self._apply_server_configuration = apply_server_configuration
         self._notify = notify
         self._server_control = server_control
+        self._database_resources = database_resources
+        self._remote_editors = {key: editor for key, editor in
+                                (('server', server_control), ('database_resources', database_resources)) if editor is not None}
         self._server_save_action = None
-        if server_control is not None:
-            server_control.setParent(self)
-            server_control.stateChanged.connect(self._server_control_changed)
-            server_control.committed.connect(self._server_control_saved)
+        for editor in self._remote_editors.values():
+            editor.setParent(self)
+            editor.stateChanged.connect(lambda editor=editor: self._remote_changed(editor))
+            editor.committed.connect(self._server_control_saved)
+        if database_resources is not None:
+            database_resources.saveCancelled.connect(self._cancel_remote_save)
         self._global_values = global_values
         self._apply_global_configuration = apply_global_configuration
         self._appearance_values = appearance_values
@@ -546,7 +553,7 @@ class ConfigurationController(QObject):
 
     @Property("QVariantList", notify=dirtyChanged)
     def dirty_pages(self) -> list[str]:
-        return sorted(self._dirty_pages | ({'server'} if self._server_control_dirty() else set()))
+        return sorted(self._dirty_pages | {key for key, editor in self._remote_editors.items() if editor.dirty or editor.writeUncertain})
 
     @Property(bool, notify=dirtyChanged)
     def current_page_dirty(self) -> bool:
@@ -556,15 +563,19 @@ class ConfigurationController(QObject):
     def serverControl(self):
         return self._server_control
 
+    @Property(QObject, constant=True)
+    def databaseResources(self):
+        return self._database_resources
+
     @Property(bool, notify=dirtyChanged)
     def busy(self) -> bool:
-        return bool(self._server_control and self._server_control.busy)
+        return any(editor.busy for editor in self._remote_editors.values())
 
     def _server_control_dirty(self) -> bool:
         return bool(self._server_control and (self._server_control.dirty or self._server_control.writeUncertain))
 
-    def _server_control_changed(self) -> None:
-        if self._server_control.error or self._server_control.writeUncertain or not self._server_control.identity:
+    def _remote_changed(self, editor) -> None:
+        if editor.error or editor.writeUncertain or not editor.identity:
             self._server_save_action = None
         self.dirtyChanged.emit()
 
@@ -573,15 +584,21 @@ class ConfigurationController(QObject):
         if action:
             action()
 
-    def _save_server_control(self, action: Callable[[], object]) -> bool:
+    def _cancel_remote_save(self) -> None:
+        self._server_save_action = None
+
+    def _save_server_control(self, action: Callable[[], object], page=None) -> bool:
         if self.busy:
             return True
-        if not self._server_control_dirty():
-            return False
-        if not self._server_control.writeUncertain:
-            self._server_save_action = action
-            self._server_control.save()
-        return True
+        for key, editor in self._remote_editors.items():
+            if page is not None and page != key:
+                continue
+            if editor.dirty or editor.writeUncertain:
+                if not editor.writeUncertain:
+                    self._server_save_action = action
+                    editor.save()
+                return True
+        return False
 
     @Property(bool, notify=currentPageChanged)
     def can_reset_current_page(self) -> bool:
@@ -898,7 +915,7 @@ class ConfigurationController(QObject):
 
     @Slot(result=bool)
     def apply_current(self) -> bool:
-        if self._current_page == 'server' and self._save_server_control(self.apply_current):
+        if self._save_server_control(self.apply_current, self._current_page):
             return False
         return self._apply_page(self._current_page)
 
@@ -935,8 +952,8 @@ class ConfigurationController(QObject):
         if self._current_page not in self._resettable_pages:
             return
         previous = set(self._dirty_pages)
-        if self._current_page == 'server' and self._server_control is not None:
-            self._server_control.discard()
+        if self._current_page in self._remote_editors:
+            self._remote_editors[self._current_page].discard()
         self._pending_values.pop(self._current_page, None)
         self._dirty_pages.discard(self._current_page)
         self._emit_dirty_if_changed(previous)
@@ -955,9 +972,10 @@ class ConfigurationController(QObject):
     def discard_and_close(self) -> None:
         if self.busy:
             return
-        if self._server_control is not None and self._server_control_dirty():
-            self._server_save_action = None
-            self._server_control.discard()
+        self._server_save_action = None
+        for editor in self._remote_editors.values():
+            if editor.dirty or editor.writeUncertain:
+                editor.discard()
         previous = set(self._dirty_pages)
         self._pending_values.clear()
         self._dirty_pages.clear()

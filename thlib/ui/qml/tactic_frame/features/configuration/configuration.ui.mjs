@@ -79,6 +79,13 @@ export const pages = [
         help: 'repository_configuration'
     },
     {
+        id: 'database_resources',
+        title: 'Database resources',
+        icon: 'database',
+        description: 'Project connections and schema updates',
+        help: 'database_resources'
+    },
+    {
         id: 'project',
         title: 'Projects',
         icon: 'project-diagram',
