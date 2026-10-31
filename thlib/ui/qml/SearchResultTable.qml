@@ -39,8 +39,6 @@ Item {
     property bool scrollColumns: false
     property real rowHeight: 58
     property bool automaticRowHeight: false
-    property var hoveredTaskCell: null
-    readonly property bool selectedTaskPreviewActive: hoveredTaskCell !== null && checkedIds.indexOf(hoveredTaskCell.nodeId) >= 0
     readonly property var columns: columnsController ? columnsController.visibleColumns : []
     readonly property real availableColumnWidth: Math.max(0, rows.width - selectionColumnWidth - actionColumnWidth)
     readonly property var tableLayout: TableHost.describe({
@@ -571,13 +569,6 @@ Item {
                                 widgetClass: cellDelegate.modelData.widgetClass || cellDelegate.modelData.resolvedClass || ""
                                 effectsEnabled: !rows.moving
                                 scrolling: rows.moving
-                                selectedTaskPreviewActive: resultRow.selected && resultRow.inVerticalViewport && !resultRow.viewPooled && root.selectedTaskPreviewActive
-                                onTaskPreviewHoverChanged: hovered => {
-                                    if (hovered)
-                                        root.hoveredTaskCell = taskCellDisplay;
-                                    else if (root.hoveredTaskCell === taskCellDisplay)
-                                        root.hoveredTaskCell = null;
-                                }
                                 onProcessCountMenuRequested: function (panel, anchorItem) {
                                     root.processCountMenuRequested(resultRow.nodeId, panel, anchorItem);
                                 }

@@ -1,6 +1,10 @@
 import { translate } from '../../core/strings.mjs';
 import { node, rect, label } from '../../core/frame.mjs';
-import { textStyles } from '../../core/foundation.mjs';
+import {
+    textStyles,
+    metrics as themeMetrics,
+    spacing
+} from '../../core/foundation.mjs';
 
 const actions = {
     sobject_detail: ['search', 'Open details'],
@@ -16,6 +20,7 @@ export const metrics = {
     taskWidth: 107,
     taskGap: 4,
     taskMenu: 32,
+    taskPreviewWidth: 220,
     taskMaximumHeight: 88,
     taskDatesHeight: 76,
     taskHeading: 15,
@@ -116,6 +121,69 @@ export function taskLayout(count, width, height) {
     };
 }
 
+export function taskCardLayout(height, expanded = false, style) {
+    if (!expanded)
+        return Object.assign(taskLayout(1, 0, height), {
+            headingHeight: metrics.taskHeading,
+            datesHeight: 14,
+            padding: 2,
+            gap: 1
+        });
+    const theme = themeMetrics(style),
+        padding = spacing.compact,
+        gap = spacing.tight;
+    return {
+        dates: true,
+        editorHeight: theme.controlHeight,
+        headingHeight: 20,
+        datesHeight: theme.compactControlHeight,
+        padding,
+        gap,
+        cardHeight:
+            padding * 2 +
+            20 +
+            theme.controlHeight * 2 +
+            theme.compactControlHeight +
+            gap * 3
+    };
+}
+
+export function taskPreviewLayout(count, viewportWidth, viewportHeight, style) {
+    const card = taskCardLayout(0, true, style),
+        padding = spacing.compact;
+    const contentWidth = Math.max(
+        0,
+        count * (metrics.taskPreviewWidth + metrics.taskGap) - metrics.taskGap
+    );
+    const width = Math.max(
+        0,
+        Math.min(
+            viewportWidth - padding * 2,
+            contentWidth + metrics.taskMenu + padding * 2
+        )
+    );
+    const horizontal = contentWidth > width - padding * 2 - metrics.taskMenu;
+    return {
+        cardWidth: metrics.taskPreviewWidth,
+        cardHeight: card.cardHeight,
+        contentWidth,
+        menuWidth: metrics.taskMenu,
+        padding,
+        width,
+        height: Math.max(
+            0,
+            Math.min(
+                viewportHeight - padding * 2,
+                card.cardHeight + padding * 2 + (horizontal ? 16 : 0)
+            )
+        )
+    };
+}
+
+export function taskCardsHovered(x, y, inlineWidth, height) {
+    return x >= 0 && x < inlineWidth && y >= 0 && y < height;
+}
+
 export function previewSize(width, height) {
     return Math.max(0, Math.min(width, height) - metrics.previewInset);
 }
@@ -131,6 +199,18 @@ export function assigneeLabel(task, language) {
 export function taskDate(value, simple) {
     const date = value ? String(value).slice(0, 10) : '—';
     return simple && date.length === 10 ? date.slice(5) : date;
+}
+
+export function taskDateRange(task) {
+    const start =
+        task.simpleDates === undefined && task.bidStartLabel
+            ? task.bidStartLabel
+            : taskDate(task.bidStart, task.simpleDates);
+    const end =
+        task.simpleDates === undefined && task.bidEndLabel
+            ? task.bidEndLabel
+            : taskDate(task.bidEnd, task.simpleDates);
+    return start + ' – ' + end;
 }
 
 export function taskEditable(task, field, editable = true) {

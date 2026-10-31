@@ -31,13 +31,12 @@ Item {
     property bool effectsEnabled: true
     property string widgetClass: ""
     property bool scrolling: false
-    property bool selectedTaskPreviewActive: false
+
     property var tableServices: typeof tableServicesController === "undefined" ? null : tableServicesController
     property var administration: typeof administrationController === "undefined" ? null : administrationController
     readonly property string safeHref: Cells.link(cell.href, controller ? controller.server_url || "" : "")
     readonly property bool clickableLink: kind === "link" && safeHref.length > 0
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
-    signal taskPreviewHoverChanged(bool hovered)
 
     signal processCountMenuRequested(string panel, var anchorItem)
 
@@ -522,8 +521,6 @@ Item {
             options: root.displayOptions
             taskCount: root.tasks
             scrolling: root.scrolling
-            selectedPreviewActive: root.selectedTaskPreviewActive
-            onPreviewHoverChanged: hovered => root.taskPreviewHoverChanged(hovered)
         }
     }
 }

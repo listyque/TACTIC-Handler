@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Window
 import "tactic_frame/features/table/cells.ui.mjs" as Cells
 import QtQuick.Controls
 import "controls" as Controls
@@ -18,7 +19,6 @@ Item {
     property var options: ({})
     property int taskCount: 0
     property bool scrolling: false
-    property bool selectedPreviewActive: false
     property bool hoverPreviewEnabled: true
     readonly property var cellLayout: Cells.taskLayout(recordCount, width, height)
     readonly property int cardSpacing: Cells.metrics.taskGap
@@ -30,14 +30,13 @@ Item {
     readonly property int visibleCardCount: cellLayout.visible
     readonly property real visibleCardsWidth: cellLayout.visibleWidth
     readonly property int effectiveCount: Math.max(taskCount, records ? records.filter(record => Boolean(record.hasTask)).length : 0)
-    readonly property real previewCardsWidth: cellLayout.previewWidth
+    readonly property var previewSizing: Cells.taskPreviewLayout(recordCount, Window.window ? Window.window.width : width, Window.window ? Window.window.height : height, theme.style)
+    readonly property real previewCardsWidth: previewSizing.contentWidth
     readonly property var preview: popupLoader.item
     readonly property bool previewVisible: Boolean(preview && preview.visible)
-    readonly property bool pointerHovered: cellHover.hovered || Boolean(preview && preview.contentHovered)
-    readonly property bool hoverActive: selectedPreviewActive || pointerHovered
-    signal previewHoverChanged(bool hovered)
-    onPointerHoveredChanged: previewHoverChanged(pointerHovered)
-    Component.onDestruction: previewHoverChanged(false)
+    readonly property bool inlineHovered: cellHover.hovered && Cells.taskCardsHovered(cellHover.point.position.x, cellHover.point.position.y, visibleCardsWidth, height)
+    readonly property bool pointerHovered: inlineHovered || Boolean(preview && preview.contentHovered)
+    readonly property bool hoverActive: pointerHovered
 
     function openTaskPreview(pinned) {
         if (recordCount <= 0)
@@ -151,8 +150,8 @@ Item {
             modal: false
             focus: false
             padding: 8
-            width: Math.min(root.previewCardsWidth + leftPadding + rightPadding, parent && parent.width > 0 ? Math.max(180, parent.width - 8) : root.previewCardsWidth + leftPadding + rightPadding)
-            height: root.height + topPadding + bottomPadding + (root.previewCardsWidth > availableWidth ? 16 : 0)
+            width: root.previewSizing.width
+            height: root.previewSizing.height
             settledClosePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
             property bool pinned: false
             property bool contentHovered: false
@@ -182,40 +181,67 @@ Item {
                         onTapped: taskPreview.pinned = true
                     }
 
-                    Flickable {
-                        id: previewFlick
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: previewBar.hasOverflow ? previewBar.reservedExtent + 4 : 0
-                        clip: true
-                        contentWidth: root.previewCardsWidth
-                        contentHeight: height
-                        boundsBehavior: Flickable.StopAtBounds
-                        flickableDirection: Flickable.HorizontalFlick
+                    Item {
+                        id: previewScrollSurface
+                        anchors.fill: parent
+                        anchors.rightMargin: root.previewSizing.menuWidth
+                        Flickable {
+                            id: previewFlick
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: previewBar.hasOverflow ? previewBar.reservedExtent + 4 : 0
+                            anchors.rightMargin: previewVerticalBar.hasOverflow ? previewVerticalBar.reservedExtent + 4 : 0
+                            clip: true
+                            contentWidth: root.previewCardsWidth
+                            contentHeight: root.previewSizing.cardHeight
+                            boundsBehavior: Flickable.StopAtBounds
+                            flickableDirection: Flickable.HorizontalAndVerticalFlick
 
-                        TacticTaskCards {
-                            width: root.previewCardsWidth
-                            height: previewFlick.height
+                            TacticTaskCards {
+                                width: root.previewCardsWidth
+                                height: root.previewSizing.cardHeight
+                                theme: root.theme
+                                controller: root.controller
+                                columnsController: root.columnsController
+                                userModel: root.userModel
+                                nodeId: root.nodeId
+                                records: root.records || []
+                                cardWidth: root.previewSizing.cardWidth
+                                cardSpacing: root.cardSpacing
+                                expanded: true
+                            }
+                        }
+
+                        Controls.ScrollBar {
+                            id: previewBar
+                            objectName: "tableTaskCardsPreviewScrollBar"
+                            parent: previewScrollSurface
+                            orientation: Qt.Horizontal
                             theme: root.theme
-                            controller: root.controller
-                            columnsController: root.columnsController
-                            userModel: root.userModel
-                            nodeId: root.nodeId
-                            records: root.records || []
-                            cardWidth: root.cardWidth
-                            cardSpacing: root.cardSpacing
+                            flickableTarget: previewFlick
+                        }
+                        Controls.ScrollBar {
+                            id: previewVerticalBar
+                            objectName: "tableTaskCardsPreviewVerticalScrollBar"
+                            parent: previewScrollSurface
+                            orientation: Qt.Vertical
+                            theme: root.theme
+                            flickableTarget: previewFlick
                         }
                     }
-
-                    Controls.ScrollBar {
-                        id: previewBar
-                        objectName: "tableTaskCardsPreviewScrollBar"
-                        parent: previewSurface
-                        orientation: Qt.Horizontal
+                    Controls.ItemCountActionButton {
+                        objectName: "tableTaskPreviewManager"
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 28
+                        height: 28
                         theme: root.theme
-                        flickableTarget: previewFlick
+                        iconName: "tasks"
+                        count: root.effectiveCount
+                        toolTip: qsTr("Task Manager")
+                        onClicked: root.openTaskManager()
                     }
                 }
             }

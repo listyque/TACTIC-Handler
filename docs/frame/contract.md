@@ -32,6 +32,14 @@ this tool is not part of ordinary product builds.
 
 ## Single owners
 
+Only the hovered workflow cell opens a preview; checked peer rows stay compact.
+Bulk status/assignee edits retain their existing selected-row scope.
+Task workflow hover previews use normal theme-height fields, wider cards and
+dates, independently of the compact row height. Hover only over inline cards
+starts expansion; the count action opens Task Manager directly. The preview
+retains that action outside its scrolling card content. Expanded geometry and
+date-range labels are owned by `features/table/cells.ui.mjs` in both engines.
+
 Content spacing uses the shared foundation's semantic scale in logical pixels:
 12 for a body/panel interior, 8 between related controls and 16 between sections.
 Tables and dock/page bodies add no outer side gutter. A dialog body has one

@@ -2844,7 +2844,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             QTest.qWait(550)
             self.assertFalse(task_preview.property("opened"))
             QTest.mouseMove(window, QPointF(890, 230).toPoint())
-            # Multi-selection expands only the selected workflows together.
+            # Multi-selection does not expand peer workflows.
             model.replace_nodes([
                 WorkspaceNode(
                     node_id=node_id, node_type="sobject",
@@ -2869,9 +2869,9 @@ class ColumnsTableViewTests(unittest.TestCase):
                 self.assertEqual(
                     bool(cell.findChild(QObject, "tableTaskCardsPreview")
                          and cell.findChild(QObject, "tableTaskCardsPreview").property("opened")),
-                    node_id in controller._selected, node_id,
+                    node_id == "asset", node_id,
                 )
-            # Leaving for another cell in the same selected row closes all.
+            # Leaving the hovered cell closes its preview.
             QTest.mouseMove(window, QPointF(65, task_cells["asset"].mapToScene(
                 QPointF(0, task_cells["asset"].height() / 2)).y()).toPoint())
             QTest.qWait(550)
@@ -2908,6 +2908,10 @@ class ColumnsTableViewTests(unittest.TestCase):
 
     def test_task_cell_reflows_into_overflow_and_reveals_dates(self):
         engine = QQmlEngine()
+        if os.environ.get("TASK_HOVER_CAPTURE"):
+            from thlib.ui.icon_font import qml_icon_bindings
+            for name, value in qml_icon_bindings(QML.parents[2]).items():
+                engine.rootContext().setContextProperty(name, value)
         warnings = []
         engine.warnings.connect(
             lambda errors: warnings.extend(
@@ -2918,6 +2922,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
         )
         theme = theme_component.createWithInitialProperties({"dark": True})
+        theme.setProperty("popupAnimationsEnabled", False)
         columns = _TableColumns()
         controller = _TableController()
         users = RecordListModel((
@@ -2943,7 +2948,7 @@ class ColumnsTableViewTests(unittest.TestCase):
         )
         window = QQuickWindow()
         cell.setParentItem(window.contentItem())
-        window.resize(300, 120)
+        window.resize(300, 360)
         window.show()
         try:
             QTest.qWait(30)
@@ -2998,6 +3003,11 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertIsNotNone(menu.findChild(QObject, "itemCountCompactButton"))
             self.assertEqual(menu.property("iconName"), "tasks")
             self.assertEqual(menu.property("count"), 1)
+            QTest.mouseMove(window, QPointF(290, 320).toPoint())
+            QTest.qWait(30)
+            QTest.mouseMove(window, menu.mapToScene(QPointF(menu.width() / 2, menu.height() / 2)).toPoint())
+            QTest.qWait(400)
+            self.assertIsNone(cell.findChild(QObject, "tableTaskCardsPreview"), "Hovering the badge must keep it available for clicking")
             self.assertLessEqual(
                 first_card.x() + first_card.width(), menu.x()
             )
@@ -3047,10 +3057,57 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(inline_cards.opacity(), 0)
             expanded_card = next(item for item in _visual_items(preview_surface)
                                  if item.objectName() == "tableTaskRecord_0")
+            self.assertEqual(expanded_card.width(), 220)
+            self.assertEqual(expanded_card.height(), 152)
+            expanded_status = next(item for item in _visual_items(expanded_card) if item.objectName() == "tableTaskStatus_0")
+            expanded_dates = next(item for item in _visual_items(expanded_card) if item.objectName() == "tableTaskDates_0")
+            self.assertEqual(expanded_status.height(), theme.property("controlHeight"))
+            self.assertTrue(expanded_dates.isVisible())
+            self.assertEqual(expanded_dates.height(), theme.property("compactControlHeight"))
+            manager = next(item for item in _visual_items(preview_surface) if item.objectName() == "tableTaskPreviewManager")
+            self.assertTrue(manager.isVisible())
+            capture_dir = os.environ.get("TASK_HOVER_CAPTURE")
+            if capture_dir:
+                output = Path(capture_dir)
+                output.mkdir(parents=True, exist_ok=True)
+                window.resize(800, 600)
+                QTest.qWait(30)
+                records = cell.property("records")
+                if hasattr(records, "toVariant"):
+                    records = records.toVariant()
+                captures = []
+                for style in ("md3", "material5", "fluent"):
+                    theme.setProperty("styleName", style)
+                    for dark in (True, False):
+                        theme.setProperty("dark", dark)
+                        QTest.qWait(100)
+                        parent = preview.property("parent")
+                        origin = parent.mapToScene(QPointF(preview.property("x"), preview.property("y")))
+                        image = window.grabWindow()
+                        ratio = image.devicePixelRatio()
+                        image.copy(round(origin.x()*ratio), round(origin.y()*ratio), round(preview.property("width")*ratio), round(preview.property("height")*ratio)).save(str(output / f"preview-th-{style}-{dark}.png"))
+                        captures.append(dict(style=style, dark=dark, width=expanded_card.width(), height=expanded_card.height(), editorHeight=expanded_status.height(), dates=True))
+                (output / "native.json").write_text(json.dumps(dict(records=records, measurements=captures), indent=2), encoding="utf-8")
+                theme.setProperty("styleName", "md3")
+                theme.setProperty("dark", True)
+                QTest.qWait(100)
             self.assertLess(
                 expanded_card.mapToScene(QPointF()).y(),
                 cell.mapToScene(QPointF(0, cell.height())).y(),
             )
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                expanded_dates.mapToScene(QPointF(expanded_dates.width() / 2, expanded_dates.height() / 2)).toPoint())
+            QTest.qWait(60)
+            expanded_date_editor = preview_surface.findChild(QObject, "tableTaskDateEditor")
+            self.assertIsNotNone(expanded_date_editor)
+            self.assertTrue(expanded_date_editor.property("opened"), (expanded_date_editor.property("visible"), preview.property("opened"), warnings))
+            QMetaObject.invokeMethod(expanded_date_editor, "close")
+            QTest.qWait(60)
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                manager.mapToScene(QPointF(manager.width() / 2, manager.height() / 2)).toPoint())
+            QTest.qWait(30)
+            self.assertEqual(controller.process_details[-1], ("asset", "tasks", ""))
+            self.assertFalse(preview.property("opened"))
             QTest.mouseMove(window, QPointF(290, 110).toPoint())
             QTest.qWait(400)
             self.assertFalse(preview.property("opened"))

@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.315 - 2026-10-31
+
+- Keep the task-count action clickable without triggering workflow expansion on hover; retain its Task Manager route and bulk selected-row editing.
+- Show wider hover cards with normal-height status/assignee fields and dates, independently of the compact table-row height. Keep the manager action and both scroll directions usable inside constrained previews.
+- Share expanded geometry and date-range labels with Stream and verify actual badge input and date editing.
+
 ## 0.6.0.314 - 2026-10-31
 
 - Unify content spacing through shared Frame roles: consistent panel/form interiors, related-control gaps and section separation in both clients.
