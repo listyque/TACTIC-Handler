@@ -3,6 +3,8 @@
 The shipped entry point is **Administration -> Component showcase**, in both
 products. It is a local component workbench: no project reads, writes, plugin
 installation or persistent drafts. Changing projects does not change its data.
+Narrow layouts reserve two complete heading line boxes before the subtitle;
+longer family names retain the full accessible name when elided.
 
 The first delivery catalogues **29 families in six groups**, with live examples
 for **16 families**. A **Catalogue entry** identifies an existing family without

@@ -2,6 +2,7 @@ import { describe as preview } from '../../controls/showcase.examples.mjs';
 // Local examples of shipped controls; no project, transport or persistent draft.
 import { node, rect, label, button } from '../../core/frame.mjs';
 import { translate } from '../../core/strings.mjs';
+import { lineHeights } from '../../core/foundation.mjs';
 import { listAction } from '../../controls/lists/tree.ui.mjs';
 export { catalogue } from '../../controls/catalog.data.mjs';
 
@@ -259,16 +260,18 @@ export function describe(model, catalog, width, height, language = 'en') {
             )
         );
     const content = [],
-        inner = Math.max(0, w - 32);
+        inner = Math.max(0, w - 32),
+        titleHeight = narrow ? lineHeights.hero * 2 : 46;
     content.push(
         label(
             'showcaseTitle',
-            rect(16, 12, inner, 46),
+            rect(16, 12, inner, titleHeight),
             language === 'ru' ? family.title : family.label,
             {
                 fontRole: 'hero',
                 weight: 600,
                 wrap: true,
+                maxLines: 2,
                 role: 'heading',
                 level: 2
             }
@@ -277,7 +280,7 @@ export function describe(model, catalog, width, height, language = 'en') {
     content.push(
         label(
             'showcaseScope',
-            rect(16, 62, inner, 32),
+            rect(16, titleHeight + 16, inner, 32),
             tr(
                 live.includes(family.id)
                     ? 'Local demo; project data stays unchanged'
@@ -286,7 +289,7 @@ export function describe(model, catalog, width, height, language = 'en') {
             { fontRole: 'secondary', color: 'secondaryText', wrap: true }
         )
     );
-    let y = 110;
+    let y = titleHeight + 64;
     if (!visible.length) {
         content.push(
             label(

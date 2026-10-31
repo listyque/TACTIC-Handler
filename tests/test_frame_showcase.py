@@ -63,6 +63,7 @@ class FrameShowcaseTests(unittest.TestCase):
             view.setWidth(width);window.resize(width,760)
             view.property('theme').setProperty('dark',False)
             frames.frame(window)
+            self.assertGreaterEqual(self.item(view,'showcaseTitle').height(),64)
             self.assertFalse(window.grabWindow().isNull())
 
 

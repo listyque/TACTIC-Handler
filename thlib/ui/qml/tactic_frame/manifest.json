@@ -270,6 +270,6 @@
     "controls/charts/chart.ui.mjs": "6208b2c33aa6b29e6583162513b31b93ecb6fcbce0604071af898ee99c1df8f7",
     "controls/catalog.data.mjs": "63f24fba0ed4ddbd1f9c23579a2d7ec6958823d5027ee3561200f6d4fd54f12b",
     "controls/showcase.examples.mjs": "d2ef38513e26fdbdf46ca575a74403ed3cf5f0444b4a04a9f69396f4b9255430",
-    "features/administration/showcase.ui.mjs": "69eac2f24568344b5cd9ed428d67bbc017a2efbf8897b8fbb1cca81944688ed9"
+    "features/administration/showcase.ui.mjs": "a0152a4120acbde28d53eed205b2603b5c159a426942e9141c87286dce6d0d2a"
   }
 }

@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.308 - 2026-10-31
+
+- Reserve two full shared heading line boxes for narrow showcase titles, so long EN/RU family names do not clip or collide with the subtitle.
+
 ## 0.6.0.307 - 2026-10-31
 
 - Add Administration's local Component showcase: 29 inventoried families in six groups, with live examples for 16 families, search, state selection and read-only shared-API examples.
