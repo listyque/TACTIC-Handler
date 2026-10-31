@@ -86,3 +86,5 @@ the existing height limit; longer drafts scroll inside the field. Status events
 keep their tinted card and outline, using the theme accent if no workflow color
 is available. Dashboard pages use the full body width when they fit; overflowing
 pages retain room for their outer scrollbar.
+
+All window and dock title-bar actions use round buttons, including Help, maximize/restore, detach and Close. Local controls inside the panel keep their service styling.

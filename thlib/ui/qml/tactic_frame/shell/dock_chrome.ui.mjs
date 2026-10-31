@@ -89,7 +89,7 @@ export function describe(model) {
                     dimensions.actionExtent,
                     itemHeight
                 ),
-                { view: id.slice(4), visible }
+                { view: id.slice(4), visible, round: id !== 'dockGrip' }
             )
         );
         if (visible) position += dimensions.actionExtent + dimensions.spacing;

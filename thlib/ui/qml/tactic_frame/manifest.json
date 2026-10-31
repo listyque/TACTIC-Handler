@@ -247,7 +247,7 @@
     "shell/dock.layout.mjs": "991daa38c0a43564530155c373bc19b2040671c71787f2e44d8f998d3a4a760b",
     "shell/dock.placement.mjs": "6789b7b6883eeb78d77f04eaa5795c3ccc87baae1f53fe5dbf6c03ba37661da4",
     "shell/dock.surface.mjs": "f3fd31d357a874981bd3264e6201e27455200f6ac4c597aabc478fa33f47e3d4",
-    "shell/dock_chrome.ui.mjs": "f33d5cf38ade1ff295987281d81caeb57ec990d014bc569a5c9ba0d843998e00",
+    "shell/dock_chrome.ui.mjs": "3457cea0678b70997f55d797881cfc50c04aeac2456aeda22ae307cc5cc26ecb",
     "shell/main.menus.json": "2ef48bb8a00656f156e535f077ecd1f3c7517189601bd19fc35c6a63025de4b6",
     "shell/main.menus.mjs": "fc2ed99935bf0afe187b1c8f5cdd33b47da73bc89ef8c6ddb84ed8e2f1d68b1c",
     "shell/main_toolbar.ui.mjs": "7de67b65ef5bdcaf18aa94b1582c8b2e62b357ca87711afdd5e09b67b8d8eb48",
