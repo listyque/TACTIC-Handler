@@ -126,6 +126,27 @@ class FrameTableTests(unittest.TestCase):
         self.assertGreater(label.property('lineCount'), 1)
         self.assertFalse(label.property('truncated'))
 
+    def test_status_cell_keeps_readable_passive_badge(self):
+        window, view = self.create(
+            'TacticTableCellDisplay.qml',
+            dict(controller=_TableController(), columnsController=None,
+                 userModel=None, nodeId='task', kind='text',
+                 cell={'text': 'Оплачен', 'statusColor': '#008000'},
+                 textValue='Оплачен', columnIndex=1, previewActive=False,
+                 previewUrl='', previewRevealed=False, title='Status',
+                 accent='#607d8b', comments=0, tasks=0, displayOptions={}),
+            width=108, height=58,
+        )
+        badge = self.item(view, 'tableStatusBadge')
+        self.assertEqual(badge.property('text'), 'Оплачен')
+        self.assertEqual(badge.property('accentColor').alpha(), 255)
+        self.assertFalse(badge.property('interactive'))
+        self.assertLessEqual(badge.x() + badge.width(), view.width())
+        label = next(item for item in _visual_items(badge)
+                     if item.property('text') == 'Оплачен' and item.property('lineCount') is not None)
+        self.assertGreater(label.width(), 0)
+        self.assertGreater(label.height(), 0)
+
     def test_scrolling_mode_keeps_columns_and_uses_existing_horizontal_bar(self):
         controller, columns = _TableController(), _TableColumns()
         columns._columns = [

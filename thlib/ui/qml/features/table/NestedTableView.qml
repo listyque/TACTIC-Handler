@@ -79,6 +79,7 @@ Item {
                 tableServices: root.services,
                 userModel: root.userModel,
                 rowHeight: UI.rowHeight,
+                autoFitColumns: true,
                 presentationActive: true
             });
         }

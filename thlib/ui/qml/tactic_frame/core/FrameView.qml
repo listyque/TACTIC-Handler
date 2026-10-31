@@ -3,6 +3,8 @@ import QtQuick
 import QtQuick.Window
 import ".."
 import "../controls/forms" as Forms
+import "../controls/charts" as Charts
+import "../controls/display" as Display
 import "frame.mjs" as Contract
 import QtQuick.Controls
 import "../../controls" as Controls
@@ -321,6 +323,8 @@ Item {
                         return gridBrick;
                     case "Graph":
                         return graphBrick;
+                    case "Chart":
+                        return chartBrick;
                     case "Code":
                         return codeBrick;
                     case "View":
@@ -350,6 +354,20 @@ Item {
                         radius: wrapper.node.radiusRole ? root.effectiveTheme[wrapper.node.radiusRole] : wrapper.node.radius === undefined ? root.effectiveTheme.surfaceRadius : wrapper.node.radius
                         bottomRightRadius: wrapper.node.bottomRightRadius === undefined ? radius : wrapper.node.bottomRightRadius
                         clip: wrapper.node.clip !== false
+                        Loader {
+                            parent: wrapper
+                            x: -16
+                            y: -16
+                            width: parent.width + 32
+                            height: parent.height + 32
+                            z: -1
+                            active: !!wrapper.node.shadow
+                            sourceComponent: Display.FrameShadow {
+                                theme: root.effectiveTheme
+                                shadow: wrapper.node.shadow
+                                surfaceRadius: boxSurface.radius
+                            }
+                        }
                         HoverHandler {
                             id: rowHover
                             enabled: wrapper.node.recordKey !== undefined
@@ -477,6 +495,13 @@ Item {
                         theme: root.effectiveTheme
                         node: wrapper.node
                         onEvent: action => root.event(action, null)
+                    }
+                }
+                Component {
+                    id: chartBrick
+                    Charts.FrameChart {
+                        theme: root.effectiveTheme
+                        node: wrapper.node
                     }
                 }
                 Component {

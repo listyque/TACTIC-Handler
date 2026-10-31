@@ -35,20 +35,28 @@ export function describe(definitions, draft, width, language, enabled = true) {
     const tr = (text) => translate(text, language),
         nodes = [],
         gap = 12;
-    const maximum = Math.max(1, Math.floor((width + gap) / 240)),
+    const applyWidth = Math.min(
+            width,
+            buttonWidth(tr('Apply').length * 8, true)
+        ),
+        resetWidth = Math.min(width, buttonWidth(tr('Reset').length * 8, true)),
+        actionsWidth = applyWidth + resetWidth + 8,
+        inline = width >= definitions.length * 250 + actionsWidth + gap,
+        fieldsWidth = inline ? width - actionsWidth - gap : width;
+    const maximum = Math.max(1, Math.floor((fieldsWidth + gap) / 260)),
         columns = Math.ceil(
             definitions.length / Math.ceil(definitions.length / maximum)
         ),
-        size = (width - gap * (columns - 1)) / columns;
+        size = (fieldsWidth - gap * (columns - 1)) / columns;
     definitions.forEach((item, index) => {
         const x = (index % columns) * (size + gap),
-            y = Math.floor(index / columns) * 76,
+            y = Math.floor(index / columns) * 44,
             row = draft[item.name] || item;
         nodes.push(
             node(
                 'CheckBox',
                 'pageRuntime_' + item.name + '_enabled',
-                rect(x, y, 24, 24),
+                rect(x, y + 5, 24, 24),
                 {
                     checked: row.enabled,
                     enabled,
@@ -64,9 +72,9 @@ export function describe(definitions, draft, width, language, enabled = true) {
         nodes.push(
             label(
                 'pageRuntime_' + item.name + '_title',
-                rect(x + 30, y, size - 30, 24),
+                rect(x + 28, y, Math.min(88, size * 0.28), 34),
                 item.title,
-                { weight: 600 }
+                { weight: 500, maxLines: 1 }
             )
         );
         const action = { type: 'page-filter', name: item.name, field: 'value' },
@@ -75,7 +83,7 @@ export function describe(definitions, draft, width, language, enabled = true) {
             nodes.push(
                 label(
                     'pageRuntime_' + item.name + '_value',
-                    rect(x + 30, y + 30, size - 30, 34),
+                    rect(x + 120, y, Math.max(0, size - 120), 34),
                     tr(item.relation === '=' ? 'Is empty' : 'Is not empty'),
                     { color: 'secondaryText' }
                 )
@@ -89,7 +97,7 @@ export function describe(definitions, draft, width, language, enabled = true) {
                           ? 'DateChoice'
                           : 'Field',
                     'pageRuntime_' + item.name + '_value',
-                    rect(x, y + 30, size, 34),
+                    rect(x + 120, y, Math.max(0, size - 120), 34),
                     {
                         label: item.title,
                         text: String(row.value ?? ''),
@@ -109,21 +117,14 @@ export function describe(definitions, draft, width, language, enabled = true) {
                 )
             );
     });
-    const y = Math.ceil(definitions.length / columns) * 76;
-    const applyWidth = Math.min(
-            width,
-            buttonWidth(tr('Apply filters').length * 9, true)
-        ),
-        resetWidth = Math.min(
-            width,
-            buttonWidth(tr('Reset filters').length * 9, true)
-        ),
-        stacked = applyWidth + resetWidth + 8 > width;
+    const y = inline ? 1 : Math.ceil(definitions.length / columns) * 44;
+    const actionX = inline ? width - actionsWidth : 0;
+    const stacked = actionsWidth > width;
     nodes.push(
         button(
             'pageRuntimeApply',
-            rect(0, y, applyWidth, 32),
-            tr('Apply filters'),
+            rect(actionX, y, applyWidth, 32),
+            tr('Apply'),
             'filter',
             { type: 'page-filter-apply' },
             enabled
@@ -133,16 +134,16 @@ export function describe(definitions, draft, width, language, enabled = true) {
         button(
             'pageRuntimeReset',
             rect(
-                stacked ? 0 : applyWidth + 8,
+                stacked ? 0 : actionX + applyWidth + 8,
                 y + (stacked ? 40 : 0),
                 resetWidth,
                 32
             ),
-            tr('Reset filters'),
+            tr('Reset'),
             'restore',
             { type: 'page-filter-reset' },
             enabled
         )
     );
-    return { height: y + (stacked ? 84 : 44), nodes };
+    return { height: inline ? 40 : y + (stacked ? 84 : 40), nodes };
 }

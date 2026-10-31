@@ -366,13 +366,21 @@ export function describe(
                         children: [
                             label(
                                 id + '_label',
-                                rect(16, 12, Math.max(0, available - 32), 36),
+                                rect(
+                                    16,
+                                    12,
+                                    Math.max(
+                                        0,
+                                        available - (item.icon ? 80 : 32)
+                                    ),
+                                    28
+                                ),
                                 text,
-                                { color: 'secondaryText', wrap: true }
+                                { color: 'secondaryText', maxLines: 1 }
                             ),
                             label(
                                 id + '_value',
-                                rect(16, 52, Math.max(0, available - 32), 40),
+                                rect(16, 42, Math.max(0, available - 32), 44),
                                 item.value == null &&
                                     Object.prototype.hasOwnProperty.call(
                                         item,
@@ -380,9 +388,29 @@ export function describe(
                                     )
                                     ? '—'
                                     : String(item.value ?? 0),
-                                { fontRole: 'hero', weight: 600 }
+                                { fontRole: 'headline', weight: 600 }
                             )
-                        ]
+                        ].concat(
+                            item.icon
+                                ? [
+                                      node(
+                                          'Box',
+                                          id + '_iconSurface',
+                                          rect(available - 52, 12, 36, 36),
+                                          { background: 'rowHover', radius: 10 }
+                                      ),
+                                      node(
+                                          'Icon',
+                                          id + '_icon',
+                                          rect(available - 45, 19, 22, 22),
+                                          {
+                                              icon: item.icon,
+                                              color: 'contentAccent'
+                                          }
+                                      )
+                                  ]
+                                : []
+                        )
                     })
                 );
             } else if (['field', 'form'].includes(item.kind)) {
@@ -698,7 +726,10 @@ export function describe(
                 );
                 extent = itemsExtent + 32;
                 output.push(
-                    label(id + '_title', rect(x, top, available, 28), text)
+                    label(id + '_title', rect(x, top, available, 28), text, {
+                        fontRole: 'title',
+                        weight: 600
+                    })
                 );
                 output.push(
                     node(
@@ -713,22 +744,39 @@ export function describe(
                     )
                 );
             } else if (item.kind === 'table') {
-                const tableExtent = Number.isFinite(item.height)
-                    ? item.height
-                    : Math.max(
-                          tableHeight,
-                          quickLayout(cell.layoutTables?.[id] || {}, available)
-                              .height + 260
-                      );
-                extent = tableExtent + 32;
-                output.push(
-                    label(id + '_title', rect(x, top, available, 28), text)
+                const tableExtent = PageLayout.height(
+                    item,
+                    Number.isFinite(item.height)
+                        ? item.height
+                        : Math.max(
+                              tableHeight,
+                              quickLayout(
+                                  cell.layoutTables?.[id] || {},
+                                  available
+                              ).height + 260
+                          ),
+                    slotCapacity
                 );
+                extent = tableExtent;
+                if (text)
+                    output.push(
+                        label(
+                            id + '_title',
+                            rect(x, top, available, 28),
+                            text,
+                            { fontRole: 'title', weight: 600 }
+                        )
+                    );
                 output.push(
                     node(
                         'View',
                         id,
-                        rect(x, top + 32, available, tableExtent),
+                        rect(
+                            x,
+                            top + (text ? 36 : 0),
+                            available,
+                            Math.max(0, tableExtent - (text ? 36 : 0))
+                        ),
                         { view: 'layoutTable', key: id, table: item.table }
                     )
                 );
@@ -783,9 +831,7 @@ export function describe(
                 );
             }
             if (item.editorPath) {
-                const overhead = ['items', 'table', 'details'].includes(
-                    item.kind
-                )
+                const overhead = ['items', 'details'].includes(item.kind)
                     ? 32
                     : 0;
                 const contentSlot =
@@ -827,7 +873,15 @@ export function describe(
                     if (['table', 'items'].includes(item.kind))
                         for (const surface of output.slice(firstOutput))
                             if (surface.kind === 'View')
-                                surface.height = Math.max(0, resolved - 32);
+                                surface.height = Math.max(
+                                    0,
+                                    resolved -
+                                        (item.kind === 'table'
+                                            ? text
+                                                ? 36
+                                                : 0
+                                            : 32)
+                                );
                 }
                 extent = resolved;
             }
@@ -839,46 +893,6 @@ export function describe(
                     child.x -= originX + margin[3];
                     child.y -= outerTop + margin[0];
                 }
-                if (item.appearance?.shadow)
-                    for (const [index, dx, dy, grow, opacity] of [
-                        [0, -1, 1, 2, 0.28],
-                        [1, 1, 3, -2, 0.58]
-                    ])
-                        output.push(
-                            node(
-                                'Box',
-                                id + '_shadow' + index,
-                                rect(
-                                    originX +
-                                        margin[3] +
-                                        (item.offsetX || 0) +
-                                        dx,
-                                    outerTop +
-                                        margin[0] +
-                                        (item.offsetY || 0) +
-                                        dy,
-                                    Math.max(
-                                        0,
-                                        outerWidth -
-                                            margin[1] -
-                                            margin[3] +
-                                            grow
-                                    ),
-                                    Math.max(
-                                        0,
-                                        outerHeight - margin[0] - margin[2]
-                                    ) + (index === 0 ? 2 : 0)
-                                ),
-                                {
-                                    background: 'popupShadow',
-                                    radius:
-                                        (item.appearance.radius || 0) +
-                                        (index === 0 ? 1 : 0),
-                                    opacity,
-                                    pointerTransparent: true
-                                }
-                            )
-                        );
                 output.push(
                     node(
                         'Box',
@@ -891,6 +905,9 @@ export function describe(
                         ),
                         {
                             background: item.appearance?.fill || 'transparent',
+                            shadow: item.appearance?.shadow
+                                ? { y: 4, blur: 14, opacity: 0.55 }
+                                : undefined,
                             border: item.appearance?.stroke_width
                                 ? item.appearance.stroke
                                 : '',
@@ -979,7 +996,7 @@ export function describe(
         const filters = Filters.describe(
             cell.layoutFilters,
             cell.layoutFilterDraft || Filters.initial(cell.layoutFilters),
-            Math.max(0, space - 24),
+            Math.max(0, space),
             language,
             editable &&
                 !cell.layoutBusy &&
@@ -987,11 +1004,7 @@ export function describe(
                 !cell.layoutEditing
         );
         const output = [];
-        const contextHeight = drawRegion(
-            'header',
-            Math.max(0, space - 24),
-            output
-        );
+        const contextHeight = drawRegion('header', Math.max(0, space), output);
         const filterTop =
             contextHeight + (contextHeight && filters.height ? gap : 0);
         for (const item of filters.nodes) {
@@ -1000,14 +1013,13 @@ export function describe(
         }
         const extent = filterTop + filters.height;
         for (const item of output) {
-            item.x += 12;
             item.y += 12;
         }
         return { nodes: output, height: output.length ? extent + 24 : 0 };
     }
     let head = header(width);
     let foot = [];
-    let footerExtent = drawRegion('footer', Math.max(0, width - 24), foot);
+    let footerExtent = drawRegion('footer', Math.max(0, width), foot);
     footerHeight = foot.length
         ? Math.min(footerExtent + 24, viewportHeight * 0.3)
         : 0;
@@ -1025,12 +1037,11 @@ export function describe(
         foot = [];
         footerExtent = drawRegion(
             'footer',
-            Math.max(0, width - 24 - controlMetrics.scrollBar.extent - 4),
+            Math.max(0, width - controlMetrics.scrollBar.extent - 4),
             foot
         );
     }
     for (const item of foot) {
-        item.x += 12;
         item.y += 12;
     }
     footerNodes = foot;
@@ -1068,7 +1079,8 @@ export function describe(
         );
     const nodes = [
         node('Box', 'layoutBackground', rect(0, 0, width, height), {
-            background: 'workspace'
+            background: 'workspace',
+            radius: 0
         })
     ];
     for (const [name, y, extent, content, contentHeight] of [

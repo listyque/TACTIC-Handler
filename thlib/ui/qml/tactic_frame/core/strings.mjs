@@ -363,6 +363,12 @@ const russian = {
     'Smallest first (first measure)': 'По первому показателю: возрастание',
     'Maximum groups': 'Максимум групп',
     'Chart measure': 'Показатель графика',
+    'Chart type': 'Тип диаграммы',
+    'Raised card': 'Приподнятая карточка',
+    'Line chart': 'Линия',
+    'Donut chart': 'Кольцо',
+    'Donut charts require non-negative values':
+        'Кольцевая диаграмма требует неотрицательных значений',
     'Bar chart': 'Столбчатый график',
     Chart: 'График',
     'Grouped report': 'Сводная таблица',

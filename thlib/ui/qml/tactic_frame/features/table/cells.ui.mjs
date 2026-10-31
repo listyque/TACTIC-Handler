@@ -26,6 +26,8 @@ export const metrics = {
     previewInset: 8
 };
 
+export const status = { foregroundMix: 0.45 };
+
 export function completionGroups(count, width, height) {
     const rowHeight = 18,
         gap = 4;

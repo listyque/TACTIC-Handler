@@ -474,9 +474,18 @@ Item {
                 anchors.bottomMargin: resultRow.nestedHeight
                 theme: root.theme
                 selected: resultRow.selected || resultRow.active || resultRow.activeFocus
-                normalColor: rowHover.hovered ? root.theme.rowHover : resultRow.isGroup ? root.theme.surfaceContainerHigh : root.theme.surfaceContainerLow
+                normalColor: rowHover.hovered ? root.theme.rowHover : resultRow.isGroup ? root.theme.surfaceContainerHigh : root.theme[resultRow.index % 2 ? TableHost.paint.alternateRow : TableHost.paint.row]
+                separatorVisible: false
                 railVisible: false
                 animateStateChanges: !rows.moving
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                y: root.effectiveRowHeight - 1
+                height: 1
+                color: root.theme[TableHost.paint.divider]
             }
 
             MouseArea {

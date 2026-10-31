@@ -117,7 +117,9 @@ export function edit(model, ui, event) {
             if (value) item.page_filters[event.name] = value;
             else delete item.page_filters[event.name];
         } else if (
-            ['group_limit', 'group_order', 'measure'].includes(event.field)
+            ['group_limit', 'group_order', 'measure', 'chart_type'].includes(
+                event.field
+            )
         )
             item[event.field] = value;
         else {
@@ -457,7 +459,23 @@ export function fields(model, ui, width, language, enabled) {
             { type: 'report', field: 'group_limit' }
         );
     }
-    if (item.kind === 'chart')
+    if (item.kind === 'chart') {
+        choice(
+            'pageChartType',
+            'Chart type',
+            item.chart_type || 'bar',
+            ['bar', 'line', 'donut'].map((value) => ({
+                value,
+                label: tr(
+                    {
+                        bar: 'Bar chart',
+                        line: 'Line chart',
+                        donut: 'Donut chart'
+                    }[value]
+                )
+            })),
+            { type: 'report', field: 'chart_type' }
+        );
         choice(
             'pageChartMeasure',
             'Chart measure',
@@ -467,5 +485,6 @@ export function fields(model, ui, width, language, enabled) {
                 : [{ value: 'count', label: tr('Count') }],
             { type: 'report', field: 'measure' }
         );
+    }
     return result;
 }

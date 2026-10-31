@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.306 - 2026-10-31
+
+- Add shared native bar, line and donut charts with hover values, signed/null handling and accessible labels; keep chart types editable through the page editor.
+- Compose Workspace Pulse 1.1.0 with compact metrics, aligned chart/table cards and cached soft shadows in both themes.
+- Remove implicit page side gutters, include table titles in block height, and fit embedded tables across all configured columns. Preserve main-table menus, editors, selection and virtualization with quieter dividers and passive status badges.
+
 ## 0.6.0.305 - 2026-10-31
 
 - Verify Administration closes after viewing Plugins and after discarding changes, while preserving unsaved drafts; synchronize plugin closing guidance with Stream's public component-ref fix.

@@ -80,7 +80,7 @@ Item {
                 return summaryCell;
             if (root.kind === "task_summary" || root.kind === "tasks")
                 return tasksCell;
-            return textCell;
+            return root.cell.statusColor && !root.cell.error ? statusCell : textCell;
         }
     }
 
@@ -122,9 +122,9 @@ Item {
                 wrapMode: Text.Wrap
                 elide: Text.ElideRight
                 background: Rectangle {
-                    color: root.cell.statusColor || "transparent"
+                    color: "transparent"
                 }
-                color: root.cell.error ? root.theme.error : root.cell.statusColor ? "#000" : root.clickableLink ? root.theme.action : root.theme[Cells.textRole(root.cell)]
+                color: root.cell.error ? root.theme.error : root.clickableLink ? root.theme.action : root.theme[Cells.textRole(root.cell)]
                 font.family: root.theme.fontFamily
                 font.pixelSize: Cells.metrics.bodyFont
                 font.weight: root.columnIndex === 0 ? Font.DemiBold : Font.Normal
@@ -144,6 +144,33 @@ Item {
                 theme: root.theme
                 visible: hover.hovered && (String(root.cell.error || "").length > 0 || String(root.cell.tooltip || "").length > 0 || label.truncated)
                 text: String(root.cell.error || root.cell.tooltip || "") || root.textValue
+            }
+        }
+    }
+
+    Component {
+        id: statusCell
+        Item {
+            clip: true
+            Controls.StatusChip {
+                id: badge
+                property color sourceColor: root.cell.statusColor
+                objectName: "tableStatusBadge"
+                theme: root.theme
+                anchors.left: parent.left
+                anchors.leftMargin: root.columnIndex === 0 ? 14 : 10
+                anchors.verticalCenter: parent.verticalCenter
+                maximumWidth: Math.max(0, parent.width - (root.columnIndex === 0 ? 24 : 20))
+                text: Cells.text(root.cell, root.textValue, root.language)
+                accentColor: root.theme.overlay(sourceColor, root.theme.primaryText, Cells.status.foregroundMix)
+            }
+            HoverHandler {
+                id: statusHover
+            }
+            Controls.ToolTip {
+                theme: root.theme
+                visible: statusHover.hovered && (!!root.cell.tooltip || badge.implicitWidth > badge.width)
+                text: root.cell.tooltip || badge.text
             }
         }
     }

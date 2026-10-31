@@ -106,13 +106,13 @@ function content(model, width, extent, language) {
             'Box',
             'nestedToolbarSurface',
             rect(0, 0, width, 42 + quickHeight),
-            { background: 'panel', radius: 0 }
+            { background: model.embedded ? 'transparent' : 'panel', radius: 0 }
         ),
         node(
             'Box',
             'nestedFooterSurface',
             rect(0, Math.max(0, extent - 40), width, 40),
-            { background: 'panel', radius: 0 }
+            { background: model.embedded ? 'transparent' : 'panel', radius: 0 }
         ),
         node(
             'Box',

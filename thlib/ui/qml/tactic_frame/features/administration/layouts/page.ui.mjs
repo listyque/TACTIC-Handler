@@ -370,7 +370,8 @@ export function describe(model, ui, width, height, language) {
                                   ['transparent', 'Transparent'],
                                   ['panel', 'Panel'],
                                   ['workspace', 'Workspace'],
-                                  ['surfaceContainerLow', 'Low surface']
+                                  ['surfaceContainerLow', 'Low surface'],
+                                  ['surfaceContainerLowest', 'Raised card']
                               ]
                             : [
                                   ['outlineVariant', 'Outline'],

@@ -186,7 +186,7 @@ Rectangle {
         anchors.leftMargin: root.selectionColumnWidth
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 3
+        anchors.bottomMargin: 0
 
         Repeater {
             id: headerRepeater
@@ -392,7 +392,7 @@ Rectangle {
         x: root.viewportContentX
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 3
+        anchors.bottomMargin: 0
         width: root.selectionColumnWidth
         z: 5
         color: root.theme[TableHost.paint.header]
@@ -442,7 +442,7 @@ Rectangle {
             Controls.CompactIconButton {
                 objectName: "autoFitTableColumnsButton"
                 theme: root.theme
-                backgroundColor: root.autoFitColumns ? root.theme.secondaryContainer : root.theme.surfaceContainerHigh
+                backgroundColor: root.autoFitColumns ? root.theme.secondaryContainer : "transparent"
                 iconName: "fit-width"
                 iconColor: root.autoFitColumns ? root.theme.action : root.theme[TableHost.paint.headerText]
                 toolTip: qsTr("Auto Fit columns")
@@ -452,7 +452,7 @@ Rectangle {
             Controls.CompactIconButton {
                 objectName: "configureTableColumnsButton"
                 theme: root.theme
-                backgroundColor: root.theme.surfaceContainerHigh
+                backgroundColor: "transparent"
                 iconName: root.columnsError.length > 0 ? "error" : "view_column"
                 iconColor: root.columnsError.length > 0 ? root.theme.error : root.theme[TableHost.paint.headerText]
                 toolTip: root.columnsError.length > 0 ? root.columnsError : qsTr("Table view: %1").arg(root.currentTableViewTitle())
@@ -460,6 +460,15 @@ Rectangle {
                 onClicked: root.openTableViewPresetMenu(this)
             }
         }
+    }
+
+    Rectangle {
+        x: root.viewportContentX
+        y: root.height - 1
+        width: root.viewportWidth
+        height: 1
+        z: 6
+        color: root.theme[TableHost.paint.divider]
     }
 
     ActionMenu {

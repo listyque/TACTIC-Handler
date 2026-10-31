@@ -58,11 +58,6 @@ export function describe(model, width, height, language) {
         );
     return {
         nodes,
-        bodyBounds: rect(
-            12,
-            52,
-            Math.max(0, width - 24),
-            Math.max(0, height - 64)
-        )
+        bodyBounds: rect(0, 52, Math.max(0, width), Math.max(0, height - 52))
     };
 }

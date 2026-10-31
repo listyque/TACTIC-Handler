@@ -57,6 +57,19 @@ Embedded table headers, data-row backgrounds, inline notices/errors and pending-
 existing theme radii and sizing on controls, dialogs and item cards; a local
 table styling correction must not change those shared defaults.
 
+Dashboard tables include their title in the declared height. Embedded Auto Fit
+fits all configured columns before considering overflow; explicit hidden columns
+stay hidden. Page containers add no implicit horizontal gutter. Status colors
+use passive house badges, leaving row selection and inline editors with their
+existing owners.
+
+`Chart` uses shared geometry/paint for bar, line and donut displays, with native
+Canvas in both renderers and ordinary Frame labels/legends. Missing line values
+break the path; signed values are supported except for donuts. Full values are
+available through hover tooltips and accessible labels. Redraw follows data,
+size, palette or hover changes; there is no idle animation. Optional Box shadows
+are cached independently from card contents, including the software Qt backend.
+
 ### Controls, infrastructure and forms
 
 Classify by responsibility, not location, filename, size or nested element count.

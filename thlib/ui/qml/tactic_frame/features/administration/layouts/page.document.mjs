@@ -508,7 +508,7 @@ export function appearances(document, keys, field, value) {
     } else if (
         !(
             field === 'fill'
-                ? /^(transparent|panel|workspace|surfaceContainerLow|#[0-9a-fA-F]{6})$/
+                ? /^(transparent|panel|workspace|surfaceContainerLow|surfaceContainerLowest|#[0-9a-fA-F]{6})$/
                 : /^(outlineVariant|contentAccent|transparent|#[0-9a-fA-F]{6})$/
         ).test(value)
     )

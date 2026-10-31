@@ -19,7 +19,9 @@ export const metrics = {
 export const paint = {
     header: 'tableHeader',
     headerText: 'primaryText',
-    row: 'surfaceContainerLow',
+    row: 'surfaceContainerLowest',
+    alternateRow: 'tableAlternateRow',
+    divider: 'tableDivider',
     selected: 'contentSelection',
     group: 'surfaceContainerHigh'
 };
@@ -71,13 +73,14 @@ function serviceHeight(columns) {
 
 export function describe(model, width) {
     const available = Math.max(0, width - metrics.selection - metrics.actions);
-    const columns = model.scrollColumns
-        ? model.columns || []
-        : Columns.visibleColumns(
-              model.columns || [],
-              available,
-              model.overrides
-          );
+    const columns =
+        model.scrollColumns || model.autoFit
+            ? model.columns || []
+            : Columns.visibleColumns(
+                  model.columns || [],
+                  available,
+                  model.overrides
+              );
     const fitted =
         model.autoFit && !model.scrollColumns
             ? Columns.fittedWidths(columns, available, model.overrides)

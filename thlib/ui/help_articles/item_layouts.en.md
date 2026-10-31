@@ -299,13 +299,18 @@ groups can use UTC years, months or days. Count accepts all rows or a particular
 non-empty field; Sum, Average, Minimum and Maximum use numeric fields. A metric
 can show one aggregate without grouping. Give measures meaningful labels.
 
+**Chart type** selects bars, a line with area fill, or a donut. Hover a mark to
+read its full label and value. Bars and lines support signed values; missing line
+values leave a gap. Donuts require non-negative values and show their total with
+a scrollable legend. A single date remains a single point; dates are not invented.
+
 The server computes aggregates over all visible matching records before limiting
 displayed groups. Choose group order or sort by the first measure, and a group
 limit. If more groups exist, the widget shows a truncation notice. The report grid
 uses normal native scrolling and virtualization; charts support negative values.
 No matching rows leave numeric aggregates empty instead of inventing zero.
 
-On the published page, enable filters, enter values and click Apply filters.
+On the published page, enable filters, enter values and click Apply.
 Typing or resizing does not start a query. Reset filters restores the saved
 defaults. These are temporary values, not edits to the page configuration. Invalid
 values show an error and preserve the previous result. The authoring preview
@@ -314,8 +319,8 @@ shows saved defaults read-only; publish through the usual validated Save.
 The internal agent uses the same dashboard schema and native tools for shared
 filters, explicit mappings, groupings and measures. Source permissions, revision
 checks and save recovery still apply. Limits: eight page filters, three grouping
-fields, eight measures, 100 displayed groups per report. Charts currently use
-horizontal bars; arbitrary joins, formulas, editable forms and printable report
+fields, eight measures, 100 displayed groups per report. Arbitrary joins,
+formulas, editable forms and printable report
 pagination are separate features.
 
 ## Page structure and local Undo/Redo
@@ -395,13 +400,15 @@ change structure. Offsets are part of the page and follow normal revisioned Save
 
 Appearance controls the block wrapper: fill, stroke color/width (0..8px), corner
 radius (0..48px), shadow and layout-change animation. Colors accept six-digit
-hex values. Fill also accepts transparent, panel, workspace, surfaceContainerLow;
+hex values. Fill also accepts transparent, panel, workspace, surfaceContainerLow
+and surfaceContainerLowest (Raised card);
 stroke accepts outlineVariant, contentAccent and transparent. Theme roles adapt
 to light/dark mode. Existing content widgets retain their native inner styling.
 For multiple selection the appearance change applies to every selected block;
 the inspector displays the primary block's current values. Undo is atomic.
 
-Shadow uses the existing item-surface shadow treatment. Animation transitions
+Shadow paints a cached blurred surface without rendering the card's content into
+an intermediate image. Animation transitions
 geometry when a live page changes; it is suppressed while editing and respects
 global motion/reduced-motion settings. It is not an autoplay or script animation
 builder. Clean preview hides selection/guides while preserving actual styling.

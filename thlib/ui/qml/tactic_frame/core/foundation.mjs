@@ -34,7 +34,8 @@ export const lineHeights = Object.freeze({
     heading: 23,
     display: 24,
     statistic: 28,
-    hero: 32
+    hero: 32,
+    headline: 43
 });
 
 // Frame geometry and resolved text sizes use logical pixels in both engines.
@@ -52,7 +53,8 @@ export const textStyles = Object.freeze({
     heading: 17,
     display: 18,
     statistic: 21,
-    hero: 24
+    hero: 24,
+    headline: 32
 });
 
 // House-control geometry comes from Handler; hosts supply native input and paint.
@@ -423,6 +425,9 @@ export function palette(style, dark, base, accent) {
         dark ? (material ? 0.11 : 0.08) : 0.07
     );
     colors.panel = blend(surface, dark ? black : white, dark ? 0.04 : 0.22);
+    colors.surfaceContainerLowest = dark
+        ? colors.panel
+        : blend(surface, white, 0.94);
     colors.panelRaised = blend(surface, white, dark ? 0.08 : 0.38);
     colors.panelDeep = blend(surface, black, dark ? 0.19 : 0.08);
     colors.row = blend(surface, white, dark ? 0.07 : 0.32);
@@ -434,7 +439,19 @@ export function palette(style, dark, base, accent) {
         dark ? 0.68 : 0.72
     );
     colors.primaryText = readableText(colors.workspace);
-    colors.tableHeader = blend(colors.toolBar, colors.primaryText, 0.14);
+    colors.tableHeader = dark
+        ? blend(colors.panelRaised, accent, 0.1)
+        : blend(colors.surfaceContainerLowest, colors.primaryText, 0.035);
+    colors.tableAlternateRow = blend(
+        colors.surfaceContainerLowest,
+        colors.primaryText,
+        dark ? 0.018 : 0.014
+    );
+    colors.tableDivider = blend(
+        colors.panel,
+        colors.primaryText,
+        dark ? 0.075 : 0.1
+    );
     colors.contentAccent = blend(
         accent,
         colors.primaryText,
@@ -520,7 +537,10 @@ export const cssRoles = {
     topBar: '--header',
     toolBar: '--surface-container',
     tableHeader: '--table-header-surface',
+    tableAlternateRow: '--table-alternate-row',
+    tableDivider: '--table-divider',
     panel: '--surface',
+    surfaceContainerLowest: '--surface-lowest',
     panelRaised: '--surface-high',
     panelDeep: '--surface-deep',
     row: '--row',
