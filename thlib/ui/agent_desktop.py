@@ -32,7 +32,8 @@ class AgentDesktopController(QObject):
     def sync(self):
         from thlib.environment import env_server, env_mode
         ticket = env_server.get_ticket()
-        if self.application.authentication_required or not self.application.can_administer or not ticket:
+        if (self.application.authentication_required or not self.application.can_administer
+                or not self.application.is_stream_server or not ticket):
             self.close()
             return
         session = (env_server.get_server(), env_server.get_user(), ticket)

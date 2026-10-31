@@ -24,9 +24,16 @@ Item {
                     help: record.helpTopic || "configuration"
                 });
         }
-        return result;
+        return result.filter(page => appController.server_api === "stream" || !["ai", "database_resources"].includes(page.nativeId || page.id));
     }
     readonly property var current: entries.find(page => (page.nativeId || page.id) === configurationController.current_page) || entries[0]
+    onEntriesChanged: Qt.callLater(root.syncPage)
+    function syncPage() {
+        if (appController.server_api === "unknown")
+            return;
+        if (current && !entries.some(page => (page.nativeId || page.id) === configurationController.current_page))
+            configurationController.select_page(current.nativeId || current.id);
+    }
     readonly property var frameModel: ({
             product: "TACTIC HANDLER",
             pages: entries,
@@ -68,7 +75,7 @@ Item {
         width: root.scene.pageBounds.width
         height: root.scene.pageBounds.height
         theme: root.theme
-        pageId: configurationController.current_page
+        pageId: root.current.nativeId || root.current.id
         managed: true
     }
     Connections {
@@ -107,6 +114,10 @@ Item {
 
     Connections {
         target: configurationController
+
+        function onCurrentPageChanged() {
+            root.syncPage();
+        }
 
         function onConfirmationRequested() {
             unsavedDialog.open();

@@ -34,7 +34,7 @@ class AgentMcpController(QObject):
     @Slot('QVariantMap')
     def open(self, context):
         self.reset()
-        if not self.application.can_administer or not context.get('project'):
+        if not self.application.is_stream_server or not self.application.can_administer or not context.get('project'):
             return
         from thlib import tactic_classes as tc
         from .agent_request import project_server
@@ -104,7 +104,7 @@ class AgentMcpController(QObject):
         return connection['url']+'#access_token='+quote(connection['headers']['Authorization'].removeprefix('Bearer '),safe='')
 
     def request(self, action, values=None):
-        if not self._server or self._model['busy']:
+        if not self.application.is_stream_server or not self._server or self._model['busy']:
             return
         self._generation += 1
         self._model.update(busy=True, error='')

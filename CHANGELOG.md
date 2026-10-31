@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.350 - 2026-11-01
+
+- Detect Legacy TACTIC versus Stream during authenticated bootstrap and bind the result to the current server/login/ticket. Hide and guard Stream-only agent, MCP, drafts, diagnostics, database resources and process controls; retain legacy administration, scripts, DCC and periodic updates without overwriting saved SSE preferences. Preserve HTTP status errors for empty or HTML configuration responses.
+
 ## 0.6.0.349 - 2026-11-01
 
 - Add Configuration database resource management with the shared browser/native form: connection testing, project binding, schema updates, protected passwords, confirmations and guarded drafts. Use the authenticated Stream resource endpoint; external database schema migrations and routing are owned by Stream. Anchor scoped quick-filter menus to the selected group on first opening and keyboard reopening, keeping the full menu trigger.

@@ -1,4 +1,6 @@
 {
+  "Database resources require TACTIC Stream.": "Для управления ресурсами баз данных требуется TACTIC Stream.",
+  "Backend server controls require TACTIC Stream.": "Для управления серверными процессами требуется TACTIC Stream.",
   "Invalid cell alignment": "Неверное выравнивание ячейки",
   "Invalid cell text style": "Неверный стиль текста ячейки",
   "Invalid value appearance": "Неверное оформление значения",

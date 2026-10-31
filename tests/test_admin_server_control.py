@@ -38,7 +38,7 @@ class ServerControlTests(unittest.TestCase):
                 self.wfile.write(json.dumps({'result':result}).encode())
         http = ThreadingHTTPServer(('127.0.0.1',0),Handler)
         thread = threading.Thread(target=http.serve_forever,daemon=True); thread.start()
-        controller = ServerControlEditor(SimpleNamespace(can_manage_tools=True,debug_log=None))
+        controller = ServerControlEditor(SimpleNamespace(can_manage_tools=True,is_stream_server=True,debug_log=None))
         try:
             with patch('thlib.environment.env_server.get_proxy',return_value={}): transport=UrllibTransport()
             server=SimpleNamespace(login_ticket='fixture-ticket',transport=transport,
@@ -61,7 +61,7 @@ class ServerControlTests(unittest.TestCase):
         surface = script_tools.ScriptToolsTests(); surface.setUp(); self.addCleanup(surface.doCleanups)
         for name, value in qml_icon_bindings(QML.parents[2], surface.engine).items():
             surface.engine.rootContext().setContextProperty(name, value)
-        controller = ServerControlEditor(SimpleNamespace(can_manage_tools=True, debug_log=None))
+        controller = ServerControlEditor(SimpleNamespace(can_manage_tools=True, is_stream_server=True, debug_log=None))
         self.addCleanup(controller.shutdown)
         calls = []
         workers = '2'

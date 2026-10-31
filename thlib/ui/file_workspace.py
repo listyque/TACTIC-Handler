@@ -244,7 +244,7 @@ class FileWorkspaceController(FileWorkspaceReads, FileWorkspaceInteraction, QObj
     def sync_project_mode(self) -> None:
         from thlib.environment import env_inst
         project = (env_inst.projects or {}).get(self.application.current_project_code)
-        enabled = bool(project and project.get_type() == 'file_project')
+        enabled = bool(self.application.is_stream_server and project and project.get_type() == 'file_project')
         if enabled != self._enabled:
             self._enabled = enabled
             self.stateChanged.emit()
@@ -260,7 +260,7 @@ class FileWorkspaceController(FileWorkspaceReads, FileWorkspaceInteraction, QObj
         self._layout_base=env_mode.current_path
         self._data = initial_state()
         project = env_inst.projects.get(code) if env_inst.projects else None
-        self._enabled = bool(project and project.get_type() == 'file_project')
+        self._enabled = bool(self.application.is_stream_server and project and project.get_type() == 'file_project')
         self._restore_geometry()
         if self._enabled:
             saved = env_read_config(unique_id=self._tabs_key(), filename='tabs', long_abs_path=True) or {}

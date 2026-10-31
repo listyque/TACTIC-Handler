@@ -3,7 +3,16 @@ group: Configuration
 icon: dns
 order: 30
 ---
+
 # Server configuration
+
+Handler detects Legacy TACTIC or TACTIC Stream during the authenticated project
+load. Legacy connections retain presets, tickets, repository settings, scripts,
+hooks and DCC tools. Stream-only AI/MCP services, agent drafts, server process
+controls, database-resource management and remote System Info are hidden and are
+not polled. Legacy updates use periodic API checks; a saved SSE preference is
+preserved for the next Stream connection. Detection belongs to the current
+server/login/ticket and is refreshed after reconnecting.
 
 > Server configuration selects the TACTIC endpoint and connection preset, shows the active account,
 > and controls how often shared background requests run.

@@ -1,10 +1,22 @@
 """Remote server worker settings owned by Configuration."""
 import time
 from uuid import uuid4
+from urllib.error import HTTPError
 
 from PySide6.QtCore import Property, QTimer, Signal, Slot
 
 from .admin.editor import AdminDocumentEditor
+
+
+def configuration_error_message(error: HTTPError) -> str:
+    import json
+    with error:
+        try:
+            body = json.load(error)
+        except (ValueError, UnicodeError):
+            body = {}
+    message = body.get('error') if isinstance(body, dict) else None
+    return message if isinstance(message, str) and message else 'HTTP %s: %s' % (error.code, error.reason)
 
 
 def server_control_request(configuration, action):
@@ -36,13 +48,15 @@ class ServerControlEditor(AdminDocumentEditor):
         self._server_key = self._connection_key()
         if hasattr(application, 'server_state_changed'):
             application.server_state_changed.connect(self._session_changed)
+        if hasattr(application, 'authentication_changed'):
+            application.authentication_changed.connect(self._session_changed)
 
     def _connection_key(self):
         return (getattr(self._application, 'server_url', ''), getattr(self._application, 'server_user', ''))
 
     @Property(bool, notify=statusChanged)
     def managementAvailable(self):
-        return bool(self._application.can_manage_tools)
+        return bool(self._application.can_manage_tools and self._application.is_stream_server)
 
     @Slot()
     def open(self):
@@ -58,8 +72,9 @@ class ServerControlEditor(AdminDocumentEditor):
         self.statusChanged.emit()
 
     def _execute_request(self, arguments, project, original):
+        if not self.managementAvailable:
+            raise RuntimeError(self.tr('Backend server controls require TACTIC Stream.'))
         import json
-        from urllib.error import HTTPError
         from urllib.request import Request
         from thlib import tactic_classes as tc
         from .server_address import normalize_tactic_server_url
@@ -80,8 +95,7 @@ class ServerControlEditor(AdminDocumentEditor):
             with server.transport.open(request, timeout=3 if action == 'runtime' else 10) as response:
                 result = json.load(response)['result']
         except HTTPError as error:
-            with error:
-                message = json.load(error).get('error', 'Server request failed')
+            message = configuration_error_message(error)
             if action not in ('restart', 'runtime'):
                 raise RuntimeError(message) from error
             result = {'restart_id': arguments['request_id'], 'restart_error': message}

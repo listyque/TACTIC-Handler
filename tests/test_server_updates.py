@@ -22,6 +22,7 @@ class _Application(QObject):
         super().__init__()
         self.current_project_code = "demo"
         self._settings = {}
+        self.is_stream_server = True
 
     def _write_settings(self):
         pass

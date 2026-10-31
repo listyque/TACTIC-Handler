@@ -9,6 +9,14 @@ export function fieldsFor(page, model) {
     const native = model.native === true;
     let fields = (definitions[page] || [])
         .filter((field) => !field.nativeOnly || native)
+        .filter(
+            (field) =>
+                !native ||
+                model.streamApi !== false ||
+                !['serverUpdateMode', 'serverUpdateBatchDelay'].includes(
+                    field.field
+                )
+        )
         .map((field) => Object.assign({}, field));
     if (page === 'server' && !native) {
         fields = definitions.server

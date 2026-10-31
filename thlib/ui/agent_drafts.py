@@ -36,14 +36,19 @@ class AgentDraftsController(QObject):
     def model(self):
         return deepcopy(self._model)
 
+    @Property(bool, notify=changed)
+    def available(self):
+        application = self._editor._application
+        return bool(application and application.is_stream_server)
+
     @Slot()
     def open(self):
-        if self._editor.canEdit:
+        if self.available and self._editor.canEdit:
             self._request('refresh')
 
     @Slot(str, 'QVariant')
     def handle(self, action, value=''):
-        if self._model['busy'] or not self._editor.canEdit:
+        if not self.available or self._model['busy'] or not self._editor.canEdit:
             return
         if action == 'refresh':
             self._request('refresh')
@@ -70,7 +75,7 @@ class AgentDraftsController(QObject):
     def _request(self, action):
         from thlib.environment import env_inst
         from thlib import tactic_classes as tc
-        if self._model['busy']:
+        if not self.available or self._model['busy']:
             return
         self._generation += 1
         self._model.update(busy=True, error='')

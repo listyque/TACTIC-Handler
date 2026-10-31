@@ -9,6 +9,9 @@ import "../../tactic_frame/features/scripts/editor.ui.mjs" as UI
 Item {
     id: root
     required property var theme
+    readonly property bool agentAvailable: scriptEditorController.agentDrafts.available
+    onAgentAvailableChanged: if (!agentAvailable)
+        reviewingAgent = false
     property string token: ""
     property bool reviewingAgent: false
     readonly property bool canEdit: scriptEditorController.canEdit
@@ -233,6 +236,7 @@ Item {
     property string executionTarget: "standalone"
     readonly property var presentation: ({
             native: true,
+            streamApi: root.agentAvailable,
             canEdit: root.canEdit,
             editable: root.canEdit,
             busy: scriptEditorController.busy,

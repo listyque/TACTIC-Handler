@@ -46,6 +46,8 @@ from ..workspace import (
 from .types import ActionRegistry, SearchTabSession, SectionSession
 
 class CommandsMixin:
+    _stream_commands = {'open_agent_request', 'open_agent_providers', 'show_system_info'}
+    _stream_windows = {'agent_request', 'agent_providers', 'agent_mcp', 'system_info'}
     def attach_workspace_layout_presets(self, controller) -> None:
         """Attach the project-scoped preset owner after core composition."""
         self._workspace_layout_presets = controller
@@ -275,6 +277,8 @@ class CommandsMixin:
 
     @Slot(str)
     def invoke(self, command: str) -> None:
+        if command in self._stream_commands and not self.is_stream_server:
+            return
         if (
             not self.can_manage_tools
             and (
@@ -318,6 +322,8 @@ class CommandsMixin:
 
     @Slot(str)
     def open_window(self, window_id: str) -> None:
+        if window_id in self._stream_windows and not self.is_stream_server:
+            return
         if not self.can_manage_tools and window_id in {
             "handler_server", "ui_performance", "create_update", "system_info"
         }:
@@ -453,8 +459,8 @@ class CommandsMixin:
             return []
         actions = [
             action for action in self._menus.actions(menu_id)
-            if action.get("command") != "show_administration"
-            or self.can_manage_tools
+            if (action.get("command") != "show_administration" or self.can_manage_tools)
+            and (action.get("command") not in self._stream_commands or self.is_stream_server)
         ]
         if menu_id == "configuration" and not self.can_manage_tools:
             hidden = {"show_ui_performance", "show_handler_server", "show_system_info"}

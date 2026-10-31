@@ -11,7 +11,7 @@ from thlib.ui.configuration_server import ServerControlEditor
 class ConfigurationServerControlTests(unittest.TestCase):
     def surface(self):
         backend = ServerControlEditor(SimpleNamespace(
-            can_manage_tools=True, debug_log=None, server_url='fixture', server_user='admin'))
+            can_manage_tools=True, is_stream_server=True, debug_log=None, server_url='fixture', server_user='admin'))
         backend._project = 'admin'
         backend._loaded = True
         backend._identity = 'server'

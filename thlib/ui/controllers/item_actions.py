@@ -226,7 +226,7 @@ class ItemActionsMixin:
 
         separator = {"separator": True}
         agent = ([separator, item("External agent", "comment", "agent_request")]
-                 if getattr(self, "can_administer", False) and node.node_type in {"sobject", "snapshot"} else [])
+                 if getattr(self, "is_stream_server", False) and getattr(self, "can_administer", False) and node.node_type in {"sobject", "snapshot"} else [])
         tab = self._current_tab()
         selected_ids = list(tab.selected_node_ids) if tab else []
         if (

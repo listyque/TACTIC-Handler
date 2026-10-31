@@ -45,6 +45,7 @@ class Application(QObject, ItemActionsMixin, ItemOperationsMixin):
         self.window_model = FloatingWindowModel({})
         self.current_project_code = 'one'
         self.can_administer = True
+        self.is_stream_server = True
         self.section = SimpleNamespace(entry_key='cg/shot@shots', title='Shots', search_type='cg/shot')
         self.tab = SimpleNamespace(table_view='table')
         self.keys = ['cg/shot?project=one&code=SH001']

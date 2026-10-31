@@ -28,7 +28,7 @@ class SystemInfoController(QObject):
 
     @Slot()
     def open(self):
-        if not self.application.can_administer:
+        if not self.application.is_stream_server or not self.application.can_administer:
             return
         self.application.window_model.show_window('system_info')
 
@@ -56,7 +56,7 @@ class SystemInfoController(QObject):
         self.request('info')
 
     def request(self, kind, plan=None):
-        if self._model['busy'] or not self.application.can_administer:
+        if not self.application.is_stream_server or self._model['busy'] or not self.application.can_administer:
             return
         self._generation += 1
         generation = self._generation

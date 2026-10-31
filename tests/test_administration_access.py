@@ -250,8 +250,9 @@ class AdministrationBootstrapQueryTests(unittest.TestCase):
             "pyasm.common": SimpleNamespace(Environment=SimpleNamespace(
                 get_security=lambda: security)),
         }
-        with patch.dict("sys.modules", modules):
+        with patch.dict("sys.modules", modules), patch.object(tactic_query, 'server', SimpleNamespace(server=object()), create=True):
             payload = json.loads(tactic_query.get_projects_and_logins())
+        self.assertEqual(payload['server_api'], 'legacy')
 
         self.assertEqual(
             [project["code"] for project in payload["projects"]],
@@ -299,7 +300,7 @@ class AdministrationBootstrapQueryTests(unittest.TestCase):
                 get_user_name=lambda: 'operator', is_admin=native_admin,
                 check_access=lambda *_args, **_kwargs: True))),
         }
-        with patch.dict('sys.modules', modules):
+        with patch.dict('sys.modules', modules), patch.object(tactic_query, 'server', SimpleNamespace(server=object()), create=True):
             for allowed in (True, False):
                 native_admin.return_value = allowed
                 result = json.loads(tactic_query.get_projects_and_logins(current_login='admin'))

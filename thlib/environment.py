@@ -375,6 +375,7 @@ class Inst(object):
     def __init__(self):
         self.projects = None
         self.logins = None
+        self.server_api = None
         self.current_project = None
         self.ui_debuglog = None
         self.ui_script_editor = None

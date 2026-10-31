@@ -2939,6 +2939,7 @@ def get_all_projects_and_logins(force=False, cache_only=False):
 
     cache_key = 'projects_and_logins'
     projects_and_users = None
+    authoritative = False
     if use_cache and not force:
         projects_and_users = server_cache.read_entry(
             'reference', cache_key, 'sthpw',
@@ -2948,6 +2949,7 @@ def get_all_projects_and_logins(force=False, cache_only=False):
                 return collections.OrderedDict()
             return get_all_projects_and_logins(True)
     if projects_and_users is None:
+        authoritative = True
         cache_token = (
             server_cache.token('reference', 'sthpw') if use_cache else None
         )
@@ -2994,6 +2996,9 @@ def get_all_projects_and_logins(force=False, cache_only=False):
     ):
         env_inst.projects = projects_dict
         env_inst.logins = logins_dict
+        if authoritative:
+            api = projects_and_users.get('server_api')
+            env_inst.server_api = (*session, api if api in ('stream', 'legacy') else 'unknown')
 
     return projects_dict
 

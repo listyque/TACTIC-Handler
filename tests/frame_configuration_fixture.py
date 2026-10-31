@@ -247,6 +247,7 @@ class Surface:
             + """
 property bool has_ticket: true
 property bool is_stream_server: true
+property string server_api: "stream"
 property bool authentication_required: false
 property string login_name: "artist"
 property string current_project_code: "cg"

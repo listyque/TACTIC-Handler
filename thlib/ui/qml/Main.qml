@@ -188,6 +188,9 @@ ApplicationWindow {
         function onServer_state_changed() {
             window.configMenuActions = appController.menu_actions("configuration");
         }
+        function onAuthentication_changed() {
+            window.configMenuActions = appController.menu_actions("configuration");
+        }
         function onPage_changed(key, title) {
             window.changePage(key, title);
             drawer.selectedKey = key;

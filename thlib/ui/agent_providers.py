@@ -48,6 +48,8 @@ class AgentProvidersController(QObject):
             self.application.window_model.show_window('agent_providers')
 
     def activate(self):
+        if not self.application.is_stream_server:
+            return False
         if not self.application.can_administer:
             self._model['error'] = 'Administrator access required'
             self.changed.emit()
@@ -134,7 +136,7 @@ class AgentProvidersController(QObject):
         self.changed.emit()
 
     def request(self, action, values=None):
-        if not self._server or self._model['busy']:
+        if not self.application.is_stream_server or not self._server or self._model['busy']:
             return
         self._generation += 1
         self._model.update(busy=True,error='')

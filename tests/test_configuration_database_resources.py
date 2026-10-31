@@ -54,7 +54,7 @@ class DatabaseResourceConfigurationTests(unittest.TestCase):
     def test_native_transport_uses_the_shared_resource_http_contract(self):
         backend = DatabaseResourcesEditor(
             SimpleNamespace(
-                can_manage_tools=True, server_url="fixture", server_user="admin"
+                can_manage_tools=True, is_stream_server=True, server_url="fixture", server_user="admin"
             )
         )
         sent = []
@@ -95,6 +95,7 @@ class DatabaseResourceConfigurationTests(unittest.TestCase):
         backend = DatabaseResourcesEditor(
             SimpleNamespace(
                 can_manage_tools=True,
+                is_stream_server=True,
                 debug_log=None,
                 server_url="fixture",
                 server_user="admin",

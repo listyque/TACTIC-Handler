@@ -1664,7 +1664,9 @@ def get_projects_and_logins(current_login='admin'):
     #
     # subscriptions = get_sobjects_dict(search.get_sobjects())
 
-    result = {'projects': projects, 'logins': logins, 'login_groups': logins_group, 'login_in_groups': logins_in_group}
+    native_api = getattr(server.server, 'api', server.server)
+    result = {'projects': projects, 'logins': logins, 'login_groups': logins_group, 'login_in_groups': logins_in_group,
+              'server_api': 'stream' if type(native_api).__module__.startswith('tactic_stream.') else 'legacy'}
 
     return json.dumps(result, separators=(',', ':'))
 

@@ -1100,6 +1100,17 @@ class ApplicationController(
     def can_manage_tools(self) -> bool:
         return self.can_administer
 
+    @Property(str, notify=authentication_changed)
+    def server_api(self) -> str:
+        from thlib.environment import env_inst, env_server
+        identity = (env_server.get_server(), env_server.get_user(), env_server.get_ticket())
+        detected = env_inst.server_api
+        return detected[3] if detected and detected[:3] == identity else 'unknown'
+
+    @Property(bool, notify=authentication_changed)
+    def is_stream_server(self) -> bool:
+        return self.server_api == 'stream'
+
     def attach_user_controller(self, users) -> None:
         self._user_controller = users
 

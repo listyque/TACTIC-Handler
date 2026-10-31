@@ -18,6 +18,7 @@ class AgentDraftTests(unittest.TestCase):
         with patch('thlib.ui.script_editor.env_read_config', return_value={}), patch('thlib.ui.script_editor.env_write_config'):
             self.editor = ScriptEditorController(None, Mock())
         self.editor._write_settings = lambda: None
+        self.editor._application = type('Application', (), {'is_stream_server': True})()
         self.review = self.editor.agentDrafts
         self.review._request = Mock()
 

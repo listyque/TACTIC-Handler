@@ -7,6 +7,7 @@ from urllib.request import Request
 from PySide6.QtCore import Property, Signal, Slot
 
 from .admin.editor import AdminDocumentEditor
+from .configuration_server import configuration_error_message
 from .server_address import normalize_tactic_server_url
 
 
@@ -21,6 +22,8 @@ class DatabaseResourcesEditor(AdminDocumentEditor):
         self._server_key = self._connection_key()
         if hasattr(application, "server_state_changed"):
             application.server_state_changed.connect(self._session_changed)
+        if hasattr(application, "authentication_changed"):
+            application.authentication_changed.connect(self._session_changed)
 
     def _connection_key(self):
         return (
@@ -31,7 +34,7 @@ class DatabaseResourcesEditor(AdminDocumentEditor):
     @Slot()
     def _session_changed(self):
         key = self._connection_key()
-        if key != self._server_key or not self._application.can_manage_tools:
+        if key != self._server_key or not self._application.can_manage_tools or not self._application.is_stream_server:
             self._server_key = key
             self.reset()
             self._database = self._project_target = self._confirmation = ""
@@ -40,7 +43,7 @@ class DatabaseResourcesEditor(AdminDocumentEditor):
 
     @Slot()
     def open(self):
-        if self._application.can_manage_tools:
+        if self._application.can_manage_tools and self._application.is_stream_server:
             self.activate("admin")
 
     @Property(str, notify=targetChanged)
@@ -88,6 +91,8 @@ class DatabaseResourcesEditor(AdminDocumentEditor):
         self.targetChanged.emit()
 
     def _execute_request(self, arguments, project, original):
+        if not self._application.is_stream_server:
+            raise RuntimeError(self.tr('Database resources require TACTIC Stream.'))
         from thlib import tactic_classes as tc
 
         server = tc.server_start(project="admin")
@@ -120,10 +125,7 @@ class DatabaseResourcesEditor(AdminDocumentEditor):
             with server.transport.open(request, timeout=30) as response:
                 return json.load(response)["result"]
         except HTTPError as error:
-            with error:
-                message = json.load(error).get(
-                    "error", "Database resource operation failed"
-                )
+            message = configuration_error_message(error)
             raise RuntimeError(message) from None
 
     @Slot()

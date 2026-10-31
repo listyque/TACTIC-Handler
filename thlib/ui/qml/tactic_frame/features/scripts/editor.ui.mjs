@@ -148,22 +148,29 @@ export function toolbar(model, width, language) {
                 : 'Hide scripts and outline',
             model.treeHidden ? 'chevron-left' : 'chevron-right'
         ]
-    ].forEach((row, index) =>
-        nodes.push(
-            button(
-                'script_' + row[0],
-                rect(languageX + 136 + index * 28, 3, 26, 26),
-                tr(row[1]),
-                row[2],
-                { type: row[0] },
-                row[0] === 'tree' || allowed[row[0]],
-                {
-                    iconOnly: true,
-                    highlighted: row[0] === 'tree' && !model.treeHidden
-                }
-            )
+    ]
+        .filter(
+            (row) =>
+                row[0] !== 'drafts' ||
+                !model.native ||
+                model.streamApi !== false
         )
-    );
+        .forEach((row, index) =>
+            nodes.push(
+                button(
+                    'script_' + row[0],
+                    rect(languageX + 136 + index * 28, 3, 26, 26),
+                    tr(row[1]),
+                    row[2],
+                    { type: row[0] },
+                    row[0] === 'tree' || allowed[row[0]],
+                    {
+                        iconOnly: true,
+                        highlighted: row[0] === 'tree' && !model.treeHidden
+                    }
+                )
+            )
+        );
     return { nodes, contentWidth };
 }
 

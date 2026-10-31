@@ -101,7 +101,7 @@ class ServerUpdateService(QObject):
 
     @Property(str, notify=stateChanged)
     def update_mode(self) -> str:
-        return self._update_mode
+        return self._update_mode if self._application.is_stream_server else 'poll'
 
     @Slot(str)
     def set_update_mode(self, value: str) -> None:
@@ -138,7 +138,7 @@ class ServerUpdateService(QObject):
             self._stream = None
 
     def _restart_stream(self) -> None:
-        if self._update_mode != "sse" or not self._running:
+        if self.update_mode != "sse" or not self._running:
             return
         if self._failure_count and self._stream is None:
             return
@@ -371,7 +371,7 @@ class ServerUpdateService(QObject):
         if env_inst.server_pool.is_stopped:
             env_inst.server_pool.start()
         project_code = str(self._application.current_project_code or "")
-        if self._update_mode == "sse":
+        if self.update_mode == "sse":
             self._start_stream(session, project_code)
             return
         message_cursor = self._message_cursor
@@ -492,7 +492,7 @@ class ServerUpdateService(QObject):
 
     def _retry_delay(self) -> int:
         delay = min(30000, 2000 * (2 ** max(0, self._failure_count - 1)))
-        return int(delay * random.uniform(.75, 1.25)) if self._update_mode == "sse" else delay
+        return int(delay * random.uniform(.75, 1.25)) if self.update_mode == "sse" else delay
 
     def _transient_failed(self, value: dict) -> None:
         self._worker = None

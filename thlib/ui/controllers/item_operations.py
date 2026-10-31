@@ -1046,7 +1046,7 @@ class ItemOperationsMixin:
         node = self._node_for_any(node_id)
         source = node.source if node else None
         if command == "agent_request":
-            if self.can_administer and node and node.node_type in {"sobject", "snapshot"}:
+            if self.is_stream_server and self.can_administer and node and node.node_type in {"sobject", "snapshot"}:
                 self.agentRequestRequested.emit(node_id)
             return
         if command == "sobject_info":

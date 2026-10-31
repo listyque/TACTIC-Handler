@@ -115,7 +115,7 @@ class AgentRequestController(QObject):
     def open_for_item(self, node_id):
         app = self.application
         node = app._node_for_any(node_id)
-        if not app.can_administer or node is None or node.node_type not in ('sobject', 'snapshot') or not node.search_key:
+        if not app.is_stream_server or not app.can_administer or node is None or node.node_type not in ('sobject', 'snapshot') or not node.search_key:
             return
         if self._model['prompt'].strip() or self._model['attachments'] or self._model['pending'] or self._model['uploading']:
             self.open()
@@ -149,7 +149,7 @@ class AgentRequestController(QObject):
 
     @Slot()
     def open(self, context=None):
-        if not self.application.can_administer:
+        if not self.application.is_stream_server or not self.application.can_administer:
             return
         if not self._model.get('projectRules') and not self._model['selected'] and not self._model['prompt'] and not self._model['attachments'] and not self._model['pending'] and not self._model['uploading']:
             self._model = dict(self.new_model(context or self.capture()), history=self._model['history'], drafts=self._model['drafts'])
@@ -487,6 +487,8 @@ class AgentRequestController(QObject):
         self._timer.start()
 
     def _request(self, action):
+        if not self.application.is_stream_server:
+            return
         if self._in_flight:
             if action != 'poll' and not self._model['busy']:
                 self._queued_action = action

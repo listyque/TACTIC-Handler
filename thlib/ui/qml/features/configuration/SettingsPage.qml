@@ -20,6 +20,8 @@ Item {
     readonly property var formModel: {
         const revision = presetsRevision;
         const projected = Object.assign({}, values);
+        if (!appController.is_stream_server)
+            projected.serverUpdateMode = "poll";
         const levels = values.debugLogLevels || [];
         for (const level of ["LOG", "INFO", "WARNING", "MISSING", "EXCEPTION", "ERROR", "CRITICAL", "API"])
             projected["debug_" + level] = levels.includes(level);
@@ -40,6 +42,7 @@ Item {
             }
         return {
             native: true,
+            streamApi: appController.is_stream_server,
             serverControls: !!root.serverControl && root.serverControl.managementAvailable,
             values: projected,
             style: theme.style,
