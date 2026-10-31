@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.326 - 2026-10-31
+
+- Compact workflow hover cards in both clients; show up to three processes with horizontal scrolling for additional processes, bounded by the current window.
+- Preserve status, assignee and date editing; prevent covered native inline cards from intercepting preview input.
+
 ## 0.6.0.325 - 2026-10-31
 
 - Keep worker settings and explicit Stream restart in Configuration > Server; remove the duplicate Backend server section from Administration in both clients.

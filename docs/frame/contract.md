@@ -354,3 +354,5 @@ Stream Frame contract for the server boundary.
 Table headings and plain/status values share cells.ui.mjs alignment: center by default, retaining explicit display justify/align left/center/right. Both engines keep symmetric insets, wrapped-label alignment and column-axis badge placement across resize.
 
 Native workspace pages pass the dock interior corner radius into the shared page chrome; web dock clipping remains the owner of its exterior. Frame Box surfaces honor bottomLeftRadius and bottomRightRadius independently. Keep the page header bottom edge square and native glyphs directly rendered without a whole-dock mask/layer.
+
+Workflow hover previews reuse task cards and the existing horizontal scroller: 160 DIP per card, 98 DIP card height and at most three visible columns, bounded by the owner viewport. Additional processes remain accessible by scrolling. Covered inline cards must not receive input through the preview.

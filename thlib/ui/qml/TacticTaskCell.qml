@@ -87,6 +87,7 @@ Item {
     TacticTaskCards {
         objectName: "tableInlineTaskCards"
         opacity: previewVisible ? 0 : 1
+        enabled: !root.previewVisible
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -109,6 +110,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         visible: root.showMenuButton
         opacity: previewVisible ? 0 : 1
+        enabled: !root.previewVisible
         width: 28
         height: 28
         theme: root.theme
@@ -212,23 +214,22 @@ Item {
                                 cardSpacing: root.cardSpacing
                                 expanded: true
                             }
-                        }
-
-                        Controls.ScrollBar {
-                            id: previewBar
-                            objectName: "tableTaskCardsPreviewScrollBar"
-                            parent: previewScrollSurface
-                            orientation: Qt.Horizontal
-                            theme: root.theme
-                            flickableTarget: previewFlick
-                        }
-                        Controls.ScrollBar {
-                            id: previewVerticalBar
-                            objectName: "tableTaskCardsPreviewVerticalScrollBar"
-                            parent: previewScrollSurface
-                            orientation: Qt.Vertical
-                            theme: root.theme
-                            flickableTarget: previewFlick
+                            ScrollBar.horizontal: Controls.ScrollBar {
+                                id: previewBar
+                                objectName: "tableTaskCardsPreviewScrollBar"
+                                parent: previewScrollSurface
+                                orientation: Qt.Horizontal
+                                theme: root.theme
+                                flickableTarget: previewFlick
+                            }
+                            ScrollBar.vertical: Controls.ScrollBar {
+                                id: previewVerticalBar
+                                objectName: "tableTaskCardsPreviewVerticalScrollBar"
+                                parent: previewScrollSurface
+                                orientation: Qt.Vertical
+                                theme: root.theme
+                                flickableTarget: previewFlick
+                            }
                         }
                     }
                     Controls.ItemCountActionButton {

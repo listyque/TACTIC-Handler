@@ -1,10 +1,6 @@
 import { translate } from '../../core/strings.mjs';
 import { node, rect, label } from '../../core/frame.mjs';
-import {
-    textStyles,
-    metrics as themeMetrics,
-    spacing
-} from '../../core/foundation.mjs';
+import { textStyles, spacing } from '../../core/foundation.mjs';
 
 const actions = {
     sobject_detail: ['search', 'Open details'],
@@ -20,7 +16,7 @@ export const metrics = {
     taskWidth: 107,
     taskGap: 4,
     taskMenu: 32,
-    taskPreviewWidth: 220,
+    taskPreviewWidth: 160,
     taskMaximumHeight: 88,
     taskDatesHeight: 76,
     taskHeading: 15,
@@ -134,21 +130,23 @@ export function taskCardLayout(height, expanded = false, style) {
             padding: 2,
             gap: 1
         });
-    const theme = themeMetrics(style),
-        padding = spacing.compact,
-        gap = spacing.tight;
+    const padding = spacing.tight,
+        gap = spacing.text,
+        editorHeight = 24,
+        headingHeight = 18,
+        datesHeight = 18;
     return {
         dates: true,
-        editorHeight: theme.controlHeight,
-        headingHeight: 20,
-        datesHeight: theme.compactControlHeight,
+        editorHeight,
+        headingHeight,
+        datesHeight,
         padding,
         gap,
         cardHeight:
             padding * 2 +
-            20 +
-            theme.controlHeight * 2 +
-            theme.compactControlHeight +
+            headingHeight +
+            editorHeight * 2 +
+            datesHeight +
             gap * 3
     };
 }
@@ -164,7 +162,10 @@ export function taskPreviewLayout(count, viewportWidth, viewportHeight, style) {
         0,
         Math.min(
             viewportWidth - padding * 2,
-            contentWidth + metrics.taskMenu + padding * 2
+            Math.min(count, 3) * (metrics.taskPreviewWidth + metrics.taskGap) -
+                metrics.taskGap +
+                metrics.taskMenu +
+                padding * 2
         )
     );
     const horizontal = contentWidth > width - padding * 2 - metrics.taskMenu;

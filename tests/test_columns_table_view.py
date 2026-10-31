@@ -15,7 +15,7 @@ os.environ.setdefault("QT_QUICK_BACKEND", "software")
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 from PySide6.QtCore import (
-    QObject, QPointF, Property, QMetaObject, Qt, QUrl, Signal, Slot,
+    QObject, QPointF, Property, QMetaObject, Q_ARG, Qt, QUrl, Signal, Slot,
 )
 from PySide6.QtGui import QGuiApplication, QInputMethodEvent
 from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlProperty
@@ -2909,6 +2909,9 @@ class ColumnsTableViewTests(unittest.TestCase):
     def test_task_cell_reflows_into_overflow_and_reveals_dates(self):
         engine = QQmlEngine()
         if os.environ.get("TASK_HOVER_CAPTURE"):
+            from PySide6.QtGui import QFontDatabase
+            for font in ("segoeui.ttf", "seguisb.ttf", "segoeuib.ttf"):
+                QFontDatabase.addApplicationFont("C:/Windows/Fonts/" + font)
             from thlib.ui.icon_font import qml_icon_bindings
             for name, value in qml_icon_bindings(QML.parents[2]).items():
                 engine.rootContext().setContextProperty(name, value)
@@ -3055,15 +3058,16 @@ class ColumnsTableViewTests(unittest.TestCase):
             )
             inline_cards = cell.findChild(QQuickItem, "tableInlineTaskCards")
             self.assertEqual(inline_cards.opacity(), 0)
+            self.assertFalse(inline_cards.isEnabled())
             expanded_card = next(item for item in _visual_items(preview_surface)
                                  if item.objectName() == "tableTaskRecord_0")
-            self.assertEqual(expanded_card.width(), 220)
-            self.assertEqual(expanded_card.height(), 152)
+            self.assertEqual(expanded_card.width(), 160)
+            self.assertEqual(expanded_card.height(), 98)
             expanded_status = next(item for item in _visual_items(expanded_card) if item.objectName() == "tableTaskStatus_0")
             expanded_dates = next(item for item in _visual_items(expanded_card) if item.objectName() == "tableTaskDates_0")
-            self.assertEqual(expanded_status.height(), theme.property("controlHeight"))
+            self.assertEqual(expanded_status.height(), 24)
             self.assertTrue(expanded_dates.isVisible())
-            self.assertEqual(expanded_dates.height(), theme.property("compactControlHeight"))
+            self.assertEqual(expanded_dates.height(), 18)
             manager = next(item for item in _visual_items(preview_surface) if item.objectName() == "tableTaskPreviewManager")
             self.assertTrue(manager.isVisible())
             capture_dir = os.environ.get("TASK_HOVER_CAPTURE")
@@ -3095,6 +3099,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 expanded_card.mapToScene(QPointF()).y(),
                 cell.mapToScene(QPointF(0, cell.height())).y(),
             )
+            QTest.mouseMove(window, expanded_dates.mapToScene(QPointF(expanded_dates.width() / 2, expanded_dates.height() / 2)).toPoint())
+            QTest.qWait(30)
             QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
                 expanded_dates.mapToScene(QPointF(expanded_dates.width() / 2, expanded_dates.height() / 2)).toPoint())
             QTest.qWait(60)
@@ -3155,6 +3161,43 @@ class ColumnsTableViewTests(unittest.TestCase):
             ))
             QMetaObject.invokeMethod(status_cell, "resetEditor")
             QTest.qWait(20)
+            # All processes remain accessible without growing the popup.
+            records = [dict(columns.cell("asset", "tasks")["tasks"][0], process=f"process{i}",
+                            processLabel=f"Process {i}", assigned="",
+                            assignedLabel="Not assigned") for i in range(15)]
+            cell.setProperty("records", records)
+            for viewport_width in (800, 320):
+                window.resize(viewport_width, 360)
+                cell.setX(24)
+                cell.setY(80)
+                QTest.qWait(30)
+                QMetaObject.invokeMethod(cell, "openTaskPreview", Q_ARG("QVariant", True))
+                QTest.qWait(60)
+                self.assertLessEqual(preview.property("width"), min(536, viewport_width - 16))
+                self.assertLessEqual(preview.property("height"), 130)
+                preview_surface = preview.property("contentItem").property("item")
+                popup_cards = [item for item in _visual_items(preview_surface)
+                               if item.objectName().startswith("tableTaskRecord_")]
+                self.assertEqual(len(popup_cards), 15)
+                if capture_dir:
+                    origin = preview_surface.mapToScene(QPointF(-8, -8))
+                    window.grabWindow().copy(int(origin.x()), int(origin.y()),
+                        int(preview.property("width")), int(preview.property("height"))).save(str(output / f"preview-th-{viewport_width}-15.png"))
+                scrollbar = next(item for item in _visual_items(preview_surface)
+                                 if item.objectName() == "tableTaskCardsPreviewScrollBar")
+                flick = scrollbar.property("flickableTarget")
+                self.assertGreater(flick.property("contentWidth"), flick.width())
+                thumb = scrollbar.property("contentItem")
+                start = thumb.mapToScene(QPointF(thumb.width() / 2, thumb.height() / 2)).toPoint()
+                end = scrollbar.mapToScene(QPointF(scrollbar.width() - thumb.width() / 2 - 1, scrollbar.height() / 2)).toPoint()
+                QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, start)
+                QTest.mouseMove(window, end, 80)
+                QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, end)
+                QTest.qWait(30)
+                self.assertGreater(flick.property("contentX"), 0)
+                last = next(item for item in popup_cards
+                            if item.objectName() == "tableTaskRecord_14")
+                self.assertLess(last.mapToScene(QPointF(last.width(), 0)).x(), window.width())
             self.assertEqual(warnings, [])
         finally:
             window.close()
