@@ -17,6 +17,7 @@ Basic.Button {
     property bool compact: false
     property bool segmented: false
     property real iconSize: 0
+    property bool iconAtEnd: false
     property string toolTip: ""
     property bool lastActivationWasTouch: false
     property double lastActivationAt: -1000
@@ -60,6 +61,7 @@ Basic.Button {
 
         Row {
             id: buttonContent
+            layoutDirection: control.iconAtEnd ? Qt.RightToLeft : Qt.LeftToRight
             anchors.centerIn: parent
             anchors.alignWhenCentered: false
             spacing: control.spacing

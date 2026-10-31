@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.341 - 2026-10-31
+
+- Reveal configured quick-filter groups beside search when space permits, with scoped dropdowns, selection counts and the original full-filter/narrow fallback.
+
 ## 0.6.0.340 - 2026-10-31
 
 - Show a compact tree/cards/table segmented switcher when search tabs leave enough toolbar space. Preserve all six original view choices, narrow/mobile menu access, loading guards and existing view state.

@@ -682,6 +682,7 @@ Item {
                         round: !!wrapper.node.round
                         compact: !!wrapper.node.iconOnly
                         icon.name: wrapper.node.icon || ""
+                        iconAtEnd: !!wrapper.node.iconAtEnd
                         iconSize: wrapper.node.iconSize || 0
                         toolTip: wrapper.node.toolTip || wrapper.node.label || wrapper.node.text
                         font: root.controlFont(wrapper.node)

@@ -446,3 +446,5 @@ A column you resize manually stays visible when it grows beyond the table viewpo
 Column resize hit areas straddle their visible divider, including the right edge of the final column. Drag from either side of the line. Header tools reserve space beside that hit area and remain directly clickable.
 
 Simple Table and expanded related tables use the main table component: the same full-width column header, resize handles, row context menu and three-dot actions. There is no separate row drag grip. Searches, page changes, selection, column/view settings and nested objects keep the table’s own data scope.
+
+On wide search headers, up to three enabled quick-filter groups appear beside the search field. Their dropdowns show the same choices as Quick filters; the number beside a label is the selected-value count. Group order and visibility follow the shared and personal quick-filter layout. The search field retains comfortable space; groups return to the full Quick filters menu when the panel is narrowed. Resizing does not change selections or run a result query.

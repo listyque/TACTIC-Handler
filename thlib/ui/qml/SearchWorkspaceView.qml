@@ -7,6 +7,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
 import "controls" as Controls
+import "features/search" as Search
 import "tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
 
 Item {
@@ -18,6 +19,12 @@ Item {
     property var shelfController: sidebarEditorController.scriptShelf
     property var searchInput
     property var quickFilterAnchor
+    property real quickControlsWidth: 38
+    readonly property real quickControlsBudget: Header.quickBudget({
+        compact: root.compactTabActions || !root.presentationActive,
+        shelf: Boolean(root.shelfController)
+    }, root.width)
+    readonly property var inlineQuickGroups: quickControlsBudget > 0 ? appController.quick_filter_groups : null
     property var headerMoreAnchor
     property bool shelfOpen: false
     signal requestDockMenu(var sourceItem)
@@ -31,10 +38,17 @@ Item {
     property bool tabTimingVisible: false
     property bool tabTimingMeasuring: false
 
+    onWidthChanged: if (quickFilterPopup)
+        quickFilterPopup.close()
+
     Component.onCompleted: appController.restore_current_result_viewport()
 
     Connections {
         target: appController
+
+        function onSearch_text_changed() {
+            quickFilterPopup.close();
+        }
 
         function onResult_viewport_capture_requested() {
             const surface = root.activeResultSurface;
@@ -138,6 +152,7 @@ Item {
             theme: root.theme
             scene: Header.describe({
                 compact: root.compactTabActions,
+                quickWidth: root.quickControlsWidth,
                 shelf: Boolean(root.shelfController),
                 shelfOpen: root.shelfOpen
             }, width, root.language)
@@ -224,47 +239,65 @@ Item {
         }
         Component {
             id: quickComponent
-            Controls.CompactIconButton {
-                id: quickFilterButton
-                objectName: "searchQuickFilterButton"
-                width: parent.width
-                height: parent.height
-                visible: true
-                enabled: true
-                theme: root.theme
-                iconName: "filter"
-                iconColor: quickFilterPopup.opened || appController.active_quick_filter_count > 0 ? root.theme.action : root.theme.primaryText
-                backgroundColor: quickFilterPopup.opened ? root.theme.secondaryContainer : "transparent"
-                round: true
-                toolTip: qsTr("Quick filters")
-                onPressed: quickFilterPopup.sourceWasOpen = quickFilterPopup.opened
-                Component.onCompleted: root.quickFilterAnchor = this
-                onClicked: {
-                    const opening = !quickFilterPopup.sourceWasOpen && !quickFilterPopup.opened;
-                    tagCloudPopup.close();
-                    if (opening)
+            Item {
+                Search.QuickFilterBar {
+                    theme: root.theme
+                    controller: appController
+                    editorController: quickFilterEditorController
+                    language: root.language
+                    budget: root.quickControlsBudget
+                    groups: root.inlineQuickGroups || []
+                    onImplicitWidthChanged: root.quickControlsWidth = implicitWidth
+                    Component.onCompleted: root.quickControlsWidth = implicitWidth
+                    onGroupRequested: (key, source) => {
+                        tagCloudPopup.close();
                         appController.request_quick_filter_data(false);
-                    quickFilterPopup.toggleBelow(quickFilterButton);
+                        quickFilterPopup.toggleBelow(source, key);
+                    }
                 }
-
-                Rectangle {
-                    visible: appController.active_quick_filter_count > 0
+                Controls.CompactIconButton {
+                    id: quickFilterButton
+                    objectName: "searchQuickFilterButton"
+                    width: 38
                     anchors.right: parent.right
-                    anchors.top: parent.top
-                    width: Math.max(16, quickFilterCount.implicitWidth + 8)
-                    height: 16
-                    radius: 8
-                    color: root.theme.action
-                    border.width: 2
-                    border.color: root.theme.panelDeep
-                    Label {
-                        id: quickFilterCount
-                        anchors.centerIn: parent
-                        text: appController.active_quick_filter_count
-                        color: root.theme.selectedText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.caption
-                        font.weight: Font.Bold
+                    height: parent.height
+                    visible: true
+                    enabled: true
+                    theme: root.theme
+                    iconName: "filter"
+                    iconColor: quickFilterPopup.opened || appController.active_quick_filter_count > 0 ? root.theme.action : root.theme.primaryText
+                    backgroundColor: quickFilterPopup.opened ? root.theme.secondaryContainer : "transparent"
+                    round: true
+                    toolTip: qsTr("Quick filters")
+                    onPressed: quickFilterPopup.sourceWasOpen = quickFilterPopup.opened
+                    Component.onCompleted: root.quickFilterAnchor = this
+                    onClicked: {
+                        const opening = !quickFilterPopup.sourceWasOpen && !quickFilterPopup.opened;
+                        tagCloudPopup.close();
+                        if (opening)
+                            appController.request_quick_filter_data(false);
+                        quickFilterPopup.toggleBelow(quickFilterButton);
+                    }
+
+                    Rectangle {
+                        visible: appController.active_quick_filter_count > 0
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        width: Math.max(16, quickFilterCount.implicitWidth + 8)
+                        height: 16
+                        radius: 8
+                        color: root.theme.action
+                        border.width: 2
+                        border.color: root.theme.panelDeep
+                        Label {
+                            id: quickFilterCount
+                            anchors.centerIn: parent
+                            text: appController.active_quick_filter_count
+                            color: root.theme.selectedText
+                            font.family: root.theme.fontFamily
+                            font.pointSize: Controls.Typography.caption
+                            font.weight: Font.Bold
+                        }
                     }
                 }
             }
@@ -351,9 +384,10 @@ Item {
         objectName: "searchQuickFilterPopup"
         theme: root.theme
         controller: appController
+        availableGroups: root.inlineQuickGroups
         editorController: quickFilterEditorController
         onEditRequested: windowModel.show_window("quick_filter_editor")
-        onAssigneesRequested: assigneeFilterPopup.openBelow(root.quickFilterAnchor)
+        onAssigneesRequested: assigneeFilterPopup.openBelow(quickFilterPopup.openingAnchorItem || root.quickFilterAnchor)
     }
     SearchAssigneeFilterPopup {
         id: assigneeFilterPopup

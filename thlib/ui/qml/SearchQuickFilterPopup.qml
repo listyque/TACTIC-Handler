@@ -11,20 +11,26 @@ Controls.ScrollablePopup {
     required property var editorController
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     property var groups: []
+    property string groupKey: ""
+    property var availableGroups: null
     property bool layoutReady: false
     readonly property real rowWidth: Math.max(0, viewport.width - verticalScrollBar.reservedExtent)
 
     signal editRequested
     signal assigneesRequested
 
-    function toggleBelow(sourceItem) {
+    function toggleBelow(sourceItem, key = "") {
+        if (opened && groupKey !== key)
+            close();
+        groupKey = key;
         editorController.ensure_current();
         toggleBelowItem(sourceItem, true, 6);
     }
 
     function updateGroups() {
         layoutReady = false;
-        groups = controller.quick_filter_groups;
+        const source = availableGroups === null ? controller.quick_filter_groups : availableGroups;
+        groups = source.filter(group => !groupKey || group.key === groupKey);
         // Set group positions before creating viewport chips. Otherwise all
         // groups initially sit at y=0 and appear to intersect the viewport.
         for (let i = 0; i < groupSlots.count; ++i)
@@ -87,6 +93,9 @@ Controls.ScrollablePopup {
     enter: null
     exit: null
 
+    onAvailableGroupsChanged: if (visible)
+        updateGroups()
+
     onAboutToShow: updateGroups()
     onClosed: {
         viewport.cancelFlick();
@@ -95,7 +104,7 @@ Controls.ScrollablePopup {
 
     Connections {
         target: root.controller
-        enabled: root.visible
+        enabled: root.visible && root.availableGroups === null
         function onQuick_filters_changed() {
             root.updateGroups();
         }

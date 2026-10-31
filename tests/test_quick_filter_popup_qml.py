@@ -20,6 +20,7 @@ from PySide6.QtTest import QSignalSpy, QTest
 
 from thlib.ui.localization import CatalogTranslator
 from thlib.ui.quick_filters import QuickFilterCatalog
+from thlib.ui.quick_filter_editor import QuickFilterEditorController
 
 
 class _FacetType(_Stype):
@@ -43,6 +44,7 @@ class QuickFilterPopupQmlTests(unittest.TestCase):
         QQuickWindow.setTextRenderType(cls.previous_text_render_type)
 
     def setUp(self):
+        self.enterContext(patch.object(QuickFilterEditorController, "_run"))
         self.workspace = menus.ProcessMenuLatencyTests()
         self.workspace.setUp()
         self.addCleanup(self.workspace.doCleanups)
@@ -348,11 +350,14 @@ class QuickFilterPopupQmlTests(unittest.TestCase):
             self.records[0]["options"][0]["title"] = "Очень длинное название настроенного на сервере фильтра"
             self.groups_times.clear()
             self.controller.quick_filters_changed.emit()
-            self.assertFalse(self.groups_times)
+            self.assertTrue(self.groups_times)  # Visible inline buttons refresh their captions.
             self.assertEqual(self.chips(popup), old_chips)
             view.setWidth(360)
             window.resize(360, 400)
             self.settle(window)
+            self.groups_times.clear()
+            self.controller.quick_filters_changed.emit()
+            self.assertFalse(self.groups_times)  # Narrow headers retain the lazy popup path.
             popup, _sample = self.measure_open(window, view)
             viewport = popup.property("contentItem")
             bar = popup.findChild(QQuickItem, "scrollablePopupScrollBar")
