@@ -19,6 +19,7 @@ from thlib.ui.workspace_models.records import RecordListModel
 
 
 SCRIPT_TRIGGER_TYPE = "handler_script_hook"
+COMMAND = "tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd"
 
 _RULE_ROLES = (
     "ruleId", "code", "title", "description", "action", "phase",
@@ -354,10 +355,13 @@ class ScriptTriggerController(QObject):
             import thlib.tactic_classes as tc
 
             server = tc.server_start(project=project_code)
-            result = server.execute_cmd(
-                "tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd",
-                dict(action="read", project_code=project_code),
-            )["info"]
+            if server.class_exists(COMMAND):
+                result = server.execute_cmd(
+                    COMMAND, dict(action="read", project_code=project_code),
+                )["info"]
+            else:
+                from .script_triggers_legacy import read_hooks
+                result = read_hooks(server)
             if isinstance(result, str):
                 result = json.loads(result)
             return project_code, generation, result["records"], result["revision"]
@@ -384,11 +388,15 @@ class ScriptTriggerController(QObject):
             import thlib.tactic_classes as tc
 
             server = tc.server_start(project=project_code)
-            result = server.execute_cmd(
-                "tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd",
-                dict(action="save_hooks", project_code=project_code, rules=rules,
-                     expected_revision=expected_revision, operation_id=operation_id),
-            )["info"]
+            if server.class_exists(COMMAND):
+                result = server.execute_cmd(
+                    COMMAND,
+                    dict(action="save_hooks", project_code=project_code, rules=rules,
+                         expected_revision=expected_revision, operation_id=operation_id),
+                )["info"]
+            else:
+                from .script_triggers_legacy import save_hooks
+                result = save_hooks(server, project_code, rules, expected_revision)
             if isinstance(result, str):
                 result = json.loads(result)
             return project_code, generation, result["records"], result["revision"]

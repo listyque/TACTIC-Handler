@@ -5,6 +5,10 @@ order: 20
 ---
 # External agent
 
+The external-agent service requires TACTIC Stream. When connected to Legacy
+TACTIC without that service, Handler skips automatic desktop registration and
+polling. Reconnect after switching to a server with the service installed.
+
 Connection, model and reasoning choices stay compact in the bottom message toolbar. They wrap only when the chat is too narrow, retaining bounded widths.
 
 Open a project/page, select objects, then choose **More options → External agent**.

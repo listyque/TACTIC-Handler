@@ -39,6 +39,16 @@ current account's connected desktops. The server is an explicit alternative,
 never a default/fallback. Existing active connections retain their target.
 
 `AgentExecutorCmd` requires an administrator and the current `project_code`.
+Handler first checks this optional class with the original `class_exists` API.
+Legacy TACTIC without it keeps ordinary desktop workflows and skips companion
+registration/polling for that authenticated session. Reconnecting checks again;
+an offline probe is retried, not classified as a missing feature.
+Handler script hooks are independent of this service: when
+`HandlerAutomationCmd` is absent, the desktop reads and saves `config/trigger`
+through standard SDK calls, with revision/identity checks, native transaction
+rollback and login-ticket restoration after abort. Stream continues to use its
+native automation command. A failed command never triggers legacy fallback.
+
 `state` returns `targets` (id/kind/label/state/error) and the active/default desktop
 `target`; `start`/`stop` require an explicit target UUID or `server`. An unselected
 or unavailable target is rejected. Starts across targets are serialized per owner;

@@ -17,6 +17,7 @@ class AgentDesktopController(QObject):
         super().__init__(application)
         self.application, self.pool = application, pool
         self.session = None
+        self.available = None
         self.generation = 0
         self.worker = None
         self.device, self.acks = '', []
@@ -42,6 +43,8 @@ class AgentDesktopController(QObject):
             self.agents = LocalAgents(Path(env_mode.get_current_path()) / 'cache/agent_python')
             from thlib import tactic_classes as tc
             self.server = tc.server_start(project='admin')
+        if self.available is False:
+            return
         self.timer.start()
         self.poll()
 
@@ -51,29 +54,34 @@ class AgentDesktopController(QObject):
         if self.agents:
             self.agents.close()
         self.session, self.device, self.acks, self.worker = None, '', [], None
+        self.available = None
 
     def poll(self):
-        if not self.session or self.worker:
+        if not self.session or self.worker or self.available is False:
             return
         if self.pool.is_stopped:
             self.pool.start()
         values = dict(action='desktop_poll', project_code='admin', device=self.device, label=socket.gethostname(),
                       reports=self.agents.reports(), acks=list(self.acks))
-        self.worker = self.pool.add_task(self.load, self.server, values, self.generation)
+        self.worker = self.pool.add_task(self.load, self.server, values, self.generation, self.available)
         self.worker.result.connect(self.done)
         self.worker.start()
 
     @staticmethod
-    def load(server, values, generation):
+    def load(server, values, generation, available=None):
         try:
+            if available is None:
+                available = server.class_exists(COMMAND)
+            if not available:
+                return dict(generation=generation, available=False)
             result = server.execute_cmd(COMMAND, values)
             if result.get('status') != 'OK':
                 raise RuntimeError(result.get('description') or 'Desktop companion unavailable')
             info = json.loads(result['info']) if isinstance(result['info'], str) else result['info']
-            return dict(generation=generation, info=info, acks=values['acks'])
+            return dict(generation=generation, available=True, info=info, acks=values['acks'])
         except Exception:
             # An offline server does not authorize stopping/replaying local user work.
-            return dict(generation=generation)
+            return dict(generation=generation, available=available)
 
     def done(self, result):
         if isinstance(result, tuple):
@@ -81,6 +89,10 @@ class AgentDesktopController(QObject):
         if result['generation'] != self.generation:
             return
         self.worker = None
+        self.available = result.get('available')
+        if self.available is False:
+            self.timer.stop()
+            return
         if 'info' not in result or not self.session:
             return
         self.acks = [code for code in self.acks if code not in result['acks']]

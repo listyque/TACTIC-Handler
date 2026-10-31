@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.347 - 2026-11-01
+
+- Preserve Legacy TACTIC script hooks through the standard SDK when Stream automation commands are unavailable, retaining editing, Before/After execution, revision checks and transaction rollback. Restore the login ticket after aborting and skip unsupported automatic desktop-executor polling until the next authenticated session.
+
 ## 0.6.0.346 - 2026-10-31
 
 - Configure quick-filter icons with the shared icon picker; inherit a column Cell icon when unset. Persist tab and shared icons instead of choosing icons from field names. Close the native icon popup before publishing a selection that may rebuild its owner.

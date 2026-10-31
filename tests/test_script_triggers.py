@@ -1,4 +1,5 @@
 import os
+from copy import deepcopy
 from pathlib import Path
 import time
 import unittest
@@ -100,6 +101,28 @@ class _Scripts(QObject):
 class _Server:
     def __init__(self):
         self.records = []
+        self.stream = True
+        self.ticket = 'fixture-ticket'
+
+    def class_exists(self, owner):
+        return self.stream
+
+    def start(self, title):
+        self.before = deepcopy(self.records)
+
+    def finish(self):
+        pass
+
+    def abort(self):
+        self.records = self.before
+        self.ticket = None
+
+    def get_login_ticket(self):
+        return 'fixture-ticket'
+
+    def set_login_ticket(self, ticket):
+        assert ticket == 'fixture-ticket'
+        self.ticket = ticket
 
     def execute_cmd(self, owner, values):
         assert owner == 'tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd'
@@ -115,7 +138,7 @@ class _Server:
     def query(self, search_type, _filters, show_retired=False):
         assert search_type == "config/trigger"
         assert show_retired
-        return list(self.records)
+        return [row for row in self.records if row['trigger_type'] == 'handler_script_hook']
 
     def insert(self, search_type, data, triggers=True):
         assert search_type == "config/trigger"
@@ -130,7 +153,8 @@ class _Server:
     def build_search_key(self, search_type, code, project_code=""):
         return f"{search_type}?project={project_code}&code={code}"
 
-    def insert_update(self, search_key, data, triggers=True):
+    def update(self, search_key, data, triggers=True):
+        assert triggers
         code = search_key.rsplit("=", 1)[-1]
         for record in self.records:
             if record["code"] == code:
@@ -175,6 +199,76 @@ class ScriptTriggerTests(unittest.TestCase):
         self.controller = ScriptTriggerController(
             self.application, _Users(), self.scripts, None, None
         )
+
+    def test_legacy_project_reads_saves_and_runs_hooks_without_stream_commands(self):
+        server = _Server()
+        server.stream = False
+        server.records = [dict(code='OTHER', trigger_type='other')]
+        self.controller._project_code = 'demo'
+        self.controller._run_server = lambda operation, handler: handler(operation())
+        with patch.object(tc, 'server_start', return_value=server):
+            self.controller.refresh()
+            self.assertTrue(self.controller.canManage)
+            self.assertFalse(self.controller.error)
+            self.assertFalse(self.application.notifications)
+            rule = _rule('new', 'tools/one')
+            rule['code'] = ''
+            rule['title'] = 'Legacy hook'
+            self.controller.rules.replace(self.controller._present([rule]))
+            self.controller.save()
+            self.controller.refresh()
+            self.assertEqual(self.controller.rules.records()[0]['title'], 'Legacy hook')
+            calls = []
+            self.controller._execute_rule = lambda rule, payload, finished: (calls.append(rule['title']), finished(True, ''))
+            self.controller.run_before('object.update', dict(search_type='demo/asset'), lambda *args: None)
+            self.assertEqual(calls, ['Legacy hook'])
+            self.controller.select(0)
+            self.controller.update('title', 'Updated')
+            self.controller.save()
+            self.assertEqual(server.records[1]['title'], 'Updated')
+            self.controller.remove()
+            self.controller.save()
+            self.assertEqual(server.records, [dict(code='OTHER', trigger_type='other')])
+
+    def test_legacy_save_rejects_stale_identity_and_rolls_back_partial_failure(self):
+        from thlib.ui.script_triggers_legacy import read_hooks, save_hooks
+
+        server = _Server()
+        revision = read_hooks(server)['revision']
+        rules = [_rule('', 'tools/one'), _rule('', 'tools/two')]
+        with self.assertRaisesRegex(RuntimeError, 'Reload before saving'):
+            save_hooks(server, 'demo', rules, 'stale')
+        self.assertEqual(server.ticket, 'fixture-ticket')
+        invalid = _rule('foreign-code', 'tools/one')
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            save_hooks(server, 'demo', [invalid], revision)
+        insert = server.insert
+
+        def fail_second(*args, **kwargs):
+            if server.records:
+                raise PermissionError('write denied')
+            return insert(*args, **kwargs)
+
+        with patch.object(server, 'insert', side_effect=fail_second):
+            with self.assertRaisesRegex(PermissionError, 'write denied'):
+                save_hooks(server, 'demo', rules, revision)
+        self.assertEqual(server.records, [])
+        self.assertEqual(server.ticket, 'fixture-ticket')
+
+    def test_stream_command_failure_does_not_fall_back_to_legacy_writes(self):
+        from unittest.mock import Mock
+        from xmlrpc.client import Fault
+
+        server = Mock()
+        server.class_exists.return_value = True
+        server.execute_cmd.side_effect = Fault(403, 'Denied')
+        self.controller._project_code = 'demo'
+        self.controller._run_server = lambda operation, handler: handler(operation())
+        with patch.object(tc, 'server_start', return_value=server):
+            with self.assertRaises(Fault):
+                self.controller.refresh()
+        server.query.assert_not_called()
+        server.start.assert_not_called()
 
     def test_discard_and_reload_invalidate_pending_picker_document(self):
         self.controller._original = [_rule("same", "tools/one")]

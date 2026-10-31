@@ -5,6 +5,11 @@ order: 41
 ---
 # Script triggers
 
+Legacy TACTIC remains supported: hooks are read and saved through its standard
+API, with a revision check and transaction rollback on failure. Stream uses its
+native automation command. Both modes retain Before/After execution and preserve
+unrelated server triggers. Reload before saving if another client changed hooks.
+
 > Script triggers run saved scripts immediately before or after selected Handler and DCC actions.
 
 ## Main controls

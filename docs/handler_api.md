@@ -677,6 +677,17 @@ and their private cached Python environment. Application shutdown/sign-out stops
 this instance's children. No arbitrary desktop command API is exposed. Chat/provider
 controllers pass the selected execution target through `AgentExecutorCmd`.
 
+Before automatic registration, the companion checks the native `class_exists`
+API for `tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd`. A missing command
+disables polling for that authenticated session; reconnecting checks again.
+Transport failures leave polling enabled and never stop or replay local work.
+The Handler hook editor checks `HandlerAutomationCmd` before reading or saving.
+Legacy TACTIC uses the original `config/trigger` query/update API instead, with
+revision and identity checks and native start/finish/abort transactions. Existing
+Before/After hooks remain editable and runnable; unrelated triggers are preserved.
+Stream retains its native command validation and publication receipts. A command
+failure never selects the legacy path; only `class_exists == False` does.
+
 The client-only HTTP/MCP runtime and indexed TS reference documents are bundled under
 `thlib/agent_runtime`, independently of a Stream checkout. Refresh exact copies with
 `python tools/sync_agent_runtime.py --stream-root <TS/tactic_stream>` and verify with
