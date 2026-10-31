@@ -13,6 +13,7 @@ Tasks.TaskCellDisplay {
     property bool editorActive: false
     property bool editingAllowed: true
     property bool actionField: true
+    property bool cardField: false
     property bool showIndicator: !actionField
     property bool showAccent: false
     property color accentColor: theme.action
@@ -104,6 +105,7 @@ Tasks.TaskCellDisplay {
             enabled: root.editingAllowed,
             hovered: root.editorActive || cellHover.hovered,
             actionField: root.actionField,
+            cardField: root.cardField,
             indicator: root.showIndicator,
             showAccent: root.showAccent,
             accent: String(root.accentColor),

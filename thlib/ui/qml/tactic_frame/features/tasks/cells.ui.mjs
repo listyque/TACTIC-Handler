@@ -1,6 +1,8 @@
 import { node, rect, label } from '../../core/frame.mjs';
 import { fontMetricHeight, textStyles } from '../../core/foundation.mjs';
 
+export const cardMetrics = { inset: 6, avatar: 16, gap: 8 };
+
 export function initials(label) {
     const words = String(label || '')
         .trim()
@@ -16,27 +18,58 @@ export function choiceStyle(model) {
         background:
             model.enabled && model.hovered
                 ? 'surfaceContainerHigh'
-                : 'surfaceContainerLow',
+                : model.cardField
+                  ? undefined
+                  : 'surfaceContainerLow',
         border: model.actionField === false ? 'outlineVariant' : undefined,
-        radiusRole: model.actionField === false ? 'fieldRadius' : 'itemRadius',
-        textColor: model.enabled ? 'primaryText' : 'disabledText',
+        radiusRole:
+            model.cardField || model.actionField === false
+                ? 'fieldRadius'
+                : 'itemRadius',
+        textColor: model.enabled
+            ? 'primaryText'
+            : model.cardField
+              ? 'secondaryText'
+              : 'disabledText',
         indicatorColor: model.enabled ? 'secondaryText' : 'disabledText',
         indicatorIcon: 'expand-more'
     };
 }
 
 export function choiceLayout(model, width, height) {
-    let left = 11;
-    const avatarSize = Math.max(0, Math.min(22, height - 4));
+    let left = model.cardField ? cardMetrics.inset : 11;
+    const avatarSize = Math.max(
+        0,
+        Math.min(model.cardField ? cardMetrics.avatar : 22, height - 4)
+    );
     const avatar = model.avatar
-        ? rect(left, (height - avatarSize) / 2, avatarSize, avatarSize)
+        ? rect(
+              model.cardField
+                  ? cardMetrics.inset + (cardMetrics.avatar - avatarSize) / 2
+                  : left,
+              (height - avatarSize) / 2,
+              avatarSize,
+              avatarSize
+          )
         : null;
     if (avatar) left += avatar.width + 7;
     const accent =
         model.showAccent && model.accent
-            ? Object.assign(rect(left, (height - 9) / 2, 9, 9), { radius: 4.5 })
+            ? Object.assign(
+                  rect(
+                      model.cardField
+                          ? cardMetrics.inset + (cardMetrics.avatar - 9) / 2
+                          : left,
+                      (height - 9) / 2,
+                      9,
+                      9
+                  ),
+                  { radius: 4.5 }
+              )
             : null;
     if (accent) left += 16;
+    if (model.cardField && (avatar || accent))
+        left = cardMetrics.inset + cardMetrics.avatar + cardMetrics.gap;
     const textHeight = Math.min(
         height,
         model.textHeight ||
@@ -54,7 +87,10 @@ export function choiceLayout(model, width, height) {
                 textHeight
             ),
             model.text || '',
-            { fontRole: model.fontRole || 'body' }
+            {
+                fontRole: model.fontRole || 'body',
+                weight: model.cardField ? 400 : undefined
+            }
         ),
         indicator: model.indicator
             ? rect(width - 26, (height - 17) / 2, 17, 17)

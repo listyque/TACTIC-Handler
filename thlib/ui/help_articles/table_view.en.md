@@ -29,3 +29,9 @@ Workflow hover previews use compact cards with editable dates, status and assign
 Only the cell under the pointer expands; selecting other rows does not open their previews. Bulk task editing still uses the selected rows.
 
 The active expanded related table is raised with a shadow; the remaining parent table is dimmed. Click the dimmed area or Close to collapse it. If search is disabled for that view, no empty toolbar is reserved: remaining actions use the footer. Enabled search uses the main suggestion field within the current relation.
+
+### Pipeline progress nodes
+
+A progress node is an aggregate, with a ring and a completed-object/total-object count. It has no task status, assignee or dates. Click the ring or heading to open its related tasks in Task Inspector. An unconfigured or unavailable relation shows N/A; an accessible empty scope shows 0/0.
+
+Counts follow the configured related Search Type, process, pipeline and local/global scope. For objects with pipelines, completion comes from their workflow status messages, as in legacy TACTIC. For objects without pipelines, Complete object/task statuses are used. Multiple completed tasks on one object count once. Ordinary task cards retain their inline editors, with aligned quiet rows and a single process accent.

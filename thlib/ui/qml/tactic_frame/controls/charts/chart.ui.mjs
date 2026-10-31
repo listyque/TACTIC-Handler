@@ -294,7 +294,8 @@ export function paint(c, g, color, hovered = -1) {
         for (const mark of g.marks)
             if (mark.value > 0 && g.valid) {
                 const gap = Math.min(0.025, (mark.end - mark.start) / 4);
-                c.strokeStyle = color(palette[mark.index % palette.length]);
+                c.strokeStyle =
+                    mark.color || color(palette[mark.index % palette.length]);
                 c.lineWidth =
                     g.radius - g.inner + (hovered === mark.index ? 3 : 0);
                 c.beginPath();

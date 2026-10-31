@@ -1,6 +1,7 @@
 import { translate } from '../../core/strings.mjs';
 import { node, rect, label } from '../../core/frame.mjs';
 import { textStyles, spacing } from '../../core/foundation.mjs';
+import * as Chart from '../../controls/charts/chart.ui.mjs';
 
 const actions = {
     sobject_detail: ['search', 'Open details'],
@@ -225,7 +226,14 @@ export function taskDate(value, simple) {
     return simple && date.length === 10 ? date.slice(5) : date;
 }
 
-export function taskDateRange(task) {
+export function taskDateRange(task, language) {
+    if (
+        !task.bidStart &&
+        !task.bidEnd &&
+        !task.bidStartLabel &&
+        !task.bidEndLabel
+    )
+        return translate('Not set', language);
     const start =
         task.simpleDates === undefined && task.bidStartLabel
             ? task.bidStartLabel
@@ -235,6 +243,71 @@ export function taskDateRange(task) {
             ? task.bidEndLabel
             : taskDate(task.bidEnd, task.simpleDates);
     return start + ' – ' + end;
+}
+
+export function processProgress(task, width, height, language) {
+    const summary = task.progress || {},
+        ready = summary.state === 'ready',
+        total = Math.max(0, Number(summary.total) || 0),
+        complete = Math.max(0, Math.min(total, Number(summary.complete) || 0)),
+        text = ready ? complete + '/' + total : 'N/A',
+        chart = Chart.geometry(
+            { type: 'donut', values: [complete, total - complete] },
+            width,
+            height
+        ),
+        radius = Math.max(0, Math.min(width, height) / 2 - 2);
+    Object.assign(chart, {
+        cx: width / 2,
+        cy: height / 2,
+        radius,
+        inner: Math.max(0, radius - 4),
+        marks: chart.marks.slice(0, 1)
+    });
+    if (/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(summary.color || ''))
+        chart.marks[0].color = summary.color;
+    const children = ready
+        ? [
+              node('Chart', 'processProgressRing', rect(0, 0, width, height), {
+                  chart,
+                  labels: [translate('Completed', language)],
+                  text,
+                  language,
+                  focusable: false
+              })
+          ]
+        : [];
+    children.push(
+        label(
+            'processProgressCount',
+            rect(
+                width / 2 - Math.max(24, chart.inner),
+                height / 2 - 10,
+                Math.max(48, chart.inner * 2),
+                20
+            ),
+            text,
+            {
+                fontRole: 'caption',
+                weight: 600,
+                align: 'center',
+                color: ready ? 'primaryText' : 'secondaryText'
+            }
+        )
+    );
+    return {
+        width,
+        height,
+        nodes: [
+            node('Action', 'processProgressOpen', rect(0, 0, width, height), {
+                text: translate('Related tasks', language),
+                enabled: true,
+                radius: 4,
+                action: { type: 'inspect' },
+                children
+            })
+        ]
+    };
 }
 
 export function taskEditable(task, field, editable = true) {

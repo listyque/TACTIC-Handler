@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import "tactic_frame/features/table/cells.ui.mjs" as Cells
+import "tactic_frame/features/tasks/cells.ui.mjs" as Fields
+import "tactic_frame" as Frame
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
@@ -81,10 +83,10 @@ Item {
                 y: root.expanded ? Math.floor(index / root.columns) * (height + root.cardSpacing) : (root.height - height) / 2
                 width: root.cardWidth
                 height: cardLayout.cardHeight
-                radius: root.theme.itemRadius
-                color: root.theme.overlay(root.theme.surfaceContainerHigh, taskColor, 0.1)
+                radius: root.theme.fieldRadius
+                color: root.theme.surfaceContainerHigh
                 border.width: 1
-                border.color: root.theme.overlay(root.theme.outlineVariant, taskColor, 0.34)
+                border.color: root.theme.outlineVariant
 
                 Rectangle {
                     anchors.left: parent.left
@@ -111,16 +113,31 @@ Item {
                         Accessible.role: Accessible.Button
                         Accessible.name: qsTr("Open task") + ": " + taskCard.processLabel
 
-                        Text {
+                        RowLayout {
                             anchors.fill: parent
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            text: taskCard.processLabel.toUpperCase()
-                            elide: Text.ElideRight
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            font.weight: Font.DemiBold
+                            anchors.leftMargin: Fields.cardMetrics.inset
+                            anchors.rightMargin: Fields.cardMetrics.inset
+                            spacing: Fields.cardMetrics.gap
+                            Controls.MaterialIcon {
+                                visible: taskCard.modelData.processType === "progress"
+                                Layout.preferredWidth: Fields.cardMetrics.avatar
+                                Layout.preferredHeight: Fields.cardMetrics.avatar
+                                name: "MDI_CHART_DONUT"
+                                size: Fields.cardMetrics.avatar
+                                color: root.theme.primaryText
+                                Accessible.ignored: true
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                verticalAlignment: Text.AlignVCenter
+                                text: taskCard.processLabel
+                                elide: Text.ElideRight
+                                color: root.theme.primaryText
+                                font.family: root.theme.fontFamily
+                                font.pointSize: Controls.Typography.caption
+                                font.weight: Font.DemiBold
+                            }
                         }
                         HoverHandler {
                             cursorShape: Qt.PointingHandCursor
@@ -132,14 +149,16 @@ Item {
 
                     TaskTableEditorCell {
                         objectName: "tableTaskStatus_" + taskCard.index
+                        visible: taskCard.modelData.processType !== "progress"
                         editorIdentity: taskCard.taskIdentity
                         Layout.fillWidth: true
                         Layout.preferredHeight: taskCard.editorHeight
                         theme: root.theme
                         releaseCoordinator: editorReleaseCoordinator
-                        editingAllowed: !root.columnsController.busy
+                        editingAllowed: Cells.taskEditable(taskCard.modelData, "status", !root.columnsController.busy)
                         scrolling: root.scrolling
                         actionField: true
+                        cardField: true
                         showAccent: true
                         accentColor: taskCard.taskColor
                         displayText: String(taskCard.modelData.status || qsTr("Select status"))
@@ -167,6 +186,7 @@ Item {
 
                     TaskTableEditorCell {
                         objectName: "tableTaskAssignee_" + taskCard.index
+                        visible: taskCard.modelData.processType !== "progress"
                         editorIdentity: taskCard.taskIdentity
                         Layout.fillWidth: true
                         Layout.preferredHeight: taskCard.editorHeight
@@ -175,6 +195,7 @@ Item {
                         editingAllowed: Cells.taskEditable(taskCard.modelData, "assigned", !root.columnsController.busy)
                         scrolling: root.scrolling
                         actionField: true
+                        cardField: true
                         displayText: Cells.assigneeLabel(taskCard.modelData, root.language)
                         showAvatar: true
                         userModel: root.userModel
@@ -204,8 +225,8 @@ Item {
                         objectName: "tableTaskDates_" + taskCard.index
                         Layout.fillWidth: true
                         Layout.preferredHeight: visible ? root.cardLayout.datesHeight : 0
-                        visible: taskCard.showDates
-                        active: taskCard.showDates
+                        visible: taskCard.showDates && taskCard.modelData.processType !== "progress"
+                        active: visible
                         Accessible.role: Accessible.Button
                         Accessible.name: qsTr("Start date") + ": " + String(taskCard.modelData.bidStartFull || "—") + "; " + qsTr("Deadline") + ": " + String(taskCard.modelData.bidEndFull || "—")
 
@@ -213,22 +234,22 @@ Item {
                             objectName: "tableTaskDatesContent_" + taskCard.index
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 7
-                                anchors.rightMargin: 7
-                                spacing: 4
+                                anchors.leftMargin: Fields.cardMetrics.inset
+                                anchors.rightMargin: Fields.cardMetrics.inset
+                                spacing: Fields.cardMetrics.gap
 
                                 Controls.MaterialIcon {
-                                    Layout.preferredWidth: 11
-                                    Layout.preferredHeight: 11
+                                    Layout.preferredWidth: Fields.cardMetrics.avatar
+                                    Layout.preferredHeight: Fields.cardMetrics.avatar
                                     name: "calendar"
-                                    size: 11
-                                    color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
+                                    size: Fields.cardMetrics.avatar
+                                    color: root.theme.secondaryText
                                     Accessible.ignored: true
                                 }
                                 Text {
                                     Layout.fillWidth: true
-                                    text: Cells.taskDateRange(taskCard.modelData)
-                                    color: datesHover.hovered ? root.theme.action : root.theme.secondaryText
+                                    text: Cells.taskDateRange(taskCard.modelData, root.language)
+                                    color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
                                     font.pointSize: Controls.Typography.caption
                                     elide: Text.ElideRight
@@ -245,6 +266,18 @@ Item {
                                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                 onActivated: root.editDates(taskCard.modelData, taskDates)
                             }
+                        }
+                    }
+                    Loader {
+                        objectName: "tableProcessProgress_" + taskCard.index
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        visible: taskCard.modelData.processType === "progress"
+                        active: visible
+                        sourceComponent: Frame.FrameView {
+                            theme: root.theme
+                            scene: Cells.processProgress(taskCard.modelData, width, height, root.language)
+                            onEvent: root.openTask(taskCard.modelData)
                         }
                     }
                 }

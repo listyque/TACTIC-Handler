@@ -11,7 +11,7 @@ Item {
     readonly property var paintPalette: theme.framePalette
     readonly property string tip: hovered < 0 ? "" : node.labels[hovered] + ": " + Chart.number(node.chart.values[hovered], node.language)
     objectName: node.id
-    activeFocusOnTab: true
+    activeFocusOnTab: node.focusable !== false
     Accessible.role: Accessible.Graphic
     Accessible.name: node.text
     onNodeChanged: if (canvas) {

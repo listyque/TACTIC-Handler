@@ -27,12 +27,14 @@ Item {
         accent: root.hasAccent,
         indicator: root.hasIndicator,
         fontRole: root.fontRole,
+        cardField: !!root.model.cardField,
         textHeight: cellMetrics ? cellMetrics.height : 0
     }, width, height)
     readonly property var surface: UI.choiceStyle({
         enabled: root.cellEnabled,
         hovered: root.cellHovered,
-        actionField: root.actionField
+        actionField: root.actionField,
+        cardField: !!root.model.cardField
     })
     readonly property var label: layout.label
     readonly property var avatar: layout.avatar
@@ -59,7 +61,7 @@ Item {
         objectName: "taskTableCellSurface"
         anchors.fill: parent
         radius: root.theme[root.surface.radiusRole]
-        color: root.theme[root.surface.background]
+        color: root.surface.background ? root.theme[root.surface.background] : "transparent"
         border.width: root.surface.border ? 1 : 0
         border.color: root.surface.border ? root.theme[root.surface.border] : "transparent"
     }
@@ -107,7 +109,7 @@ Item {
             effectsEnabled: !root.scrolling
             avatarUrl: root.avatarSource
             initials: profile.initials || root.avatarInitials
-            previewSize: Math.max(0, Math.min(22, root.height - 4))
+            previewSize: root.avatar ? root.avatar.width : 0
         }
     }
     Loader {

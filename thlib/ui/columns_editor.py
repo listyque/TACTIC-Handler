@@ -1233,6 +1233,7 @@ class ColumnsEditorController(QObject):
                         "bidEnd": str(defaults.get("end") or ""),
                     }]
                 for record in matches:
+                    record["processType"] = str(process_info.get("type") or record.get("processType") or "manual")
                     record["processLabel"] = str(
                         process_info.get("label") or process
                     )
@@ -1254,7 +1255,7 @@ class ColumnsEditorController(QObject):
                 record["processColor"] = str(
                     record.get("statusColor") or ""
                 )
-                record["hasTask"] = True
+                record["hasTask"] = bool(record.get("taskSearchKey") or record.get("taskCode"))
                 record["assignedLabel"] = (
                     tasks._login_label(record.get("assigned"))
                     or self.tr("Not assigned")
