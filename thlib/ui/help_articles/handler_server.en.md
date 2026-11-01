@@ -56,6 +56,10 @@ causes its pending requests to fail explicitly. The DCC runtime may reconnect wh
 The cube control starts or stops a simulated Maya client. It tests transport and does not launch
 Maya or validate native scene behavior.
 
+The simulated client is included in installed updates and works without a source
+checkout or the `examples` directory. For a manual start from the installation
+directory, run `python -m handler_server.demo_client` with Handler's Python runtime.
+
 ## Send a diagnostic command
 
 The right side is a low-level command console:

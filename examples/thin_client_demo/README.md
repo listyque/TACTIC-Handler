@@ -4,8 +4,14 @@ Start the TACTIC-Handler application. Its local Handler Server starts in the
 background automatically. Then run as many demo clients as needed:
 
 ```powershell
-python examples/thin_client_demo/demo_client.py
+python -m handler_server.demo_client
 ```
+
+The demo belongs to the shipped `handler_server` runtime, so this command also
+works from an installed update without the `examples` directory. The original
+`python examples/thin_client_demo/demo_client.py` command remains a source-checkout
+entry point to the same implementation. Compiled Handler launches it through its
+own `--handler-demo` entry point.
 
 The client discovers the current per-user localhost session and generates a unique
 client id. It does not need a server address, port, or token. A second invocation

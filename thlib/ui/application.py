@@ -201,6 +201,10 @@ def main() -> int:
         from handler_server.launcher import main as run_handler_server
         return run_handler_server(sys.argv[2:])
 
+    if sys.argv[1:2] == ["--handler-demo"]:
+        from handler_server.demo_client import main as run_handler_demo
+        return run_handler_demo(sys.argv[2:])
+
     if sys.platform == "win32":
         import ctypes
 

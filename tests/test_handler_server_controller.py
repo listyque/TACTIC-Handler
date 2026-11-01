@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import time
+from types import SimpleNamespace
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -64,7 +65,7 @@ class HandlerServerControllerTests(unittest.TestCase):
             time.sleep(0.02)
         self.fail("Timed out waiting for Handler Server controller state")
 
-    def test_server_demo_and_command(self):
+    def _assert_demo_roundtrip(self):
         self.controller.start_server()
         self._wait(lambda: self.controller.state == "running")
         self.controller.start_demo()
@@ -108,6 +109,7 @@ class HandlerServerControllerTests(unittest.TestCase):
             and record.get("status") == "completed"
             for record in self.controller.results._records
         ))
+
         self.controller.stop_server()
         self._wait(lambda: self.controller.state == "stopped")
         self.app.processEvents()
@@ -116,6 +118,27 @@ class HandlerServerControllerTests(unittest.TestCase):
             or "Cannot read property" in str(record.get("detail") or "")
             for record in self.controller.results._records
         ))
+
+    def test_server_demo_and_command(self):
+        self._assert_demo_roundtrip()
+
+    def test_update_package_starts_demo_without_examples_in_unicode_directory(self):
+        from thlib import update_functions as updates
+        root = Path(__file__).resolve().parents[1]
+        version = updates.current_version(root)
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            archive = base / "release.zip"
+            installed = base / "ТХ portable app"
+            updates.create_update_archive(root, archive, version)
+            updates.stage_archive(archive, installed, version)
+            self.assertFalse((installed / "examples").exists())
+            self.controller.shutdown()
+            self.controller = HandlerServerController(installed, self.debug_log)
+            try:
+                self._assert_demo_roundtrip()
+            finally:
+                self.controller.shutdown()
 
     def test_compiled_application_starts_server_through_own_entrypoint(self):
         with patch.object(sys.modules["__main__"], "__compiled__", object(),
@@ -126,6 +149,30 @@ class HandlerServerControllerTests(unittest.TestCase):
         self.assertEqual(self.controller._server.arguments(), [
             "--handler-server", "--host", "127.0.0.1", "--port", "0",
         ])
+
+    def test_compiled_application_starts_demo_through_own_entrypoint(self):
+        with patch.object(sys.modules["__main__"], "__compiled__", object(), create=True), \
+                patch.object(self.controller, "_client", SimpleNamespace(connected=True)), \
+                patch.object(self.controller._demo, "start"):
+            self.controller.start_demo()
+        self.assertEqual(self.controller._demo.program(), sys.executable)
+        self.assertEqual(self.controller._demo.arguments(), [
+            "--handler-demo", "--client-id", "demo-maya",
+        ])
+
+    def test_demo_output_keeps_unicode_paths(self):
+        with patch.object(self.controller, "_client", SimpleNamespace(connected=True)), \
+                patch.object(self.controller._demo, "start"):
+            self.controller.start_demo()
+        message = "ТХ demo path/сцена.ma"
+        self.controller._demo.setArguments([
+            "-c", "import sys; print(" + repr(message) + ", file=sys.stderr)",
+        ])
+        self.controller._demo.start()
+        self._wait(lambda: any(
+            record.get("action") == "log" and record.get("summary") == message
+            for record in self.controller.results._records
+        ))
 
     def test_process_start_failure_does_not_report_a_second_timeout(self):
         self.controller._startup_timer.start()
@@ -142,6 +189,15 @@ class HandlerServerControllerTests(unittest.TestCase):
             self.assertEqual(application.main(), 17)
 
         server_main.assert_called_once_with(["--port", "0"])
+
+    def test_application_entrypoint_dispatches_demo(self):
+        from thlib.ui import application
+
+        with patch.object(sys, "argv", [
+            "TACTIC-Handler.exe", "--handler-demo", "--client-id", "demo-maya",
+        ]), patch("handler_server.demo_client.main", return_value=19) as demo_main:
+            self.assertEqual(application.main(), 19)
+        demo_main.assert_called_once_with(["--client-id", "demo-maya"])
 
     def test_application_entrypoint_starts_server_without_configuration(self):
         process = QProcess()

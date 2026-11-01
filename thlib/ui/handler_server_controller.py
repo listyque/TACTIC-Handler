@@ -211,6 +211,7 @@ class HandlerServerController(QObject):
         self._error = ""
         self._stopping = False
         environment = QProcessEnvironment.systemEnvironment()
+        environment.insert("PYTHONIOENCODING", "utf-8")
         environment.insert("TACTIC_HANDLER_TOKEN", self._token)
         self._server.setProcessEnvironment(environment)
         self._server.setWorkingDirectory(str(self._root))
@@ -261,14 +262,17 @@ class HandlerServerController(QObject):
     def start_demo(self):
         if self.state != "running" or self.demoRunning:
             return
-        script = self._root / "examples" / "thin_client_demo" / "demo_client.py"
         environment = QProcessEnvironment.systemEnvironment()
+        environment.insert("PYTHONIOENCODING", "utf-8")
         self._demo.setProcessEnvironment(environment)
         self._demo.setWorkingDirectory(str(self._root))
         self._demo.setProgram(sys.executable)
-        self._demo.setArguments([
-            str(script), "--client-id", "demo-maya"
-        ])
+        arguments = ["--client-id", "demo-maya"]
+        if hasattr(sys.modules.get("__main__"), "__compiled__"):
+            arguments.insert(0, "--handler-demo")
+        else:
+            arguments[:0] = ["-m", "handler_server.demo_client"]
+        self._demo.setArguments(arguments)
         self._append_result(
             "", "demo-maya", "start", "starting",
             "Starting simulated Maya client", "",

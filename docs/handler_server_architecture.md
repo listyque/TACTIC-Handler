@@ -32,6 +32,7 @@ flowchart LR
 | `handler_server/registry.py` | explicit allow-list of callable actions; no `eval` or `exec` |
 | `handler_server/demo_adapter.py` | dependency-free text-document example |
 | `handler_server/demo_maya_adapter.py` | Maya-shaped standalone adapter for UI and routing tests |
+| `handler_server/demo_client.py` | Bundled simulated Maya client, including its existing native window |
 | `handler_server/launcher.py` | separate Handler Server process entry point |
 | `thlib/ui/handler_server_controller.py` | process lifecycle and QML-safe client/result models |
 | `thlib/ui/tactic_rpc.py` | Handler object API transport, session-owned handles, and UI command dispatch |
@@ -42,6 +43,16 @@ flowchart LR
 | `HandlerServerView.qml` | clients, capabilities, command payload, timeout, results |
 
 ## Lifecycle
+
+The demo starts with `python -m handler_server.demo_client`, or the compiled
+application's `--handler-demo` entry point, from the installation directory.
+Its implementation lives under the update archive's existing `handler_server`
+root; runtime startup never depends on excluded source examples. The example
+script delegates to this module. Child Python output uses UTF-8 to match the
+controller's decoder and retain Unicode diagnostics. The package regression
+creates and extracts a real update into a path with Cyrillic/spaces, then checks
+registration, selection, commands and shutdown. Browser Stream has no local
+subprocess launcher; this native capability is owned by Handler.
 
 1. The application UI generates a cryptographically random session token.
 2. It starts `python -m handler_server.launcher` from source, or relaunches the
