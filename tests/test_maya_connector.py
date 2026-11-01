@@ -294,7 +294,7 @@ class MayaConnectorTests(unittest.TestCase):
                     button["imageOverlayLabel"]
                     for button in connector.cmds.shelf_buttons
                 ],
-                ["TH", "Save", "Textur"],
+            ["", "Save", "Textur"],
             )
             self.assertTrue(all(
                 button["overlayLabelBackColor"]

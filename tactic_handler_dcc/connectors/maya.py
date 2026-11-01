@@ -341,7 +341,7 @@ class MayaConnector:
             label="TACTIC Handler",
             annotation="Open TACTIC Handler",
             image1=str(logo) if logo.is_file() else "pythonFamily.png",
-            imageOverlayLabel="TH",
+            imageOverlayLabel="",
             overlayLabelColor=(0.9, 0.9, 0.9),
             overlayLabelBackColor=(0.08, 0.08, 0.08, 0.85),
             command=self._shelf_command(handler_root),

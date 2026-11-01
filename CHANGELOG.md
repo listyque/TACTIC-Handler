@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.367 - 2026-11-02
+
+- Repair Maya reinstall after uninstall leaves imported bytecode or an orphaned owned shelf. Remove only connector-generated caches and preserve unrelated files and foreign shelves.
+- Apply the original orange TH monogram to the application/window/tray ICO, portable EXE and Maya launch icons. Avoid a duplicate TH overlay on the lettered icon.
+
 ## 0.6.0.366 - 2026-11-02
 
 - Use the bundled orange TACTIC logo with a TH overlay for the managed Maya launch shelf. Restore that appearance on startup for owned launch buttons while preserving other shelf controls.

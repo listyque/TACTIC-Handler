@@ -17,7 +17,7 @@ The integration adds a separate **TACTIC_Stream** shelf with a Handler launch
 button and an isolated module startup script for the connector. Existing startup
 scripts, legacy shelves and custom scripts are preserved. Maya may ask you to trust
 the new startup script according to its own security settings.
-The launch button uses Handler's orange T logo with a TH overlay. Startup restores
+The launch button uses Handler's original orange TH monogram. Startup restores
 that appearance only on owned launch buttons. After upgrading an existing
 registration, select **Integrate into Maya** again and restart Maya to refresh it.
 
@@ -42,6 +42,9 @@ This entire integration belongs to the Maya DCC plugin. Enable or disable it on
 **Configuration → DCC plugins**; plugin selection takes effect after restarting
 Handler. Remove Maya registrations before disabling the plugin if they are no
 longer needed; disabling a plugin does not delete external files or user data.
+After removal, Python bytecode and empty folders do not count as an installed
+integration. Reinstalling repairs such leftovers and an orphaned owned launch
+shelf automatically; unrelated files and foreign shelves remain protected.
 
 > Maya Scene configuration controls defaults used by the connected Maya integration when it opens,
 > saves, or prepares a scene for the standalone check-in workflow.

@@ -41,7 +41,7 @@ def _shelf():
     if not icon.is_file():
         raise FileNotFoundError("The Handler Maya shelf icon is unavailable")
     appearance = dict(
-        image1=icon.as_posix(), imageOverlayLabel="TH", useAlpha=True,
+        image1=icon.as_posix(), imageOverlayLabel="", useAlpha=True,
         overlayLabelColor=(0.9, 0.9, 0.9), overlayLabelBackColor=(0.08, 0.08, 0.08, 0.85),
         width=35, height=34,
     )

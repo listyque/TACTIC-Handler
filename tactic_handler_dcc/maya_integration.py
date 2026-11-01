@@ -160,7 +160,9 @@ def _unchanged(profile: Path, relative: str, digest: str) -> bool:
 
 def integration_state(profile: Path) -> dict:
     directory, module = _paths(profile)
-    if not directory.exists() and not module.exists():
+    markers = (module, directory / "integration.json", directory / "scripts/userSetup.py",
+               directory / "scripts/tactic_stream_maya.py")
+    if not any(path.exists() for path in markers):
         return {"status": "Not installed", "handlerRoot": "", "managed": False}
     try:
         receipt = _receipt(profile)
@@ -214,6 +216,18 @@ def discover(*, app_directory=None, executables=None, processes=None) -> list[di
     return rows
 
 
+def _clear_bootstrap_bytecode(profile: Path) -> None:
+    cache = _paths(profile)[0] / "scripts/__pycache__"
+    _validate_paths(profile, [str(cache.relative_to(profile))])
+    for module in ("tactic_stream_maya", "userSetup"):
+        for path in cache.glob(module + ".*.pyc"):
+            path.unlink()
+    try:
+        cache.rmdir()
+    except OSError:
+        pass  # Other modules' caches remain owned by their authors.
+
+
 def install(profile: Path | str, handler_root: Path | str) -> None:
     profile, root = Path(profile).resolve(), Path(handler_root).resolve()
     if not re.fullmatch(r"20\d{2}", profile.name) or int(profile.name) < 2022:
@@ -228,7 +242,9 @@ def install(profile: Path | str, handler_root: Path | str) -> None:
     if state["status"] in {"Modified files", "Unrecognized integration"}:
         raise ValueError("Existing integration files were modified; preserve or remove them manually first")
     shelf = profile / "prefs" / "shelves" / f"shelf_{MODULE}.mel"
-    if not state["managed"] and shelf.exists():
+    if not state["managed"] and shelf.exists() and not _unchanged(
+        profile, str(shelf.relative_to(profile)).replace("\\", "/"), ""
+    ):
         raise FileExistsError("The TACTIC_Stream shelf already exists and is not managed by this integration")
     bootstrap = Path(__file__).with_name("maya_bootstrap.py").read_bytes()
     startup = (
@@ -249,7 +265,7 @@ def install(profile: Path | str, handler_root: Path | str) -> None:
             f"global proc shelf_{MODULE} () {{\n"
             '    shelfButton -label "TACTIC Handler" '
             f'-image1 {json.dumps(icon.as_posix(), ensure_ascii=False)} '
-            '-imageOverlayLabel "TH" -annotation "Open TACTIC Handler" '
+            '-imageOverlayLabel "" -annotation "Open TACTIC Handler" '
             '-overlayLabelColor 0.9 0.9 0.9 -overlayLabelBackColor 0.08 0.08 0.08 0.85 '
             '-useAlpha 1 -width 35 -height 34 '
             '-docTag "tactic_stream/integration" -sourceType "python" '
@@ -267,6 +283,7 @@ def install(profile: Path | str, handler_root: Path | str) -> None:
     files[module] = files.pop(module)
     originals = {path: path.read_bytes() if path.exists() else None for path in files}
     try:
+        _clear_bootstrap_bytecode(profile)
         for path, value in files.items():
             path.parent.mkdir(parents=True, exist_ok=True)
             temporary = path.with_name(path.name + ".tmp")
@@ -303,6 +320,7 @@ def remove(profile: Path | str) -> None:
     try:
         for path in paths:
             path.unlink(missing_ok=True)
+        _clear_bootstrap_bytecode(profile)
     except OSError:
         for path, data in originals.items():
             path.write_bytes(data)
