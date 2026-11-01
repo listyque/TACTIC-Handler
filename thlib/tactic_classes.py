@@ -3351,6 +3351,7 @@ def get_user_recent_activity(
         counts_only=False, counts_from_day='', instance_relations=None,
         object_scope=None, exclude_login='', time_zone='UTC'):
     """Return enriched activity using the shared profile/feed API."""
+    # Legacy Schema checks columns in the active request project.
     return _execute_read_only_procedure_serverside(
         tq.query_user_recent_activity,
         {
@@ -3370,7 +3371,7 @@ def get_user_recent_activity(
             'exclude_login': str(exclude_login or ''),
             'time_zone': time_zone,
         },
-        project='sthpw',
+        project=project_code or 'sthpw',
     )
 
 

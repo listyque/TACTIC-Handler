@@ -16,6 +16,17 @@ from thlib import environment
 from thlib import server_cache
 
 
+class ActivityProjectContextTests(unittest.TestCase):
+    def test_activity_uses_requested_project_and_keeps_system_fallback(self):
+        for project in ('demo', 'another', '', None):
+            with self.subTest(project=project), patch.object(
+                    tc, 'execute_procedure_serverside', return_value=[]) as execute:
+                self.assertEqual(tc.get_user_recent_activity(project_code=project), [])
+                self.assertIs(execute.call_args.args[0], tq.query_user_recent_activity)
+                self.assertEqual(execute.call_args.args[1]['project_code'], project)
+                self.assertEqual(execute.call_args.kwargs['project'], project or 'sthpw')
+
+
 class CompatibleUpdateTests(unittest.TestCase):
     def test_failed_forced_catalog_refresh_preserves_existing_cache(self):
         with (

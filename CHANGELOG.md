@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.361 - 2026-11-01
+
+- Run Activity Feed/profile activity requests in the selected project so legacy Schema column inspection uses the project database instead of sthpw. Keep system journals explicitly qualified and retain the no-project fallback. Add real XML-RPC and client context regressions.
+
 ## 0.6.0.360 - 2026-11-01
 
 - Fix Raw database opening on legacy PostgreSQL: consume column metadata before the primary-key query clears the original Sql result buffer in place. Mirror the ordering in Stream and test both procedure sources with the original clearing method, empty tables and NULL values.

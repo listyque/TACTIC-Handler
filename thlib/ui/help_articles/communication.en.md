@@ -9,8 +9,8 @@ order: 17
 
 ## Main controls
 
-Activity Feed resolves linked objects using the selected project's schema, including when the
-activity journal is read through the system project. Schema-defined link columns are preserved.
+Activity Feed resolves linked objects and column metadata in the selected project.
+Journal entries are read from the system database; schema-defined link columns are preserved.
 
 Both composers support text, attachments, clipboard images, emoji, replies, send state, and drag-
 and-drop file attachments. Drop local files over an active Notes or Messages view to add them to the

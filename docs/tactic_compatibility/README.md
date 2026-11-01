@@ -24,6 +24,13 @@ Database observations are documented separately in
 
 ## Compatibility rule
 
+Activity reads execute in the requested project (or `sthpw` when no project is
+selected). Legacy `Schema.get_foreign_keys` inspects unqualified Search Types in
+the active request database even when `Schema.get(project_code=...)` selected
+the correct XML. Set the RPC context at `get_user_recent_activity`; system journal
+Search Types remain explicitly `sthpw/...`. The XML-RPC regression exercises the
+real Handler client with legacy-style unqualified metadata inspection.
+
 See [Stream API boundaries](stream_api.md) for the command/import/HTTP inventory,
 domain guards and retained legacy paths.
 
