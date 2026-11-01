@@ -149,6 +149,52 @@ Item {{
         window.close()
         host.deleteLater()
 
+    def test_first_reveal_does_not_invalidate_a_prepared_batch(self):
+        engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
+        component = QQmlComponent(engine)
+        component.setData(
+            f'''import QtQuick
+import "{(QML / 'controls').as_uri()}" as Controls
+Item {{
+    width: 320
+    height: 240
+    property alias ready: presentation.ready
+    property alias revealed: surface.visible
+    property alias presented: presentation._presented
+    Item {{
+        id: surface
+        anchors.fill: parent
+        visible: presentation.ready
+        ListView {{
+            id: list
+            anchors.fill: parent
+            model: 40
+            delegate: Item {{ width: 320; height: 32 }}
+        }}
+        Controls.InitialBatchPresentation {{ id: presentation; view: list }}
+    }}
+}}'''.encode(), QUrl())
+        host = component.create()
+        self.assertIsNotNone(host, str(component.errors()))
+        window = QQuickWindow()
+        window.resize(320, 240)
+        host.setParentItem(window.contentItem())
+        try:
+            window.show()
+            frame(window)
+            frame(window)
+            self.assertTrue(host.property("ready"))
+            self.assertTrue(host.property("presented"))
+            self.assertTrue(host.property("revealed"))
+            self.assertEqual(warnings, [])
+        finally:
+            window.close()
+            host.setParentItem(None)
+            host.deleteLater()
+            window.deleteLater()
+
     def test_disabled_presentation_uses_inherited_item_enabled(self):
         source = (
             QML / "controls" / "InitialBatchPresentation.qml"
@@ -194,6 +240,56 @@ Item {{
         )
         self.assertTrue(host.property("presentationReady"))
         host.deleteLater()
+
+    def test_hidden_disabled_batch_still_requires_layout_when_enabled(self):
+        engine = QQmlEngine()
+        component = QQmlComponent(engine)
+        component.setData(
+            f'''import QtQuick
+import "{(QML / 'controls').as_uri()}" as Controls
+Item {{
+    width: 320
+    height: 240
+    property bool opened: false
+    property alias ready: presentation.ready
+    property alias presented: presentation._presented
+    Item {{
+        visible: parent.opened
+        anchors.fill: parent
+        ListView {{
+            id: list
+            anchors.fill: parent
+            model: 40
+            delegate: Item {{ width: 320; height: 32 }}
+        }}
+        Controls.InitialBatchPresentation {{
+            id: presentation
+            view: list
+            enabled: list.visible
+        }}
+    }}
+}}'''.encode(), QUrl())
+        host = component.create()
+        self.assertIsNotNone(host, str(component.errors()))
+        window = QQuickWindow()
+        window.resize(320, 240)
+        host.setParentItem(window.contentItem())
+        try:
+            window.show()
+            frame(window)
+            self.assertTrue(host.property("ready"))
+            self.assertFalse(host.property("presented"))
+            host.setProperty("opened", True)
+            self.assertFalse(host.property("ready"))
+            frame(window)
+            frame(window)
+            self.assertTrue(host.property("ready"))
+            self.assertTrue(host.property("presented"))
+        finally:
+            window.close()
+            host.setParentItem(None)
+            host.deleteLater()
+            window.deleteLater()
 
     def test_viewport_position_is_restored_after_model_layout(self):
         engine = QQmlEngine()

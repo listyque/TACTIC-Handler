@@ -28,6 +28,13 @@ Switching table/Gantt/Calendar presentation reuses the loaded page. Filters,
 sorting and grouping change the server query: applying them only to a downloaded
 inventory or to one page would produce incorrect results and ordering.
 
+The initial table batch is laid out before it is revealed. First visibility must
+not reset a completed batch: Loader visibility consumes its readiness. A disabled,
+unopened list bypasses the gate without claiming that layout has completed; it
+still prepares its rows when opened. Loading resets the batch independently.
+`test_initial_batch_presentation` and `test_task_surface_presentation` exercise
+these transitions, retained table/Gantt surfaces and narrow/wide native geometry.
+
 ## Selection contract
 
 Selecting a parent sObject requests its tasks in bounded pages. Selecting a process narrows

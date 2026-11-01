@@ -27,11 +27,10 @@ Item {
 
     function prepare() {
         if (!activated && view && view.visible) {
-            reset()
+            // Revealing an already laid-out batch must not revoke its readiness.
             activated = true
         }
         if (!enabled && !activated) {
-            _presented = true
             return
         }
         if (
