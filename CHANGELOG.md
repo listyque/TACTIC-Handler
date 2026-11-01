@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.364 - 2026-11-01
+
+- Capture quick-filter popup placement before refreshing catalog/settings that can rebuild its clicked header delegate. Populate content before the first native frame; cover actual Windows popup coordinates and offscreen clamping.
+
 ## 0.6.0.363 - 2026-11-01
 
 - Restore round Administration header icon buttons (reload, Help, close and navigation collapse) in both Frame clients; retain text actions and square local catalogue controls.

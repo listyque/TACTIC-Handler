@@ -150,11 +150,11 @@ QtControls.Popup {
 
     function reopenAtItem(sourceItem, localX, localY, preferCursorPosition) { return PopupLogic.reopenAtItem(control, sourceItem, localX, localY, preferCursorPosition) }
 
-    function openBelowItem(sourceItem, alignRight, gap, rightOverhang) { return PopupLogic.openBelowItem(control, sourceItem, alignRight, gap, rightOverhang) }
+    function openBelowItem(sourceItem, alignRight, gap, rightOverhang, beforeOpen) { return PopupLogic.openBelowItem(control, sourceItem, alignRight, gap, rightOverhang, beforeOpen) }
 
     function openCenteredIn(ownerItem) { return PopupLogic.openCenteredIn(control, ownerItem) }
 
-    function toggleBelowItem(sourceItem, alignRight, gap) { return PopupLogic.toggleBelowItem(control, sourceItem, alignRight, gap) }
+    function toggleBelowItem(sourceItem, alignRight, gap, beforeOpen) { return PopupLogic.toggleBelowItem(control, sourceItem, alignRight, gap, beforeOpen) }
 
     function cancelPendingReopen() { return PopupLogic.cancelPendingReopen(control) }
 

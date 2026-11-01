@@ -67,3 +67,5 @@ checks. Generated reports belong in the ignored tool `output/` directories.
 Historical release counts and captures are local archive material, not current
 acceptance. Offscreen checks do not establish physical touch/IME, compositor,
 DCC or deployment readiness; exercise those when the feature requires them.
+
+Native quick-filter opening resolves the clicked Frame delegate coordinates before settings/catalog refresh can detach that delegate. The shared popup beforeOpen callback populates content after capturing placement and before creating the native window. First-open tests check requested coordinates and actual popup surface coordinates, including screen clamping.

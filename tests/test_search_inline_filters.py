@@ -23,6 +23,48 @@ class SearchInlineFilterTests(unittest.TestCase):
         QTest.mouseClick(item.window(), Qt.LeftButton, Qt.NoModifier, point)
         fixture.frame(window)
 
+    def test_first_open_keeps_clicked_anchor_when_catalog_rebuilds_header(self):
+        tab = self.controller._current_tab()
+        tab.search_text = 'hero'
+        tab.stype = _Stype()
+        tab.quick_filter_tasks = {'any': [{'status': 'Review', 'process': 'model', 'assigned': 'artist'}]}
+        tab.quick_filter_layout = [{'key': 'status'}]
+        self.controller.workspace_model.replace_nodes([])
+        self.enterContext(patch.object(self.controller, '_active_quick_filter_facets', return_value=[]))
+        self.enterContext(patch.object(QuickFilterEditorController, '_run'))
+        self.enterContext(patch.object(self.controller, '_request_quick_filter_tasks'))
+        with self.scene(width=1460, animated=False, shelf=QObject()) as (window, view):
+            window.setPosition(100, 100)
+            fixture.frame(window)
+            source = fixture.visual_control(view, 'searchQuickGroup_status')
+            parent = source.parentItem()
+            expected = source.mapToGlobal(QPointF(0, source.height() + 6))
+            popup = view.findChild(QObject, 'searchQuickFilterPopup')
+
+            def rebuild_header(force=False):
+                # Replacing a Frame scene detaches its old action delegates.
+                source.setParentItem(None)
+
+            self.enterContext(patch.object(self.controller, '_request_quick_filter_catalog',
+                                          side_effect=rebuild_header))
+            try:
+                self.click(window, source)
+                self.assertTrue(popup.property('opened'))
+                self.assertAlmostEqual(popup.property('_requestedSurfaceGlobalX'), expected.x(), delta=1)
+                self.assertAlmostEqual(popup.property('_requestedSurfaceGlobalY'), expected.y(), delta=1)
+                native = popup.property('_popupWindow')
+                self.assertIsNotNone(native)
+                area = native.screen().availableGeometry()
+                shadow = popup.property('effectiveShadowMargin')
+                expected_x = min(max(expected.x() - shadow, area.x()), area.right() + 1 - native.width()) + shadow
+                expected_y = min(max(expected.y() - shadow, area.y()), area.bottom() + 1 - native.height()) + shadow
+                surface = popup.property('contentItem').mapToGlobal(QPointF())
+                self.assertAlmostEqual(surface.x() - popup.property('padding'), expected_x, delta=1)
+                self.assertAlmostEqual(surface.y() - popup.property('padding'), expected_y, delta=1)
+                popup.close()
+            finally:
+                source.setParentItem(parent)
+
     def test_cached_configuration_does_not_reenter_groups_binding(self):
         tab = self.controller._current_tab()
         tab.search_text = 'hero'

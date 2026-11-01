@@ -193,8 +193,10 @@ function reopenAtItem(control, sourceItem, localX, localY, preferCursorPosition)
 
 }
 
-function openBelowItem(control, sourceItem, alignRight, gap, rightOverhang) {
+function openBelowItem(control, sourceItem, alignRight, gap, rightOverhang, beforeOpen) {
     if (!sourceItem || !control.parent) {
+        if (beforeOpen)
+            beforeOpen()
         control.open()
         return
     }
@@ -221,6 +223,8 @@ function openBelowItem(control, sourceItem, alignRight, gap, rightOverhang) {
     control._anchorGlobalCenterX = sourceCenter.x
     control.anchorPointerEdge = targetY === below.y ? "top" : "bottom"
     control.prepareGlobalPosition(below.x, targetY)
+    if (beforeOpen)
+        beforeOpen()
     control.requestOpenPrepared()
 
 }
@@ -243,7 +247,7 @@ function openCenteredIn(control, ownerItem) {
 
 }
 
-function toggleBelowItem(control, sourceItem, alignRight, gap) {
+function toggleBelowItem(control, sourceItem, alignRight, gap, beforeOpen) {
     control.protectOpeningFrom(sourceItem)
     if (control.openingInputGuardActive) {
         control.sourceWasOpen = false
@@ -255,7 +259,7 @@ function toggleBelowItem(control, sourceItem, alignRight, gap) {
         if (control.opened || control.visible)
             control.close()
     } else {
-        control.openBelowItem(sourceItem, alignRight, gap)
+        control.openBelowItem(sourceItem, alignRight, gap, 0, beforeOpen)
     }
     control.sourceWasOpen = false
 

@@ -251,7 +251,6 @@ Item {
                     Component.onCompleted: root.quickControlsWidth = implicitWidth
                     onGroupRequested: (key, source) => {
                         tagCloudPopup.close();
-                        appController.request_quick_filter_data(false);
                         quickFilterPopup.toggleBelow(source, key);
                     }
                 }
@@ -272,10 +271,7 @@ Item {
                     onPressed: quickFilterPopup.sourceWasOpen = quickFilterPopup.opened
                     Component.onCompleted: root.quickFilterAnchor = this
                     onClicked: {
-                        const opening = !quickFilterPopup.sourceWasOpen && !quickFilterPopup.opened;
                         tagCloudPopup.close();
-                        if (opening)
-                            appController.request_quick_filter_data(false);
                         quickFilterPopup.toggleBelow(quickFilterButton);
                     }
 

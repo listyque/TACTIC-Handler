@@ -454,3 +454,5 @@ Expanded quick-filter triggers follow Task Manager selector styling: softly roun
 Quick-filter icons are configurable. Open Quick filters → Edit, then use **Filter icon** for the group. **Use column icon** restores inheritance from the default table column’s **Cell icon** in Administration → Columns Editor. A filter override takes precedence; without either icon the header shows text only. **Save for this tab** keeps a personal setting; supervisors can **Save as defaults on server** for the existing scope. No icon is chosen from the field name.
 
 Quick-filter group menus open below the selected group button, aligned to its left edge and clamped to the available screen. The full filter menu keeps its main trigger. The same placement applies on the first opening and keyboard reopening.
+
+Handler retains the clicked button position before loading filter settings and values. A first-use header refresh does not move the menu to a screen corner.

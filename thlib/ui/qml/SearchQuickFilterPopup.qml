@@ -23,8 +23,11 @@ Controls.ScrollablePopup {
         if (opened && groupKey !== key)
             close();
         groupKey = key;
-        editorController.ensure_current();
-        toggleBelowItem(sourceItem, !key, 6);
+        // Catalog/settings updates can detach the clicked Frame delegate.
+        toggleBelowItem(sourceItem, !key, 6, function () {
+            root.editorController.ensure_current();
+            root.controller.request_quick_filter_data(false);
+        });
     }
 
     function updateGroups() {
