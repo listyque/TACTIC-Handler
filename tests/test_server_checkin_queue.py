@@ -27,6 +27,7 @@ class ServerCheckinQueue(unittest.TestCase):
             QFontDatabase.addApplicationFont(str(font_path))
 
     def setUp(self):
+        self.enterContext(patch('thlib.environment.get_server_api', return_value='stream'))
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.source = Path(self.temporary.name) / 'source.txt'

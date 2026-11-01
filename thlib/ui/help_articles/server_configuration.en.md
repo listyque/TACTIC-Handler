@@ -14,6 +14,13 @@ not polled. Legacy updates use periodic API checks; a saved SSE preference is
 preserved for the next Stream connection. Detection belongs to the current
 server/login/ticket and is refreshed after reconnecting.
 
+Stream-only table-view management, file-project transfers and server check-in
+queue controls also remain hidden on Legacy. Ordinary searches, table views,
+column editing, HTML/Mako layouts and client check-in remain available. Saved
+remote queue batches stay stored until you return to their Stream server; they
+are not sent again through legacy check-in. Use XML-RPC for Legacy connections;
+the JSON transport option requires TACTIC Stream.
+
 > Server configuration selects the TACTIC endpoint and connection preset, shows the active account,
 > and controls how often shared background requests run.
 

@@ -1,0 +1,338 @@
+[
+  {
+    "kind": "command",
+    "path": "thlib/side/client/tactic_client_lib/tactic_server_stub.py",
+    "target": "class_name",
+    "legacy": "Generic XML-RPC forwarding; the calling domain owns capability checks."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/tactic_classes.py",
+    "target": "command",
+    "legacy": "Handler query plugin, not Stream: native deployment or the existing Local procedure mode."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/tactic_query.py",
+    "target": "read_options['command']",
+    "legacy": "Server-advertised read policy only; absent native method uses normal Search. Project catalog falls back to native Project/PluginUtil."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/tactic_widgets.py",
+    "target": "tactic.ui.panel.EditCmd",
+    "legacy": "Original TACTIC EditCmd; keep native editing."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/admin/dashboard_api.py",
+    "target": "DashboardCmd(action=kind, project_code=project_code, **values)",
+    "legacy": "Stream only: administration entry, session reset and queued editor request guards."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/admin/plugins.py",
+    "target": "tactic.ui.app.plugin_wdg.PluginManagerCmd",
+    "legacy": "Stream only: hidden manager; editor and queued upload/command guards."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/admin/schema_delete_api.py",
+    "target": "tactic.ui.tools.DeleteSearchTypeCmd",
+    "legacy": "Original TACTIC command; preserve native schema administration."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/admin/search_types_api.py",
+    "target": "tactic.ui.panel.AlterSearchTypeCbk",
+    "legacy": "Original TACTIC schema command. File-project read scope belongs to Stream virtual file_project types only."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/agent_desktop.py",
+    "target": "tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd",
+    "legacy": "Stream only: desktop start/invoke guards; class_exists probe runs only on confirmed Stream."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/agent_drafts.py",
+    "target": "tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd",
+    "legacy": "Stream only: draft-apply entry guard."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/agent_mcp.py",
+    "target": "tactic.ui.panel.agent_mcp_cmd.AgentMcpCmd",
+    "legacy": "Stream only: hidden MCP window, request guard and session reset."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/agent_providers.py",
+    "target": "tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd",
+    "legacy": "Stream only: hidden provider window, request guard and session reset."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/agent_providers.py",
+    "target": "tactic.ui.panel.agent_provider_cmd.AgentProviderCmd",
+    "legacy": "Stream only: hidden provider window, request guard and session reset."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/agent_request.py",
+    "target": "tactic.ui.panel.agent_attachment_cmd.AgentAttachmentCmd",
+    "legacy": "Stream only: hidden chat, request/file upload/download guards and session reset."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/agent_request.py",
+    "target": "tactic.ui.panel.agent_executor_cmd.AgentExecutorCmd",
+    "legacy": "Stream only: hidden chat, request/file upload/download guards and session reset."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/agent_request.py",
+    "target": "tactic.ui.panel.agent_request_cmd.AgentRequestCmd",
+    "legacy": "Stream only: hidden chat, request/file upload/download guards and session reset."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/controllers/search_runtime.py",
+    "target": "tactic.ui.table.NestedTableReadCmd",
+    "legacy": "Stream only item-layout metadata; legacy keeps ordinary search and discards cached Stream item layout."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/custom_urls.py",
+    "target": "tactic.ui.panel.custom_url_cmd.CustomUrlCmd",
+    "legacy": "Stream only native page resolution, including queued session check; legacy URLs keep ordinary browser handling."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/ingest_relation.py",
+    "target": "tactic.ui.tools.IngestUploadCmd",
+    "legacy": "Original TACTIC ingest command; keep native ingest."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/project_creation.py",
+    "target": "command",
+    "legacy": "Original TACTIC project/template commands; dynamic creation command comes from native server catalog."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/project_creation.py",
+    "target": "tactic.command.CopyFileToAssetTempCmd",
+    "legacy": "Original TACTIC project/template commands; dynamic creation command comes from native server catalog."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/project_creation.py",
+    "target": "tactic.command.ProjectTemplateCreatorCmd",
+    "legacy": "Original TACTIC project/template commands; dynamic creation command comes from native server catalog."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/project_creation.py",
+    "target": "tactic.ui.app.ProjectTemplateDeleteCmd",
+    "legacy": "Original TACTIC project/template commands; dynamic creation command comes from native server catalog."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/project_creation.py",
+    "target": "tactic.ui.app.ProjectTemplateDownloadCmd",
+    "legacy": "Original TACTIC project/template commands; dynamic creation command comes from native server catalog."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/project_creation.py",
+    "target": "tactic.ui.app.ProjectTemplateInstallCmd",
+    "legacy": "Original TACTIC project/template commands; dynamic creation command comes from native server catalog."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/script_triggers.py",
+    "target": "tactic.ui.panel.handler_automation_cmd.HandlerAutomationCmd",
+    "legacy": "Native class_exists selects modern command or legacy hook CRUD. A failed existing command never triggers a second write."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/table/custom_layout.py",
+    "target": "command",
+    "legacy": "Stream only form/detail/report/filter commands; guarded at action and dispatch. Legacy HTML/Mako rendering remains available."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/table/custom_layout.py",
+    "target": "tactic.ui.panel.dashboard_form_cmd.DashboardFormCmd",
+    "legacy": "Stream only form/detail/report/filter commands; guarded at action and dispatch. Legacy HTML/Mako rendering remains available."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/table/custom_layout.py",
+    "target": "tactic.ui.table.CustomLayoutReadCmd",
+    "legacy": "Stream only form/detail/report/filter commands; guarded at action and dispatch. Legacy HTML/Mako rendering remains available."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/table/custom_layout.py",
+    "target": "tactic.ui.table.CustomLayoutReportCmd",
+    "legacy": "Stream only form/detail/report/filter commands; guarded at action and dispatch. Legacy HTML/Mako rendering remains available."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/table/services.py",
+    "target": "SetPreferenceCmd(key=key, value=value)",
+    "legacy": "Original TACTIC preferences, notification and template commands; retain native operations."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/table/services.py",
+    "target": "tactic.command.NotificationTestCmd",
+    "legacy": "Original TACTIC preferences, notification and template commands; retain native operations."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/table/services.py",
+    "target": "tactic.command.ProjectTemplateCreatorCmd",
+    "legacy": "Original TACTIC preferences, notification and template commands; retain native operations."
+  },
+  {
+    "kind": "command",
+    "path": "thlib/ui/table/views.py",
+    "target": "tactic.ui.table.views.TableViewsCmd",
+    "legacy": "Stream only manager: hidden menu/window, open/run/queued-load guards and authentication reset."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/agent_runtime/tactic_stream/admin_agent.py",
+    "target": "/admin/agent-project/",
+    "legacy": "Bundled local host, started only through the Stream-gated desktop controller; standalone CLI explicitly targets Stream."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/agent_runtime/tactic_stream/admin_agent.py",
+    "target": "/admin/rpc",
+    "legacy": "Bundled local host, started only through the Stream-gated desktop controller; standalone CLI explicitly targets Stream."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/agent_runtime/tactic_stream/agent_host.py",
+    "target": "/admin/rpc",
+    "legacy": "Bundled local host, started only through the Stream-gated desktop controller; standalone CLI explicitly targets Stream."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/agent_runtime/tactic_stream/agent_host.py",
+    "target": "/admin/session/logout",
+    "legacy": "Bundled local host, started only through the Stream-gated desktop controller; standalone CLI explicitly targets Stream."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/server_checkin_queue.py",
+    "target": "/admin/checkin-queue/",
+    "legacy": "Stream only via guarded CommitQueueController; legacy uses local executor. Retain remote batches without replay/cancel through legacy."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/side/client/tactic_client_lib/file_transfer.py",
+    "target": "/file-project/",
+    "legacy": "Stream only via FileWorkspaceController/reads: action, authentication, worker and RPC guards."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/side/client/tactic_client_lib/json_transport.py",
+    "target": "/admin/rpc",
+    "legacy": "Explicit JSON (TACTIC Stream) preset option. Legacy uses XML-RPC, the default; no silent transport migration."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/ui/configuration_database_resources.py",
+    "target": "/admin/configuration/database-resources/",
+    "legacy": "Stream only configuration resource editor with queued request guard."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/ui/configuration_server.py",
+    "target": "/admin/configuration",
+    "legacy": "Stream only backend-management editor; preserve native server connection settings."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/ui/server_event_stream.py",
+    "target": "/admin/server-events",
+    "legacy": "Stream only via ServerUpdateService; effective legacy mode is native polling and existing SSE is cancelled."
+  },
+  {
+    "kind": "http",
+    "path": "thlib/ui/server_event_stream.py",
+    "target": "/admin/server-updates",
+    "legacy": "Stream only via ServerUpdateService; effective legacy mode is native polling and existing SSE is cancelled."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/tactic_query.py",
+    "target": "pyasm.biz.file_project",
+    "legacy": "Server-advertised read policy only; absent native method uses normal Search. Project catalog falls back to native Project/PluginUtil."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/tactic_query.py",
+    "target": "tactic_stream.server.project_creation",
+    "legacy": "Server-advertised read policy only; absent native method uses normal Search. Project catalog falls back to native Project/PluginUtil."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/admin/layout_editor_api.py",
+    "target": "tactic_stream.server.result_items",
+    "legacy": "Stream only: hidden page/card authoring, queued request and preview guards."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/admin/layout_editor_api.py",
+    "target": "tactic_stream.server.widget_configuration",
+    "legacy": "Stream only: hidden page/card authoring, queued request and preview guards."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/admin/search_types_api.py",
+    "target": "pyasm.biz.file_project",
+    "legacy": "Original TACTIC schema command. File-project read scope belongs to Stream virtual file_project types only."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/admin/security_api.py",
+    "target": "tactic_stream.server.agent_security",
+    "legacy": "Optional agent/MCP catalogs; missing Stream leaves them empty while preserving native access rules."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/admin/security_api.py",
+    "target": "tactic_stream.server.mcp_access",
+    "legacy": "Optional agent/MCP catalogs; missing Stream leaves them empty while preserving native access rules."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/table/requests.py",
+    "target": "tactic_stream.server.api",
+    "legacy": "Stream page/card definitions return streamRequired before import on legacy. Nested filter choices and saved searches use native evaluation when Stream is absent."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/table/requests.py",
+    "target": "tactic_stream.server.dashboards",
+    "legacy": "Stream page/card definitions return streamRequired before import on legacy. Nested filter choices and saved searches use native evaluation when Stream is absent."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/table/requests.py",
+    "target": "tactic_stream.server.interface",
+    "legacy": "Stream page/card definitions return streamRequired before import on legacy. Nested filter choices and saved searches use native evaluation when Stream is absent."
+  },
+  {
+    "kind": "import",
+    "path": "thlib/ui/table/requests.py",
+    "target": "tactic_stream.server.search_configuration",
+    "legacy": "Stream page/card definitions return streamRequired before import on legacy. Nested filter choices and saved searches use native evaluation when Stream is absent."
+  }
+]

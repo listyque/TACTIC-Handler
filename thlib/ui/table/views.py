@@ -19,6 +19,12 @@ class TableViewsController(QObject):
         self._model = dict(views=[], busy=False, error='', uncertain=False, project='', searchType='', current='table', revision='')
         application.project_changed.connect(self.reset)
         application.signing_out.connect(self.reset)
+        application.authentication_changed.connect(self._session_changed)
+
+    @Slot()
+    def _session_changed(self):
+        if not self.application.is_stream_server:
+            self.reset()
 
     @Property('QVariantMap', notify=changed)
     def model(self):
@@ -26,6 +32,8 @@ class TableViewsController(QObject):
 
     @Slot(QObject)
     def open(self, columns):
+        if not self.application.is_stream_server:
+            return
         if not self.application.can_administer:
             self.application._notify(self.tr('Administrator access required'))
             return
@@ -52,6 +60,8 @@ class TableViewsController(QObject):
 
     @Slot('QVariantMap')
     def run(self, command):
+        if not self.application.is_stream_server:
+            return
         command = dict(command)
         if not self._context or self._model['busy']:
             return
@@ -84,9 +94,10 @@ class TableViewsController(QObject):
         worker.result.connect(self.done)
         worker.start()
 
-    @staticmethod
-    def load(context, command, generation):
+    def load(self, context, command, generation):
         try:
+            if not self.application.is_stream_server:
+                raise PermissionError('Table view management requires a TACTIC Stream session')
             from thlib import tactic_classes as tc
             server = tc.server_start(project=context['project'])
             result = server.execute_cmd(COMMAND, dict(search_type=context['search_type'], current=context['current'], **command))

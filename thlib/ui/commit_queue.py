@@ -218,7 +218,7 @@ class CommitQueueController(QObject):
         self._deferred_validation_ids = set()
         self.model.contentChanged.connect(self.stateChanged)
         self._restore()
-        if self._server_batches:
+        if self._server_batches and self.serverQueueAvailable:
             self._server_timer.start(1000)
 
     def attach_executor(self, executor) -> None:
@@ -234,6 +234,9 @@ class CommitQueueController(QObject):
             application.server_state_changed.connect(
                 self._validate_deferred_operations
             )
+            if hasattr(application, 'authentication_changed'):
+                application.authentication_changed.connect(self._server_api_changed)
+        self._server_api_changed()
         for operation_id,payload in self._operations.items():
             if (payload.get('_serverQueue') or {}).get('state') == 'complete' and payload.get('mode') == 'move' and not payload.get('_serverMoveCleaned'):
                 self._finish_server_move(operation_id)
@@ -1036,7 +1039,7 @@ class CommitQueueController(QObject):
                 continue
             generation = self._validation_generation.get(operation_id, 0) + 1
             self._validation_generation[operation_id] = generation
-            if self._server_queue:
+            if self.serverQueue:
                 self._pending_validations.pop(operation_id, None)
                 supported = bool(payload.get('files')) and not bool(payload.get('dccScene'))
                 self._set_record(operation_id, status='Prepared' if supported else 'Invalid', stage='server naming',
@@ -1081,7 +1084,7 @@ class CommitQueueController(QObject):
             generation = int(generation_text)
         except ValueError:
             return
-        if self._server_queue or self._validation_generation.get(operation_id) != generation:
+        if self.serverQueue or self._validation_generation.get(operation_id) != generation:
             return
         row = self._row_for_id(operation_id)
         if row < 0 or operation_id == self._active_id:
@@ -1123,10 +1126,10 @@ class CommitQueueController(QObject):
             return
         for operation_id in operation_ids:
             payload = self._operations.get(operation_id) or {}
-            if (payload.get('_serverQueue') or {}).get('state') in ('error','terminated'):
+            if self.serverQueueAvailable and (payload.get('_serverQueue') or {}).get('state') in ('error','terminated'):
                 payload.pop('_serverQueue',None)
                 self._set_record(operation_id,canCommit=True,canEdit=True)
-        if self._server_queue:
+        if self.serverQueue:
             self._start_server_ids(operation_ids)
             return
         if self._active_id or not self._executor:
@@ -1134,6 +1137,7 @@ class CommitQueueController(QObject):
         self._batch_ids = [
             operation_id for operation_id in operation_ids
             if operation_id in self._operations
+            and not self._operations[operation_id].get('_serverQueue')
             and self.model._records[self._row_for_id(operation_id)].get(
                 "status"
             ) not in {"Running", "Completed"}
@@ -1433,11 +1437,24 @@ class CommitQueueController(QObject):
 
     @Property(bool, notify=stateChanged)
     def serverQueue(self) -> bool:
-        return self._server_queue
+        return self._server_queue and self.serverQueueAvailable
+
+    @Property(bool, notify=stateChanged)
+    def serverQueueAvailable(self) -> bool:
+        from thlib.environment import get_server_api
+        return get_server_api() == 'stream'
+
+    @Slot()
+    def _server_api_changed(self) -> None:
+        if not self.serverQueueAvailable:
+            self._server_timer.stop()
+        elif self._server_batches and not self._server_closed:
+            self._server_timer.start(1000)
+        self.stateChanged.emit()
 
     @Slot(bool)
     def set_server_queue(self, value: bool) -> None:
-        if self.busy:
+        if self.busy or (value and not self.serverQueueAvailable):
             return
         self._server_queue = bool(value)
         self._request_validations(list(self._operations))
@@ -1448,15 +1465,15 @@ class CommitQueueController(QObject):
         payload = self._operations.get(self._selected_id) or {}
         reference = payload.get('_serverQueue') or {}
         batch = self._server_batches.get(reference.get('batch_id')) or {}
-        return bool(batch.get('uploadError')) and not self._server_uploading
+        return self.serverQueueAvailable and bool(batch.get('uploadError')) and not self._server_uploading
 
     def _server_pending(self) -> bool:
-        return any(self._operations.get(row['operationId'], {}).get('_serverQueue')
+        return self.serverQueueAvailable and any(self._operations.get(row['operationId'], {}).get('_serverQueue')
                    and row.get('status') not in ('Completed','Failed','Cancelled')
                    for row in self.model._records)
 
     def _start_server_ids(self, operation_ids: list[str]) -> None:
-        if self.busy:
+        if self.busy or not self.serverQueueAvailable:
             return
         from thlib.environment import env_server
         from thlib.tactic_classes import split_search_key
@@ -1488,10 +1505,25 @@ class CommitQueueController(QObject):
         self._save()
         self._send_server_batches(batches)
 
+    def _server_request(self, server, ticket, project, action, payload):
+        from thlib.environment import env_server
+        from thlib.server_checkin_queue import request
+        if (not self.serverQueueAvailable or
+                (server, ticket) != (str(env_server.get_server()), str(env_server.get_ticket()))):
+            raise InterruptedError('The Stream check-in session changed')
+        return request(server, ticket, project, action, payload)
+
+    def _submit_server_batches(self, server, ticket, batches, cancel_event=None, progress_signal=None):
+        from thlib.environment import env_server
+        from thlib.server_checkin_queue import submit_batches
+        if (not self.serverQueueAvailable or
+                (server, ticket) != (str(env_server.get_server()), str(env_server.get_ticket()))):
+            raise InterruptedError('The Stream check-in session changed')
+        return submit_batches(server, ticket, batches, cancel_event=cancel_event, progress_signal=progress_signal)
+
     def _send_server_batches(self, batches: list[dict]) -> None:
         from thlib.environment import env_inst, env_server
-        from thlib.server_checkin_queue import submit_batches
-        if self._server_closed or not batches or any(batch['server'] != str(env_server.get_server()) or batch['user'] != str(env_server.get_user()) for batch in batches):
+        if self._server_closed or not self.serverQueueAvailable or not batches or any(batch['server'] != str(env_server.get_server()) or batch['user'] != str(env_server.get_user()) for batch in batches):
             return
         self._server_uploading = True
         self._server_cancel_event.clear()
@@ -1507,6 +1539,9 @@ class CommitQueueController(QObject):
 
         def before_next(index=0):
             if self._server_closed:
+                return
+            if not self.serverQueueAvailable:
+                self._server_submission_failed('The Stream check-in session changed')
                 return
             if self._server_cancel_event.is_set():
                 self._server_uploading = False
@@ -1532,7 +1567,7 @@ class CommitQueueController(QObject):
             for operation in prepared:
                 operation['before_hook_done'] = True
             self._save()
-            worker = env_inst.commit_pool.add_task(submit_batches,str(env_server.get_server()),str(env_server.get_ticket()),
+            worker = env_inst.commit_pool.add_task(self._submit_server_batches,str(env_server.get_server()),str(env_server.get_ticket()),
                                                  deepcopy(batches),cancel_event=self._server_cancel_event)
             if worker is None:
                 self._server_submission_failed('Check-in worker pool is unavailable')
@@ -1548,7 +1583,7 @@ class CommitQueueController(QObject):
 
     @Slot(object)
     def _server_chunk_progress(self, value) -> None:
-        if self._server_closed:
+        if self._server_closed or not self.serverQueueAvailable:
             return
         _position, info = value
         batch_id = info.get('batch_id')
@@ -1573,6 +1608,8 @@ class CommitQueueController(QObject):
                 batch['uploadError'] = ''
         self._save()
         self.stateChanged.emit()
+        if not self.serverQueueAvailable:
+            return
         if self._server_cancel_event.is_set():
             self._cancel_server_batches()
         else:
@@ -1599,6 +1636,8 @@ class CommitQueueController(QObject):
                     self._set_record(operation_id,status='Failed',stage='upload interrupted',error=message,canEdit=False,canCommit=False)
         self._save()
         self.stateChanged.emit()
+        if not self.serverQueueAvailable:
+            return
         if self._server_cancel_event.is_set():
             self._cancel_server_batches()
         else:
@@ -1606,16 +1645,15 @@ class CommitQueueController(QObject):
 
     @Slot()
     def _poll_server_queue(self) -> None:
-        if self._server_closed or self._server_poll_worker is not None or not self._server_batches:
+        if self._server_closed or not self.serverQueueAvailable or self._server_poll_worker is not None or not self._server_batches:
             return
         from thlib.environment import env_inst, env_server
-        from thlib.server_checkin_queue import request
         batches = [dict(batch_id=batch['batch_id'],project=batch['project']) for batch in self._server_batches.values()
                    if batch['server'] == str(env_server.get_server()) and batch['user'] == str(env_server.get_user())]
         if not batches or not env_server.get_ticket():
             self._server_timer.start(3000)
             return
-        worker = env_inst.server_pool.add_task(request,str(env_server.get_server()),str(env_server.get_ticket()),batches[0]['project'],
+        worker = env_inst.server_pool.add_task(self._server_request,str(env_server.get_server()),str(env_server.get_ticket()),batches[0]['project'],
                                               'updates',dict(batches=batches,cursors=dict(self._server_cursors)))
         if worker is None:
             self._server_timer.start(3000)
@@ -1631,6 +1669,8 @@ class CommitQueueController(QObject):
         if self._server_closed:
             return
         self._server_poll_worker = None
+        if not self.serverQueueAvailable:
+            return
         from thlib.environment import env_server
         if getattr(self,'_server_poll_session',None) not in (None,(str(env_server.get_server()),str(env_server.get_user()))):
             self._server_timer.start(3000)
@@ -1712,6 +1752,8 @@ class CommitQueueController(QObject):
             return
         if not from_cancel:
             self._server_poll_worker = None
+        if not self.serverQueueAvailable:
+            return
         # A failed status read says nothing about whether the server committed.
         self._server_progress_error = 'status unavailable'
         self._flush_refreshes(force=True)
@@ -1725,12 +1767,13 @@ class CommitQueueController(QObject):
         self._server_timer.start(3000)
 
     def _cancel_server_batches(self) -> None:
+        if not self.serverQueueAvailable:
+            return
         from thlib.environment import env_inst, env_server
-        from thlib.server_checkin_queue import request
         for batch in self._server_batches.values():
             if batch['server'] != str(env_server.get_server()) or batch['user'] != str(env_server.get_user()):
                 continue
-            worker = env_inst.server_pool.add_task(request,batch['server'],str(env_server.get_ticket()),batch['project'],
+            worker = env_inst.server_pool.add_task(self._server_request,batch['server'],str(env_server.get_ticket()),batch['project'],
                                                   'cancel',dict(batch_id=batch['batch_id']))
             if worker is not None:
                 worker.result.connect(lambda result,b=batch:self._server_cancelled(b,result),Qt.ConnectionType.QueuedConnection)
@@ -1738,7 +1781,7 @@ class CommitQueueController(QObject):
                 worker.start()
 
     def _server_cancelled(self, batch: dict, result: dict) -> None:
-        if self._server_closed:
+        if self._server_closed or not self.serverQueueAvailable:
             return
         batch['submitted'] = True
         batch['uploadError'] = ''
@@ -1754,6 +1797,8 @@ class CommitQueueController(QObject):
         self._server_timer.start(1)
 
     def _finish_server_move(self, operation_id: str) -> None:
+        if not self.serverQueueAvailable:
+            return
         if operation_id in self._server_cleanup_ids:
             return
         from thlib.environment import env_inst

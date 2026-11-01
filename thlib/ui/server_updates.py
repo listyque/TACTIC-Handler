@@ -250,6 +250,11 @@ class ServerUpdateService(QObject):
         """Start, wake, or stop polling with the authenticated session."""
         from thlib.environment import env_inst, env_server
 
+        if self._stream is not None and self.update_mode != 'sse':
+            self._request_generation += 1
+            self._cancel_stream()
+            self._busy = False
+
         ticket = str(env_server.get_ticket() or "")
         if (getattr(self._application, "authentication_required", False)
                 or not ticket or not env_inst.logins):

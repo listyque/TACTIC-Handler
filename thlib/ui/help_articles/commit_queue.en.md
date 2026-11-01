@@ -5,6 +5,11 @@ order: 16
 ---
 # Commit Queue
 
+**Server queue** is available only after TACTIC Stream is confirmed for the
+current connection. Legacy uses client check-in. Previously saved remote batches
+remain stored until you reconnect to their Stream server; switching to Legacy
+does not resubmit or cancel them.
+
 > Commit Queue is the final review and execution point for prepared check-ins. Nothing is submitted
 > merely by adding it: select an operation, verify its files and destination, then choose a commit
 > action.

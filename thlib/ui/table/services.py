@@ -743,6 +743,9 @@ class TableServicesController(QObject):
             def show_document(result):
                 if session['tab'] is not app._current_tab() or document_generation != self._document_generation:
                     return
+                if result.get('streamRequired') and not app.is_stream_server:
+                    self.report_error(app.tr('This layout requires TACTIC Stream.'))
+                    return
                 self._document = dict(result, title=command.get('title') or result.get('title') or 'Custom Layout',
                     translateTitle=not bool(command.get('title')), nodeId=session['node_id'])
                 if result.get('layoutNodes') is not None:
@@ -756,6 +759,7 @@ class TableServicesController(QObject):
             arguments = dict(search_key=options.get('search_key') or session['runner'].context['searchKey'])
             if kind == 'custom-layout':
                 arguments['view'] = options.get('view') or ''
+                arguments['stream_api'] = app.is_stream_server
             self._run(lambda: tc.execute_procedure_serverside(procedure,arguments,
                 project=server.get_project(),server=server),show_document)
         elif kind == 'edit':

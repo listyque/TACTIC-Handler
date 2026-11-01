@@ -1002,6 +1002,13 @@ class Env(object):
 env_server = Env()
 
 
+def get_server_api() -> str:
+    """Confirmed API for the current server, login and ticket."""
+    identity = (env_server.get_server(), env_server.get_user(), env_server.get_ticket())
+    detected = env_inst.server_api
+    return detected[3] if detected and detected[:3] == identity else 'unknown'
+
+
 class Tactic(object):
 
     def __init__(self):

@@ -1,4 +1,5 @@
 {
+  "This layout requires TACTIC Stream.": "Для этого макета требуется TACTIC Stream.",
   "Database resources require TACTIC Stream.": "Для управления ресурсами баз данных требуется TACTIC Stream.",
   "Backend server controls require TACTIC Stream.": "Для управления серверными процессами требуется TACTIC Stream.",
   "Invalid cell alignment": "Неверное выравнивание ячейки",

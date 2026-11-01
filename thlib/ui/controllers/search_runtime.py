@@ -177,7 +177,11 @@ class SearchRuntimeMixin:
             search_type, project_code
         )
         objects = list(sobjects.values())
-        if item_view and item_view != 'table':
+        from thlib.environment import get_server_api
+        stream_api = get_server_api() == 'stream'
+        if not stream_api:
+            info.pop('itemLayout', None)
+        if item_view and item_view != 'table' and stream_api:
             source = stype.project.get_config_views().get_view(search_type, item_view, processed=False) if stype else ''
             if 'sobject-layout' in str(source) or item_view in ('continuous_example', 'cards_example', 'table_example'):
                 metadata = tc.server_start(project=project_code).execute_cmd('tactic.ui.table.NestedTableReadCmd',

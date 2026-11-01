@@ -58,6 +58,7 @@ def _visual_child(parent, object_name):
 
 
 class _WorkspaceAppController(QObject):
+    is_stream_server = True
     maya_dcc_selected_changed = Signal()
 
     def __init__(self):

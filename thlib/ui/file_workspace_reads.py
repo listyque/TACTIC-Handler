@@ -28,6 +28,8 @@ class FileWorkspaceReads:
         self._read_cancel=threading.Event()
 
     def _start_read(self,action,values):
+        if not self.application.is_stream_server:
+            return
         self._read_generation+=1
         self._read_cancel.set()
         self._read_pending=(action,dict(values))
@@ -38,7 +40,7 @@ class FileWorkspaceReads:
         from thlib.environment import env_inst,env_server,env_mode
         from thlib.proxy import UrllibTransport
         from thlib.side.client.tactic_client_lib.file_transfer import FileTransferClient
-        if not self._read_pending or not self.enabled:
+        if not self.application.is_stream_server or not self._read_pending or not self.enabled:
             return
         action,values=self._read_pending
         self._read_pending=None
@@ -55,10 +57,12 @@ class FileWorkspaceReads:
         cache=cache_directory(env_mode.current_path,server,env_server.get_user(),project,state['workspace'],state['root'])
         def execute():
             try:
+                if not self.application.is_stream_server:
+                    raise InterruptedError('The Stream file workspace session changed')
                 client=FileTransferClient(server,ticket,project,opener_factory=UrllibTransport)
                 native=client.rpc
                 def call(rpc_action,**kwargs):
-                    if cancelled.is_set():
+                    if cancelled.is_set() or not self.application.is_stream_server:
                         raise InterruptedError('View request replaced')
                     return native(rpc_action,**kwargs)
                 client.rpc=call

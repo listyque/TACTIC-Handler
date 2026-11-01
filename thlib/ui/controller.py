@@ -1102,10 +1102,8 @@ class ApplicationController(
 
     @Property(str, notify=authentication_changed)
     def server_api(self) -> str:
-        from thlib.environment import env_inst, env_server
-        identity = (env_server.get_server(), env_server.get_user(), env_server.get_ticket())
-        detected = env_inst.server_api
-        return detected[3] if detected and detected[:3] == identity else 'unknown'
+        from thlib.environment import get_server_api
+        return get_server_api()
 
     @Property(bool, notify=authentication_changed)
     def is_stream_server(self) -> bool:

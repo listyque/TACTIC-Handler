@@ -90,6 +90,9 @@ class LegacyServerModeTests(unittest.TestCase):
                                  (info, info.reset), (backend, backend.shutdown), (resources, resources.shutdown)):
                 self.addCleanup(close)
             chat.open(dict(project='one'))
+            chat._server = Mock()
+            chat._start_files(['fixture.txt'])
+            chat._download('fixture')
             providers.open()
             mcp.open(dict(project='one'))
             info.open()
@@ -187,6 +190,189 @@ class LegacyServerModeTests(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 operation()
             server.assert_not_called()
+
+    def test_table_views_custom_urls_and_stream_layout_actions_are_blocked(self):
+        from thlib.ui.table.views import TableViewsController
+        from thlib.ui.table.services import TableServicesController
+        from thlib.ui.custom_urls import open_custom_url
+        app = self.application
+        pool = Mock(is_stopped=False)
+        views = TableViewsController(app, pool)
+        services = TableServicesController(app)
+        self.addCleanup(services.shutdown)
+        app._table_services = services
+        for mode in ('legacy', 'unknown'):
+            env_inst.server_api = (*self.identity, mode)
+            with patch.object(tc, 'server_start') as server:
+                views.open(Mock(busy=False, dirty=False))
+                views.run(dict(action='read'))
+                result = views.load(dict(project='demo'), dict(action='read'), 0)
+                self.assertIn('error', result)
+                self.assertFalse(open_custom_url(app, 'http://tactic.test/projects/demo/review'))
+                owner = services.customLayout
+                owner.request_filter_suggestions({}, 'request')
+                owner.select_detail()
+                owner.save_form('form', {})
+                owner.print_report()
+                owner.open_result(dict(streamRequired=True), 'Stream page', 'page')
+                server.assert_not_called()
+                pool.add_task.assert_not_called()
+            self.assertFalse(app.window_model.is_window_visible('table_views'))
+
+    def test_legacy_checkin_never_submits_polls_or_cancels_stream_batches(self):
+        from thlib.ui.commit_queue import CommitQueueController
+        queue = CommitQueueController()
+        self.addCleanup(queue.shutdown)
+        queue._server_queue = True
+        batch = dict(batch_id='retained', project='demo', server=self.identity[0],
+                     user=self.identity[1], operations=[], submitted=True)
+        queue._server_batches = {'retained': batch}
+        pool = Mock(is_stopped=False)
+        for mode in ('legacy', 'unknown'):
+            env_inst.server_api = (*self.identity, mode)
+            with patch.object(env_inst, 'server_pool', pool), \
+                    patch.object(env_inst, 'commit_pool', pool), \
+                    patch('thlib.server_checkin_queue.request') as request, \
+                    patch('thlib.server_checkin_queue.submit_batches') as submit:
+                queue._server_api_changed()
+                self.assertFalse(queue.serverQueueAvailable)
+                self.assertFalse(queue.serverQueue)
+                self.assertFalse(queue.busy)
+                queue.set_server_queue(True)
+                queue._start_server_ids([])
+                queue._send_server_batches([batch])
+                queue._poll_server_queue()
+                queue._cancel_server_batches()
+                with self.assertRaises(InterruptedError):
+                    queue._server_request(self.identity[0], self.identity[2], 'demo', 'updates', {})
+                with self.assertRaises(InterruptedError):
+                    queue._submit_server_batches(self.identity[0], self.identity[2], [batch])
+                self.assertFalse(queue._server_timer.isActive())
+                self.assertEqual(queue._server_batches, {'retained': batch})
+                request.assert_not_called()
+                submit.assert_not_called()
+                pool.add_task.assert_not_called()
+
+    def test_legacy_checkin_uses_local_executor_without_replaying_remote_jobs(self):
+        from thlib.ui.commit_queue import CommitQueueController
+        queue = CommitQueueController()
+        self.addCleanup(queue.shutdown)
+        env_inst.server_api = (*self.identity, 'legacy')
+        queue._server_queue = True
+        queue._executor = Mock()
+        reference = dict(state='error', batch_id='server-batch')
+        queue._operations = {'local': {}, 'remote': {'_serverQueue': reference}}
+        queue.model._records = [
+            dict(operationId=key, status='Prepared', canCommit=True)
+            for key in ('local', 'remote')
+        ]
+        with patch.object(queue, '_start_next') as local, \
+                patch.object(queue, '_start_server_ids') as remote:
+            queue._start_ids(['local', 'remote'])
+            self.assertEqual(queue._batch_ids, ['local'])
+            local.assert_called_once_with()
+            remote.assert_not_called()
+            self.assertEqual(queue._operations['remote']['_serverQueue'], reference)
+
+    def test_native_queue_switch_tracks_confirmed_api(self):
+        from pathlib import Path
+        from PySide6.QtCore import QObject, Property, QUrl
+        from PySide6.QtQml import QQmlComponent, QQmlEngine
+        from PySide6.QtQuick import QQuickWindow
+        from tests.test_columns_table_view import _visual_items
+        from tests.profile_ui_responsiveness import frame
+        from thlib.ui.commit_queue import CommitQueueController
+
+        class Host(QObject):
+            @Property(bool, constant=True)
+            def clipboardHasImage(self):
+                return False
+
+        queue = CommitQueueController()
+        self.addCleanup(queue.shutdown)
+        engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
+        host = Host()
+        context = engine.rootContext()
+        context.setContextProperty('commitQueueController', queue)
+        context.setContextProperty('commitQueueModel', queue.model)
+        context.setContextProperty('screenshotController', host)
+        root = Path(__file__).resolve().parents[1] / 'thlib/ui/qml'
+        theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(root / 'Theme.qml')))
+        theme = theme_component.createWithInitialProperties(dict(dark=True))
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(root / 'CommitQueueView.qml')))
+        view = component.createWithInitialProperties(dict(theme=theme, width=720, height=760))
+        self.assertIsNotNone(view, [error.toString() for error in component.errors()])
+        window = QQuickWindow()
+        view.setParentItem(window.contentItem())
+        window.resize(720, 760)
+        window.show()
+        try:
+            for mode in ('unknown', 'legacy', 'stream', 'legacy'):
+                env_inst.server_api = (*self.identity, mode)
+                queue._server_api_changed()
+                frame(window)
+                switches = [item for item in _visual_items(view)
+                            if item.objectName() == 'commitQueueServerSwitch' and item.isVisible()]
+                self.assertEqual(bool(switches), mode == 'stream')
+            self.assertEqual(warnings, [])
+        finally:
+            window.close()
+            view.setParentItem(None)
+            view.deleteLater()
+            engine.collectGarbage()
+
+    def test_legacy_search_skips_stream_item_metadata_and_cached_layouts(self):
+        from thlib.ui.controllers.search_runtime import SearchRuntimeMixin
+        env_inst.server_api = (*self.identity, 'legacy')
+        value = ({'A': Mock()}, dict(itemLayout={'requiresStream': True}))
+        with patch.object(server_cache, 'token', return_value=None), \
+                patch.object(server_cache, 'read_entry', return_value=None), \
+                patch.object(tc, 'get_snapshots_updates_list', return_value=[]), \
+                patch.object(tc, 'get_sobjects', return_value=value), \
+                patch.object(tc, 'server_start') as server, \
+                patch.object(SearchRuntimeMixin, '_search_stype', return_value=Mock()), \
+                patch.object(SearchRuntimeMixin, '_resolve_category_labels'):
+            objects, info, _stype = SearchRuntimeMixin._query_sobjects(
+                'demo/asset', 'demo', (), [], 50, 0, item_view='cards_example')
+            self.assertEqual(objects, list(value[0].values()))
+            self.assertNotIn('itemLayout', info)
+            server.assert_not_called()
+
+    def test_api_change_stops_sse_without_overwriting_saved_preference(self):
+        from thlib.ui.server_updates import ServerUpdateService
+        app = self.application
+        app._settings['network/serverUpdateMode'] = 'sse'
+        service = ServerUpdateService(app)
+        self.addCleanup(service.stop)
+        stream = Mock()
+        service._stream, service._running, service._busy = stream, True, True
+        service._session = self.identity
+        env_inst.server_api = (*self.identity, 'legacy')
+        with patch.object(env_inst, 'logins', {'supervisor': object()}), \
+                patch.object(service, 'poll') as poll:
+            service.sync_authentication()
+            stream.cancel.assert_called_once_with()
+            self.assertIsNone(service._stream)
+            self.assertEqual(service.update_mode, 'poll')
+            self.assertEqual(service._update_mode, 'sse')
+            poll.assert_called_once_with()
+
+    def test_file_workspace_drops_stream_state_on_api_change(self):
+        from thlib.ui.file_workspace import FileWorkspaceController
+        app = self.application
+        env_inst.server_api = (*self.identity, 'legacy')
+        owner = FileWorkspaceController(app)
+        self.addCleanup(owner.shutdown)
+        owner._enabled = True
+        with patch.object(owner, '_start_read') as read, \
+                patch.object(tc, 'server_start') as server:
+            owner.action('refresh', {})
+            read.assert_not_called()
+            server.assert_not_called()
+            app.authentication_changed.emit()
+            self.assertFalse(owner.enabled)
 
     def test_backend_non_json_errors_keep_http_status_and_restart_correlation(self):
         app = self.application

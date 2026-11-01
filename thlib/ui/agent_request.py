@@ -359,7 +359,7 @@ class AgentRequestController(QObject):
         self._start_files([QUrl(url).toLocalFile() for url in urls if QUrl(url).isLocalFile()])
 
     def _start_files(self, paths, image=None):
-        if self._in_flight or self._server is None or self._model['pending'] or self._model['uploading']:
+        if not self.application.is_stream_server or self._in_flight or self._server is None or self._model['pending'] or self._model['uploading']:
             return
         if len(paths) + len(self._model['attachments']) + (image is not None) > 20:
             self._model['error'] = 'Attach at most 20 files'
@@ -436,7 +436,7 @@ class AgentRequestController(QObject):
         self._timer.start()
 
     def _download(self, code):
-        if self._in_flight or self._server is None:
+        if not self.application.is_stream_server or self._in_flight or self._server is None:
             return
         self._generation += 1
         self._in_flight = True

@@ -24,6 +24,9 @@ Database observations are documented separately in
 
 ## Compatibility rule
 
+See [Stream API boundaries](stream_api.md) for the command/import/HTTP inventory,
+domain guards and retained legacy paths.
+
 The native Plugins manager uses Stream's `PluginManagerCmd`, which is absent
 from original TACTIC's `plugin_wdg`. Hide this manager for Legacy/Unknown API
 sessions and reject queued work before uploads or command execution. Session

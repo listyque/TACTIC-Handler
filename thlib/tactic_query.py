@@ -9123,7 +9123,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
             externalDocuments=any(node['kind'] == 'link' for node in nodes),
         )
 
-    def nested_cell(search_key, options, column='', layout_reader=None):
+    def nested_cell(search_key, options, column=''):
         from pyasm.search import Search
 
         handler = (
@@ -9285,11 +9285,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
             'tactic.ui.table.CustomLayoutElementWdg',
             'tactic.ui.panel.CustomLayoutWdg',
         ):
-            if layout_reader is None:
-                from tactic.ui.table.custom_layout_element_wdg import read_custom_layout
-
-                layout_reader = read_custom_layout
-            layout = layout_reader(
+            layout = read_custom_layout(
                 search_key,
                 view=options.get('view') or '',
                 html=options.get('html') or '',
@@ -9708,7 +9704,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
             options = dict(column.get('displayOptions') or {})
             if class_name.endswith('.RowAddElementWdg'):
                 options.setdefault('search_type', options.get('related_types') or 'sthpw/task')
-            return nested_cell(SearchKey.get_by_sobject(sobject), options, column['name'], layout_reader=read_custom_layout)
+            return nested_cell(SearchKey.get_by_sobject(sobject), options, column['name'])
         if class_name.endswith('.AuxDataWdg'):
             data = widget.get_current_aux_data() if hasattr(widget, 'get_current_aux_data') else {}
             return dict(text=(data or {}).get(column['name'], ''))

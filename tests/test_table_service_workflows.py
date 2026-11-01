@@ -13,6 +13,7 @@ from thlib.ui.workspace_models.windows import FloatingWindowModel
 
 
 class Application(QObject):
+    is_stream_server = True
     signing_out=Signal()
     project_changed=Signal()
     results_view_changed=Signal()

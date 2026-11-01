@@ -34,6 +34,11 @@ class CustomLayoutController(QObject):
         else:
             services.documentChanged.connect(self.changed)
 
+    def _stream_command(self, server, command, arguments):
+        if not self.services._application.is_stream_server:
+            raise PermissionError('This layout requires TACTIC Stream.')
+        return server.execute_cmd(command, arguments)
+
     @property
     def document_data(self):
         return self._workspace_document if self.workspace else self.services._document
@@ -109,6 +114,9 @@ class CustomLayoutController(QObject):
 
     @Slot('QVariantMap', str)
     def request_filter_suggestions(self, query, request):
+        if not self.services._application.is_stream_server:
+            self.filterSuggestionsReady.emit(request, [], '')
+            return
         from thlib import tactic_classes as tc
         from thlib.environment import env_inst
         self._filter_generation += 1
@@ -125,7 +133,7 @@ class CustomLayoutController(QObject):
                 filter_values=self.document_data.get('layoutFilterValues'), filter_query=dict(query))
             if env_inst.server_pool.is_stopped:
                 env_inst.server_pool.start()
-            worker = env_inst.server_pool.add_task(lambda: server.execute_cmd('tactic.ui.table.CustomLayoutReadCmd', arguments))
+            worker = env_inst.server_pool.add_task(lambda: self._stream_command(server, 'tactic.ui.table.CustomLayoutReadCmd', arguments))
             if worker is None:
                 raise RuntimeError(self.tr('Server worker is unavailable'))
         except (PermissionError, RuntimeError) as error:
@@ -274,6 +282,8 @@ class CustomLayoutController(QObject):
         tables(items, prefix)
 
     def select_detail(self, force=False):
+        if not self.services._application.is_stream_server:
+            return
         from thlib import tactic_classes as tc
         app, document = self.services._application, self.document_data
         def has_details(nodes):
@@ -318,7 +328,7 @@ class CustomLayoutController(QObject):
             if current() and document.get('layoutDetail',{}).get('busy'):
                 document['layoutDetail'] = dict(error=self.services.error)
                 self.notify_document()
-        self.services._run(lambda:server.execute_cmd('tactic.ui.table.CustomLayoutReadCmd',dict(
+        self.services._run(lambda:self._stream_command(server, 'tactic.ui.table.CustomLayoutReadCmd',dict(
             view=document['layoutView'],search_key=document['targetSearchKey'],detail_key=key,
             filter_values=document.get('layoutFilterValues'))),loaded,settled=settled)
 
@@ -403,7 +413,8 @@ class CustomLayoutController(QObject):
 
         services._run(
             lambda: tc.execute_procedure_serverside(
-                read_custom_layout, dict(view=view, search_key=search_key,filter_values=filter_values), project=project, server=server
+                read_custom_layout, dict(view=view, search_key=search_key, filter_values=filter_values,
+                                         stream_api=app.is_stream_server), project=project, server=server
             ),
             loaded,
             settled=settled,
@@ -411,6 +422,9 @@ class CustomLayoutController(QObject):
 
     def open_result(self, result, title, key):
         services, app = self.services, self.services._application
+        if result.get('streamRequired') and not app.is_stream_server:
+            services.report_error(app.tr('This layout requires TACTIC Stream.'))
+            return
         if self.workspace:
             self._view, self._title = result.get('layoutView') or self._view, title
         self.document_generation += 1
@@ -524,6 +538,10 @@ class CustomLayoutController(QObject):
 
     @Slot(str, 'QVariantMap')
     def save_form(self, identity, values):
+        if not self.services._application.is_stream_server:
+            self.formSettled.emit(identity, dict(failure=dict(
+                message=self.tr('This layout requires TACTIC Stream.'), uncertain=False)))
+            return
         from xmlrpc.client import Fault
         from thlib import tactic_classes as tc
         generation, selection = self.document_generation, self._detail_generation
@@ -539,7 +557,7 @@ class CustomLayoutController(QObject):
         received = [False]
         def operation():
             try:
-                return server.execute_cmd('tactic.ui.panel.dashboard_form_cmd.DashboardFormCmd', dict(values))['info']
+                return self._stream_command(server, 'tactic.ui.panel.dashboard_form_cmd.DashboardFormCmd', dict(values))['info']
             except Fault as error:
                 return dict(failure=dict(message=error.faultString, uncertain=False))
         def current():
@@ -699,6 +717,9 @@ class CustomLayoutController(QObject):
         services._run(lambda: runner.run(source), loaded, settled)
 
     def print_report(self):
+        if not self.services._application.is_stream_server:
+            self.services.report_error(self.tr('This layout requires TACTIC Stream.'))
+            return
         from thlib import tactic_classes as tc
         from .report import print_report
 
@@ -729,7 +750,7 @@ class CustomLayoutController(QObject):
                 print_report(result['info'])
 
         self.services._run(
-            lambda: server.execute_cmd(
+            lambda: self._stream_command(server,
                 'tactic.ui.table.CustomLayoutReportCmd',
                 dict(
                     search_key=document['targetSearchKey'], view=document['layoutView']

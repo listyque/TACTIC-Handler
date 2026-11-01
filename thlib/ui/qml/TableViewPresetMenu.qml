@@ -21,7 +21,7 @@ Item {
     height: 0
 
     function actions() {
-        return TableMenus.viewActions(columnsController.tableViews || [], !columnsController.busy, root.language, root.scrollColumns);
+        return TableMenus.viewActions(columnsController.tableViews || [], !columnsController.busy, root.language, root.scrollColumns, typeof appController !== "undefined" && appController.is_stream_server);
     }
 
     function openBelow(anchor) {

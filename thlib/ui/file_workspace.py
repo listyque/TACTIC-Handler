@@ -123,6 +123,8 @@ class FileWorkspaceController(FileWorkspaceReads, FileWorkspaceInteraction, QObj
         # Connection notifications (including ping) do not change the project mode.
         application.signing_out.connect(self.server_changed)
         application.project_state_changed.connect(self.sync_project_mode)
+        if hasattr(application, 'authentication_changed'):
+            application.authentication_changed.connect(self.sync_project_mode)
         self.sync_project_mode()
 
     @Property('QVariantMap', notify=stateChanged)
@@ -242,6 +244,9 @@ class FileWorkspaceController(FileWorkspaceReads, FileWorkspaceInteraction, QObj
 
     @Slot()
     def sync_project_mode(self) -> None:
+        if not self.application.is_stream_server:
+            self.server_changed()
+            return
         from thlib.environment import env_inst
         project = (env_inst.projects or {}).get(self.application.current_project_code)
         enabled = bool(self.application.is_stream_server and project and project.get_type() == 'file_project')
@@ -452,6 +457,8 @@ class FileWorkspaceController(FileWorkspaceReads, FileWorkspaceInteraction, QObj
             self._inspection_timer.start()
 
     def _inspect_selection(self) -> None:
+        if not self.application.is_stream_server:
+            return
         from thlib.environment import env_inst, env_server
         from thlib.proxy import UrllibTransport
         from thlib.side.client.tactic_client_lib.file_transfer import local_path
@@ -469,6 +476,8 @@ class FileWorkspaceController(FileWorkspaceReads, FileWorkspaceInteraction, QObj
         shelf = self._data['change'].get('state') == 'shelved'
         def execute():
             try:
+                if not self.application.is_stream_server:
+                    raise InterruptedError('The Stream file workspace session changed')
                 client = FileTransferClient(server, ticket, project, opener_factory=UrllibTransport)
                 options = dict(stream=stream, path=path)
                 if scope:
@@ -513,7 +522,7 @@ class FileWorkspaceController(FileWorkspaceReads, FileWorkspaceInteraction, QObj
 
     @Slot(str, 'QVariantMap')
     def action(self, action: str, values: dict) -> None:
-        if not self.enabled:
+        if not self.application.is_stream_server or not self.enabled:
             return
         if action in READ_ACTIONS and (action!='transfer_status' or self.busy):
             self._start_read(action,values)
@@ -584,12 +593,16 @@ class FileWorkspaceController(FileWorkspaceReads, FileWorkspaceInteraction, QObj
         def execute():
             try:
                 from thlib.proxy import UrllibTransport
+                if not self.application.is_stream_server:
+                    raise InterruptedError('The Stream file workspace session changed')
                 if action in RECOVERABLE:
                     save_operation(cache, operation_context(state, action, values))
                     save_operation(cache, {}, 'operation_progress')
                 client = FileTransferClient(server, ticket, project, progress=progress, opener_factory=UrllibTransport)
                 native_call = client.rpc
                 def call(operation, **kwargs):
+                    if not self.application.is_stream_server:
+                        raise InterruptedError('The Stream file workspace session changed')
                     if cancelled.is_set() and operation!='transfer_pause':
                         raise InterruptedError('Stopped. Uploaded files and server tasks are retained; refresh or resume.')
                     return native_call(operation, **kwargs)

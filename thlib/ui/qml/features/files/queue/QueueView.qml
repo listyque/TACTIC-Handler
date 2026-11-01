@@ -49,7 +49,7 @@ Item {
             filenameDraft,
             descriptionDraft,
             localMethods: true,
-            serverQueueAvailable: true,
+            serverQueueAvailable: controller.serverQueueAvailable,
             serverQueue: controller.serverQueue,
             clipboardKnown: true,
             clipboardHasImage: screenshotController.clipboardHasImage,

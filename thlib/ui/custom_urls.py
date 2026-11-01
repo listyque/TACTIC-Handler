@@ -6,6 +6,8 @@ from .search_links import parse_custom_page_link
 
 
 def open_custom_url(app, value):
+    if not app.is_stream_server:
+        return False
     spec = parse_custom_page_link(value, str(env_server.get_server() or ''))
     services = getattr(app, '_table_services', None)
     if not spec or services is None:
@@ -18,6 +20,8 @@ def open_custom_url(app, value):
     app._custom_url_generation = generation
 
     def resolve():
+        if not app.is_stream_server or origin != (app._current_project_code, app._bootstrap_cache_identity()):
+            return None
         from thlib import tactic_classes as tc
         server = copy(tc.server_start(project=spec['project']))
         server.set_project(spec['project'])
@@ -30,7 +34,7 @@ def open_custom_url(app, value):
         return result, prepared
 
     def loaded(result):
-        if (generation != app._custom_url_generation
+        if (result is None or generation != app._custom_url_generation
                 or origin != (app._current_project_code, app._bootstrap_cache_identity())):
             return
         target, prepared = result
