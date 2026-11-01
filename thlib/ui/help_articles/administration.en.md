@@ -668,4 +668,4 @@ See [Plugins](plugins) for package creation, installation, activation, files and
 
 **Backend server** provides the shared worker-count, actual running-count and explicit server-restart controls. See [Server configuration](help://server_configuration).
 
-Administration page and plugin catalogue actions use compact square buttons. The outer window title bar retains round controls.
+Administration header icon buttons (reload, Help, close and navigation collapse) are round. Text actions and local catalogue controls retain their existing shape.

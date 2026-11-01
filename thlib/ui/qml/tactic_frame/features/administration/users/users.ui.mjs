@@ -189,6 +189,7 @@ export function toolbar(model, ui, width, language) {
             text: tr('Reload from server'),
             icon: 'refresh',
             iconOnly: true,
+            round: true,
             enabled: allow.reload,
             action: {
                 type: 'reload'

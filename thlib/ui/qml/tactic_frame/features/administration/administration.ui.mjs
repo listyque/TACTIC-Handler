@@ -423,9 +423,6 @@ export function describe(model, ui, width, height, language) {
         g.header,
         head
     );
-    // The outer window owns round chrome; this header contains service actions.
-    for (const child of header.children)
-        if (child.kind === 'Button') child.round = false;
     nodes.push(header);
     nodes.push(
         node('View', 'administrationContent', g.content, {

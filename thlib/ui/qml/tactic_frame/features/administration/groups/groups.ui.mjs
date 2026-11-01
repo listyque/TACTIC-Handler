@@ -124,6 +124,7 @@ export function toolbar(model, ui, width, language, closable) {
             text: tr('Reload from server'),
             icon: 'refresh',
             iconOnly: true,
+            round: true,
             action: {
                 type: 'reload'
             },

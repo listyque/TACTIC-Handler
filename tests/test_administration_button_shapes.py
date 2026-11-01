@@ -1,7 +1,8 @@
-"""Administration service actions use one size and shape in the real window."""
+"""Administration header icons are round; local catalogue actions stay square."""
 import os
 from pathlib import Path
 import unittest
+from unittest.mock import PropertyMock, patch
 
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtTest import QTest
@@ -17,10 +18,12 @@ class AdministrationButtonShapesTests(unittest.TestCase):
     def setUpClass(cls):
         windows_fixture.EditorWindowQmlTests.setUpClass()
 
-    def test_service_buttons_are_square_aligned_and_keep_collapse_actions(self):
+    def test_header_buttons_are_round_aligned_and_keep_collapse_actions(self):
         fixture = windows_fixture.EditorWindowQmlTests()
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
+        self.enterContext(patch.object(type(fixture.application), 'is_stream_server',
+                                      new_callable=PropertyMock, return_value=True))
         admin = fixture.admin
         admin._project = 'demo'
         editor = admin.pluginsEditor
@@ -44,7 +47,10 @@ class AdministrationButtonShapesTests(unittest.TestCase):
         for name in ('adminToggleNavigation', 'administrationHelpButton', 'pluginReload', 'pluginCollapse'):
             control = item(name)
             self.assertEqual((control.width(), control.height()), (34, 34), name)
-            self.assertEqual(surface_radius(control), 4, name)
+            if name == 'pluginCollapse':
+                self.assertEqual(surface_radius(control), 4, name)
+            else:
+                self.assertGreaterEqual(surface_radius(control), (control.width() - 2) / 2, name)
         reload = item('pluginReload')
         help_button = item('administrationHelpButton')
         reload_origin = reload.mapToScene(QPointF())

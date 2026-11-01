@@ -375,3 +375,5 @@ The browser already loads its catalog asynchronously. Native/browser inline-filt
 regressions verify that expanding a compact header shows the configured groups.
 
 Column `value_align` overrides content alignment only (left/center/right, empty inherits authored display justify/align). Headings call the same alignment helper with content=false. Shared contentX positions value badges and related actions; native text/status and ordinary preview/action presenters retain their existing input owners. Full-width authored widgets keep their internal layout.
+
+Administration header icons (including reload, Help and close) retain round surfaces. Text actions and local catalogue controls keep their existing shape.
