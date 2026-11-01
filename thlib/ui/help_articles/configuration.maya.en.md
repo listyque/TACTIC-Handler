@@ -17,6 +17,9 @@ The integration adds a separate **TACTIC_Stream** shelf with a Handler launch
 button and an isolated module startup script for the connector. Existing startup
 scripts, legacy shelves and custom scripts are preserved. Maya may ask you to trust
 the new startup script according to its own security settings.
+The launch button uses Handler's orange T logo with a TH overlay. Startup restores
+that appearance only on owned launch buttons. After upgrading an existing
+registration, select **Integrate into Maya** again and restart Maya to refresh it.
 
 Changes apply on the next Maya start. The connector waits for this exact Handler
 installation without launching it or opening its window automatically. The shelf

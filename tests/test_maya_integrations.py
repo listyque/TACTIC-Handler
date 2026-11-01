@@ -25,6 +25,10 @@ class MayaIntegrationFilesTests(unittest.TestCase):
         self.root = self.directory / "TH folder"
         self.root.mkdir()
         (self.root / "launch.pyw").touch()
+        self.icon = self.root / "thlib/ui/gliph/maya_shelf/tactic_logo.png"
+        self.icon.parent.mkdir(parents=True)
+        source_icon = Path(integration.__file__).parents[1] / "thlib/ui/gliph/maya_shelf/tactic_logo.png"
+        self.icon.write_bytes(source_icon.read_bytes())
 
     def test_install_update_remove_preserve_existing_startup_and_legacy_shelves(self):
         startup = self.profile / "scripts/userSetup.py"
@@ -59,6 +63,57 @@ class MayaIntegrationFilesTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "[Mm]odified"):
                 action()
         self.assertEqual(script.read_text(), "user customization")
+
+    def test_installed_launch_shelf_uses_bundled_logo_and_missing_icon_aborts_cleanly(self):
+        integration.install(self.profile, self.root)
+        shelf = self.profile / "prefs/shelves/shelf_TACTIC_Stream.mel"
+        text = shelf.read_text(encoding="utf-8")
+        self.assertIn(json.dumps(self.icon.as_posix(), ensure_ascii=False), text)
+        self.assertIn('-imageOverlayLabel "TH"', text)
+        self.assertNotIn("pythonFamily.png", text)
+        integration.remove(self.profile)
+        self.assertTrue(self.icon.is_file())
+        self.icon.unlink()
+        with self.assertRaisesRegex(FileNotFoundError, "shelf icon"):
+            integration.install(self.profile, self.root)
+        self.assertFalse((self.profile / "modules/TACTIC_Stream.mod").exists())
+
+    def test_startup_creates_or_refreshes_only_owned_launch_button_appearance(self):
+        integration.install(self.profile, self.root)
+        script = self.profile / "tactic_stream_payload/scripts/tactic_stream_maya.py"
+        spec = importlib.util.spec_from_file_location("test_shelf_bootstrap", script)
+        bootstrap = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(bootstrap)
+        for existing in (False, True):
+            with self.subTest(existing=existing):
+                native = ModuleType("maya")
+                native.cmds, native.mel = Mock(), Mock()
+                native.mel.eval.return_value = "ShelfTop"
+                native.cmds.shelfLayout.side_effect = lambda _name, **options: (
+                    existing if options.get("exists") else
+                    ["owned", "foreign", "modified", "separator"] if options.get("query") else "TACTIC_Stream"
+                )
+                native.cmds.objectTypeUI.side_effect = lambda name: "separator" if name == "separator" else "shelfButton"
+
+                def button(name=None, **options):
+                    if options.get("docTag") is True:
+                        return "foreign" if name == "foreign" else "tactic_stream/integration"
+                    if options.get("command") is True:
+                        return "user customization" if name == "modified" else integration.SHELF_COMMAND
+                    return "created"
+
+                native.cmds.shelfButton.side_effect = button
+                with patch.dict(sys.modules, {"maya": native}):
+                    bootstrap._shelf()
+                writes = [call for call in native.cmds.shelfButton.call_args_list
+                          if not call.kwargs.get("query")]
+                self.assertEqual(len(writes), 1)
+                self.assertEqual(writes[0].kwargs["image1"], self.icon.as_posix())
+                self.assertEqual(writes[0].kwargs["imageOverlayLabel"], "TH")
+                if existing:
+                    self.assertEqual(writes[0].args, ("owned",))
+                    self.assertTrue(writes[0].kwargs["edit"])
+                    self.assertNotIn("command", writes[0].kwargs)
 
     def test_receipt_cannot_redirect_deletion_outside_owned_files(self):
         integration.install(self.profile, self.root)

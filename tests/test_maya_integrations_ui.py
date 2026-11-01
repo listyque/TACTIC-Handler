@@ -40,6 +40,10 @@ class MayaIntegrationsUiTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "launch.pyw").touch()
+            icon = root / "thlib/ui/gliph/maya_shelf/tactic_logo.png"
+            icon.parent.mkdir(parents=True)
+            icon.write_bytes((Path(maya_integration.__file__).parents[1] /
+                             "thlib/ui/gliph/maya_shelf/tactic_logo.png").read_bytes())
             profile = root / "maya/2023"
             profile.mkdir(parents=True)
             original = maya_integration.discover

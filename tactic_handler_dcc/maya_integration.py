@@ -220,6 +220,9 @@ def install(profile: Path | str, handler_root: Path | str) -> None:
         raise ValueError("A Python 3 Maya version profile is required")
     if not (root / "launch.pyw").is_file():
         raise FileNotFoundError("The Handler application root is unavailable")
+    icon = root / "thlib/ui/gliph/maya_shelf/tactic_logo.png"
+    if not icon.is_file():
+        raise FileNotFoundError("The Handler Maya shelf icon is unavailable")
     directory, module = _paths(profile)
     state = integration_state(profile)
     if state["status"] in {"Modified files", "Unrecognized integration"}:
@@ -244,8 +247,11 @@ def install(profile: Path | str, handler_root: Path | str) -> None:
         "tactic_stream_payload/scripts/tactic_stream_maya.py": bootstrap,
         f"prefs/shelves/shelf_{MODULE}.mel": (
             f"global proc shelf_{MODULE} () {{\n"
-            '    shelfButton -label "TACTIC Handler" -image1 "pythonFamily.png" '
+            '    shelfButton -label "TACTIC Handler" '
+            f'-image1 {json.dumps(icon.as_posix(), ensure_ascii=False)} '
             '-imageOverlayLabel "TH" -annotation "Open TACTIC Handler" '
+            '-overlayLabelColor 0.9 0.9 0.9 -overlayLabelBackColor 0.08 0.08 0.08 0.85 '
+            '-useAlpha 1 -width 35 -height 34 '
             '-docTag "tactic_stream/integration" -sourceType "python" '
             f"-command {json.dumps(SHELF_COMMAND)};\n}}\n"
         ).encode("utf-8"),

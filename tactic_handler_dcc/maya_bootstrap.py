@@ -37,14 +37,27 @@ def _shelf():
 
     name = "TACTIC_Stream"
     command = "import tactic_stream_maya; tactic_stream_maya.connect(show=True)"
+    icon = _root() / "thlib/ui/gliph/maya_shelf/tactic_logo.png"
+    if not icon.is_file():
+        raise FileNotFoundError("The Handler Maya shelf icon is unavailable")
+    appearance = dict(
+        image1=icon.as_posix(), imageOverlayLabel="TH", useAlpha=True,
+        overlayLabelColor=(0.9, 0.9, 0.9), overlayLabelBackColor=(0.08, 0.08, 0.08, 0.85),
+        width=35, height=34,
+    )
     if cmds.shelfLayout(name, exists=True):
+        for button in cmds.shelfLayout(name, query=True, childArray=True) or []:
+            if cmds.objectTypeUI(button) != "shelfButton":
+                continue
+            if (cmds.shelfButton(button, query=True, docTag=True) == "tactic_stream/integration"
+                    and cmds.shelfButton(button, query=True, command=True) == command):
+                cmds.shelfButton(button, edit=True, **appearance)
         return
     parent = mel.eval("$tsShelfTop = $gShelfTopLevel")
     shelf = cmds.shelfLayout(name, parent=parent)
     cmds.shelfButton(
         parent=shelf, label="TACTIC Handler", annotation="Open TACTIC Handler",
-        image1="pythonFamily.png", imageOverlayLabel="TH", sourceType="python",
-        command=command, docTag="tactic_stream/integration",
+        sourceType="python", command=command, docTag="tactic_stream/integration", **appearance,
     )
 
 

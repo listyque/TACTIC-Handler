@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.366 - 2026-11-02
+
+- Use the bundled orange TACTIC logo with a TH overlay for the managed Maya launch shelf. Restore that appearance on startup for owned launch buttons while preserving other shelf controls.
+
 ## 0.6.0.365 - 2026-11-01
 
 - Add Windows Maya integration management to Maya Scene Configuration: discover installed/running versions and profiles, inspect registrations, install an isolated launch shelf and connector startup module, and remove owned files safely. Preserve legacy shelves, startup scripts and custom-script logic; pin managed connectors to their exact Handler installation.
