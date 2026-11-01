@@ -119,7 +119,11 @@ Item {
             controller: userController
             records: userActivityModel
             expanded: root.activityExpanded
-            onContentHeightChanged: root.activityHeight = contentHeight
+            function publishHeight() {
+                root.activityHeight = contentHeight;
+            }
+            // Publish measurements after Frame finishes applying the scene.
+            onContentHeightChanged: Qt.callLater(publishHeight)
         }
     }
     Rectangle {

@@ -79,6 +79,13 @@ them while retaining records and preview-card identities. Do not instantiate
 hidden rich-text documents at zero width. Check actual Show more/less input
 and retained identities in both native and browser fixtures.
 
+Publish measured profile activity height after the current scene has been
+applied. Native `UserProfileView` uses a coalesced `Qt.callLater` callback;
+browser `ProfileActivity` already batches ResizeObserver results through
+`observeFrameSizes`. Synchronous publication can re-enter the native scene
+binding when a profile opens with cached records. Regression checks cover that
+initial state, responsive width changes, expansion and stable measured bounds.
+
 ## Verification
 
 Run the focused drivers under `tools/frame_support/` from the Stream development

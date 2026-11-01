@@ -168,6 +168,10 @@ Opening another user's profile never replaces the signed-in identity in the main
 messages remain in Messages; Activity Feed shows non-chat audit events. Long or multiline event
 values are compacted to 80 characters and can be expanded inside their activity card.
 
+Recent profile activity previews six cards. Show more/less expands or collapses
+the remaining records; the activity area follows the visible cards when the
+window width changes, including when reopening a profile with loaded activity.
+
 ## Administration
 
 | Window | Purpose |

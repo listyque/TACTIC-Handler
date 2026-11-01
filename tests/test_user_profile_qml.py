@@ -90,6 +90,55 @@ class UserProfileQmlTests(unittest.TestCase):
         self.assertEqual(surface.activity.rowCount(), 25)
         self.assertFalse(surface.warnings, surface.warnings)
 
+    def test_activity_height_settles_after_live_resize_and_model_changes(self):
+        from unittest.mock import patch
+        from tests import frame_support_fixture
+        from tests.test_activity_feed_qml import ACTIVITY_ROLES
+        from thlib.ui.activity import activity_record
+        from thlib.ui.workspace_models.records import RecordListModel
+
+        records = [
+            activity_record(dict(
+                searchKey="sthpw/note?code=N" + str(index), kind="note",
+                title="Review notes", detail="Long wrapping review text. " * 20,
+                targetTitle="Shot", targetSearchKey="demo/shot?code=SHOT", actor="artist",
+            ))
+            for index in range(9)
+        ]
+        original = frame_support_fixture.RecordListModel
+
+        def activity_model(roles):
+            if roles != ("searchKey",):
+                return original(roles)
+            model = RecordListModel(ACTIVITY_ROLES)
+            model.replace(records)
+            return model
+        with patch.object(frame_support_fixture, "RecordListModel", activity_model):
+            surface = self.surface(1500)
+        surface.view.setProperty("directoryExpanded", False)
+        surface.settle()
+        for width, expanded in ((1500, False), (1100, True), (640, True),
+                                (360, False), (1500, False)):
+            surface.window.resize(width, 740)
+            surface.view.setWidth(width)
+            surface.view.setProperty("activityExpanded", expanded)
+            surface.activity.replace(records[:8] if expanded else records)
+            surface.settle()
+            host = next(
+                item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(
+                    surface.window.contentItem()
+                )
+                if item.metaObject().indexOfProperty("records") >= 0
+                and item.metaObject().indexOfProperty("expanded") >= 0
+            )
+            measured = surface.view.property("activityHeight")
+            self.assertGreater(measured, 0)
+            self.assertAlmostEqual(host.height(), measured, delta=1)
+            self.assertAlmostEqual(host.property("contentHeight"), measured, delta=1)
+            surface.settle()
+            self.assertAlmostEqual(surface.view.property("activityHeight"), measured, delta=1)
+        self.assertFalse(surface.warnings, surface.warnings)
+
     def test_summary_chip_keeps_short_caption_and_count_centered(self):
         surface = self.surface()
         chip = self.item(surface, "profileTask_statusSummary_0")

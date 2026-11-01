@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.358 - 2026-11-01
+
+- Fix the User Profile scene binding loop when activity records are already loaded. Defer and coalesce measured activity height publication; verify cached opening, live resizing and expansion in native QML and stable browser measurements.
+
 ## 0.6.0.357 - 2026-11-01
 
 - Audit and record all Stream command/import/private HTTP boundaries. Hide table-view management and server queue controls on Legacy; guard deferred URL, layout, file-workspace and attachment work, stop SSE, and retain remote check-in jobs without replay through legacy. Preserve native search, check-in, hooks, view/column actions, HTML/Mako layouts and nested filter evaluation. Add session, native QML, SQL and inventory regressions in both products.
