@@ -535,6 +535,9 @@ The file workspace has independent left Depot/Workspace trees and right configur
 
 ## Raw database
 
+Opening a PostgreSQL table loads its columns and row keys even when it contains
+no rows. NULL defaults and NULL cell values remain distinct from empty text.
+
 Large integer cells and row keys pass through the native XML-RPC response without truncation or conversion to floating point. Handler and Stream return the same raw values; integers beyond JavaScript’s exact range remain strings. If a write returned a transport error, reload before retrying: the database may already have committed the change.
 
 The sticky table heading reserves its 40px space before the first server response, keeping the first row below it on initial load and after returning to the top.

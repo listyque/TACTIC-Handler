@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.360 - 2026-11-01
+
+- Fix Raw database opening on legacy PostgreSQL: consume column metadata before the primary-key query clears the original Sql result buffer in place. Mirror the ordering in Stream and test both procedure sources with the original clearing method, empty tables and NULL values.
+
 ## 0.6.0.359 - 2026-11-01
 
 - Ship the simulated Maya client as `handler_server.demo_client` and launch it as a runtime module, removing its dependency on excluded source examples. Support the compiled application's demo entry point and preserve UTF-8 child output. Verify registration, commands and shutdown from an extracted update under a Unicode path.

@@ -45,6 +45,12 @@ Transported server procedures import common exceptions through the public
 not a portable server dependency. Raw-table procedure regressions run both
 product sources without that module and retain the administrator guard.
 
+Legacy `Sql.clear_results()` replaces rows in its previous result list with
+`None` before each query. Consume PostgreSQL column metadata before querying
+primary keys; a retained live result list is invalid after that second query.
+The raw-editor regression executes the original legacy clearing method against
+both procedure sources and checks empty tables, NULL defaults and NULL cells.
+
 Server-side aggregate procedures use the legacy `Search.add_column` signature:
 set `Search.get_select().set_quoted_mode('none')` before adding a fixed aggregate
 expression without a `quoted` keyword. This includes security-group journal

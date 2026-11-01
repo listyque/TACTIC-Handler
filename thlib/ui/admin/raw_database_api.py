@@ -123,6 +123,8 @@ def raw_database_request(action: str, project_code: str = '', identity: str = ''
         info = sql.do_query('SELECT column_name, data_type, column_default, is_generated '
                             'FROM information_schema.columns WHERE table_schema=' + literal(schema)
                             + ' AND table_name=' + literal(table) + ' ORDER BY ordinal_position')
+        # Consume metadata before the next query clears legacy Sql.results in place.
+        columns = [dict(name=row[0], type=row[1], default=row[2], generated=row[3] != 'NEVER') for row in info]
         primary = [row[0] for row in sql.do_query(
             'SELECT a.attname FROM pg_index i JOIN pg_class c ON c.oid=i.indrelid '
             'JOIN pg_namespace n ON n.oid=c.relnamespace '
@@ -131,7 +133,6 @@ def raw_database_request(action: str, project_code: str = '', identity: str = ''
             'WHERE i.indisprimary AND n.nspname=' + literal(schema)
             + ' AND c.relname=' + literal(table) + ' ORDER BY k.ord')]
         physical_key = 'ctid'
-        columns = [dict(name=row[0], type=row[1], default=row[2], generated=row[3] != 'NEVER') for row in info]
     else:
         info = sql.do_query('PRAGMA table_xinfo(' + target + ')')
         primary = [row[1] for row in sorted(info, key=lambda row: row[5]) if row[5]]
