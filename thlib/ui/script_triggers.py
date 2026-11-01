@@ -28,7 +28,6 @@ _RULE_ROLES = (
 )
 
 _ACTIONS = (
-    *dcc_trigger_actions(),
     ("snapshot.open", "Open snapshot", "folder_open", False),
     ("snapshot.save", "Save snapshot", "save", False),
     ("object.create", "Create object", "add", False),
@@ -40,6 +39,10 @@ _ACTIONS = (
     ("task.update", "Update task", "task", False),
     ("task.delete", "Delete task", "delete", False),
 )
+
+
+def _available_actions():
+    return (*dcc_trigger_actions(), *_ACTIONS)
 
 _HANDLER_LANGUAGES = {"local_python", "python", "server_js"}
 
@@ -74,7 +77,7 @@ def _project_rule(record: Mapping, index: int) -> dict:
     valid = data.get("version") == 1
     action = str(data.get("action") or "") if valid else ""
     phase = str(data.get("phase") or "") if valid else ""
-    if action not in {item[0] for item in _ACTIONS} or phase not in {"before", "after"}:
+    if action not in {item[0] for item in _available_actions()} or phase not in {"before", "after"}:
         valid = False
     script = str(record.get("script_path") or "").strip().strip("/")
     if not script:
@@ -196,7 +199,7 @@ class ScriptTriggerController(QObject):
         return [{
             "value": value, "label": self.tr(label), "icon": icon,
             "dcc": dcc,
-        } for value, label, icon, dcc in _ACTIONS]
+        } for value, label, icon, dcc in _available_actions()]
 
     @Property("QVariantList", constant=True)
     def phaseOptions(self) -> list[dict]:
@@ -726,7 +729,7 @@ class ScriptTriggerController(QObject):
             if not title:
                 raise ValueError(self.tr("Enter a name for trigger %1").replace("%1", str(index)))
             action = str(rule.get("action") or "")
-            if action not in {item[0] for item in _ACTIONS}:
+            if action not in {item[0] for item in _available_actions()}:
                 raise ValueError(self.tr("Choose an action for every trigger"))
             if rule.get("phase") not in {"before", "after"}:
                 raise ValueError(self.tr("Choose before or after for every trigger"))
@@ -746,7 +749,7 @@ class ScriptTriggerController(QObject):
         available = {
             item["value"]: item for item in self.scriptOptions
         }
-        actions = {item[0] for item in _ACTIONS}
+        actions = {item[0] for item in _available_actions()}
         result = []
         for order, source in enumerate(rules):
             rule = dict(source)
@@ -778,7 +781,7 @@ class ScriptTriggerController(QObject):
             rule["error"] = error
             rule["ruleEnabled"] = bool(rule.get("enabled"))
             action = next((
-                self.tr(label) for value, label, _icon, _dcc in _ACTIONS
+                self.tr(label) for value, label, _icon, _dcc in _available_actions()
                 if value == rule.get("action")
             ), str(rule.get("action") or ""))
             phase = self.tr("Before") if rule.get("phase") == "before" else self.tr("After")

@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 import uuid
+from functools import partial
 from pathlib import Path
 
 from handler_server.client import ThinClient
@@ -67,6 +68,9 @@ class DccRuntime:
         handler_launcher=None,
         notifier=None,
         register_exit=True,
+        autostart_handler=True,
+        show_on_connect=True,
+        pin_handler=False,
     ) -> None:
         self.handler_path = self._handler_root(handler_path)
         self.application_type = str(application_type or "").strip().lower()
@@ -83,6 +87,15 @@ class DccRuntime:
         self.connector = connector
         self._client_factory = client_factory or ThinClient.local
         self._session_finder = session_finder or discovered_session
+        if pin_handler:
+            if client_factory is None:
+                self._client_factory = partial(
+                    ThinClient.local, handler_root=self.handler_path
+                )
+            if session_finder is None:
+                self._session_finder = partial(discovered_session, handler_root=self.handler_path)
+        self._autostart_handler = bool(autostart_handler)
+        self._show_on_connect = bool(show_on_connect)
         self._handler_launcher = handler_launcher or self._launch_handler
         self._notifier = notifier or self._console_notification
         self._register_exit_enabled = bool(register_exit)
@@ -266,6 +279,8 @@ class DccRuntime:
         return job
 
     def _bootstrap(self) -> None:
+        if not self._autostart_handler:
+            return  # ThinClient owns reconnect while waiting for this installation.
         try:
             if not self._session_finder():
                 self._set_state("starting_handler", "Starting TACTIC Handler")
@@ -322,6 +337,8 @@ class DccRuntime:
                 "connected",
                 {"process_id": os.getpid()},
             )
+            if not self._show_on_connect:
+                return
             threading.Thread(
                 target=self._show_after_connection,
                 name=(

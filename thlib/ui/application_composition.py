@@ -1071,7 +1071,8 @@ def build_application_runtime(
     server_pool=None,
 ) -> ApplicationRuntime:
     """Build the application graph without starting background work."""
-
+    from thlib.ui.dcc_plugins import initialize_plugins
+    initialize_plugins()
     core = _build_core(app, project_root, diagnostics_root)
     tasks = _build_tasks(core)
     collaboration = _build_collaboration(core, tasks, project_root)
@@ -1099,6 +1100,7 @@ def build_application_runtime(
     lifecycle = LifecycleRegistry()
     lifecycle.add_services(
         (
+            editors.configuration,
             editors.configuration.serverControl,
             editors.configuration.databaseResources,
             editors.project_creation,

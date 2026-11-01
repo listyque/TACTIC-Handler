@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.365 - 2026-11-01
+
+- Add Windows Maya integration management to Maya Scene Configuration: discover installed/running versions and profiles, inspect registrations, install an isolated launch shelf and connector startup module, and remove owned files safely. Preserve legacy shelves, startup scripts and custom-script logic; pin managed connectors to their exact Handler installation.
+- Add installation-scoped DCC plugin enable/disable controls, effective on restart. Load plugin-owned Configuration panels from manifests, isolate failed imports, and reject disabled clients at the local transport boundary. Keep existing plugins enabled by default.
+
 ## 0.6.0.364 - 2026-11-01
 
 - Capture quick-filter popup placement before refreshing catalog/settings that can rebuild its clicked header delegate. Populate content before the first native frame; cover actual Windows popup coordinates and offscreen clamping.

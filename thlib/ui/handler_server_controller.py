@@ -15,7 +15,7 @@ from PySide6.QtCore import (
 
 from handler_server.client import ThinClient
 from handler_server.registry import CommandRegistry
-from tactic_handler_dcc.connectors import dcc_focus_preference
+from tactic_handler_dcc.connectors import dcc_focus_preference, disabled_applications
 from thlib.ui.tactic_rpc import HandlerApiService
 from thlib.ui.workspace_models.records import RecordListModel
 
@@ -217,6 +217,8 @@ class HandlerServerController(QObject):
         self._server.setWorkingDirectory(str(self._root))
         self._server.setProgram(sys.executable)
         arguments = ["--host", self._host, "--port", "0"]
+        for application in disabled_applications():
+            arguments.extend(["--disable-application", application])
         if hasattr(sys.modules.get("__main__"), "__compiled__"):
             arguments.insert(0, "--handler-server")
         else:

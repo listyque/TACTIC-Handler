@@ -5,6 +5,25 @@ order: 60
 ---
 # DCC clients
 
+## DCC plugins
+
+**Configuration → DCC plugins** lists desktop integrations and lets you enable or
+disable each independently. Selection is saved for this Handler installation and
+applies after restarting Handler, preserving current operations. A disabled plugin
+does not contribute actions, preferences, options or triggers; the local command
+server rejects its DCC clients. Existing automation records and custom scripts are
+preserved. A plugin that fails to import reports its error without disabling others.
+
+Maya's plugin provides **Maya Scene → Maya integration** to find installed/running
+Maya versions, inspect registrations, install a launch shelf and connector startup,
+and remove owned registrations. Remove unwanted Maya registrations before disabling
+the plugin. Plugin enable/disable and installation actions have their own immediate
+save behavior; the Configuration draft Apply/Discard buttons do not undo them.
+
+Future integrations use the same connector manifest and plugin catalog contract;
+there is no Maya-specific branch in the Configuration host. Local installation
+management is a desktop feature with no browser equivalent.
+
 > A DCC client connects Maya or another content application to the standalone TACTIC Handler.
 > Handler owns TACTIC, repositories and check-in; the selected DCC client performs only native scene actions.
 

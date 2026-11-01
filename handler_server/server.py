@@ -45,7 +45,7 @@ class ClientConnection:
 
 class HandlerServer:
     def __init__(self, host="127.0.0.1", port=0, token="",
-                 heartbeat_timeout=12.0, logger=None):
+                 heartbeat_timeout=12.0, logger=None, *, disabled_applications=()):
         if host not in {"127.0.0.1", "localhost", "::1"}:
             raise ValueError("Handler Server listens on localhost only")
         self.host = "127.0.0.1" if host == "localhost" else host
@@ -53,6 +53,7 @@ class HandlerServer:
         self.token = str(token or uuid.uuid4().hex + uuid.uuid4().hex)
         self.heartbeat_timeout = max(5.0, float(heartbeat_timeout))
         self.logger = logger or logging.getLogger("handler_server")
+        self.disabled_applications = frozenset(disabled_applications)
         self._listener = None
         self._clients: dict[str, ClientConnection] = {}
         self._lock = threading.RLock()
@@ -152,6 +153,11 @@ class HandlerServer:
             application_type = str(
                 registration.get("application_type") or "unknown"
             )
+            if application_type in self.disabled_applications:
+                send_message(sock, structured_error(
+                    "", "dcc_disabled", "This DCC plugin is disabled in Handler Configuration"
+                ))
+                return
             capabilities = sorted({
                 str(value) for value in registration.get("capabilities") or []
                 if str(value)
@@ -187,8 +193,7 @@ class HandlerServer:
         finally:
             if client_id:
                 self._remove(client_id, "connection_closed", sock)
-            else:
-                self._close_socket(sock)
+            self._close_socket(sock)
 
     def _handle(self, client, payload):
         message_type = payload["type"]

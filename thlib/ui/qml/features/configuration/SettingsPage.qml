@@ -11,6 +11,8 @@ Item {
     property bool managed: false
     readonly property var serverControl: root.canonicalPage === "server" ? configurationController.serverControl : null
     property var values: ({})
+    readonly property var integrationSchema: configurationController.page_schema(pageId).integration || null
+    readonly property var integrationController: configurationController.page_integration(pageId)
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     readonly property string canonicalPage: {
         const page = Configuration.pages.find(entry => (entry.nativeId || entry.id) === root.pageId);
@@ -60,7 +62,14 @@ Item {
             }
         };
     }
-    readonly property var fields: Configuration.pages.some(entry => entry.id === canonicalPage) ? UI.fieldsFor(canonicalPage, formModel) : UI.dccFields(configurationController.page_schema(pageId))
+    readonly property var fields: {
+        const fields = Configuration.pages.some(entry => entry.id === canonicalPage) ? UI.fieldsFor(canonicalPage, formModel) : UI.dccFields(configurationController.page_schema(pageId));
+        if (integrationSchema && integrationController)
+            return [{ kind: "Heading", id: "dccIntegrationHeading", title: integrationSchema.title },
+                    { kind: "View", field: "dccIntegration", fullWidth: true, height: integrationSchema.height,
+                      props: { view: "dccIntegration" } }].concat(fields);
+        return fields;
+    }
     function syncValues() {
         values = configurationController.page_values(pageId);
     }
@@ -157,11 +166,35 @@ Item {
             fields: root.fields
         }), width, height, root.language)
         views: ({
+                dccIntegration: dccIntegration,
                 serverControl: backendServer,
                 lightAccent: lightPalette,
                 darkAccent: darkPalette
             })
         onEvent: action => root.dispatch(action)
+    }
+    Component {
+        id: dccIntegration
+        Loader {
+            readonly property string viewUrl: root.integrationSchema ? Qt.resolvedUrl(root.integrationSchema.view).toString() : ""
+            readonly property var nextController: root.integrationController
+            onViewUrlChanged: Qt.callLater(loadIntegration)
+            onNextControllerChanged: Qt.callLater(loadIntegration)
+            function loadIntegration() {
+                if (!viewUrl) {
+                    source = "";
+                    return;
+                }
+                if (source.toString() !== viewUrl || !item || item.controller !== nextController) {
+                    source = "";
+                    setSource(viewUrl, {
+                        theme: Qt.binding(() => root.theme),
+                        controller: nextController
+                    });
+                }
+            }
+            Component.onCompleted: loadIntegration()
+        }
     }
     Component {
         id: backendServer

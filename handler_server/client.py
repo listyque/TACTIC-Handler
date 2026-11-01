@@ -16,7 +16,7 @@ class ThinClient:
     def __init__(
         self, host, port, token, application_type, registry=None,
         client_id="", reconnect=True, heartbeat_interval=3.0,
-        dispatch=None, on_event=None, discover_local=False,
+        dispatch=None, on_event=None, discover_local=False, handler_root="",
     ):
         self.host = str(host or "127.0.0.1")
         self.port = int(port)
@@ -29,6 +29,7 @@ class ThinClient:
         self.dispatch = dispatch or (lambda callback: callback())
         self.on_event = on_event or (lambda _event: None)
         self.discover_local = bool(discover_local)
+        self.handler_root = str(handler_root or "")
         self._socket = None
         self._socket_lock = threading.Lock()
         self._send_lock = threading.Lock()
@@ -46,7 +47,7 @@ class ThinClient:
     @classmethod
     def local(
         cls, application_type, registry=None, client_id="", reconnect=True,
-        heartbeat_interval=3.0, dispatch=None, on_event=None,
+        heartbeat_interval=3.0, dispatch=None, on_event=None, handler_root="",
     ):
         return cls(
             "127.0.0.1", 0, "", application_type,
@@ -54,6 +55,7 @@ class ThinClient:
             reconnect=reconnect, heartbeat_interval=heartbeat_interval,
             dispatch=dispatch, on_event=on_event,
             discover_local=True,
+            handler_root=handler_root,
         )
 
     @property
@@ -215,7 +217,7 @@ class ThinClient:
         if self.discover_local:
             from .discovery import current_session
 
-            session = current_session()
+            session = current_session(handler_root=self.handler_root)
             if not session:
                 raise ConnectionError(
                     "No local TACTIC Handler Server session was found"
@@ -245,6 +247,8 @@ class ThinClient:
             capabilities=self.registry.capabilities(),
         ))
         registration = receive_message(sock)
+        if registration["type"] == "error":
+            raise PermissionError(registration.get("message") or "Client registration rejected")
         if registration["type"] != "capabilities":
             raise ConnectionError("Client registration was not acknowledged")
         self._connected.set()

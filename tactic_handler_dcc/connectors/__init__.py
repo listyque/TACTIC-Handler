@@ -4,7 +4,54 @@ from __future__ import annotations
 
 from importlib import import_module
 from pkgutil import iter_modules
+import json
+import logging
+from pathlib import Path
 import re
+
+_disabled_plugins = frozenset()
+_plugin_errors = {}
+
+
+def configure_plugins(disabled=()) -> None:
+    """Select plugins before constructing the standalone application graph."""
+    global _disabled_plugins
+    if not isinstance(disabled, (list, tuple, set, frozenset)) or any(
+        not isinstance(value, str) or not re.fullmatch(r"[A-Za-z]\w*", value)
+        for value in disabled
+    ):
+        raise ValueError("DCC disabled plugins must be a list of module identifiers")
+    _disabled_plugins = frozenset(disabled)
+    _plugin_errors.clear()
+
+
+def plugin_catalog() -> list[dict]:
+    """Read plugin metadata without importing disabled native adapters."""
+    result = []
+    for info in sorted(iter_modules(__path__), key=lambda item: item.name):
+        if info.name.startswith("_"):
+            continue
+        row = {"id": info.name, "application": info.name, "title": info.name.title(),
+               "description": "", "version": "", "enabled": info.name not in _disabled_plugins,
+               "error": _plugin_errors.get(info.name, "")}
+        directory = Path(info.module_finder.path)
+        metadata = directory / (info.name + ".plugin.json")
+        try:
+            if metadata.is_file():
+                value = json.loads(metadata.read_text(encoding="utf-8"))
+                for key in ("application", "title", "description", "version"):
+                    if key in value:
+                        if not isinstance(value[key], str):
+                            raise ValueError("DCC plugin metadata fields must be strings")
+                        row[key] = value[key]
+        except (OSError, ValueError, TypeError) as error:
+            row["error"] = str(error)
+        result.append(row)
+    return result
+
+
+def disabled_applications() -> tuple[str, ...]:
+    return tuple(row["application"] for row in plugin_catalog() if not row["enabled"])
 
 
 STANDARD_ITEM_ACTIONS = (
@@ -161,10 +208,14 @@ def dcc_manifest(module) -> dict:
 def dcc_manifests() -> tuple[dict, ...]:
     manifests = []
     for module_info in sorted(iter_modules(__path__), key=lambda item: item.name):
-        if module_info.name.startswith("_"):
+        if module_info.name.startswith("_") or module_info.name in _disabled_plugins:
             continue
-        module = import_module(f"{__name__}.{module_info.name}")
-        manifests.append(dcc_manifest(module))
+        try:
+            module = import_module(f"{__name__}.{module_info.name}")
+            manifests.append(dcc_manifest(module))
+        except Exception as error:
+            _plugin_errors[module_info.name] = str(error)
+            logging.getLogger(__name__).exception("DCC plugin %s could not load", module_info.name)
     return tuple(manifests)
 
 

@@ -100,6 +100,7 @@ class FloatingWindowModel(QAbstractListModel):
     _configuration_pages = frozenset({
         "ai", "server", "repository", "project", "checkin_preferences",
         "global_preferences", "appearance", "tasks_preferences", "cache",
+        "dcc_plugins",
     })
 
     @classmethod

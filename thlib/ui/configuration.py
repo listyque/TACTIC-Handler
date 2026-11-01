@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from importlib import import_module
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
@@ -119,6 +120,7 @@ class ConfigurationController(QObject):
         "appearance",
         "tasks_preferences",
         "cache",
+        "dcc_plugins",
     }
     _builtin_resettable_pages = {
         "server", "database_resources", "checkin_preferences",
@@ -150,6 +152,7 @@ class ConfigurationController(QObject):
         database_resources=None,
     ) -> None:
         super().__init__(parent)
+        self._integration_controllers = {}
         self._apply_server_configuration = apply_server_configuration
         self._notify = notify
         self._server_control = server_control
@@ -657,6 +660,11 @@ class ConfigurationController(QObject):
 
     @Slot(str, result="QVariantMap")
     def page_schema(self, page_id: str) -> dict:
+        if page_id == "dcc_plugins":
+            return {"integration": {
+                "title": "DCC plugins", "module": "thlib.ui.dcc_plugins",
+                "controller": "DccPluginsController", "view": "DccPlugins.qml", "height": 400,
+            }}
         return dict(self._dcc_pages.get(str(page_id or "")) or {})
 
     @Slot()
@@ -808,6 +816,21 @@ class ConfigurationController(QObject):
         if page_id == "server":
             self.pageReset.emit(page_id)
         return True
+
+    @Slot(str, result=QObject)
+    def page_integration(self, page_id):
+        specification = self.page_schema(page_id).get("integration")
+        if not specification:
+            return None
+        if page_id not in self._integration_controllers:
+            module = import_module(specification["module"])
+            controller_type = getattr(module, specification["controller"])
+            self._integration_controllers[page_id] = controller_type(self)
+        return self._integration_controllers[page_id]
+
+    def shutdown(self):
+        for controller in self._integration_controllers.values():
+            controller.shutdown()
 
     @Property(bool, notify=serverTestChanged)
     def server_test_busy(self) -> bool:

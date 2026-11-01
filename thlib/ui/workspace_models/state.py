@@ -188,6 +188,11 @@ class WorkspaceState(
             "description": page.get("description") or "",
             "helpTopic": page.get("help_topic") or "dcc_clients",
         } for page in dcc_configuration_pages())
+        configuration_pages.append({
+            "title": "DCC plugins", "target": "dcc_plugins", "icon": "extension",
+            "description": "Enable or disable desktop DCC integrations",
+            "helpTopic": "dcc_clients",
+        })
         self.configuration_page_model = RecordListModel(
             ("title", "target", "icon", "description", "helpTopic"),
             configuration_pages,

@@ -7,6 +7,7 @@ import os
 import secrets
 import signal
 import threading
+from pathlib import Path
 
 from .discovery import publish_session, remove_session
 from .server import HandlerServer
@@ -16,15 +17,20 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="TACTIC Handler local command server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
+    parser.add_argument("--disable-application", action="append", default=[])
     args = parser.parse_args(argv)
     token = os.environ.get("TACTIC_HANDLER_TOKEN", "") or secrets.token_urlsafe(32)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    server = HandlerServer(args.host, args.port, token)
+    server = HandlerServer(args.host, args.port, token,
+                           disabled_applications=args.disable_application)
     port = server.start()
-    discovery_path = publish_session(server.host, port, server.token)
+    discovery_path = publish_session(
+        server.host, port, server.token,
+        handler_root=Path(__file__).resolve().parents[1],
+    )
     print("HANDLER_SERVER_READY " + json.dumps({
         "host": server.host, "port": port, "protocol_version": 1,
     }), flush=True)

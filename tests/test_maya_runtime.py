@@ -144,6 +144,23 @@ class MayaRuntimeTests(unittest.TestCase):
         )
         runtime.stop()
 
+    def test_managed_autostart_waits_without_launching_handler_or_showing_window(self):
+        launch = Mock()
+        runtime = self.runtime(
+            session_finder=lambda: None, handler_launcher=launch,
+            autostart_handler=False, show_on_connect=False,
+        ).start()
+        try:
+            runtime._bootstrap_thread.join(timeout=1)
+            launch.assert_not_called()
+            with patch.object(runtime_module.threading, "Thread") as thread:
+                self.clients[0].connect()
+                self.assertTrue(runtime.wait_until_connected(1))
+                thread.assert_not_called()
+            self.assertEqual(self.clients[0].requests, [])
+        finally:
+            runtime.stop()
+
     def test_stop_is_non_blocking_and_clears_the_client(self):
         runtime = self.runtime(
             session_finder=lambda: {"host": "127.0.0.1"},

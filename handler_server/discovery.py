@@ -21,7 +21,7 @@ def discovery_directory() -> Path:
     return root / "TACTIC-Handler" / "handler-server"
 
 
-def publish_session(host: str, port: int, token: str) -> Path:
+def publish_session(host: str, port: int, token: str, *, handler_root="") -> Path:
     host = str(host or "")
     port = int(port)
     token = str(token or "")
@@ -42,6 +42,8 @@ def publish_session(host: str, port: int, token: str) -> Path:
         "process_id": os.getpid(),
         "started_at": time.time(),
     }
+    if handler_root:
+        record["handler_root"] = str(Path(handler_root).resolve())
     temporary.write_text(
         json.dumps(record, ensure_ascii=False), encoding="utf-8"
     )
@@ -84,8 +86,13 @@ def available_sessions() -> list[dict]:
     )
 
 
-def current_session() -> dict | None:
+def current_session(*, handler_root="") -> dict | None:
     records = available_sessions()
+    if handler_root:
+        root = Path(handler_root).resolve()
+        records = [record for record in records
+                   if record.get("handler_root")
+                   and Path(record["handler_root"]).resolve() == root]
     return records[0] if records else None
 
 
@@ -104,7 +111,7 @@ def _validated_record(value) -> dict:
         raise ValueError("Discovery record is incomplete")
     if protocol_version != PROTOCOL_VERSION:
         raise ValueError("Discovery protocol version is unsupported")
-    return {
+    record = {
         "protocol_version": protocol_version,
         "host": "127.0.0.1" if host == "localhost" else host,
         "port": port,
@@ -112,6 +119,10 @@ def _validated_record(value) -> dict:
         "process_id": process_id,
         "started_at": started_at,
     }
+    root = value.get("handler_root")
+    if isinstance(root, str) and root and Path(root).is_absolute():
+        record["handler_root"] = str(Path(root).resolve())
+    return record
 
 
 def _process_is_running(process_id: int) -> bool:

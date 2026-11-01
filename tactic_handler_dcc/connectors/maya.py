@@ -80,6 +80,13 @@ DCC_MANIFEST = {
         ),
         "configuration": {
             "title": "Maya Scene",
+            "integration": {
+                "title": "Maya integration",
+                "module": "thlib.ui.maya_integrations",
+                "controller": "MayaIntegrationsController",
+                "view": "MayaIntegrations.qml",
+                "height": 360,
+            },
             "description": "Scene integration and Maya defaults",
             "icon": "movie",
             "help_topic": "configuration.maya",
