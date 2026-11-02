@@ -84,8 +84,10 @@ Local shelf scripts receive captured `TACTIC_SCRIPT_KWARGS`: `project_code`, `en
 
 ## Where a script runs
 
-Shelf actions marked **TH** require TACTIC Handler. Their tooltip says whether
-they use local Python or a connected DCC. They stay disabled in TACTIC Stream.
+Shelf buttons show a centered icon and their title without a TH badge.
+TACTIC Stream shows only buttons the current user can execute there; local
+Python and DCC actions are hidden. Saved shelf configurations are preserved
+and can still be managed in the editor. Tooltips describe the runtime.
 Server Python, Server JavaScript and browser JavaScript identify their runtime
 in the tooltip; the Stream result window repeats it, including on errors.
 

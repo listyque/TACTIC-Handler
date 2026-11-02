@@ -320,15 +320,15 @@ class ScriptShelfQmlTests(unittest.TestCase):
             action = self._item(view, "scriptShelfAction_save")
             self.assertEqual(action.width(), 40)
             self.assertEqual(action.height(), 40)
-            marker = self._item(action, "scriptShelfRuntime")
-            self.assertEqual(marker.property("text"), "TH")
-            self.assertTrue(marker.isVisible())
+            self.assertFalse(any(item.objectName() == 'scriptShelfRuntime'
+                                 for item in workspace.visual_items(action)))
             self.assertEqual(
                 action.property("description"), "TACTIC Handler only\nSave the current scene"
             )
             icon = self._item(action, "scriptShelfActionIcon")
             label = self._item(action, "scriptShelfActionLabel")
             self.assertIsNotNone(icon)
+            self.assertAlmostEqual(icon.mapToItem(action, QPointF(icon.width() / 2, 0)).x(), action.width() / 2)
             self.assertIsNotNone(label)
             self.assertEqual(label.property("text"), "Save")
             self.assertEqual(label.width(), action.width())

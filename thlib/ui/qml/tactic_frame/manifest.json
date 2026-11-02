@@ -161,7 +161,7 @@
     "features/projects/editor.ui.mjs": "ba935826e023a411937719956783e9ca6cadb1ade7b79c52f1cc7a218e4ff666",
     "features/projects/project.ui.mjs": "4cd5bf68fc773ccbe71cd76f69586d9ccc12e27c3b0093ce1c42cedb4a5ccf3f",
     "features/projects/templates.ui.mjs": "23b7cd6b2c65f65531e91ea24caba875aef3cd11e54fbe03174887e5659cad71",
-    "features/scripts/bar.ui.mjs": "dee07fedb6f926ada29da3ec6e4235fd12c87050d0249879f6df22562ec22821",
+    "features/scripts/bar.ui.mjs": "f6ff8808717ef9e20cf93bb3ce4060c65df4a04625221856339db0d41e1b4a09",
     "features/scripts/drafts.ui.mjs": "f7003e707cb56e3476c3f89c10086b82a23d246f324ec0e54ac68fd946220797",
     "features/scripts/editor.ui.mjs": "8b371a44ad18febf26bf28f3e134c950be9b701a5cf35f1dfdaebb6492953e7c",
     "features/scripts/history.ui.mjs": "e0801f91b4a2ffddbed9f182d813aa35ca04fcad85328dad9afebdffdd8834ca",

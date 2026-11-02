@@ -131,7 +131,7 @@ export function action(record, running, language, height) {
                         node(
                             'Icon',
                             'scriptShelfActionIcon',
-                            rect(runtime.handlerOnly ? 2 : 12, 1, 16, 16),
+                            rect(12, 1, 16, 16),
                             {
                                 icon: record.running
                                     ? 'hourglass-empty'
@@ -139,12 +139,6 @@ export function action(record, running, language, height) {
                                 color: enabled ? 'primaryText' : 'disabledText'
                             }
                         ),
-                        label('scriptShelfRuntime', rect(21, 1, 19, 16), 'TH', {
-                            visible: runtime.handlerOnly,
-                            fontRole: 'caption',
-                            align: 'center',
-                            color: enabled ? 'secondaryText' : 'disabledText'
-                        }),
                         label(
                             'scriptShelfActionLabel',
                             rect(0, height - 16, 40, 15),

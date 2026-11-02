@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.370 - 2026-11-02
+
+- Remove TH badges from shelf buttons and center their icons; retain runtime details in tooltips.
+- Stream hides actions unavailable to the current user without changing the saved cross-client shelf.
+
 ## 0.6.0.369 - 2026-11-02
 
 - Show every active custom script in the group access matrix, including helpers, server scripts and non-executable stored languages.
