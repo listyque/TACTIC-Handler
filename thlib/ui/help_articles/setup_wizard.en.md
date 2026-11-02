@@ -16,7 +16,13 @@ You can repeat configuration later with **TH Setup.exe** in the application fold
 or the **TACTIC Handler Setup** desktop shortcut. TH must remain closed during setup.
 
 1. Enter the server root URL and sign in with your own account. The wizard never
-   saves your password. The regular TH profile stores the server-issued ticket.
+   prefills the server or login, including when rerun. Back preserves entered
+   fields and your project, repository, plugin, Maya and shelf choices for the
+   same account/project. Your password stays only in memory until Apply or exit;
+   it is not saved. The regular TH profile stores the server-issued ticket.
+   Failed credentials, connection/HTTP/certificate failures and project-list
+   permissions have separate messages. A credential rejection identifies the
+   login/password pair; the server does not identify which one was incorrect.
 2. Choose a project, repository alias and a local or network folder. For a new
    configuration, the default is **repo** inside the selected TH installation
    folder. Apply creates it if needed; an existing configured path stays selected.

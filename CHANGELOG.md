@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.373 - 2026-11-02
+
+- Preserve setup fields and DCC/shelf selections when navigating Back and forward; start server and login fields empty.
+- Distinguish rejected credentials, connection, HTTP, TLS and project-list errors without exposing passwords or tickets.
+- Keep the selected URL scheme in setup's XML-RPC requests, including verified HTTPS.
+
 ## 0.6.0.372 - 2026-11-02
 
 - Default new workstation repositories to the installation's repo folder, create it on Apply, and preserve its data during upgrades.

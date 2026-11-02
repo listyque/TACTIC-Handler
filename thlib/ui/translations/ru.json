@@ -6095,5 +6095,13 @@
   "Choose an existing repository folder accessible from this computer": "Выберите существующую папку репозитория, доступную с этого компьютера",
   "The selected shelf is no longer available. Reload the project.": "Выбранная полка больше недоступна. Загрузите проект заново.",
   "Close the selected Maya versions before installing their shelves": "Закройте выбранные версии Maya перед установкой полок",
-  "Enable the Maya plugin before selecting its versions": "Включите плагин Maya перед выбором её версий"
+  "Enable the Maya plugin before selecting its versions": "Включите плагин Maya перед выбором её версий",
+  "The server returned HTTP %1. Check its address and availability.": "Сервер вернул HTTP %1. Проверьте его адрес и доступность.",
+  "The HTTPS connection could not be verified. Check the server certificate and your computer's date.": "Не удалось проверить HTTPS-соединение. Проверьте сертификат сервера и дату на компьютере.",
+  "Cannot connect to the server. Check its address, network connection and availability.": "Не удалось подключиться к серверу. Проверьте его адрес, сеть и доступность.",
+  "This address did not return a TACTIC XML-RPC response. Check the server URL.": "По этому адресу не получен ответ TACTIC XML-RPC. Проверьте адрес сервера.",
+  "Incorrect login or password. Check these fields and try again.": "Неверный логин или пароль. Проверьте эти поля и повторите вход.",
+  "The server rejected sign-in. Contact your TACTIC administrator.": "Сервер отклонил вход. Обратитесь к администратору TACTIC.",
+  "Sign-in failed on the server. Try again or contact your TACTIC administrator.": "Не удалось выполнить вход на сервере. Повторите попытку или обратитесь к администратору TACTIC.",
+  "Signed in, but the project list could not be loaded. Check account permissions or try again.": "Вход выполнен, но список проектов не загрузился. Проверьте права учётной записи или повторите попытку."
 }

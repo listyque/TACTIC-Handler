@@ -7,6 +7,8 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from urllib.error import URLError, HTTPError
+from xmlrpc.client import Fault
 from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -32,6 +34,7 @@ from thlib.ui.setup_service import (
     apply_setup,
     read_initial,
     shelf_buttons,
+    SetupTransport,
 )
 from thlib.ui.setup_wizard import SetupController
 from thlib.ui.localization import CatalogTranslator
@@ -250,6 +253,107 @@ class SetupTests(unittest.TestCase):
             self.assertNotIn("secret-password", str(error.exception))
         self.assertIsNone(session.server)
 
+    def test_connection_fields_start_empty_even_with_a_configured_account(self):
+        env_server.set_server("http://example.invalid")
+        env_server.set_user("admin")
+        env_server.save_defaults()
+        controller = SetupController(ROOT)
+        self.assertEqual(controller.state["server"], "")
+        self.assertEqual(controller.state["login"], "")
+        controller.shutdown()
+
+    def test_back_forward_preserves_choices_but_new_account_resets_them(self):
+        controller = SetupController(ROOT)
+        controller.session.url, controller.session.login = (
+            "http://example.invalid",
+            "artist",
+        )
+        controller._state.update(project="demo", projects=[{"code": "demo"}])
+        catalog = {
+            "shelves": [{"id": "one", "title": "One"}, {"id": "two", "title": "Two"}],
+            "maya": [{"id": "maya2023", "supported": True, "pids": []}],
+            "pluginCatalog": [{"id": "maya"}, {"id": "nuke"}],
+            "disabled": ["nuke"],
+        }
+        controller._finished(("project", copy.deepcopy(catalog)))
+        controller.edit("shelf", "two")
+        controller.toggle("plugins", "nuke", True)
+        controller.toggle("mayaProfiles", "maya2023", True)
+        controller.toggle("shortcuts", "", False)
+        controller.back()
+        controller.back()
+        controller._finished(("login", [{"code": "demo"}]))
+        controller._finished(("project", copy.deepcopy(catalog)))
+        self.assertEqual(controller.state["shelf"], "two")
+        self.assertEqual(controller.state["plugins"], ["maya", "nuke"])
+        self.assertEqual(controller.state["mayaProfiles"], ["maya2023"])
+        self.assertFalse(controller.state["shortcuts"])
+        controller.edit("shelf", "")
+        controller.toggle("plugins", "maya", False)
+        controller.toggle("plugins", "nuke", False)
+        controller.back()
+        controller._finished(("project", copy.deepcopy(catalog)))
+        self.assertEqual(controller.state["shelf"], "")
+        self.assertEqual(controller.state["plugins"], [])
+        self.assertEqual(controller.state["mayaProfiles"], [])
+        controller.session.login = "other_artist"
+        controller._finished(("project", copy.deepcopy(catalog)))
+        self.assertEqual(controller.state["shelf"], "one")
+        self.assertEqual(controller.state["plugins"], ["maya"])
+        self.assertEqual(controller.state["mayaProfiles"], [])
+        controller.shutdown()
+
+    def test_sign_in_distinguishes_credentials_connection_and_project_list_errors(self):
+        for fault, message in (
+            (
+                Fault(1, "Login/Password combination incorrect"),
+                "Incorrect login or password",
+            ),
+            (URLError("connection refused"), "Cannot connect to the server"),
+            (
+                HTTPError("http://example.invalid", 404, "Not Found", None, None),
+                "HTTP 404",
+            ),
+        ):
+            with (
+                self.subTest(fault=type(fault).__name__),
+                patch(
+                    "thlib.side.client.tactic_client_lib.tactic_server_stub.TacticServerStub"
+                ) as stub,
+            ):
+                stub.return_value.get_ticket.side_effect = fault
+                with self.assertRaisesRegex(RuntimeError, message):
+                    SetupSession().authenticate(
+                        "http://example.invalid", "artist", "secret"
+                    )
+        with patch(
+            "thlib.side.client.tactic_client_lib.tactic_server_stub.TacticServerStub"
+        ) as stub:
+            stub.return_value.get_ticket.return_value = "TEST-TICKET"
+            stub.return_value.query.side_effect = Fault(1, "Permission denied")
+            with self.assertRaisesRegex(
+                RuntimeError, "Signed in, but the project list"
+            ):
+                SetupSession().authenticate(
+                    "http://example.invalid", "artist", "secret"
+                )
+
+    def test_authentication_transport_keeps_https_and_bounds_connection_timeout(self):
+        transport = SetupTransport("https://example.invalid")
+        with (
+            patch.object(transport._http, "open") as request,
+            patch.object(transport, "parse_response", return_value={"ok": True}),
+        ):
+            result = transport.request(
+                "example.invalid", "/tactic/default/Api/", b"test request"
+            )
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(
+            request.call_args.args[0].full_url,
+            "https://example.invalid/tactic/default/Api/",
+        )
+        self.assertEqual(request.call_args.kwargs["timeout"], 20)
+
     def test_native_wizard_mouse_navigation_and_narrow_russian_layout(self):
         translator = CatalogTranslator(ROOT / "thlib/ui/translations/ru.json")
         self.app.installTranslator(translator)
@@ -304,7 +408,32 @@ class SetupTests(unittest.TestCase):
                 self.app.processEvents()
                 QTest.qWait(5)
             self.assertEqual(controller.state["step"], 1)
-            self.assertEqual(item("setupPassword").property("text"), "")
+            self.assertEqual(item("setupPassword").property("text"), "secret")
+            QTest.qWait(30)
+            back = item("setupBack")
+            QTest.mouseClick(
+                window,
+                Qt.LeftButton,
+                pos=back.mapToScene(
+                    QPointF(back.width() / 2, back.height() / 2)
+                ).toPoint(),
+            )
+            QTest.qWait(30)
+            self.assertEqual(controller.state["step"], 0)
+            self.assertEqual(
+                item("setupServer").property("text"), "http://example.invalid"
+            )
+            self.assertEqual(item("setupLogin").property("text"), "artist")
+            self.assertEqual(item("setupPassword").property("text"), "secret")
+            controller._failed(
+                RuntimeError(
+                    "Incorrect login or password. Check these fields and try again."
+                )
+            )
+            QTest.qWait(30)
+            self.assertIn(
+                "Неверный логин или пароль", item("setupError").property("text")
+            )
             for width in (500, 900):
                 window.setWidth(width)
                 for step in range(5):
@@ -318,6 +447,7 @@ class SetupTests(unittest.TestCase):
                         ).x()
                         self.assertLessEqual(edge, width)
                     self.assertEqual(warnings, [])
+            self.assertEqual(item("setupPassword").property("text"), "")
             controller._state.update(
                 step=2,
                 shelf="one",

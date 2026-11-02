@@ -100,7 +100,6 @@ Window {
                         enabled: !!root.state.server && !!root.state.login && !!password.text
                         onClicked: {
                             root.controller.sign_in(password.text);
-                            password.clear();
                         }
                     }
                     Controls.SectionLabel {
@@ -323,6 +322,13 @@ Window {
                 enabled: !root.state.busy
                 onClicked: root.controller.next()
             }
+        }
+    }
+    Connections {
+        target: root.controller
+        function onStateChanged() {
+            if (root.controller.state.step === 4)
+                password.clear();
         }
     }
 }

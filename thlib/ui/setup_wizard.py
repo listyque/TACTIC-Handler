@@ -34,8 +34,11 @@ class SetupController(QObject):
         self.session = SetupSession()
         self._closed = False
         self._worker = None
+        self._catalog_key = None
         self._state = {
             **read_initial(),
+            "server": "",
+            "login": "",
             "step": 0,
             "busy": False,
             "error": "",
@@ -180,19 +183,47 @@ class SetupController(QObject):
             if self._state["project"] not in {row["code"] for row in value}:
                 self._state["project"] = value[0]["code"] if value else ""
         elif operation == "project":
+            key = (self.session.url, self.session.login, self._state["project"])
+            same_project = key == self._catalog_key
+            shelf_ids = {row["id"] for row in value["shelves"]}
+            plugin_ids = {row["id"] for row in value["pluginCatalog"]}
+            profile_ids = {
+                row["id"]
+                for row in value["maya"]
+                if row["supported"] and not row["pids"]
+            }
+            if same_project:
+                shelf = (
+                    self._state["shelf"] if self._state["shelf"] in shelf_ids else ""
+                )
+                plugins = [
+                    identity
+                    for identity in self._state["plugins"]
+                    if identity in plugin_ids
+                ]
+                profiles = [
+                    identity
+                    for identity in self._state["mayaProfiles"]
+                    if identity in profile_ids
+                ]
+            else:
+                shelf = value["shelves"][0]["id"] if value["shelves"] else ""
+                plugins = [
+                    row["id"]
+                    for row in value["pluginCatalog"]
+                    if row["id"] not in value["disabled"]
+                ]
+                profiles = []
             self._state.update(
                 {key: value[key] for key in ("shelves", "maya", "pluginCatalog")}
             )
             self._state.update(
                 step=2,
-                shelf=value["shelves"][0]["id"] if value["shelves"] else "",
-                plugins=[
-                    row["id"]
-                    for row in value["pluginCatalog"]
-                    if row["id"] not in value["disabled"]
-                ],
-                mayaProfiles=[],
+                shelf=shelf,
+                plugins=plugins,
+                mayaProfiles=profiles,
             )
+            self._catalog_key = key
         elif operation == "apply":
             self._state["step"] = 4
         self.stateChanged.emit()

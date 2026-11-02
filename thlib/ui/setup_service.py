@@ -7,13 +7,71 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
+import ssl
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request
+from xml.parsers.expat import ExpatError
+from xmlrpc.client import Fault, ProtocolError, ResponseError, ServerProxy, Transport
 
 from thlib.environment import env_mode, env_read_config, env_server, env_tactic
+from thlib.proxy import UrllibTransport
 from thlib.ui.server_address import (
     is_valid_tactic_server_url,
     normalize_tactic_server_url,
 )
+
+
+class SetupTransport(Transport):
+    """Keep the explicitly selected scheme for authentication, including HTTPS."""
+
+    def __init__(self, server_url: str):
+        super().__init__()
+        self._server_url = server_url
+        self._http = UrllibTransport()
+
+    def request(self, host, handler, request_body, verbose=False):
+        self.verbose = verbose
+        request = Request(
+            self._server_url + handler,
+            request_body,
+            {"Content-Type": "text/xml", "User-Agent": self.user_agent},
+        )
+        with self._http.open(request, timeout=20) as response:
+            return self.parse_response(response)
+
+
+def sign_in_error(error: Exception) -> str:
+    """Classify failures without exposing remote faults that may echo credentials."""
+    if isinstance(error, (HTTPError, ProtocolError)):
+        from PySide6.QtCore import QCoreApplication
+
+        code = error.code if isinstance(error, HTTPError) else error.errcode
+        return QCoreApplication.translate(
+            "Setup", "The server returned HTTP %1. Check its address and availability."
+        ).replace("%1", str(code))
+    if isinstance(error, ssl.SSLError) or (
+        isinstance(error, URLError) and isinstance(error.reason, ssl.SSLError)
+    ):
+        return "The HTTPS connection could not be verified. Check the server certificate and your computer's date."
+    if isinstance(error, (URLError, TimeoutError, ConnectionError)):
+        return "Cannot connect to the server. Check its address, network connection and availability."
+    if isinstance(error, (ExpatError, ResponseError)):
+        return "This address did not return a TACTIC XML-RPC response. Check the server URL."
+    if isinstance(error, Fault):
+        if any(
+            text in error.faultString.lower()
+            for text in (
+                "login/password combination incorrect",
+                "invalid username or password",
+                "invalid login or password",
+            )
+        ):
+            return "Incorrect login or password. Check these fields and try again."
+        return "The server rejected sign-in. Contact your TACTIC administrator."
+    return (
+        "Sign-in failed on the server. Try again or contact your TACTIC administrator."
+    )
 
 
 def read_initial() -> dict:
@@ -100,7 +158,6 @@ class SetupSession:
         from thlib.side.client.tactic_client_lib.tactic_server_stub import (
             TacticServerStub,
         )
-        from thlib.proxy import UrllibTransport
 
         self.server = None
         self.shelves = []
@@ -118,31 +175,29 @@ class SetupSession:
         if not self.login or not password:
             raise ValueError("Enter your login and password")
         server = TacticServerStub(setup=False, protocol="xmlrpc", login=self.login)
-        env_server.set_timeout(20)
-        server.set_transport(UrllibTransport())
+        server.set_transport(SetupTransport(self.url))
         server.set_server(self.url)
-        if parsed.scheme == "https":
-            from xmlrpc.client import ServerProxy
-
-            # The legacy stub's HTTPS branch ignores its supplied transport.
-            server.server = ServerProxy(
-                self.url + "/tactic/default/Api/",
-                allow_none=True,
-                transport=server.transport,
-            )
+        # The legacy stub's HTTPS branch ignores its supplied transport.
+        server.server = ServerProxy(
+            self.url + "/tactic/default/Api/",
+            allow_none=True,
+            transport=server.transport,
+        )
         server.set_project("sthpw")
         try:
             ticket = server.get_ticket(self.login, password)
             if not isinstance(ticket, str) or not ticket:
-                raise ValueError("No authentication ticket")
-            server.set_ticket(ticket)
+                raise RuntimeError("The server did not issue an authentication ticket")
+        except Exception as error:
+            raise RuntimeError(sign_in_error(error)) from None
+        server.set_ticket(ticket)
+        try:
             projects = server.query(
                 "sthpw/project", columns=["code", "title", "is_template"]
             )
         except Exception:
-            # A remote fault may echo submitted arguments; never display credentials.
             raise RuntimeError(
-                "Sign-in failed. Check the server address and credentials."
+                "Signed in, but the project list could not be loaded. Check account permissions or try again."
             ) from None
         self.server = server
         return [
