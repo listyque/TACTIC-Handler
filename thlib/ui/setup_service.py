@@ -35,25 +35,37 @@ def read_initial() -> dict:
         )
         or {}
     )
-    active = next(
-        (
-            (alias, directories.get(key))
-            for alias, key in (
-                ("base", "asset_base_dir"),
-                ("client", "win32_client_repo_dir"),
-                ("local", "win32_local_repo_dir"),
-                ("sandbox", "win32_sandbox_dir"),
-            )
-            if len(directories.get(key, [])) >= 5 and directories[key][4]
-        ),
-        ("base", [""]),
+    active = [
+        (alias, directories[key])
+        for alias, key in (
+            ("base", "asset_base_dir"),
+            ("client", "win32_client_repo_dir"),
+            ("local", "win32_local_repo_dir"),
+            ("sandbox", "win32_sandbox_dir"),
+        )
+        if len(directories.get(key, [])) >= 5 and directories[key][4]
+    ]
+    from thlib.global_functions import get_value_from_config
+
+    checkin = (
+        env_read_config(filename="checkin", unique_id="ui_conf", long_abs_path=True)
+        or {}
+    )
+    try:
+        index = int(get_value_from_config(checkin, "repositoryComboBox") or 0)
+    except (TypeError, ValueError):
+        index = 0
+    alias, repository = (
+        (active[index] if 0 <= index < len(active) else active[0])
+        if active
+        else ("base", [""])
     )
     return {
         "server": values.get("server") or "",
         "login": values.get("user") or "",
         "project": ui.get("server/currentProject", ""),
-        "repository": active[1][0],
-        "repositoryAlias": active[0],
+        "repository": repository[0],
+        "repositoryAlias": alias,
     }
 
 

@@ -123,14 +123,16 @@ class SetupTests(unittest.TestCase):
 
     def test_install_rerun_and_remove_with_native_config_and_managed_shelf(self):
         session, values, profile, discover = self.fixtures()
+        values["repositoryAlias"] = "local"
         with patch.object(maya_integration, "discover", side_effect=discover):
             apply_setup(session, ROOT, values, self.directory / "desktop")
             apply_setup(session, ROOT, values, self.directory / "desktop")
         self.assertEqual(read_initial()["repository"], values["repository"])
         self.assertEqual(env_server.get_user(), "artist")
         self.assertEqual(
-            env_tactic.base_dirs["asset_base_dir"][0], values["repository"]
+            env_tactic.base_dirs["win32_local_repo_dir"][0], values["repository"]
         )
+        self.assertEqual(read_initial()["repositoryAlias"], "local")
         self.assertEqual(
             env_read_config(
                 filename="ui_settings", unique_id="ui_main", long_abs_path=True
