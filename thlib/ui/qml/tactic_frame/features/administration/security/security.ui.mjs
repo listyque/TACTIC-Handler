@@ -36,6 +36,7 @@ export const scopes = [
     ['search_type', 'Search Types'],
     ['process', 'Processes'],
     ['tasks', 'Task statuses'],
+    ['script_runner', 'Runners'],
     ['sobject', 'Search Objects'],
     ['sobject_column', 'Field access'],
     ['search_filter', 'Search restrictions'],
@@ -78,6 +79,10 @@ export const scopeDetails = {
     search_type: ['sobject', 'Control access to entity types in this project.'],
     process: ['workflow', 'Control access to the project workflow processes.'],
     tasks: ['tasks', 'Control access to task workflow statuses.'],
+    script_runner: [
+        'play',
+        'Clear a checkbox to deny a runner to a group. Any group denial wins. Unconfigured runners stay available; administrators are exempt.'
+    ],
     sobject: [
         'sobject',
         'Set permissions for individual records or record keys.'
@@ -107,6 +112,7 @@ const names = {
     sobject: ['key'],
     sobject_column: ['search_type', 'column'],
     builtin: ['key'],
+    script_runner: ['key'],
     gear_menu: ['submenu', 'label'],
     search_filter: ['search_type', 'column', 'op', 'value']
 };
@@ -300,7 +306,7 @@ export function describe(model, ui, width, height, language) {
                     ['effective', 'defaults', 'project', 'builtin']
                 ],
                 ['Agent access', ['agent_tool', 'mcp_tool']],
-                ['Interface', ['link', 'gear_menu']],
+                ['Interface', ['link', 'gear_menu', 'script_runner']],
                 [
                     'Data and workflow',
                     [

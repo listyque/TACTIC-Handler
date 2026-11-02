@@ -420,6 +420,8 @@ class DccRuntime:
             relative = str(script_path or "").strip().replace("\\", "/").strip("/")
             if not relative or ".." in Path(relative).parts:
                 raise ValueError("A safe custom script path is required")
+            if project_code:
+                self._api.project(project_code).require_script_access(relative)
             root = self.handler_path / "custom_scripts"
             script = (
                 root / project_code / f"{relative}.py"

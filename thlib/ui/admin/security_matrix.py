@@ -10,7 +10,7 @@ from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Slot
 from .documents import RulesDocument
 
 
-SCOPES = ('project', 'link', 'gear_menu', 'search_type', 'process', 'tasks')
+SCOPES = ('project', 'link', 'gear_menu', 'search_type', 'process', 'tasks', 'script_runner')
 ACCESS = {'deny': 0, 'false': 0, 'view': 1, 'true': 1, 'edit': 2,
           'insert': 3, 'retire': 4, 'delete': 5, 'allow': 5}
 RULE_META = {'group', 'category', 'access', 'project', 'ruleIndex'}
@@ -101,6 +101,30 @@ def resolve(index, keys):
     return index.get((keys[-1][0], (), '__DEFAULT__'), 'deny') if keys else 'deny'
 
 
+def runner_denied(editor, identity, path, omit=()):
+    """Any group/subgroup denial wins; other ACL scopes keep native merging."""
+    groups = editor.document.get('groups', {})
+    names = {row['label']: row['identity'] for row in editor.groupCatalog}
+    visited = set()
+
+    def denied(code):
+        if code in visited or code not in groups:
+            return False
+        visited.add(code)
+        group = groups[code]
+        for rule in editor._group_rules[code].records():
+            if code == identity and rule['ruleIndex'] in omit:
+                continue
+            if ((rule.get('group') or rule.get('category')) == 'script_runner'
+                    and rule.get('access') in ('deny', 'false')
+                    and rule.get('key') in ('*', path)
+                    and (group['project'] or rule.get('project') or '*') in ('*', editor._project)):
+                return True
+        return any(denied(names[name]) for name in group['subGroups'].split('|') if name in names)
+
+    return denied(identity)
+
+
 class SecurityMatrixModel(QAbstractTableModel):
     """Virtualized cells; edits publish dataChanged, never reset a scrolled grid."""
 
@@ -187,6 +211,15 @@ class SecurityMatrixModel(QAbstractTableModel):
         exact = [record for record in records
                  if native_key(record.get('group') or record.get('category'), record,
                                bound or record.get('project', '*')) == target_key]
+        if self.scope == 'script_runner':
+            indices = [record['ruleIndex'] for record in exact]
+            administrator = ('__admin__', (), '*') in index
+            denied = not administrator and runner_denied(self.editor, identity, attrs['key'])
+            locked = (administrator or bool(bound and bound != self.editor._project)
+                      or runner_denied(self.editor, identity, attrs['key'], indices))
+            return {'group': identity, 'checked': not denied, 'inherited': not exact,
+                    'locked': locked, 'custom': False, 'access': 'deny' if denied else 'allow',
+                    'explicit': bool(exact), 'ruleIndices': indices}
         keys = lookup_keys(self.scope, attrs, self.editor._project)
         access = resolve(index, keys)
         # Limited/custom access is never silently promoted to full access.
@@ -213,8 +246,9 @@ class SecurityMatrixModel(QAbstractTableModel):
         rules = self.editor._group_rules[state['group']]
         for index in reversed(state['ruleIndices']):
             rules.remove(index)
-        rules.set_rule(-1, {'group': 'process' if self.scope == 'tasks' else self.scope,
-                           **self.targets[row]['attributes'], 'access': 'allow' if allowed else 'deny'})
+        if self.scope != 'script_runner' or not allowed:
+            rules.set_rule(-1, {'group': 'process' if self.scope == 'tasks' else self.scope,
+                               **self.targets[row]['attributes'], 'access': 'allow' if allowed else 'deny'})
         self.editor.group_rules_changed(state['group'])
 
     @Slot(int, int)

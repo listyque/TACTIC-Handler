@@ -6056,5 +6056,8 @@
   "Integration removed.": "Интеграция удалена.",
   "Close Maya before removing its integration. Installation applies on the next Maya start.": "Для удаления интеграции закройте Maya. Установка применяется при следующем запуске Maya.",
   "Close Maya before removing its integration to prevent shelf files being saved again.": "Для удаления интеграции закройте Maya, чтобы она не сохранила файлы шелфа повторно.",
-  "Installed": "Установлена"
+  "Installed": "Установлена",
+  "Runners": "Раннеры",
+  "Clear a checkbox to deny a runner to a group. Any group denial wins. Unconfigured runners stay available; administrators are exempt.": "Снимите галочку, чтобы запретить раннер группе. Запрет в любой группе имеет приоритет. Без настроенного запрета доступ сохраняется; администратор имеет доступ всегда.",
+  "Your groups cannot run this script: %1": "Вашим группам запрещён запуск скрипта: %1"
 }

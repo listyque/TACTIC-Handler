@@ -118,6 +118,7 @@ th
 │  │  │    -> NativePipeline | None (task/child pipeline; same pipeline methods)
 │  │  └─ get_pipeline_by_parent(parent_process) -> NativePipeline | None
 │  ├─ download_scripts() -> list[dict] (script records; also stores files locally)
+│  ├─ require_script_access(path) -> bool (fresh authenticated group check; raises PermissionError on denial)
 │  └─ definitions -> DefinitionCatalog (project scope)
 │     ├─ list(search_type=..., view=..., login=..., limit=100, offset=0)
 │     │    -> list[Definition]

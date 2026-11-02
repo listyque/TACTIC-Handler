@@ -288,7 +288,9 @@ class ScriptEditorTests(unittest.TestCase):
     def test_server_refresh_downloads_all_scripts_to_local_mirror(self):
         with patch(
             "thlib.tactic_classes.get_custom_scripts", return_value={}
-        ) as get_custom_scripts:
+        ) as get_custom_scripts, patch(
+            "thlib.tactic_classes.execute_procedure_serverside", return_value={'project': '', 'denied': []}
+        ):
             result = self.controller._load_scripts()
 
         get_custom_scripts.assert_called_once_with(
@@ -296,6 +298,7 @@ class ScriptEditorTests(unittest.TestCase):
         )
         self.assertEqual(result, {
             "kind": "load", "rows": [], "objects": {}, "projectCode": "",
+            "runnerAccess": {'project': '', 'denied': []},
         })
 
     def test_startup_project_refreshes_the_local_script_mirror(self):
@@ -395,7 +398,9 @@ class ScriptEditorTests(unittest.TestCase):
         ), patch(
             "thlib.tactic_classes.get_custom_scripts",
             return_value=[item],
-        ) as get_custom_scripts:
+        ) as get_custom_scripts, patch(
+            "thlib.tactic_classes.execute_procedure_serverside", return_value={'project': 'niki_friends', 'denied': []}
+        ):
             result = self.controller._sync_scripts("niki_friends")
 
         get_custom_scripts.assert_called_once_with(

@@ -128,6 +128,27 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.assertFalse(self.editor.dirty)
         self.assertEqual(self.fixture.warnings, [])
 
+    def test_runner_access_uses_the_matrix_and_native_input(self):
+        path = 'stream/tools/runners/cache_checkin_runner'
+        self.editor._metadata['targets']['script_runner'] = [
+            {'label': path, 'attributes': {'key': path, 'project': 'demo'}}]
+        self.window.resize(1500, 900)
+        frame(self.window)
+        self.click('adminSecurityTab_script_runner')
+        self.assertTrue(self.editor.matrix.cell_at(0, 0)['checked'])
+        self.click('adminSecurityCell_0_0')
+        self.assertFalse(self.editor.matrix.cell_at(0, 0)['checked'])
+        cell = self.item('adminSecurityCell_0_0')
+        cell.forceActiveFocus()
+        QTest.keyClick(self.window, Qt.Key_Space)
+        frame(self.window)
+        self.assertTrue(self.editor.matrix.cell_at(0, 0)['checked'])
+        self.assertFalse(self.editor.dirty)
+        self.window.resize(900, 740)
+        frame(self.window)
+        self.assertTrue(self.item('adminSecurityScope').isVisible())
+        self.assertEqual(self.fixture.warnings, [])
+
     def test_inheritance_uses_named_choices_and_updates_the_existing_draft(self):
         self.click('adminSecurityTab_defaults')
         self.click('adminSecurityInheritance_G1')

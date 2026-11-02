@@ -1,5 +1,10 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    Runners: 'Раннеры',
+    'Clear a checkbox to deny a runner to a group. Any group denial wins. Unconfigured runners stay available; administrators are exempt.':
+        'Снимите галочку, чтобы запретить раннер группе. Запрет в любой группе имеет приоритет. Без настроенного запрета доступ сохраняется; администратор имеет доступ всегда.',
+    'Your groups cannot run this script: %1':
+        'Вашим группам запрещён запуск скрипта: %1',
     'Database resources': 'Ресурсы БД',
     'Project connections and schema updates':
         'Подключения проектов и обновление схем',

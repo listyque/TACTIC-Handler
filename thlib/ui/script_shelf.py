@@ -584,7 +584,11 @@ class ScriptShelfController(QObject):
     def _refresh_effective(self) -> None:
         record = self._effective_record()
         payload = self._payloads.get(str(record.get("view") or ""), {})
-        self.buttons.replace(self._present_buttons(payload.get("buttons") or []))
+        visible = payload.get("buttons") or []
+        allowed = getattr(self._script_editor, 'script_allowed', None)
+        if allowed is not None:
+            visible = [button for button in visible if allowed(button['script'])]
+        self.buttons.replace(self._present_buttons(visible))
         self.stateChanged.emit()
 
     def _save_active_mode(self) -> None:

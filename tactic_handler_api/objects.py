@@ -75,6 +75,21 @@ class Project:
         scripts = self._api._core.get_custom_scripts(project=self.get_code())
         return [deepcopy(value.get_info()) for value in scripts.values()]
 
+    def require_script_access(self, path: str) -> bool:
+        """Check the caller's current groups before executing a mirrored runner."""
+        self._api._check()
+        path = str(path or '').replace('\\', '/').strip('/')
+        if not path or '..' in path.split('/'):
+            raise ValueError('A safe custom script path is required')
+        from thlib.script_access import query_runner_access
+
+        result = self._api._core.execute_procedure_serverside(
+            query_runner_access, {'project_code': self.get_code()}, project=self.get_code(),
+        )
+        if '*' in result['denied'] or path in result['denied']:
+            raise PermissionError('Your groups cannot run this script: ' + path)
+        return True
+
     @property
     def automation(self):
         from .automation import Automation

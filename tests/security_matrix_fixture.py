@@ -30,6 +30,9 @@ def seed_security(editor, group_count=3, row_count=4):
             'low': '<rules><rule group="search_type" code="*" access="allow"/></rules>',
             'high': '<rules><rule group="project" code="*" access="allow"/></rules>'},
         'targets': {
+            'script_runner': [
+                {'label': path, 'all': path == '*', 'attributes': {'key': path, 'project': 'demo'}} for path in (
+                    '*', 'stream/tools/runners/cache_checkin_runner', 'stream/tools/runners/save_similar_runner')],
             'project': [{'label': 'Demo project', 'attributes': {'code': 'demo'}}] + [
                 {'label': 'Project %s' % index, 'attributes': {'code': 'project_%s' % index}}
                 for index in range(row_count - 1)],

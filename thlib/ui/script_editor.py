@@ -14,7 +14,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Property, QTimer, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
-from thlib.environment import env_mode, env_read_config, env_write_config
+from thlib.environment import env_mode, env_server, env_read_config, env_write_config
 from thlib.ui.activity import activity_timestamp_labels
 from thlib.ui.script_history import script_history_request
 from thlib.ui.script_editor_features import (
@@ -77,6 +77,8 @@ class ScriptEditorController(QObject):
         self.saved_history = RecordListModel(_SAVED_HISTORY_ROLES)
         self._objects = {}
         self._scripts = []
+        self._denied_runners = set()
+        self._access_ready = users is None
         self._tree_filter = ""
         self._expanded = self._restore_expanded()
         self._busy = False
@@ -117,6 +119,10 @@ class ScriptEditorController(QObject):
         self._session_save_timer.setInterval(250)
         self._session_save_timer.timeout.connect(self._save_sessions)
         if self._application is not None:
+            for name in ('authentication_changed', 'server_state_changed'):
+                signal = getattr(self._application, name, None)
+                if signal is not None:
+                    signal.connect(self._access_context_changed)
             self._application.project_changed.connect(self._project_changed)
             self._application.project_state_changed.connect(
                 self._sync_project_sessions
@@ -199,6 +205,8 @@ class ScriptEditorController(QObject):
                 str(record.get("folder") or "").strip("/"),
                 str(record.get("title") or ""),
             ).strip("/")
+            if not self.script_allowed(path):
+                continue
             options.append({
                 "value": path,
                 "label": path,
@@ -492,11 +500,35 @@ class ScriptEditorController(QObject):
         self._error = ""
         self.stateChanged.emit()
         worker = pool.add_task(callback, *args)
-        worker.result.connect(self._done)
-        worker.error.connect(self._failed)
+        context = self._request_context()
+
+        def deliver(handler, result):
+            if self._worker is not worker:
+                return
+            if context != self._request_context():
+                self._busy = False
+                self._worker = None
+                self._access_context_changed()
+                return
+            handler(result)
+
+        worker.result.connect(lambda result: deliver(self._done, result))
+        worker.error.connect(lambda error: deliver(self._failed, error))
         self._worker = worker
         worker.start()
         return True
+
+    def _request_context(self):
+        return self._project_code(), env_server.get_server(), env_server.get_ticket()
+
+    @Slot()
+    def _access_context_changed(self):
+        self._access_ready = self._users is None
+        self._loaded = False
+        self.stateChanged.emit()
+        if (self._application is not None and self._application.current_project_code
+                and env_server.get_ticket()):
+            self._request_sync()
 
     @Slot()
     def load(self):
@@ -516,6 +548,7 @@ class ScriptEditorController(QObject):
             return
         from thlib.environment import env_inst
 
+        self._access_ready = self._users is None
         self._start(
             env_inst.server_pool, self._load_scripts, self._project_code()
         )
@@ -526,6 +559,7 @@ class ScriptEditorController(QObject):
             return
         from thlib.environment import env_inst
 
+        self._access_ready = self._users is None
         self._start(
             env_inst.server_pool, self._sync_scripts, self._project_code()
         )
@@ -543,8 +577,8 @@ class ScriptEditorController(QObject):
         ]
         if any(
             str(record.get("searchType") or "").split("?", 1)[0]
-            == "config/custom_script"
-            and str(record.get("projectCode") or "") == project_code
+            in {"config/custom_script", "sthpw/login_group", "sthpw/login_in_group"}
+            and str(record.get("projectCode") or "") in {project_code, "sthpw"}
             for record in records
         ):
             self._request_sync()
@@ -565,6 +599,8 @@ class ScriptEditorController(QObject):
         self._save_sessions()
         self._session_project_code = project_code or "default"
         self._loaded = False
+        self._access_ready = self._users is None
+        self._denied_runners.clear()
         self._selected_token = ""
         self._clear_saved_history()
         self._current_tab_id = ""
@@ -626,7 +662,7 @@ class ScriptEditorController(QObject):
         items = tc.get_custom_scripts(
             store_locally=True, project=project_code or None
         ) or []
-        return cls._script_load_result(items, project_code)
+        return cls._load_with_access(items, project_code)
 
     @classmethod
     def _sync_scripts(cls, project_code):
@@ -637,7 +673,31 @@ class ScriptEditorController(QObject):
             items = tc.get_custom_scripts(
                 store_locally=False, project=project_code
             )
-        return cls._script_load_result(items or [], project_code)
+        return cls._load_with_access(items or [], project_code)
+
+    @classmethod
+    def _load_with_access(cls, items, project_code):
+        import thlib.tactic_classes as tc
+        from thlib.script_access import query_runner_access
+
+        result = cls._script_load_result(items, project_code)
+        result['runnerAccess'] = tc.execute_procedure_serverside(
+            query_runner_access, {'project_code': project_code}, project=project_code,
+        )
+        return result
+
+    def script_allowed(self, path: str, project: str = '') -> bool:
+        path = str(path or '').replace('\\', '/').strip('/')
+        return bool(
+            path and '..' not in path.split('/')
+            and (not project or project == self._project_code())
+            and self._access_ready
+            and '*' not in self._denied_runners and path not in self._denied_runners
+        )
+
+    def require_saved_script_access(self, path: str, project: str = '') -> None:
+        if not self.script_allowed(path, project):
+            raise PermissionError(self.tr('Your groups cannot run this script: %1').replace('%1', path))
 
     def _rebuild_tree(self):
         root = {"folders": {}, "scripts": []}
@@ -1202,6 +1262,10 @@ class ScriptEditorController(QObject):
     @Slot(str, result=bool)
     def run_saved_script(self, path, context=None):
         path = str(path or "").strip("/")
+        if not self.script_allowed(path):
+            self._error = self.tr('Your groups cannot run this script: %1').replace('%1', path)
+            self.stateChanged.emit()
+            return False
         record = next((
             row for row in self._scripts
             if "{}/{}".format(
@@ -1238,6 +1302,8 @@ class ScriptEditorController(QObject):
     def saved_script_definition(self, path: str) -> dict:
         """Return one saved executable script without changing editor state."""
         path = str(path or "").strip("/")
+        if not self.script_allowed(path):
+            return {}
         record = next((
             row for row in self._scripts
             if "{}/{}".format(
@@ -1266,6 +1332,11 @@ class ScriptEditorController(QObject):
             self._pending = {}
             return
         payload, self._pending = self._pending, {}
+        path = payload.get('savedScript')
+        if path and not self.script_allowed(path):
+            self._error = self.tr('Your groups cannot run this script: %1').replace('%1', path)
+            self.stateChanged.emit()
+            return
         self._operation_script_context = payload.get('scriptContext') or {}
         from thlib.environment import env_inst
 
@@ -1653,6 +1724,12 @@ class ScriptEditorController(QObject):
         result = result or {}
         kind = result.get("kind")
         if kind == "load":
+            access = result.get('runnerAccess')
+            if access is not None:
+                if access.get('project') != self._project_code():
+                    raise ValueError('Runner access belongs to another project')
+                self._denied_runners = set(access['denied'])
+                self._access_ready = True
             self._mirrored_project_code = str(
                 result.get("projectCode") or self._project_code()
             )

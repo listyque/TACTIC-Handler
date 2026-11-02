@@ -4030,15 +4030,16 @@ def execute_custom_script(script_path, kwargs=None, project=None,
     this is the development path for scripts that have not been published.
     """
 
-    if not local_execution:
-        return server_start(project).execute_python_script(
-            script_path, kwargs=kwargs
-        )
-
     requested_path = os.path.abspath(os.path.expandvars(os.path.expanduser(
         os.fsdecode(script_path)
     )))
     explicit_local_file = os.path.isfile(requested_path)
+    if not explicit_local_file:
+        checker = getattr(env_inst.ui_script_editor, 'require_saved_script_access', None)
+        if checker is not None:
+            checker(script_path, project or env_inst.get_current_project())
+    if not local_execution:
+        return server_start(project).execute_python_script(script_path, kwargs=kwargs)
 
     if project:
         # Keep the project environment identical to the legacy runner.

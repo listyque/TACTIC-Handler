@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.368 - 2026-11-02
+
+- Add a Runners matrix to Access rules: deny saved entry points by native TACTIC group without editing individual scripts or shelf buttons.
+- Hide denied shelf buttons and reject named runner calls, including cached Maya shelf entry points; retain unconfigured and legacy behavior.
+- Share the access editor with Stream and document group inheritance, refresh and local-code security limits in English and Russian.
+
 ## 0.6.0.367 - 2026-11-02
 
 - Repair Maya reinstall after uninstall leaves imported bytecode or an orphaned owned shelf. Remove only connector-generated caches and preserve unrelated files and foreign shelves.

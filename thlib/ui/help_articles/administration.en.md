@@ -669,3 +669,26 @@ See [Plugins](plugins) for package creation, installation, activation, files and
 **Backend server** provides the shared worker-count, actual running-count and explicit server-restart controls. See [Server configuration](help://server_configuration).
 
 Administration header icon buttons (reload, Help, close and navigation collapse) are round. Text actions and local catalogue controls retain their existing shape.
+
+## Runner access by group
+
+An administrator opens **Administration → Access rules → Runners**, selects the
+project, and clears the group checkboxes for prohibited runners. Search filters
+runner paths and group names. The **All** row denies every runner for that group.
+Save commits the draft; Reset discards it. Checking a box again removes its own
+denial. A denial inherited from another group or the All row must be removed at
+its source. Any matching group denial wins; administrators are exempt.
+
+The catalogue contains executable scripts in runners folders and scripts whose
+names end in `_runner`. Helpers are not listed. Buttons inherit the saved runner
+rule, including personal shelves. Unconfigured scripts retain their old access.
+Refresh the scripts/shelf after a permission or membership change. Re-export an
+existing Maya shelf to remove its obsolete visible buttons; cached Maya buttons
+still check current permission before running with the updated connector.
+
+Rules use the existing group `access_rules` XML, with `group="script_runner"`,
+`key="folder/title"`, `project="project_code"`, `access="deny"`. They do not change
+script code, schema or other native permission scopes. Legacy clients ignore
+this optional scope. Local Python and copied source are not a security sandbox:
+server data permissions remain authoritative. Reconnect old Maya sessions after
+updating Handler so that their connector uses the new permission check.

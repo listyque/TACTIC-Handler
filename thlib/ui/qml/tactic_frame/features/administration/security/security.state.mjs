@@ -6,7 +6,8 @@ export const matrixScopes = [
     'gear_menu',
     'search_type',
     'process',
-    'tasks'
+    'tasks',
+    'script_runner'
 ];
 export function initial() {
     return {
