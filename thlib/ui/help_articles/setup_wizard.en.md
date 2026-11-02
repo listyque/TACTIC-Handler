@@ -17,7 +17,10 @@ or the **TACTIC Handler Setup** desktop shortcut. TH must remain closed during s
 
 1. Enter the server root URL and sign in with your own account. The wizard never
    saves your password. The regular TH profile stores the server-issued ticket.
-2. Choose a project, repository alias and an existing local or network folder.
+2. Choose a project, repository alias and a local or network folder. For a new
+   configuration, the default is **repo** inside the selected TH installation
+   folder. Apply creates it if needed; an existing configured path stays selected.
+   Other folders must already exist. Updates preserve the installation's **repo** folder.
    This is a client-side repository mapping. No server repository settings change.
 3. Enable the DCC plugins you need. Maya supports automatic discovery and installation
    for Python 3 profiles (2022 or newer). Select its closed versions and a project

@@ -134,6 +134,9 @@ class SetupTests(unittest.TestCase):
         )
         self.assertEqual(read_initial()["repositoryAlias"], "local")
         self.assertEqual(
+            SetupController(ROOT).state["repository"], values["repository"]
+        )
+        self.assertEqual(
             env_read_config(
                 filename="ui_settings", unique_id="ui_main", long_abs_path=True
             )["server/currentProject"],
@@ -148,6 +151,43 @@ class SetupTests(unittest.TestCase):
         )
         maya_integration.remove(profile)
         self.assertFalse(mel.exists())
+
+    def test_default_repository_tracks_installation_and_next_does_not_create_it(self):
+        root = self.directory / "Chosen TH folder" / "TACTIC-Handler"
+        controller = SetupController(root)
+        expected = root.parent / "repo"
+        self.assertEqual(controller.state["repository"], str(expected))
+        controller._state.update(step=1, project="demo", projects=[{"code": "demo"}])
+        with patch.object(controller, "_run") as run:
+            controller.next()
+            self.assertEqual(run.call_args.args[0], "project")
+        self.assertFalse(expected.exists())
+        controller.shutdown()
+
+    def test_default_repository_created_on_apply_and_empty_folder_rolled_back(self):
+        session, values, profile, discover = self.fixtures()
+        root = self.directory / "Chosen TH folder" / "TACTIC-Handler"
+        root.mkdir(parents=True)
+        expected = root.parent / "repo"
+        values.update(repository=str(expected), mayaProfiles=[], shortcuts=True)
+        with (
+            patch.object(maya_integration, "discover", side_effect=discover),
+            patch(
+                "thlib.ui.setup_service.create_shortcuts",
+                side_effect=OSError("desktop denied"),
+            ),
+        ):
+            with self.assertRaisesRegex(OSError, "desktop denied"):
+                apply_setup(session, root, values, self.directory / "desktop")
+        self.assertFalse(expected.exists())
+        values["shortcuts"] = False
+        with patch.object(maya_integration, "discover", side_effect=discover):
+            apply_setup(session, root, values, self.directory / "desktop")
+            self.assertTrue(expected.is_dir())
+            marker = expected / "keep.txt"
+            marker.write_text("repository data")
+            apply_setup(session, root, values, self.directory / "desktop")
+        self.assertEqual(marker.read_text(), "repository data")
 
     def test_rollback_restores_settings_and_integration_when_shortcut_creation_fails(
         self,

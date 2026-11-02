@@ -48,6 +48,8 @@ class SetupController(QObject):
             "mayaProfiles": [],
             "shortcuts": True,
         }
+        if not self._state["repository"]:
+            self._state["repository"] = str(root.parent / "repo")
 
     @Property("QVariantMap", notify=stateChanged)
     def state(self):
@@ -106,7 +108,12 @@ class SetupController(QObject):
                 self._state["project"],
                 Path(self._state["repository"]).expanduser(),
             )
-            if not repository.is_absolute() or not repository.is_dir():
+            default_missing = (
+                repository == self.root.parent / "repo" and not repository.exists()
+            )
+            if not repository.is_absolute() or (
+                not repository.is_dir() and not default_missing
+            ):
                 self._state["error"] = self.tr(
                     "Choose an existing repository folder accessible from this computer"
                 )

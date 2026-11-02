@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 internal static class Installer
 {
-    private static readonly string[] StateFolders = { "TACTIC-Handler/settings", "TACTIC-Handler/log", "TACTIC-Handler/custom_scripts", "D;" };
+    private static readonly string[] StateFolders = { "TACTIC-Handler/settings", "TACTIC-Handler/log", "TACTIC-Handler/custom_scripts", "repo", "D;" };
 
     private static string Under(string root, string relative)
     {

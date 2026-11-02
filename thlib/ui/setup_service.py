@@ -248,7 +248,10 @@ def apply_setup(session: SetupSession, root: Path, values: dict, desktop: Path) 
     from thlib.ui.repository_editor import _empty_base_dirs, RepositoryEditorController
 
     repository = Path(values["repository"]).expanduser()
-    if not repository.is_absolute() or not repository.is_dir():
+    default_missing = repository == root.parent / "repo" and not repository.exists()
+    if not repository.is_absolute() or (
+        not repository.is_dir() and not default_missing
+    ):
         raise ValueError(
             "Choose an existing repository folder accessible from this computer"
         )
@@ -313,7 +316,11 @@ def apply_setup(session: SetupSession, root: Path, values: dict, desktop: Path) 
         for path in paths
         if not path.is_dir()
     }
+    created_repository = False
     try:
+        if default_missing:
+            repository.mkdir()
+            created_repository = True
         env_server.reload()
         if (
             normalize_tactic_server_url(env_server.get_server()) != session.url
@@ -403,4 +410,9 @@ def apply_setup(session: SetupSession, root: Path, values: dict, desktop: Path) 
                 path.write_bytes(data)
         env_server.reload()
         env_tactic.reset()
+        if created_repository:
+            try:
+                repository.rmdir()
+            except OSError:
+                pass  # Preserve files added externally while setup was running.
         raise

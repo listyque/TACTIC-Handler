@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.372 - 2026-11-02
+
+- Default new workstation repositories to the installation's repo folder, create it on Apply, and preserve its data during upgrades.
+- Keep existing repository selections when rerunning setup.
+
 ## 0.6.0.371 - 2026-11-02
 
 - Add a repeatable Windows setup wizard for server sign-in, local repository mapping, DCC plugins, group-filtered Maya shelves and desktop shortcuts.
