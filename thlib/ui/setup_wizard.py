@@ -1,0 +1,266 @@
+"""Standalone, repeatable native setup wizard; launch with TH Setup.exe."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+import sys
+
+from PySide6.QtCore import (
+    QObject,
+    Property,
+    QStandardPaths,
+    QTimer,
+    QUrl,
+    Signal,
+    Slot,
+    QLocale,
+)
+from PySide6.QtGui import QIcon
+from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuickControls2 import QQuickStyle
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
+
+from thlib.environment import env_inst, env_mode
+from thlib.ui.setup_service import SetupSession, apply_setup, read_initial
+
+
+class SetupController(QObject):
+    stateChanged = Signal()
+
+    def __init__(self, root: Path, parent=None):
+        super().__init__(parent)
+        self.root = root
+        self.session = SetupSession()
+        self._closed = False
+        self._worker = None
+        self._state = {
+            **read_initial(),
+            "step": 0,
+            "busy": False,
+            "error": "",
+            "projects": [],
+            "shelves": [],
+            "shelf": "",
+            "plugins": [],
+            "pluginCatalog": [],
+            "maya": [],
+            "mayaProfiles": [],
+            "shortcuts": True,
+        }
+
+    @Property("QVariantMap", notify=stateChanged)
+    def state(self):
+        return dict(self._state)
+
+    @Slot(str, str)
+    def edit(self, key, value):
+        if not self._state["busy"] and key in {
+            "server",
+            "login",
+            "project",
+            "repository",
+            "repositoryAlias",
+            "shelf",
+        }:
+            self._state[key] = value
+            self.stateChanged.emit()
+
+    @Slot(str, str, bool)
+    def toggle(self, key, identity, enabled):
+        if self._state["busy"]:
+            return
+        if key in {"plugins", "mayaProfiles"}:
+            selected = set(self._state[key])
+            selected.add(identity) if enabled else selected.discard(identity)
+            self._state[key] = sorted(selected)
+            if key == "plugins" and identity == "maya" and not enabled:
+                self._state["mayaProfiles"] = []
+        elif key == "shortcuts":
+            self._state[key] = enabled
+        self.stateChanged.emit()
+
+    @Slot()
+    def browse(self):
+        folder = QFileDialog.getExistingDirectory(
+            None, self.tr("Repository folder"), self._state["repository"]
+        )
+        if folder:
+            self.edit("repository", folder)
+
+    @Slot(str)
+    def sign_in(self, password):
+        if self._state["busy"]:
+            return
+        address, login = self._state["server"], self._state["login"]
+        self._run("login", lambda: self.session.authenticate(address, login, password))
+
+    @Slot()
+    def next(self):
+        if self._state["busy"]:
+            return
+        step = self._state["step"]
+        self._state["error"] = ""
+        if step == 1:
+            project, repository = (
+                self._state["project"],
+                Path(self._state["repository"]).expanduser(),
+            )
+            if not repository.is_absolute() or not repository.is_dir():
+                self._state["error"] = self.tr(
+                    "Choose an existing repository folder accessible from this computer"
+                )
+            elif project not in {row["code"] for row in self._state["projects"]}:
+                self._state["error"] = self.tr("Sign in and select a project first")
+            else:
+                self._run("project", lambda: self._load_project(project))
+                return
+        elif step == 2:
+            self._state["step"] = 3
+        elif step == 3:
+            values = dict(self._state)
+            desktop = Path(
+                QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
+            )
+            self._run(
+                "apply", lambda: apply_setup(self.session, self.root, values, desktop)
+            )
+            return
+        self.stateChanged.emit()
+
+    def _load_project(self, project):
+        from tactic_handler_dcc import maya_integration
+        from tactic_handler_dcc.connectors import plugin_catalog
+        from thlib.ui.dcc_plugins import read_disabled_plugins
+
+        return {
+            "shelves": self.session.load_project(project),
+            "maya": maya_integration.discover(),
+            "pluginCatalog": plugin_catalog(),
+            "disabled": read_disabled_plugins(),
+        }
+
+    @Slot()
+    def back(self):
+        if not self._state["busy"] and 0 < self._state["step"] < 4:
+            self._state["step"] -= 1
+            self._state["error"] = ""
+            self.stateChanged.emit()
+
+    def _run(self, operation, function):
+        if self._closed or self._state["busy"]:
+            return
+        self._state.update(busy=True, error="")
+        self.stateChanged.emit()
+        worker = env_inst.local_pool.add_task(lambda: (operation, function()))
+        if worker is None:
+            self._failed("The local worker pool is shutting down")
+            return
+        self._worker = worker
+        worker.result.connect(self._finished)
+        worker.error.connect(self._failed)
+        worker.start()
+
+    @Slot(object)
+    def _finished(self, result):
+        if self._closed:
+            return
+        operation, value = result
+        self._state["busy"] = False
+        self._worker = None
+        if operation == "login":
+            self._state.update(projects=value, step=1)
+            if self._state["project"] not in {row["code"] for row in value}:
+                self._state["project"] = value[0]["code"] if value else ""
+        elif operation == "project":
+            self._state.update(
+                {key: value[key] for key in ("shelves", "maya", "pluginCatalog")}
+            )
+            self._state.update(
+                step=2,
+                shelf=value["shelves"][0]["id"] if value["shelves"] else "",
+                plugins=[
+                    row["id"]
+                    for row in value["pluginCatalog"]
+                    if row["id"] not in value["disabled"]
+                ],
+                mayaProfiles=[],
+            )
+        elif operation == "apply":
+            self._state["step"] = 4
+        self.stateChanged.emit()
+
+    @Slot(object)
+    def _failed(self, error):
+        if self._closed:
+            return
+        payload = error[0] if isinstance(error, tuple) and error else error
+        message = str(
+            payload.get("exception", payload) if isinstance(payload, dict) else payload
+        )
+        ticket = getattr(self.session.server, "login_ticket", "")
+        if ticket:
+            message = message.replace(ticket, "[redacted]")
+        self._worker = None
+        self._state.update(busy=False, error=self.tr(message))
+        self.stateChanged.emit()
+
+    def shutdown(self):
+        self._closed = True
+
+
+def main() -> int:
+    from thlib.ui.localization import CatalogTranslator
+    from thlib.ui.icon_font import qml_icon_bindings
+    from thlib.ui.single_instance import SingleInstanceGuard, instance_server_name
+
+    root = Path(__file__).resolve().parents[2]
+    settings = (
+        os.environ.get("TACTIC_QML_TEST_SETTINGS_DIR")
+        or os.environ.get("TACTIC_HANDLER_SETTINGS_DIR")
+        or str(root)
+    )
+    env_mode.set_current_path(str(Path(settings).resolve()))
+    QQuickStyle.setStyle("Material")
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setApplicationName("TACTIC Handler Setup")
+    app.setWindowIcon(QIcon(str(root / "thlib/ui/assets/tactic_favicon.ico")))
+    translator = CatalogTranslator(root / "thlib/ui/translations/ru.json", app)
+    if QLocale.system().name().startswith("ru") or "--ru" in sys.argv:
+        app.installTranslator(translator)
+    # Hold the same ownership lock as TH until setup exits; no competing settings writes.
+    guard = SingleInstanceGuard(
+        instance_server_name("TacticHandler_Client", settings), app
+    )
+    if not guard.start():
+        QMessageBox.information(
+            None,
+            app.applicationName(),
+            app.translate(
+                "Setup",
+                "Close TACTIC Handler, including its tray icon, and run Setup again.",
+            ),
+        )
+        return 1
+    env_inst.ui_super = app
+    env_inst.start_pools()
+    controller = SetupController(root)
+    engine = QQmlApplicationEngine()
+    for name, value in qml_icon_bindings(root, controller).items():
+        engine.rootContext().setContextProperty(name, value)
+    engine.setInitialProperties({"controller": controller})
+    engine.load(
+        QUrl.fromLocalFile(str(root / "thlib/ui/qml/features/setup/SetupWizard.qml"))
+    )
+    if "--smoke" in sys.argv:
+        QTimer.singleShot(800, app.quit)
+    try:
+        return app.exec() if engine.rootObjects() else 1
+    finally:
+        controller.shutdown()
+        env_inst.exit_pools()
+        guard.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

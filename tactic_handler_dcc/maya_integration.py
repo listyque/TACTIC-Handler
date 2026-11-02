@@ -14,6 +14,23 @@ MODULE = "TACTIC_Stream"
 SHELF_COMMAND = "import tactic_stream_maya; tactic_stream_maya.connect(show=True)"
 
 
+def _setup_commands(root, shelf):
+    from .connectors.maya import MayaConnector
+
+    if not isinstance(shelf, dict) or not isinstance(shelf.get("buttons", []), list):
+        raise ValueError("Invalid setup shelf")
+    project = str(shelf.get("project") or "")
+    if shelf.get("buttons") and (not project or project in {".", ".."} or any(c in project for c in "/\\")):
+        raise ValueError("A safe shelf project is required")
+    commands = []
+    for button in shelf.get("buttons", []):
+        script = str(button.get("script") or "")
+        if not script or any(part in {"", ".", ".."} for part in script.replace("\\", "/").split("/")):
+            raise ValueError("A safe custom script path is required")
+        commands.append(MayaConnector._shelf_command(Path(root), project, script))
+    return commands
+
+
 def maya_app_directory() -> Path:
     override = os.environ.get("MAYA_APP_DIR")
     if override:
@@ -101,6 +118,7 @@ def _receipt(profile: Path) -> dict:
     }
     if set(value["files"]) != expected:
         raise ValueError("Invalid Maya integration file inventory")
+    _setup_commands(value["handler_root"], value.get("shelf", {}))
     _validate_paths(profile, list(value["files"]) + ["tactic_stream_payload/integration.json"])
     return value
 
@@ -130,13 +148,13 @@ def _unchanged(profile: Path, relative: str, digest: str) -> bool:
     data = path.read_bytes()
     if _digest(data) == digest:
         return True
-    # Maya serializes shelf appearance on exit; ownership is the single fixed button.
+    # Maya serializes visuals on exit; accept only the exact managed commands.
     if relative == f"prefs/shelves/shelf_{MODULE}.mel":
         text = data.decode("utf-8", errors="replace")
         token = r'(?:-[A-Za-z]\w*|[+-]?(?:\d+(?:\.\d*)?|\.\d+)|"(?:[^"\\]|\\.)*")'
         native_shelf = (
             rf'\s*global proc shelf_{MODULE}\s*\(\s*\)\s*\{{\s*'
-            rf'(?:global string \$gBuffStr\d*;\s*)*shelfButton\s+{token}(?:\s+{token})*\s*;\s*\}}\s*'
+            rf'(?:global string \$gBuffStr\d*;\s*)*(?:shelfButton\s+{token}(?:\s+{token})*\s*;\s*)+\}}\s*'
         )
         visual_flags = set((
             "align annotation backgroundColor command commandRepeatable docTag enable "
@@ -147,10 +165,13 @@ def _unchanged(profile: Path, relative: str, digest: str) -> bool:
         ).split())
         flags = {match[1:] for match in re.findall(token, text) if re.fullmatch(r'-[A-Za-z]\w*', match)}
         commands = re.findall(r'-command\s+("(?:[^"\\]|\\.)*")', text)
+        receipt_path = profile / "tactic_stream_payload/integration.json"
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8")) if receipt_path.is_file() else {}
+        expected_commands = [SHELF_COMMAND] + _setup_commands(receipt.get("handler_root", ""), receipt.get("shelf", {}))
         return (
             re.fullmatch(native_shelf, text) is not None
             and flags <= visual_flags
-            and commands == [json.dumps(SHELF_COMMAND)]
+            and [json.loads(command) for command in commands] == expected_commands
             and '-docTag "tactic_stream/integration"' in text
             and '-sourceType "python"' in text
             and not re.search(r"-(?:doubleClickCommand|dragCallback|dropCallback)\b", text)
@@ -228,7 +249,7 @@ def _clear_bootstrap_bytecode(profile: Path) -> None:
         pass  # Other modules' caches remain owned by their authors.
 
 
-def install(profile: Path | str, handler_root: Path | str) -> None:
+def install(profile: Path | str, handler_root: Path | str, *, shelf=None) -> None:
     profile, root = Path(profile).resolve(), Path(handler_root).resolve()
     if not re.fullmatch(r"20\d{2}", profile.name) or int(profile.name) < 2022:
         raise ValueError("A Python 3 Maya version profile is required")
@@ -239,11 +260,14 @@ def install(profile: Path | str, handler_root: Path | str) -> None:
         raise FileNotFoundError("The Handler Maya shelf icon is unavailable")
     directory, module = _paths(profile)
     state = integration_state(profile)
+    previous = _receipt(profile) if state["managed"] else {}
+    shelf = previous.get("shelf", {}) if shelf is None else shelf
+    commands = _setup_commands(root, shelf)
     if state["status"] in {"Modified files", "Unrecognized integration"}:
         raise ValueError("Existing integration files were modified; preserve or remove them manually first")
-    shelf = profile / "prefs" / "shelves" / f"shelf_{MODULE}.mel"
-    if not state["managed"] and shelf.exists() and not _unchanged(
-        profile, str(shelf.relative_to(profile)).replace("\\", "/"), ""
+    shelf_file = profile / "prefs" / "shelves" / f"shelf_{MODULE}.mel"
+    if not state["managed"] and shelf_file.exists() and not _unchanged(
+        profile, str(shelf_file.relative_to(profile)).replace("\\", "/"), ""
     ):
         raise FileExistsError("The TACTIC_Stream shelf already exists and is not managed by this integration")
     bootstrap = Path(__file__).with_name("maya_bootstrap.py").read_bytes()
@@ -272,8 +296,23 @@ def install(profile: Path | str, handler_root: Path | str) -> None:
             f"-command {json.dumps(SHELF_COMMAND)};\n}}\n"
         ).encode("utf-8"),
     }
+    if commands:
+        extra = []
+        icons = {"save": "content-save-edit.png", "download": "download.png",
+                 "play": "run.png", "play-arrow": "run.png", "wrench": "tune.png"}
+        for button, command in zip(shelf["buttons"], commands):
+            button_icon = icon.with_name(icons.get(button.get("icon"), "tactic_logo.png"))
+            extra.append('    shelfButton -label {0} -annotation {1} -image1 {2} '
+                         '-imageOverlayLabel {0} -useAlpha 1 -width 35 -height 34 '
+                         '-docTag "tactic_stream/integration" -sourceType "python" -command {3};\n'.format(
+                             json.dumps(str(button.get("title") or "Run"), ensure_ascii=False),
+                             json.dumps(str(button.get("description") or button["script"]), ensure_ascii=False),
+                             json.dumps(button_icon.as_posix(), ensure_ascii=False),
+                             json.dumps(command, ensure_ascii=False)))
+        name = f"prefs/shelves/shelf_{MODULE}.mel"
+        data[name] = data[name].decode("utf-8").rsplit("}", 1)[0].encode("utf-8") + ("".join(extra) + "}\n").encode("utf-8")
     receipt_path = directory / "integration.json"
-    receipt = json.dumps({"format": 1, "handler_root": str(root),
+    receipt = json.dumps({"format": 1, "handler_root": str(root), "shelf": shelf,
                           "files": {name: _digest(value) for name, value in data.items()}},
                          ensure_ascii=False, indent=2).encode("utf-8")
     files = {profile / name: value for name, value in data.items()}

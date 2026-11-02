@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.371 - 2026-11-02
+
+- Add a repeatable Windows setup wizard for server sign-in, local repository mapping, DCC plugins, group-filtered Maya shelves and desktop shortcuts.
+- Preserve existing workstation settings and roll back setup-owned files if installation fails.
+
 ## 0.6.0.370 - 2026-11-02
 
 - Remove TH badges from shelf buttons and center their icons; retain runtime details in tooltips.
