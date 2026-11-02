@@ -94,25 +94,26 @@ Server Python is not a Handler script. A server trigger that expects event
 `input` must run from its configured event; clicking a shelf button does not
 provide a trigger payload.
 
-## Runner access by group
+## Custom script access by group
 
-An administrator opens **Administration → Access rules → Runners**, selects the
-project, and clears the group checkboxes for prohibited runners. Search filters
-runner paths and group names. The **All** row denies every runner for that group.
-Save commits the draft; Reset discards it. Checking a box again removes its own
-denial. A denial inherited from another group or the All row must be removed at
-its source. Any matching group denial wins; administrators are exempt.
+Open **Administration → Access rules → Custom scripts**, choose the project,
+and clear the group checkboxes for prohibited scripts. The table includes every
+active custom script: client scripts, server scripts, helpers and other stored
+languages. Search filters script paths and group names. The **All** row denies
+every custom script for that group. Save commits the draft; Reset discards it.
+Checking a box again removes its own denial. Remove inherited or All-row denials
+at their source. Any matching group denial wins; administrators are exempt.
 
-The catalogue contains executable scripts in runners folders and scripts whose
-names end in `_runner`. Helpers are not listed. Buttons inherit the saved runner
-rule, including personal shelves. Unconfigured scripts retain their old access.
-Refresh the scripts/shelf after a permission or membership change. Re-export an
-existing Maya shelf to remove its obsolete visible buttons; cached Maya buttons
-still check current permission before running with the updated connector.
+Shelf buttons inherit their script's access, including personal shelves. No rule
+means the previous access is preserved. Rules control explicit named execution;
+they do not change language capabilities or imports inside an allowed script.
+Refresh scripts/shelves after changing permissions or membership. Re-export an
+old Maya shelf to remove obsolete visible buttons; the updated connector also
+checks current permission when a cached button is clicked.
 
-Rules use the existing group `access_rules` XML, with `group="script_runner"`,
-`key="folder/title"`, `project="project_code"`, `access="deny"`. They do not change
-script code, schema or other native permission scopes. Legacy clients ignore
-this optional scope. Local Python and copied source are not a security sandbox:
-server data permissions remain authoritative. Reconnect old Maya sessions after
-updating Handler so that their connector uses the new permission check.
+Rules retain the native group `access_rules` XML format with
+`group="script_runner"`, `key="folder/title"`, `project="project_code"`,
+`access="deny"`. Script bodies, schema and other native permissions are unchanged.
+Legacy clients ignore this optional scope. Local Python and copied source are
+not a security sandbox: server data permissions remain authoritative. Reconnect
+old Maya sessions after updating Handler to load the updated connector.

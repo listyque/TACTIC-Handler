@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.369 - 2026-11-02
+
+- Show every active custom script in the group access matrix, including helpers, server scripts and non-executable stored languages.
+- Name the section Custom scripts and keep existing saved restrictions and legacy script contracts unchanged.
+
 ## 0.6.0.368 - 2026-11-02
 
 - Add a Runners matrix to Access rules: deny saved entry points by native TACTIC group without editing individual scripts or shelf buttons.

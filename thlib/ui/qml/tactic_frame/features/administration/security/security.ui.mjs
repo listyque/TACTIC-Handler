@@ -36,7 +36,7 @@ export const scopes = [
     ['search_type', 'Search Types'],
     ['process', 'Processes'],
     ['tasks', 'Task statuses'],
-    ['script_runner', 'Runners'],
+    ['script_runner', 'Custom scripts'],
     ['sobject', 'Search Objects'],
     ['sobject_column', 'Field access'],
     ['search_filter', 'Search restrictions'],
@@ -81,7 +81,7 @@ export const scopeDetails = {
     tasks: ['tasks', 'Control access to task workflow statuses.'],
     script_runner: [
         'play',
-        'Clear a checkbox to deny a runner to a group. Any group denial wins. Unconfigured runners stay available; administrators are exempt.'
+        'Clear a checkbox to deny a custom script to a group. Any group denial wins. Unconfigured scripts stay available; administrators are exempt.'
     ],
     sobject: [
         'sobject',

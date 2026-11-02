@@ -262,17 +262,15 @@ def security_request(action: str, project_code: str, identity: str = '',
 
     read_links('project_view')
     targets = metadata['targets']
-    runner_paths = set()
+    script_paths = set()
     for item in Search('config/custom_script').get_sobjects():
         folder = (item.get_value('folder') or '').replace('\\', '/').strip('/')
         title = item.get_value('title') or ''
-        if (item.get_value('s_status', no_exception=True) != 'retired'
-                and item.get_value('language') in ('dcc_python', 'local_python', 'python', 'server_js', 'javascript')
-                and (folder.split('/')[-1] == 'runners' or title.endswith('_runner'))):
-            runner_paths.add('/'.join(filter(None, (folder, title))))
+        if item.get_value('s_status', no_exception=True) != 'retired':
+            script_paths.add('/'.join(filter(None, (folder, title))))
     targets['script_runner'] = [
         {'label': path, 'attributes': {'key': path, 'project': project_code}}
-        for path in sorted(runner_paths, key=str.casefold)
+        for path in sorted(script_paths, key=str.casefold)
     ]
     targets['link'] = links
     targets['gear_menu'] = [

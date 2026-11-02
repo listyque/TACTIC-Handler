@@ -231,6 +231,20 @@ class SecurityMatrixApiTests(unittest.TestCase):
         self.assertEqual(targets['tasks'][1]['attributes'], {'process': 'Review', 'pipeline': 'task/asset'})
         self.assertEqual(targets['gear_menu'][1]['label'], 'Export Selected ...')
 
+    def test_script_access_catalog_includes_helpers_server_and_non_executable_scripts(self):
+        self.tables['config/custom_script'].extend([
+            dict(folder='tools/runners', title='entry_runner', language='dcc_python'),
+            dict(folder='helpers', title='cache_math', language='local_python'),
+            dict(folder='server', title='utility', language='python'),
+            dict(folder='templates', title='view_definition', language='xml'),
+            dict(folder='old', title='retired', language='python', s_status='retired'),
+        ])
+        targets = self.load()['metadata']['targets']['script_runner']
+        self.assertEqual({row['attributes']['key'] for row in targets}, {
+            '*', 'tools/runners/entry_runner', 'helpers/cache_math',
+            'server/utility', 'templates/view_definition',
+        })
+
 
 if __name__ == '__main__':
     unittest.main()

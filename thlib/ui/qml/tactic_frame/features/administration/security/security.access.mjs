@@ -25,7 +25,7 @@ const scopeLabels = {
     gear_menu: 'Menu actions',
     agent_tool: 'AI tools',
     mcp_tool: 'MCP tools',
-    script_runner: 'Runners'
+    script_runner: 'Custom scripts'
 };
 
 export function toolSettings(model, scope) {
