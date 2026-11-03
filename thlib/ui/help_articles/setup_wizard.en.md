@@ -12,8 +12,7 @@ existing installation preserves its settings, logs and local scripts and keeps t
 previous folder beside it for rollback. Close TH, including its tray icon, first.
 The setup bundle is Windows-only; Stream's browser has no local installer counterpart.
 
-You can repeat configuration later with **TH Setup.exe** in the application folder
-or the **TACTIC Handler Setup** desktop shortcut. TH must remain closed during setup.
+You can repeat configuration later with **TH Setup.exe** in the application folder. TH must remain closed during setup.
 The progress track below the form shows all five steps. Forms remain scrollable,
 errors appear beside the current step,
 and the review page lists each setting separately before Apply.
@@ -27,7 +26,7 @@ and the review page lists each setting separately before Apply.
    Failed credentials, connection/HTTP/certificate failures and project-list
    permissions have separate messages. A credential rejection identifies the
    login/password pair; the server does not identify which one was incorrect.
-2. Choose a project, repository alias and a local or network folder. For a new
+2. Choose a project and a local or network repository folder. For a new
    configuration, the default is **repo** inside the selected TH installation
    folder. Apply creates it if needed; an existing configured path stays selected.
    Other folders must already exist. Updates preserve the installation's **repo** folder.
@@ -36,8 +35,10 @@ and the review page lists each setting separately before Apply.
    for Python 3 profiles (2022 or newer). Select its closed versions and a project
    shelf; select **Launcher only** to omit custom script buttons. Other listed DCC
    adapters can be enabled here; their native installation remains manual.
-4. Review the settings and choose whether to create desktop shortcuts for TH and
-   Setup. Press **Apply**, then **Finish**. Restart Maya before using its integration.
+4. Review the settings, choose the interface language, light or dark theme,
+   whether closing the window keeps TH in the system tray, and whether to create
+   a desktop shortcut for **TACTIC Handler**. Press **Apply**, then **Finish**.
+   Restart Maya before using its integration.
 
 Only the signed-in user's personal shelves and shared shelves are offered. The
 button preview excludes missing scripts, unsupported languages and scripts denied
@@ -57,5 +58,5 @@ To build a preconfigured team installer without a compiler or external Python,
 run **TH Setup Builder.exe** from the application folder. Choose the base
 installer (or a previously generated EXE), set the public defaults (server,
 project code, installation folder, repository folder name, DCC plugins, default
-shelf and desktop shortcuts), and click **Create EXE**. Logins, passwords and
+shelf, language, theme, tray behavior and desktop shortcut), and click **Create EXE**. Logins, passwords and
 session tickets are never stored in generated installers.

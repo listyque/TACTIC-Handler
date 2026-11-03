@@ -12,7 +12,7 @@ internal static class SetupPresets
     private const string Magic = "TH_SETUP_CFG_001";
     private const int MaxConfig = 65536;
     private static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = MaxConfig };
-    private static readonly string[] Keys = { "server", "project", "install_folder", "repository_name", "plugins", "shelf", "shortcuts" };
+    private static readonly string[] Keys = { "server", "project", "install_folder", "repository_name", "plugins", "shelf", "shortcuts", "language", "dark_theme", "close_to_tray" };
 
     internal static Dictionary<string, object> Defaults(Dictionary<string, object> value)
     {
@@ -36,12 +36,15 @@ internal static class SetupPresets
         var defaults = value["defaults"] as Dictionary<string, object>;
         if (defaults == null || defaults.Keys.Any(key => !Keys.Contains(key)))
             throw new InvalidDataException("Setup presets may contain only public deployment settings. Credentials are not allowed.");
-        foreach (string key in new[] { "server", "project", "install_folder", "repository_name", "shelf" })
+        foreach (string key in new[] { "server", "project", "install_folder", "repository_name", "shelf", "language" })
         {
             object item;
             if (defaults.TryGetValue(key, out item) && (!(item is string) || ((string)item).Length > 2048 || ((string)item).Any(char.IsControl)))
                 throw new InvalidDataException("Invalid setup preset: " + key);
         }
+        string language = Text(defaults, "language").ToLowerInvariant();
+        if (language.Length > 0 && language != "en" && language != "ru")
+            throw new InvalidDataException("Invalid language preset.");
         string server = Text(defaults, "server");
         Uri uri;
         if (server.Length > 0 && (!Uri.TryCreate(server, UriKind.Absolute, out uri) || (uri.Scheme != "http" && uri.Scheme != "https")
@@ -63,6 +66,12 @@ internal static class SetupPresets
         object shortcuts;
         if (defaults.TryGetValue("shortcuts", out shortcuts) && !(shortcuts is bool))
             throw new InvalidDataException("Invalid shortcut preset.");
+        foreach (string flag in new[] { "dark_theme", "close_to_tray" })
+        {
+            object item;
+            if (defaults.TryGetValue(flag, out item) && !(item is bool))
+                throw new InvalidDataException("Invalid setup preset: " + flag);
+        }
         return value;
     }
 

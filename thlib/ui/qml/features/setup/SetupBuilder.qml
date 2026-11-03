@@ -160,10 +160,43 @@ Window {
                         }
                     }
                 }
+                Controls.SectionLabel {
+                    theme: rootTheme
+                    text: qsTr("Language")
+                }
+                Controls.ComboBox {
+                    objectName: "builderLanguage"
+                    theme: rootTheme
+                    Layout.fillWidth: true
+                    model: [
+                        { id: "", title: qsTr("System default") },
+                        { id: "ru", title: "Русский" },
+                        { id: "en", title: "English" }
+                    ]
+                    textRole: "title"
+                    valueRole: "id"
+                    translateDisplayText: false
+                    currentIndex: Math.max(0, model.findIndex(row => row.id === (root.state.defaults.language || "")))
+                    onActivated: root.controller.edit("language", currentValue)
+                }
+                Controls.CheckBox {
+                    objectName: "builderDarkTheme"
+                    theme: rootTheme
+                    text: qsTr("Dark theme by default")
+                    checked: root.state.defaults.dark_theme !== false
+                    onToggled: root.controller.edit("dark_theme", checked)
+                }
+                Controls.CheckBox {
+                    objectName: "builderCloseToTray"
+                    theme: rootTheme
+                    text: qsTr("Keep in system tray when closing the window")
+                    checked: root.state.defaults.close_to_tray !== false
+                    onToggled: root.controller.edit("close_to_tray", checked)
+                }
                 Controls.CheckBox {
                     objectName: "builderShortcuts"
                     theme: rootTheme
-                    text: qsTr("Create desktop shortcuts by default")
+                    text: qsTr("Create a desktop shortcut by default")
                     checked: root.state.defaults.shortcuts
                     onToggled: root.controller.edit("shortcuts", checked)
                 }

@@ -119,12 +119,19 @@ def read_initial() -> dict:
         if active
         else ("base", [""])
     )
+    from PySide6.QtCore import QLocale
+    from thlib.ui.localization import normalize_language
+
+    default_lang = "ru" if QLocale.system().name().startswith("ru") else "en"
     return {
         "server": values.get("server") or "",
         "login": values.get("user") or "",
         "project": ui.get("server/currentProject", ""),
         "repository": repository[0],
         "repositoryAlias": alias,
+        "language": normalize_language(ui.get("appearance/language") or default_lang),
+        "darkTheme": bool(ui.get("appearance/darkTheme", True)),
+        "closeToTray": bool(ui.get("application/closeToTray", True)),
     }
 
 
@@ -269,24 +276,22 @@ def create_shortcuts(desktop: Path, bundle: Path) -> None:
     """Use the Windows Shell's actual Desktop location, including redirection."""
     if os.name != "nt":
         raise OSError("Desktop shortcuts require Windows")
-    targets = [
-        ("TACTIC Handler", bundle / "TACTIC Handler.exe"),
-        ("TACTIC Handler Setup", bundle / "TH Setup.exe"),
-    ]
-    if any(not target.is_file() for _, target in targets):
-        raise FileNotFoundError("Keep both EXE launchers with the Handler runtime")
+    target = bundle / "TACTIC Handler.exe"
+    if not target.is_file():
+        raise FileNotFoundError("Keep TACTIC Handler.exe with the Handler runtime")
     # Pass paths as environment values, never interpolate them as PowerShell code.
-    script = "$shell = New-Object -ComObject WScript.Shell\n"
-    environment = dict(os.environ)
-    for index, (name, target) in enumerate(targets):
-        environment[f"TH_SETUP_LINK_{index}"] = str(desktop / (name + ".lnk"))
-        environment[f"TH_SETUP_TARGET_{index}"] = str(target)
-        script += (
-            f"$link = $shell.CreateShortcut($env:TH_SETUP_LINK_{index})\n"
-            f"$link.TargetPath = $env:TH_SETUP_TARGET_{index}\n"
-            f"$link.WorkingDirectory = [IO.Path]::GetDirectoryName($env:TH_SETUP_TARGET_{index})\n"
-            f"$link.IconLocation = $env:TH_SETUP_TARGET_{index} + ',0'\n$link.Save()\n"
-        )
+    environment = dict(
+        os.environ,
+        TH_SETUP_LINK_0=str(desktop / "TACTIC Handler.lnk"),
+        TH_SETUP_TARGET_0=str(target),
+    )
+    script = (
+        "$shell = New-Object -ComObject WScript.Shell\n"
+        "$link = $shell.CreateShortcut($env:TH_SETUP_LINK_0)\n"
+        "$link.TargetPath = $env:TH_SETUP_TARGET_0\n"
+        "$link.WorkingDirectory = [IO.Path]::GetDirectoryName($env:TH_SETUP_TARGET_0)\n"
+        "$link.IconLocation = $env:TH_SETUP_TARGET_0 + ',0'\n$link.Save()\n"
+    )
     desktop.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
@@ -311,7 +316,7 @@ def apply_setup(session: SetupSession, root: Path, values: dict, desktop: Path) 
         raise ValueError(
             "Choose an existing repository folder accessible from this computer"
         )
-    alias = values["repositoryAlias"]
+    alias = values.get("repositoryAlias") or "base"
     keys = {
         "base": "asset_base_dir",
         "client": "win32_client_repo_dir",
@@ -360,9 +365,7 @@ def apply_setup(session: SetupSession, root: Path, values: dict, desktop: Path) 
                 "prefs/shelves/shelf_TACTIC_Stream.mel",
             )
         )
-    links = [
-        desktop / (name + ".lnk") for name in ("TACTIC Handler", "TACTIC Handler Setup")
-    ]
+    links = [desktop / "TACTIC Handler.lnk"]
     if values["shortcuts"]:
         paths.extend(links)
     if any(path.is_symlink() for path in paths):
@@ -432,6 +435,8 @@ def apply_setup(session: SetupSession, root: Path, values: dict, desktop: Path) 
             long_abs_path=True,
             scope="installation",
         )
+        from thlib.ui.localization import normalize_language
+
         ui_settings = (
             env_read_config(
                 filename="ui_settings", unique_id="ui_main", long_abs_path=True
@@ -439,6 +444,12 @@ def apply_setup(session: SetupSession, root: Path, values: dict, desktop: Path) 
             or {}
         )
         ui_settings["server/currentProject"] = session.project
+        if "language" in values:
+            ui_settings["appearance/language"] = normalize_language(values["language"])
+        if "darkTheme" in values:
+            ui_settings["appearance/darkTheme"] = bool(values["darkTheme"])
+        if "closeToTray" in values:
+            ui_settings["application/closeToTray"] = bool(values["closeToTray"])
         env_write_config(
             ui_settings, filename="ui_settings", unique_id="ui_main", long_abs_path=True
         )

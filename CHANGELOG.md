@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0.376 - 2026-11-03
+
+### Changed
+
+- Simplified the Setup Wizard repository step to a single folder chooser (using the `base` repository mapping automatically) without a separate alias selector.
+- Added interface language (`ru` / `en`), theme (`dark` / `light`), and close-to-tray (`application/closeToTray`) settings to the Setup Wizard (with live language and theme switching) and to `TH Setup Builder` defaults.
+- Changed desktop shortcut creation to create only `TACTIC Handler.lnk` (no desktop shortcut for the setup wizard).
+- Fixed shelf button icon preview binding (`iconName`) and added an explicit hint when the selected server project has no shared or personal shelves yet.
+
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 

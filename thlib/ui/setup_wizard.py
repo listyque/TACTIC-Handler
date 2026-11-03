@@ -37,8 +37,13 @@ class SetupController(QObject):
         self._worker = None
         self._catalog_key = None
         self._presets = read_setup_defaults(root)
+        initial = read_initial()
+        has_presets = (root.parent / "setup-defaults.json").is_file()
+        self._app = None
+        self._translator = None
+        self._engine = None
         self._state = {
-            **read_initial(),
+            **initial,
             "server": self._presets["server"],
             "login": "",
             "step": 0,
@@ -52,11 +57,34 @@ class SetupController(QObject):
             "maya": [],
             "mayaProfiles": [],
             "shortcuts": self._presets["shortcuts"],
+            "language": self._presets["language"] or initial["language"],
+            "darkTheme": (
+                self._presets["dark_theme"] if has_presets else initial["darkTheme"]
+            ),
+            "closeToTray": (
+                self._presets["close_to_tray"]
+                if has_presets
+                else initial["closeToTray"]
+            ),
         }
         if not self._state["repository"]:
             self._state["repository"] = str(default_repository(root))
         if self._presets["project"]:
             self._state["project"] = self._presets["project"]
+
+    def attach_localization(self, app, translator, engine):
+        self._app, self._translator, self._engine = app, translator, engine
+        self._apply_language(self._state["language"])
+
+    def _apply_language(self, language: str):
+        if self._app is None or self._translator is None:
+            return
+        self._app.removeTranslator(self._translator)
+        if language == "ru":
+            self._app.installTranslator(self._translator)
+        QLocale.setDefault(QLocale("ru_RU" if language == "ru" else "en_US"))
+        if self._engine is not None:
+            self._engine.retranslate()
 
     @Property("QVariantMap", notify=stateChanged)
     def state(self):
@@ -64,7 +92,13 @@ class SetupController(QObject):
 
     @Slot(str, str)
     def edit(self, key, value):
-        if not self._state["busy"] and key in {
+        if self._state["busy"]:
+            return
+        if key == "language" and value in {"en", "ru"}:
+            self._state["language"] = value
+            self._apply_language(value)
+            self.stateChanged.emit()
+        elif key in {
             "server",
             "login",
             "project",
@@ -85,8 +119,8 @@ class SetupController(QObject):
             self._state[key] = sorted(selected)
             if key == "plugins" and identity == "maya" and not enabled:
                 self._state["mayaProfiles"] = []
-        elif key == "shortcuts":
-            self._state[key] = enabled
+        elif key in {"shortcuts", "darkTheme", "closeToTray"}:
+            self._state[key] = bool(enabled)
         self.stateChanged.emit()
 
     @Slot()
@@ -219,7 +253,7 @@ class SetupController(QObject):
                             for row in value["shelves"]
                             if self._presets["shelf"] in {row["id"], row["title"]}
                         ),
-                        "",
+                        shelf,
                     )
                 plugins = [
                     row["id"]
@@ -314,7 +348,11 @@ def main(*, builder=False) -> int:
         controller = SetupBuilderController(root)
     else:
         controller = SetupController(root)
+        if "--ru" in sys.argv:
+            controller._state["language"] = "ru"
     engine = QQmlApplicationEngine()
+    if not builder:
+        controller.attach_localization(app, translator, engine)
     appearance = WindowAppearanceController(controller)
     engine.rootContext().setContextProperty("windowAppearanceController", appearance)
     for name, value in qml_icon_bindings(root, controller).items():

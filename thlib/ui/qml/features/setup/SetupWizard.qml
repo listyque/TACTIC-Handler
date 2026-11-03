@@ -25,7 +25,11 @@ Window {
     onClosing: event => event.accepted = !root.state.busy
     App.Theme {
         id: wizardTheme
-        dark: true
+        dark: root.state.darkTheme !== false
+        onDarkChanged: {
+            if (typeof windowAppearanceController !== "undefined")
+                windowAppearanceController.apply(root, wizardTheme.dark, wizardTheme.workspace, wizardTheme.primaryText);
+        }
     }
     Component.onCompleted: {
         if (typeof windowAppearanceController !== "undefined")
@@ -189,35 +193,27 @@ Window {
                                 }
                                 Controls.SectionLabel {
                                     theme: wizardTheme
-                                    text: qsTr("Repository alias")
-                                }
-                                Controls.ComboBox {
-                                    objectName: "setupRepositoryAlias"
-                                    theme: wizardTheme
-                                    Layout.fillWidth: true
-                                    model: ["base", "client", "local", "sandbox"]
-                                    currentIndex: model.indexOf(root.state.repositoryAlias)
-                                    onActivated: root.controller.edit("repositoryAlias", currentText)
-                                }
-                                Controls.SectionLabel {
-                                    theme: wizardTheme
                                     text: qsTr("Repository folder on this computer")
                                 }
-                                Controls.TextField {
-                                    objectName: "setupRepository"
-                                    theme: wizardTheme
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    text: root.state.repository
-                                    onTextEdited: root.controller.edit("repository", text)
-                                }
-                                Controls.Button {
-                                    theme: wizardTheme
-                                    text: qsTr("Browse…")
-                                    onClicked: root.controller.browse()
+                                    spacing: Foundation.spacing.compact
+                                    Controls.TextField {
+                                        objectName: "setupRepository"
+                                        theme: wizardTheme
+                                        Layout.fillWidth: true
+                                        text: root.state.repository
+                                        onTextEdited: root.controller.edit("repository", text)
+                                    }
+                                    Controls.Button {
+                                        theme: wizardTheme
+                                        text: qsTr("Browse…")
+                                        onClicked: root.controller.browse()
+                                    }
                                 }
                                 Controls.SectionLabel {
                                     theme: wizardTheme
-                                    text: qsTr("Use a local folder or a network share. This maps the selected repository on this PC; server paths stay unchanged.")
+                                    text: qsTr("Use a local folder or a network share. Server paths stay unchanged.")
                                     wrapMode: Text.Wrap
                                     Layout.fillWidth: true
                                 }
@@ -287,6 +283,15 @@ Window {
                                     currentIndex: root.state.shelf ? root.state.shelves.findIndex(row => row.id === root.state.shelf) + 1 : 0
                                     onActivated: root.controller.edit("shelf", currentValue)
                                 }
+                                Controls.SectionLabel {
+                                    objectName: "setupNoShelvesNote"
+                                    theme: wizardTheme
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.Wrap
+                                    visible: root.state.shelves.length === 0
+                                    font.weight: Font.Normal
+                                    text: qsTr("No shared or personal shelves found in this project on the server.")
+                                }
                                 Flow {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: childrenRect.height
@@ -301,7 +306,7 @@ Window {
                                             height: wizardTheme.controlHeight
                                             Controls.MaterialIcon {
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                name: modelData.icon === "box" ? "package-variant" : modelData.icon || "play-arrow"
+                                                name: (modelData.iconName || modelData.icon) === "box" ? "package-variant" : (modelData.iconName || modelData.icon || "play-arrow")
                                                 size: Foundation.textStyles.display
                                                 color: wizardTheme.action
                                             }
@@ -394,10 +399,65 @@ Window {
                                         }
                                     }
                                 }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Foundation.spacing.section
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Foundation.spacing.compact
+                                        Controls.SectionLabel {
+                                            theme: wizardTheme
+                                            text: qsTr("Language")
+                                        }
+                                        Controls.ComboBox {
+                                            objectName: "setupLanguage"
+                                            theme: wizardTheme
+                                            Layout.fillWidth: true
+                                            model: [
+                                                { id: "ru", title: "Русский" },
+                                                { id: "en", title: "English" }
+                                            ]
+                                            textRole: "title"
+                                            valueRole: "id"
+                                            translateDisplayText: false
+                                            currentIndex: Math.max(0, model.findIndex(row => row.id === root.state.language))
+                                            onActivated: root.controller.edit("language", currentValue)
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Foundation.spacing.compact
+                                        Controls.SectionLabel {
+                                            theme: wizardTheme
+                                            text: qsTr("Theme")
+                                        }
+                                        Controls.ComboBox {
+                                            objectName: "setupTheme"
+                                            theme: wizardTheme
+                                            Layout.fillWidth: true
+                                            model: [
+                                                { id: "dark", title: qsTr("Dark") },
+                                                { id: "light", title: qsTr("Light") }
+                                            ]
+                                            textRole: "title"
+                                            valueRole: "id"
+                                            translateDisplayText: false
+                                            currentIndex: root.state.darkTheme !== false ? 0 : 1
+                                            onActivated: root.controller.toggle("darkTheme", "", currentValue === "dark")
+                                        }
+                                    }
+                                }
+                                Controls.CheckBox {
+                                    objectName: "setupCloseToTray"
+                                    theme: wizardTheme
+                                    text: qsTr("Keep in system tray when closing the window")
+                                    checked: root.state.closeToTray !== false
+                                    onToggled: root.controller.toggle("closeToTray", "", checked)
+                                }
                                 Controls.CheckBox {
                                     objectName: "setupShortcuts"
                                     theme: wizardTheme
-                                    text: qsTr("Create desktop shortcuts for TH and Setup")
+                                    text: qsTr("Create a desktop shortcut for TACTIC Handler")
                                     checked: root.state.shortcuts
                                     onToggled: root.controller.toggle("shortcuts", "", checked)
                                 }

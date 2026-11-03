@@ -88,11 +88,13 @@ class SetupTests(unittest.TestCase):
         values = dict(
             project="demo",
             repository=str(repository),
-            repositoryAlias="base",
             shelf="global",
             plugins=["maya"],
             mayaProfiles=[str(profile.resolve())],
             shortcuts=False,
+            language="en",
+            darkTheme=False,
+            closeToTray=False,
         )
         original_discover = maya_integration.discover
         discovery = lambda: original_discover(
@@ -125,26 +127,38 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(source, original)
 
     def test_install_rerun_and_remove_with_native_config_and_managed_shelf(self):
+        from thlib.ui.setup_service import create_shortcuts
+
         session, values, profile, discover = self.fixtures()
-        values["repositoryAlias"] = "local"
+        desktop = self.directory / "desktop"
+        bundle = self.directory / "bundle"
+        bundle.mkdir(parents=True)
+        (bundle / "TACTIC Handler.exe").write_bytes(b"MZ")
+        create_shortcuts(desktop, bundle)
+        self.assertTrue((desktop / "TACTIC Handler.lnk").exists())
+        self.assertFalse((desktop / "TACTIC Handler Setup.lnk").exists())
         with patch.object(maya_integration, "discover", side_effect=discover):
-            apply_setup(session, ROOT, values, self.directory / "desktop")
-            apply_setup(session, ROOT, values, self.directory / "desktop")
+            apply_setup(session, ROOT, values, desktop)
+            apply_setup(session, ROOT, values, desktop)
         self.assertEqual(read_initial()["repository"], values["repository"])
         self.assertEqual(env_server.get_user(), "artist")
         self.assertEqual(
-            env_tactic.base_dirs["win32_local_repo_dir"][0], values["repository"]
+            env_tactic.base_dirs["asset_base_dir"][0], values["repository"]
         )
-        self.assertEqual(read_initial()["repositoryAlias"], "local")
+        self.assertEqual(read_initial()["repositoryAlias"], "base")
+        self.assertEqual(read_initial()["language"], "en")
+        self.assertFalse(read_initial()["darkTheme"])
+        self.assertFalse(read_initial()["closeToTray"])
         self.assertEqual(
             SetupController(ROOT).state["repository"], values["repository"]
         )
-        self.assertEqual(
-            env_read_config(
-                filename="ui_settings", unique_id="ui_main", long_abs_path=True
-            )["server/currentProject"],
-            "demo",
+        ui_cfg = env_read_config(
+            filename="ui_settings", unique_id="ui_main", long_abs_path=True
         )
+        self.assertEqual(ui_cfg["server/currentProject"], "demo")
+        self.assertEqual(ui_cfg["appearance/language"], "en")
+        self.assertFalse(ui_cfg["appearance/darkTheme"])
+        self.assertFalse(ui_cfg["application/closeToTray"])
         mel = profile / "prefs/shelves/shelf_TACTIC_Stream.mel"
         self.assertIn("tools/save", mel.read_text())
         # Native Maya changes whitespace/visuals when saving preferences.
@@ -448,6 +462,15 @@ class SetupTests(unittest.TestCase):
                         self.assertLessEqual(edge, width)
                     self.assertEqual(warnings, [])
             self.assertEqual(item("setupPassword").property("text"), "")
+            self.assertIsNone(item("setupRepositoryAlias"))
+            controller._state.update(
+                step=2,
+                shelf="",
+                shelves=[],
+            )
+            controller.stateChanged.emit()
+            QTest.qWait(30)
+            self.assertTrue(item("setupNoShelvesNote").property("visible"))
             controller._state.update(
                 step=2,
                 shelf="one",
@@ -455,7 +478,20 @@ class SetupTests(unittest.TestCase):
             )
             controller.stateChanged.emit()
             QTest.qWait(30)
+            self.assertFalse(item("setupNoShelvesNote").property("visible"))
             self.assertEqual(item("setupShelf").property("currentText"), "Assets Shelf")
+            controller.attach_localization(self.app, translator, engine)
+            controller.edit("language", "en")
+            controller.toggle("darkTheme", "", False)
+            controller.toggle("closeToTray", "", False)
+            QTest.qWait(30)
+            self.assertEqual(controller.state["language"], "en")
+            self.assertFalse(controller.state["darkTheme"])
+            self.assertFalse(controller.state["closeToTray"])
+            self.assertEqual(window.property("title"), "TACTIC Handler Setup")
+            controller.edit("language", "ru")
+            QTest.qWait(30)
+            self.assertEqual(window.property("title"), "Настройка TACTIC Handler")
         finally:
             controller.shutdown()
             window.close()

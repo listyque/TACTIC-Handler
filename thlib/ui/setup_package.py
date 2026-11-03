@@ -23,6 +23,9 @@ DEFAULTS = {
     "plugins": None,
     "shelf": "",
     "shortcuts": True,
+    "language": "",
+    "dark_theme": True,
+    "close_to_tray": True,
 }
 
 
@@ -32,7 +35,14 @@ def validate_defaults(values: dict) -> dict:
             "Setup presets may contain only public deployment settings; credentials are not allowed"
         )
     result = {**DEFAULTS, **values}
-    for key in ("server", "project", "install_folder", "repository_name", "shelf"):
+    for key in (
+        "server",
+        "project",
+        "install_folder",
+        "repository_name",
+        "shelf",
+        "language",
+    ):
         value = result[key]
         if (
             not isinstance(value, str)
@@ -41,6 +51,9 @@ def validate_defaults(values: dict) -> dict:
         ):
             raise ValueError("Invalid setup preset: " + key)
         result[key] = value.strip()
+    result["language"] = result["language"].lower()
+    if result["language"] not in {"", "en", "ru"}:
+        raise ValueError("Invalid language preset")
     server = normalize_tactic_server_url(result["server"])
     parsed = urlparse(server)
     if server and (
@@ -80,6 +93,10 @@ def validate_defaults(values: dict) -> dict:
         )
     if not isinstance(result["shortcuts"], bool):
         raise ValueError("Invalid desktop shortcut preset")
+    if not isinstance(result["dark_theme"], bool) or not isinstance(
+        result["close_to_tray"], bool
+    ):
+        raise ValueError("Invalid appearance or tray preset")
     plugins = result["plugins"]
     if plugins is not None and (
         not isinstance(plugins, list)

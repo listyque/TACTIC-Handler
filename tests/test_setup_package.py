@@ -155,6 +155,9 @@ class SetupPackageTests(unittest.TestCase):
                             "plugins": ["maya"],
                             "shelf": "Assets Shelf",
                             "shortcuts": False,
+                            "language": "en",
+                            "dark_theme": False,
+                            "close_to_tray": False,
                         },
                     }
                 )
@@ -168,6 +171,9 @@ class SetupPackageTests(unittest.TestCase):
                     controller.state["repository"], str(app.parent / "studio_repo")
                 )
                 self.assertFalse(controller.state["shortcuts"])
+                self.assertEqual(controller.state["language"], "en")
+                self.assertFalse(controller.state["darkTheme"])
+                self.assertFalse(controller.state["closeToTray"])
                 controller._finished(
                     (
                         "project",
