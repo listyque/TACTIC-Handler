@@ -23,6 +23,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from thlib.environment import env_inst, env_mode
 from thlib.ui.setup_service import SetupSession, apply_setup, read_initial
+from thlib.ui.setup_package import read_setup_defaults, default_repository
 
 
 class SetupController(QObject):
@@ -35,9 +36,10 @@ class SetupController(QObject):
         self._closed = False
         self._worker = None
         self._catalog_key = None
+        self._presets = read_setup_defaults(root)
         self._state = {
             **read_initial(),
-            "server": "",
+            "server": self._presets["server"],
             "login": "",
             "step": 0,
             "busy": False,
@@ -49,10 +51,12 @@ class SetupController(QObject):
             "pluginCatalog": [],
             "maya": [],
             "mayaProfiles": [],
-            "shortcuts": True,
+            "shortcuts": self._presets["shortcuts"],
         }
         if not self._state["repository"]:
-            self._state["repository"] = str(root.parent / "repo")
+            self._state["repository"] = str(default_repository(root))
+        if self._presets["project"]:
+            self._state["project"] = self._presets["project"]
 
     @Property("QVariantMap", notify=stateChanged)
     def state(self):
@@ -112,7 +116,7 @@ class SetupController(QObject):
                 Path(self._state["repository"]).expanduser(),
             )
             default_missing = (
-                repository == self.root.parent / "repo" and not repository.exists()
+                repository == default_repository(self.root) and not repository.exists()
             )
             if not repository.is_absolute() or (
                 not repository.is_dir() and not default_missing
@@ -208,12 +212,27 @@ class SetupController(QObject):
                 ]
             else:
                 shelf = value["shelves"][0]["id"] if value["shelves"] else ""
+                if self._presets["shelf"]:
+                    shelf = next(
+                        (
+                            row["id"]
+                            for row in value["shelves"]
+                            if self._presets["shelf"] in {row["id"], row["title"]}
+                        ),
+                        "",
+                    )
                 plugins = [
                     row["id"]
                     for row in value["pluginCatalog"]
                     if row["id"] not in value["disabled"]
                 ]
                 profiles = []
+                if self._presets["plugins"] is not None:
+                    plugins = [
+                        identity
+                        for identity in self._presets["plugins"]
+                        if identity in plugin_ids
+                    ]
             self._state.update(
                 {key: value[key] for key in ("shelves", "maya", "pluginCatalog")}
             )
@@ -247,9 +266,10 @@ class SetupController(QObject):
         self._closed = True
 
 
-def main() -> int:
+def main(*, builder=False) -> int:
     from thlib.ui.localization import CatalogTranslator
     from thlib.ui.icon_font import qml_icon_bindings
+    from thlib.ui.window_appearance import WindowAppearanceController
     from thlib.ui.single_instance import SingleInstanceGuard, instance_server_name
 
     root = Path(__file__).resolve().parents[2]
@@ -261,14 +281,18 @@ def main() -> int:
     env_mode.set_current_path(str(Path(settings).resolve()))
     QQuickStyle.setStyle("Material")
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName("TACTIC Handler Setup")
+    app.setApplicationName("TH Setup Builder" if builder else "TACTIC Handler Setup")
     app.setWindowIcon(QIcon(str(root / "thlib/ui/assets/tactic_favicon.ico")))
     translator = CatalogTranslator(root / "thlib/ui/translations/ru.json", app)
     if QLocale.system().name().startswith("ru") or "--ru" in sys.argv:
         app.installTranslator(translator)
     # Hold the same ownership lock as TH until setup exits; no competing settings writes.
     guard = SingleInstanceGuard(
-        instance_server_name("TacticHandler_Client", settings), app
+        instance_server_name(
+            "TacticHandler_SetupBuilder" if builder else "TacticHandler_Client",
+            settings,
+        ),
+        app,
     )
     if not guard.start():
         QMessageBox.information(
@@ -276,20 +300,28 @@ def main() -> int:
             app.applicationName(),
             app.translate(
                 "Setup",
-                "Close TACTIC Handler, including its tray icon, and run Setup again.",
+                "Setup Builder is already open."
+                if builder
+                else "Close TACTIC Handler, including its tray icon, and run Setup again.",
             ),
         )
-        return 1
+        return 0
     env_inst.ui_super = app
     env_inst.start_pools()
-    controller = SetupController(root)
+    if builder:
+        from .setup_builder import SetupBuilderController
+
+        controller = SetupBuilderController(root)
+    else:
+        controller = SetupController(root)
     engine = QQmlApplicationEngine()
+    appearance = WindowAppearanceController(controller)
+    engine.rootContext().setContextProperty("windowAppearanceController", appearance)
     for name, value in qml_icon_bindings(root, controller).items():
         engine.rootContext().setContextProperty(name, value)
     engine.setInitialProperties({"controller": controller})
-    engine.load(
-        QUrl.fromLocalFile(str(root / "thlib/ui/qml/features/setup/SetupWizard.qml"))
-    )
+    view = "SetupBuilder.qml" if builder else "SetupWizard.qml"
+    engine.load(QUrl.fromLocalFile(str(root / "thlib/ui/qml/features/setup" / view)))
     if "--smoke" in sys.argv:
         QTimer.singleShot(800, app.quit)
     try:
@@ -301,4 +333,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(builder="--builder" in sys.argv))

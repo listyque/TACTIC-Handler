@@ -16,13 +16,17 @@ internal static class Launcher
             string script = Path.Combine(application, "launch.py");
             if (!File.Exists(python) || !File.Exists(script))
                 throw new FileNotFoundException("Keep the EXE together with the runtime and TACTIC-Handler folders.");
-#if SETUP_WIZARD
+#if SETUP_BUILDER
+            string arguments = "-I -B -X utf8 -m thlib.ui.setup_wizard --builder";
+#elif SETUP_WIZARD
             string arguments = "-I -B -X utf8 -m thlib.ui.setup_wizard";
+#else
+            string arguments = "-I -B -X utf8 \"" + script + "\"";
+#endif
+#if SETUP_WIZARD || SETUP_BUILDER
             foreach (string argument in args)
                 if (argument == "--smoke" || argument == "--ru")
                     arguments += " " + argument;
-#else
-            string arguments = "-I -B -X utf8 \"" + script + "\"";
 #endif
             var start = new ProcessStartInfo(python, arguments);
             start.WorkingDirectory = root;

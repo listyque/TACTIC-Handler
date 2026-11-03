@@ -26,7 +26,7 @@ internal static class Installer
                 throw new IOException("Choose a folder without directory links: " + path);
     }
 
-    private static string Hash(Stream stream)
+    internal static string Hash(Stream stream)
     {
         using (var algorithm = SHA256.Create())
             return BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
@@ -85,6 +85,7 @@ internal static class Installer
     // Called by the UI and by the packaging check on a disposable target.
     internal static string Extract(string destination)
     {
+        var presets = SetupPresets.ReadInstaller();
         string target = Path.GetFullPath(destination).TrimEnd('\\', '/');
         if (target == Path.GetPathRoot(target).TrimEnd('\\', '/') || File.Exists(target))
             throw new IOException("Choose an application folder.");
@@ -117,13 +118,17 @@ internal static class Installer
                 }
         }
         VerifyFiles(stage);
+        SetupPresets.Install(stage, presets);
         if (!File.Exists(Path.Combine(stage, "TH Setup.exe"))) throw new InvalidDataException("Setup launcher is missing.");
         string rollback = null;
         if (Directory.Exists(target))
         {
             CheckClosed(target);
             if (File.Exists(Path.Combine(target, "SHA256SUMS"))) VerifyFiles(target);
-            foreach (string state in StateFolders)
+            var folders = new System.Collections.Generic.HashSet<string>(StateFolders);
+            folders.Add(SetupPresets.PreviousRepository(target));
+            folders.Add(SetupPresets.Text(SetupPresets.Defaults(presets), "repository_name", "repo"));
+            foreach (string state in folders)
             {
                 string source = Under(target, state);
                 if (Directory.Exists(source)) CopyTree(source, Under(stage, state));
@@ -157,7 +162,13 @@ internal static class Installer
         using (var picker = new FolderBrowserDialog())
         {
             picker.Description = "TACTIC Handler — choose an installation folder. Existing settings are preserved.";
-            picker.SelectedPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TACTIC Handler");
+            try
+            {
+                string folder = SetupPresets.Text(SetupPresets.Defaults(SetupPresets.ReadInstaller()), "install_folder");
+                picker.SelectedPath = folder.Length > 0 ? Environment.ExpandEnvironmentVariables(folder)
+                    : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TACTIC Handler");
+            }
+            catch (Exception error) { MessageBox.Show(error.Message, "TACTIC Handler Setup", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
             if (picker.ShowDialog() != DialogResult.OK) return 0;
             using (var window = new Form())
             {

@@ -16,6 +16,7 @@ from xmlrpc.client import Fault, ProtocolError, ResponseError, ServerProxy, Tran
 
 from thlib.environment import env_mode, env_read_config, env_server, env_tactic
 from thlib.proxy import UrllibTransport
+from .setup_package import default_repository
 from thlib.ui.server_address import (
     is_valid_tactic_server_url,
     normalize_tactic_server_url,
@@ -303,7 +304,7 @@ def apply_setup(session: SetupSession, root: Path, values: dict, desktop: Path) 
     from thlib.ui.repository_editor import _empty_base_dirs, RepositoryEditorController
 
     repository = Path(values["repository"]).expanduser()
-    default_missing = repository == root.parent / "repo" and not repository.exists()
+    default_missing = repository == default_repository(root) and not repository.exists()
     if not repository.is_absolute() or (
         not repository.is_dir() and not default_missing
     ):

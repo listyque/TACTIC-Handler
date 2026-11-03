@@ -14,9 +14,13 @@ The setup bundle is Windows-only; Stream's browser has no local installer counte
 
 You can repeat configuration later with **TH Setup.exe** in the application folder
 or the **TACTIC Handler Setup** desktop shortcut. TH must remain closed during setup.
+The progress track below the form shows all five steps. Forms remain scrollable,
+errors appear beside the current step,
+and the review page lists each setting separately before Apply.
 
 1. Enter the server root URL and sign in with your own account. The wizard never
-   prefills the server or login, including when rerun. Back preserves entered
+   prefills a login. The standard installer starts with an empty server field; a
+   team installer may provide its server default. Back preserves entered
    fields and your project, repository, plugin, Maya and shelf choices for the
    same account/project. Your password stays only in memory until Apply or exit;
    it is not saved. The regular TH profile stores the server-issued ticket.
@@ -48,3 +52,10 @@ DCC plugins. On failure the wizard restores the settings, shortcuts and managed
 integration files it touched. Existing foreign or modified Maya integration files
 are preserved and reported. Cancel before Apply leaves selected settings unapplied.
 No accounts, groups, permissions, schemas or server scripts are changed.
+
+To build a preconfigured team installer without a compiler or external Python,
+run **TH Setup Builder.exe** from the application folder. Choose the base
+installer (or a previously generated EXE), set the public defaults (server,
+project code, installation folder, repository folder name, DCC plugins, default
+shelf and desktop shortcuts), and click **Create EXE**. Logins, passwords and
+session tickets are never stored in generated installers.

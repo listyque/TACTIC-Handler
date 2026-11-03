@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.375 - 2026-11-03
+
+- Refresh the Windows setup wizard with centered forms, large step numerals, a slim progress track, icon shelf previews, inline error panels, a completion view and matching native dark window chrome.
+- Add TH Setup Builder to create self-contained installers with public server, project, installation, repository, DCC, shelf and shortcut defaults without a compiler.
+- Retain the installer template with each installation; reopen generated installers to reuse their settings without storing login credentials or tickets.
+
 ## 0.6.0.374 - 2026-11-03
 
 - Update the application, tray, setup wizard and Maya shelf icons to the paired TACTIC Handler logo.
