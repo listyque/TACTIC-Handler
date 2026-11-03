@@ -1,4 +1,5 @@
 import os
+import stat
 import random
 import fnmatch
 import re
@@ -218,6 +219,12 @@ def update_from_archive(archive_path):
         members = []
         for member in zp.infolist():
             member.filename = member.filename.replace('\\', '/')
+            if (
+                member.filename.startswith('/')
+                or '..' in member.filename.split('/')
+                or stat.S_ISLNK(member.external_attr >> 16)
+            ):
+                raise ValueError("Unsafe zip entry: %r" % (member.filename,))
             members.append(member)
 
         zp.extractall(env_mode.get_current_path(), members)

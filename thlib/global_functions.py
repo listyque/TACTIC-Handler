@@ -4,7 +4,7 @@
 import sys
 import os
 import time
-from stat import ST_SIZE
+from stat import ST_SIZE, S_ISLNK
 import subprocess
 import copy
 import ast
@@ -566,6 +566,12 @@ def extract_zip_archive(zip_file_path, destination_path):
     members = []
     for member in zp.infolist():
         member.filename = member.filename.replace('\\', '/')
+        if (
+            member.filename.startswith('/')
+            or '..' in member.filename.split('/')
+            or S_ISLNK(member.external_attr >> 16)
+        ):
+            raise ValueError("Unsafe zip entry: %r" % (member.filename,))
         members.append(member)
 
     zp.extractall(destination_path, members)
