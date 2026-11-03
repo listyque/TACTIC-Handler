@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.377 - 2026-11-03
+
+- Harden `tactic_server_stub`, proxy configuration, `handler_server` IPC framing/discovery permissions, UI thread blocking guards, and portable update archive SHA-256 manifest verification and rollback safety.
+
 ## 0.6.0.376 - 2026-11-03
 
 ### Changed

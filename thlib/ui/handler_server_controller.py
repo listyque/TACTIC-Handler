@@ -97,6 +97,10 @@ class HandlerServerController(QObject):
         return self._tactic_service._public_api()
 
     def _dispatch_gui(self, callback, *args):
+        from PySide6.QtCore import QThread
+
+        if QThread.currentThread() == self.thread():
+            return callback(*args)
         request = {
             "type": "gui_api_call",
             "callback": callback,

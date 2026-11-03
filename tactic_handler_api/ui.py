@@ -6,7 +6,7 @@ from concurrent.futures import Future
 from typing import TypeVar
 
 from .errors import UIUnavailable
-from .operations import Operation
+from .operations import Operation, _blocking_calls_allowed
 
 
 _Target = TypeVar("_Target")
@@ -29,7 +29,7 @@ class UIAPI:
                 getattr(backend, method)(*args)
             return target
 
-        if not self._api._executor.running_here:
+        if not self._api._executor.running_here and not _blocking_calls_allowed.get():
             return self._api.submit(execute)
         # Data operations may finish by showing UI. They already own a worker;
         # keep their steps sequential without nesting work into the same pool.

@@ -51,6 +51,34 @@ def wait_for_parent(pid: int, timeout: int = 120,
     raise TimeoutError("TACTIC-Handler did not close")
 
 
+def _replace_with_retry(source: Path, target: Path, attempts: int = 20, delay: float = 0.25) -> None:
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt + 1 >= attempts:
+                raise
+            time.sleep(delay)
+
+
+def _terminate_tree(child: subprocess.Popen) -> None:
+    if child.poll() is not None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(child.pid)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    try:
+        child.terminate()
+        child.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        child.kill()
+        child.wait(timeout=10)
+
+
 def preserve_user_data(previous: Path, replacement: Path) -> None:
     for name in USER_DIRECTORIES:
         source = previous / name
@@ -72,9 +100,9 @@ def install(portable_root: Path, staged: Path, parent_pid: int,
     progress("Waiting for TACTIC-Handler to close")
     wait_for_parent(parent_pid, tick=lambda: progress("Waiting for TACTIC-Handler to close"))
     progress("Installing update")
-    os.replace(app, backup)
+    _replace_with_retry(app, backup)
     try:
-        os.replace(staged, app)
+        _replace_with_retry(staged, app)
         preserve_user_data(backup, app)
         progress("Starting TACTIC-Handler")
         ready = update_root / f"ready-{parent_pid}"
@@ -97,27 +125,24 @@ def install(portable_root: Path, staged: Path, parent_pid: int,
             if child.poll() is not None:
                 break
             time.sleep(0.2)
-        child.terminate()
-        child.wait(timeout=10)
+        _terminate_tree(child)
         raise RuntimeError("Updated application did not reach its first frame")
     except Exception:
         progress("Restoring previous version")
-        if 'child' in locals() and child.poll() is None:
-            try:
-                child.terminate()
-                child.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                child.kill()
-                child.wait(timeout=10)
-        if app.exists():
-            if 'child' in locals():
-                try:
-                    preserve_user_data(app, backup)
-                except OSError as data_error:
-                    progress(f"Could not preserve latest settings: {data_error}")
-            failed = update_root / f"failed-{uuid.uuid4().hex}"
-            os.replace(app, failed)
-        os.replace(backup, app)
+        if 'child' in locals():
+            _terminate_tree(child)
+        try:
+            if app.exists():
+                if 'child' in locals():
+                    try:
+                        preserve_user_data(app, backup)
+                    except OSError as data_error:
+                        progress(f"Could not preserve latest settings: {data_error}")
+                failed = update_root / f"failed-{uuid.uuid4().hex}"
+                _replace_with_retry(app, failed)
+        finally:
+            if not app.exists() and backup.exists():
+                _replace_with_retry(backup, app)
         subprocess.Popen(
             [str(portable_root / "_runtime" / "pythonw.exe"),
              str(portable_root / "_launcher.pyw")], cwd=portable_root,

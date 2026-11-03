@@ -17,7 +17,13 @@ def discovery_directory() -> Path:
     if override:
         return Path(override).expanduser()
     local_data = os.environ.get("LOCALAPPDATA", "").strip()
-    root = Path(local_data) if local_data else Path(tempfile.gettempdir())
+    if local_data:
+        root = Path(local_data)
+    elif os.name != "nt":
+        xdg = os.environ.get("XDG_RUNTIME_DIR", "").strip()
+        root = Path(xdg) if xdg else (Path.home() / ".local" / "state")
+    else:
+        root = Path(tempfile.gettempdir())
     return root / "TACTIC-Handler" / "handler-server"
 
 
@@ -31,7 +37,7 @@ def publish_session(host: str, port: int, token: str, *, handler_root="") -> Pat
         raise ValueError("A running port and session token are required")
 
     directory = discovery_directory()
-    directory.mkdir(parents=True, exist_ok=True)
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = directory / f"session-{os.getpid()}.json"
     temporary = directory / f".{path.name}.{os.getpid()}.tmp"
     record = {
@@ -44,9 +50,9 @@ def publish_session(host: str, port: int, token: str, *, handler_root="") -> Pat
     }
     if handler_root:
         record["handler_root"] = str(Path(handler_root).resolve())
-    temporary.write_text(
-        json.dumps(record, ensure_ascii=False), encoding="utf-8"
-    )
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False))
     try:
         os.chmod(temporary, 0o600)
     except OSError:

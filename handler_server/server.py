@@ -71,7 +71,8 @@ class HandlerServer:
         if self._running.is_set():
             return self.port
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        opt = getattr(socket, 'SO_EXCLUSIVEADDRUSE', socket.SO_REUSEADDR)
+        listener.setsockopt(socket.SOL_SOCKET, opt, 1)
         listener.bind((self.host, self.port))
         listener.listen(32)
         listener.settimeout(0.5)

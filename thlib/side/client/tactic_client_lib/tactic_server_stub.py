@@ -14,8 +14,19 @@
 # scripts using the client api.  Thin wrapper to the client API.  
 # These are meant to be copied to client directories.
 
+import ast
 import datetime
+import json
 import re
+
+
+def _safe_eval(value):
+    if not isinstance(value, six.string_types):
+        return value
+    try:
+        return json.loads(value)
+    except Exception:
+        return ast.literal_eval(value)
 import os, getpass, shutil, sys, types, hashlib
 from thlib.side import six
 from builtins import input
@@ -233,21 +244,27 @@ class TacticServerStub(object):
             return
 
         if url.startswith("https:"):
-            # Python 2.7.9 made ssl certificates required and will not allow
-            # an unsigned certificate.  This disables that check
+            # Verify TLS when TACTIC_SSL_VERIFY=1; keep local/self-signed studio servers working by default.
             import ssl
-            try:
-                context = hasattr(ssl, '_create_unverified_context') and ssl._create_unverified_context() or None
-                self.server = xmlrpclib.ServerProxy(
-                            url, allow_none=True,
-                            verbose=False, use_datetime=False, 
-                            transport=xmlrpclib.SafeTransport(context=context)
-                 )
-            except:
-                self.server = xmlrpclib.ServerProxy(
-                            url, allow_none=True,
-                            verbose=False, use_datetime=False, 
-                 )
+            if self.transport:
+                self.server = xmlrpclib.Server(url, allow_none=True, transport=self.transport)
+            else:
+                try:
+                    verify = os.environ.get("TACTIC_SSL_VERIFY", "").strip().lower() in ("1", "true", "yes")
+                    if verify:
+                        context = ssl.create_default_context()
+                    else:
+                        context = hasattr(ssl, '_create_unverified_context') and ssl._create_unverified_context() or None
+                    self.server = xmlrpclib.ServerProxy(
+                                url, allow_none=True,
+                                verbose=False, use_datetime=False, 
+                                transport=xmlrpclib.SafeTransport(context=context)
+                     )
+                except:
+                    self.server = xmlrpclib.ServerProxy(
+                                url, allow_none=True,
+                                verbose=False, use_datetime=False, 
+                     )
 
         else:
             if self.transport:
@@ -715,7 +732,7 @@ class TacticServerStub(object):
 
     def fast_query(self, search_type, filters=[], limit=None):
         results = self.server.fast_query(self.ticket, search_type, filters, limit)
-        return eval(results)
+        return _safe_eval(results)
 
 
 
@@ -1165,7 +1182,7 @@ class TacticServerStub(object):
                                   order_bys, show_retired, limit, offset,
                                   single, distinct, return_sobjects, parent_key)
         if not return_sobjects and isinstance(results, six.string_types):
-            results = eval(results)
+            results = _safe_eval(results)
         return results
 
         
@@ -1439,8 +1456,8 @@ class TacticServerStub(object):
         results = self.server.eval(self.ticket, expression, search_keys, mode,
                                  single, vars, show_retired)
         try:
-            return eval(results)
-        except:
+            return _safe_eval(results)
+        except Exception:
             return results
 
 
@@ -2101,7 +2118,7 @@ class TacticServerStub(object):
 
             # FIXME: this only works on the python implementation .. should
             # use JSON
-            files = eval(files)
+            files = _safe_eval(files)
 
             # TODO: maybe cache this??
             base_dirs = self.server.get_base_dirs(self.ticket)
@@ -2322,7 +2339,7 @@ class TacticServerStub(object):
             files = self.server.eval(self.ticket, "@SOBJECT(sthpw/file)", snapshot)
 
             # FIXME: this only works on the python implementation
-            files = eval(files)
+            files = _safe_eval(files)
             for file in files:
                 rel_path = "%s/%s" %( file.get('relative_dir'),
                                       file.get('file_name'))

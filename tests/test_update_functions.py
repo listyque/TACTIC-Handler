@@ -155,6 +155,19 @@ class UpdateArchiveTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "version"):
             updates.stage_archive(archive, self.root / "stage", (1, 2, 3, 6))
 
+    def test_rejects_tampered_member_against_release_manifest(self):
+        app = make_app(self.root)
+        archive = self.root / "release.zip"
+        updates.create_update_archive(app, archive, (1, 2, 3, 5))
+        tampered = self.root / "tampered.zip"
+        with zipfile.ZipFile(archive) as src, zipfile.ZipFile(tampered, "w") as dst:
+            for item in src.infolist():
+                data = b"print('tampered')" if item.filename == "launch.py" else src.read(item.filename)
+                dst.writestr(item, data)
+        with self.assertRaisesRegex(ValueError, "integrity check failed"):
+            updates.stage_archive(tampered, self.root / "stage", (1, 2, 3, 5))
+        self.assertFalse((self.root / "stage").exists())
+
     def test_installer_swaps_app_and_preserves_user_data(self):
         root = self.root / "portable"
         root.mkdir()

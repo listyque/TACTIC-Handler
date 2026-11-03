@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -120,6 +121,11 @@ def stage_archive(archive_path: Path, destination: Path,
         version = json.loads(archive.read("thlib/version.json"))
         if version_tuple(version) != expected_version:
             raise ValueError("Archive version does not match the selected release")
+        manifest_hashes = {}
+        if any(member.filename == "release.json" for member in members):
+            release_meta = json.loads(archive.read("release.json"))
+            if isinstance(release_meta, dict) and isinstance(release_meta.get("sha256"), dict):
+                manifest_hashes = release_meta["sha256"]
         destination.mkdir(parents=True, exist_ok=False)
         try:
             for member in members:
@@ -128,8 +134,14 @@ def stage_archive(archive_path: Path, destination: Path,
                     target.mkdir(parents=True, exist_ok=True)
                 else:
                     target.parent.mkdir(parents=True, exist_ok=True)
+                    digest = hashlib.sha256()
                     with archive.open(member) as source, target.open("wb") as output:
-                        shutil.copyfileobj(source, output)
+                        while chunk := source.read(1024 * 1024):
+                            output.write(chunk)
+                            digest.update(chunk)
+                    expected_hash = manifest_hashes.get(member.filename)
+                    if expected_hash and digest.hexdigest().lower() != str(expected_hash).lower():
+                        raise ValueError(f"Update archive integrity check failed: {member.filename}")
         except Exception:
             shutil.rmtree(destination)
             raise
@@ -151,6 +163,7 @@ def create_update_archive(app_dir: Path, archive_path: Path,
             "before creating its update archive"
         )
     changes = changes.strip() or notes
+    sha256_manifest = {}
     with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
         for root, dirs, files in os.walk(app_dir):
             if Path(root) == app_dir:
@@ -169,7 +182,10 @@ def create_update_archive(app_dir: Path, archive_path: Path,
                 if relative == "thlib/version.json":
                     continue
                 archive.write(source, relative)
+                sha256_manifest[relative] = hashlib.sha256(source.read_bytes()).hexdigest()
         archive.writestr("thlib/version.json", version_bytes)
+        sha256_manifest["thlib/version.json"] = hashlib.sha256(version_bytes).hexdigest()
         archive.writestr("release.json", json.dumps({
             "version": version_text(version), "changes": changes, "misc": misc,
+            "sha256": sha256_manifest,
         }, ensure_ascii=False).encode("utf-8"))

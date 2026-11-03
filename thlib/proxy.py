@@ -135,12 +135,10 @@ class UrllibTransport(xmlrpclib.Transport, object):
                 user_pass, phost = phost.split('@', 1)
                 if ':' in user_pass:
                     self.proxy_user, self.proxy_pass = user_pass.split(':', 1)
-                    puser_pass = '%s:%s' % (unquote(self.proxy_user), unquote(self.proxy_pass))
+                    raw_user_pass = '%s:%s' % (unquote(self.proxy_user), unquote(self.proxy_pass))
+                    puser_pass = base64.b64encode(raw_user_pass.encode('utf-8')).decode('ascii')
 
-                    # puser_pass = base64.encodestring(
-                    #     '%s:%s' % (unquote(self.proxy_user), unquote(self.proxy_pass))).strip()
-
-            proxies = {'http': 'http://%s' % phost, 'https': None}
+            proxies = {'http': 'http://%s' % phost, 'https': 'http://%s' % phost}
 
         key = (address.scheme, address.netloc, self.proxy_enabled,
                self.proxy_server, self.proxy_user, self.proxy_pass,

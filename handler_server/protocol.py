@@ -41,7 +41,12 @@ def _receive_exact(sock: socket.socket, length: int) -> bytes:
     chunks = []
     remaining = length
     while remaining:
-        chunk = sock.recv(remaining)
+        try:
+            chunk = sock.recv(remaining)
+        except socket.timeout as error:
+            if chunks:
+                raise ProtocolError("Incomplete frame timeout") from error
+            raise
         if not chunk:
             raise ConnectionError("Connection closed")
         chunks.append(chunk)
@@ -54,7 +59,11 @@ def receive_message(sock: socket.socket) -> dict:
     if size <= 0 or size > MAX_MESSAGE_SIZE:
         raise ProtocolError("Invalid message size")
     try:
-        message = json.loads(_receive_exact(sock, size).decode("utf-8"))
+        payload = _receive_exact(sock, size)
+    except socket.timeout as error:
+        raise ProtocolError("Incomplete message payload timeout") from error
+    try:
+        message = json.loads(payload.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ProtocolError("Invalid JSON payload") from error
     validate_message(message)
