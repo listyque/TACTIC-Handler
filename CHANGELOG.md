@@ -3,6 +3,10 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.374 - 2026-11-03
+
+- Update the application, tray, setup wizard and Maya shelf icons to the paired TACTIC Handler logo.
+
 ## 0.6.0.373 - 2026-11-02
 
 - Preserve setup fields and DCC/shelf selections when navigating Back and forward; start server and login fields empty.
