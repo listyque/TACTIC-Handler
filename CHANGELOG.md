@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.382 - 2026-11-05
+
+- Harden Maya playblast isolation, custom script context propagation, and `maya_bootstrap.connect(show=True)` connection handoff.
+- Fix `WatchFoldersController` row-index drift and cancelled-worker error guards, `CommunicationController` and `TasksController.apply_bulk` server cache invalidation, and `SObjectEditorController` worker pool lifecycle and queued signal connections.
+- Optimize `RepositorySyncController` task release and aggregate refresh coalescing, `RepositorySyncEditorController` tree serialization, `SnapshotStateMixin` incremental row updates, `CommitQueueModel` role lookup and batch restore, `HandlerServer` broadcast removal ordering, and `tactic_query` snapshot version/versionless handling.
+
 ## 0.6.0.381 - 2026-11-05
 
 - Cap `_query_quick_filter_catalog` pagination (`_QUICK_FILTER_CATALOG_MAX_ROWS = 5000`), route `SObjectInfoController._request_file_inspection` to `local_pool`, and cache per-process `tc.get_tasks_and_notes` results on `SObject.info["__details_processes__"]` to eliminate repeated RPCs when re-selecting items.

@@ -5,13 +5,12 @@ from __future__ import annotations
 import datetime
 import functools
 
-from PySide6.QtCore import QCoreApplication, QDate, QLocale
-
-
 @functools.lru_cache(maxsize=512)
 def _cached_date(
     locale_name: str, year: int, month: int, day: int, fmt: str
 ) -> str:
+    from PySide6.QtCore import QDate, QLocale
+
     return QLocale(locale_name).toString(QDate(year, month, day), fmt)
 
 
@@ -27,6 +26,8 @@ def _date_value(value) -> datetime.date | None:
 
 
 def get_compact_date(value) -> str:
+    from PySide6.QtCore import QLocale
+
     parsed = _date_value(value)
     if parsed is None:
         return ""
@@ -36,6 +37,8 @@ def get_compact_date(value) -> str:
 
 
 def get_full_date(value) -> str:
+    from PySide6.QtCore import QLocale
+
     parsed = _date_value(value)
     if parsed is None:
         return ""
@@ -45,6 +48,8 @@ def get_full_date(value) -> str:
 
 
 def get_full_datetime(date_time_object: datetime.datetime) -> str:
+    from PySide6.QtCore import QLocale
+
     if not isinstance(date_time_object, datetime.datetime):
         return ""
     date_part = _cached_date(
@@ -64,6 +69,8 @@ def get_pretty_datetime(
     date_time_object: datetime.datetime,
     now: datetime.datetime | None = None,
 ) -> str:
+    from PySide6.QtCore import QCoreApplication
+
     if not isinstance(date_time_object, datetime.datetime):
         return ""
     now = now or datetime.datetime.now(tz=date_time_object.tzinfo)

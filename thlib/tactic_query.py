@@ -8,13 +8,16 @@ from pprint import pformat
 from functools import lru_cache
 
 
-_PROCEDURE_FILE_CACHE = {}
-
-
 @lru_cache(maxsize=4)
 def _parse_procedure_module(source, source_path):
     # Cache syntax only; current arguments and script execution remain per call.
-    return source.splitlines(True), ast.parse(source, filename=source_path)
+    source_lines = source.splitlines(True)
+    module = ast.parse(source, filename=source_path)
+    return {
+        item.name: source_lines[item.lineno - 1:item.end_lineno]
+        for item in module.body
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
 
 
 def _function_source_lines(func):
@@ -28,38 +31,12 @@ def _function_source_lines(func):
     try:
         source_path = inspect.getsourcefile(func) or inspect.getfile(func)
         resolved = Path(source_path)
-        try:
-            stat = resolved.stat()
-        except FileNotFoundError:
+        if not resolved.is_file():
             resolved = resolved.with_suffix('.source')
             source_path = str(resolved)
-            stat = resolved.stat()
-        cache_key = (source_path, stat.st_mtime_ns, stat.st_size)
-        procedures = _PROCEDURE_FILE_CACHE.get(cache_key)
-        if procedures is None:
-            with io.open(source_path, 'r', encoding='utf-8') as source_file:
-                source = source_file.read()
-            source_lines, module = _parse_procedure_module(source, source_path)
-            function_nodes = (ast.FunctionDef,)
-            if hasattr(ast, 'AsyncFunctionDef'):
-                function_nodes += (ast.AsyncFunctionDef,)
-            procedures = {}
-            for item in module.body:
-                if not isinstance(item, function_nodes):
-                    continue
-                start = int(item.lineno) - 1
-                end = getattr(item, 'end_lineno', None)
-                if end is None:
-                    following = [
-                        int(other.lineno) - 1 for other in module.body
-                        if getattr(other, 'lineno', 0) > item.lineno
-                    ]
-                    end = min(following) if following else len(source_lines)
-                    while end > start and not source_lines[end - 1].strip():
-                        end -= 1
-                procedures[item.name] = source_lines[start:int(end)]
-            _PROCEDURE_FILE_CACHE.clear()
-            _PROCEDURE_FILE_CACHE[cache_key] = procedures
+        with io.open(source_path, 'r', encoding='utf-8') as source_file:
+            source = source_file.read()
+        procedures = _parse_procedure_module(source, source_path)
     except FileNotFoundError as error:
         try:
             return inspect.getsourcelines(func)[0]
@@ -11622,17 +11599,15 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     #     keep_file_name = False
 
     def get_max_version(context, search_key):
-        # faster way to get max snapshot version
         search = Search('sthpw/snapshot')
         search.add_sobject_filter(sobject)
         search.add_filter('context', context)
+        search.add_column('version')
+        search.add_order_by('version desc')
+        search.set_limit(1)
         snaps = search.get_sobjects()
-        versions = []
-        for sn in snaps:
-            versions.append(sn.get_attr_value('version'))
-
-        if versions:
-            return max(versions)
+        if snaps:
+            return snaps[0].get_attr_value('version')
 
     if not version:
         ver = get_max_version(context=context, search_key=search_key)
@@ -11799,17 +11774,15 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
     files_info = json.loads(files_info, strict=False)
 
     def get_max_version(context, search_key):
-        # faster way to get max snapshot version
         search = Search('sthpw/snapshot')
         search.add_sobject_filter(sobject)
         search.add_filter('context', context)
+        search.add_column('version')
+        search.add_order_by('version desc')
+        search.set_limit(1)
         snaps = search.get_sobjects()
-        versions = []
-        for sn in snaps:
-            versions.append(sn.get_attr_value('version'))
-
-        if versions:
-            return max(versions)
+        if snaps:
+            return snaps[0].get_attr_value('version')
 
     if not version:
         ver = get_max_version(context=context, search_key=search_key)
@@ -12018,9 +11991,9 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
 
             if repo_name:
                 versionless.set_value('repo', repo_name)
-                versionless.set_value('version', -1)
-                # snapshot.set_value('is_current', 1)
-                versionless.set_value('is_latest', 1)
+            versionless.set_value('version', -1)
+            # snapshot.set_value('is_current', 1)
+            versionless.set_value('is_latest', 1)
 
             versionless.commit(triggers=False, log_transaction=False)
 

@@ -364,10 +364,19 @@ class RepositorySyncEditorController(QObject):
         self._store_preset_index()
         self.stateChanged.emit()
 
-    def _apply_level(self, parent_id: str, level: dict) -> None:
-        for row, record in enumerate(self.model._records):
-            if record.get("parentId") != parent_id:
-                continue
+    def _apply_level(
+        self,
+        parent_id: str,
+        level: dict,
+        children_by_parent: dict | None = None,
+    ) -> None:
+        if children_by_parent is None:
+            children_by_parent = {}
+            for row, record in enumerate(self.model._records):
+                children_by_parent.setdefault(
+                    str(record.get("parentId") or ""), []
+                ).append((row, record))
+        for row, record in children_by_parent.get(parent_id, ()):
             entry = level.get(record.get("dataKey"))
             if isinstance(entry, dict):
                 if record.get("checkable"):
@@ -377,15 +386,27 @@ class RepositorySyncEditorController(QObject):
                 self._apply_level(
                     str(record.get("nodeId") or ""),
                     dict(entry.get("sub") or {}),
+                    children_by_parent,
                 )
 
-    def _serialize_level(self, parent_id: str) -> dict:
+    def _serialize_level(
+        self,
+        parent_id: str,
+        children_by_parent: dict | None = None,
+    ) -> dict:
+        if children_by_parent is None:
+            children_by_parent = {}
+            for record in self.model._records:
+                children_by_parent.setdefault(
+                    str(record.get("parentId") or ""), []
+                ).append(record)
         result = {}
-        for record in self.model._records:
-            if record.get("parentId") != parent_id:
-                continue
+        for record in children_by_parent.get(parent_id, ()):
             entry = {"state": bool(record.get("checked"))}
-            children = self._serialize_level(str(record.get("nodeId") or ""))
+            children = self._serialize_level(
+                str(record.get("nodeId") or ""),
+                children_by_parent,
+            )
             if children:
                 entry["sub"] = children
             result[str(record.get("dataKey") or "")] = entry

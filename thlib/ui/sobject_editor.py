@@ -417,6 +417,8 @@ class SObjectEditorController(QObject):
         from thlib import tactic_query as tq
         from thlib.environment import env_inst
 
+        if getattr(env_inst.server_pool, "is_stopped", False):
+            env_inst.server_pool.start()
         worker = env_inst.server_pool.add_task(
             tc.execute_procedure_serverside,
             tq.query_EditWdg,
@@ -435,14 +437,19 @@ class SObjectEditorController(QObject):
             },
             project=project_code,
         )
+        if worker is None:
+            self._set_error("Server worker pool is not available")
+            return
         self._worker = worker
         worker.result.connect(
             lambda result: self._schema_loaded(
                 request_id, stype, context, result
-            )
+            ),
+            Qt.ConnectionType.QueuedConnection,
         )
         worker.error.connect(
-            lambda error: self._schema_failed(request_id, error)
+            lambda error: self._schema_failed(request_id, error),
+            Qt.ConnectionType.QueuedConnection,
         )
         worker.start()
 
@@ -1198,14 +1205,21 @@ class SObjectEditorController(QObject):
             )
             return result
 
+        if getattr(env_inst.server_pool, "is_stopped", False):
+            env_inst.server_pool.start()
         worker = env_inst.server_pool.add_task(operation)
+        if worker is None:
+            self._set_error("Server worker pool is not available")
+            return
         request_id = self._request_id
         self._worker = worker
         worker.result.connect(
-            lambda result: self._save_finished(request_id, result)
+            lambda result: self._save_finished(request_id, result),
+            Qt.ConnectionType.QueuedConnection,
         )
         worker.error.connect(
-            lambda error: self._save_failed(request_id, error)
+            lambda error: self._save_failed(request_id, error),
+            Qt.ConnectionType.QueuedConnection,
         )
         worker.start()
 
@@ -1410,11 +1424,22 @@ class SObjectEditorController(QObject):
         def operation():
             return tc.server_start(project=project_code or None).get_by_search_key(search_key)
 
+        if getattr(env_inst.server_pool, "is_stopped", False):
+            env_inst.server_pool.start()
         worker = env_inst.server_pool.add_task(operation)
+        if worker is None:
+            self._set_error("Server worker pool is not available")
+            return
         request_id = self._request_id
         self._worker = worker
-        worker.result.connect(lambda current: self._check_saved_finished(request_id, current))
-        worker.error.connect(lambda error: self._save_failed(request_id, error))
+        worker.result.connect(
+            lambda current: self._check_saved_finished(request_id, current),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.error.connect(
+            lambda error: self._save_failed(request_id, error),
+            Qt.ConnectionType.QueuedConnection,
+        )
         worker.start()
 
     def _check_saved_finished(self, request_id: int, current) -> None:

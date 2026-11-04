@@ -75,9 +75,13 @@ def connect(show=False):
                 raise RuntimeError("Another Handler connection is active. Save work and restart Maya to switch.")
         if runtime is None or runtime.state in {"stopped", "failed"}:
             runtime = maya.startup(root, autostart_handler=False,
-                                   show_on_connect=False, pin_handler=True)
+                                   show_on_connect=bool(show), pin_handler=True)
         if show:
-            if runtime.connected:
+            runtime._show_on_connect = True
+            if runtime.connected or (
+                hasattr(runtime, "wait_until_connected")
+                and runtime.wait_until_connected(0.2)
+            ):
                 runtime.show_handler()
             else:
                 if _launch_process is not None and _launch_process.poll() is None:

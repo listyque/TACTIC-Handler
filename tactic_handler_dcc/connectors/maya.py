@@ -611,6 +611,8 @@ class MayaConnector:
             raise ValueError("Custom script kwargs must be an object")
         if kwargs:
             return self._run_custom_script(path, project, kwargs)
+        self._script_console.locals["TACTIC_PROJECT_CODE"] = project
+        self._script_console.locals["TACTIC_SCRIPT_KWARGS"] = {}
         return self._run_script(path)
 
     @staticmethod
@@ -762,7 +764,10 @@ class MayaConnector:
             else:
                 folder = Path(tempfile.gettempdir()) / "tactic_handler_maya"
                 folder.mkdir(parents=True, exist_ok=True)
-                prefix = folder / "scene_playblast"
+                capture_folder = Path(
+                    tempfile.mkdtemp(prefix="checkin_", dir=folder)
+                )
+                prefix = capture_folder / "scene_playblast"
             frame = self.cmds.currentTime(query=True)
             options = {
                 "format": "image",

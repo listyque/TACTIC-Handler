@@ -24,7 +24,7 @@ class _Emitter:
         self.callbacks = []
         self.count = 0
 
-    def connect(self, callback):
+    def connect(self, callback, *_args):
         self.callbacks.append(callback)
 
     def emit(self, *args):

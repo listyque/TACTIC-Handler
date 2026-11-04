@@ -552,6 +552,8 @@ class WatchFoldersController(QObject):
         self.stateChanged.emit()
 
     def _worker_failed(self, worker, error):
+        if worker not in self._workers:
+            return
         self._workers.discard(worker)
         payload = error[0] if isinstance(error, tuple) and error else error
         if isinstance(payload, dict):
@@ -655,13 +657,14 @@ class WatchFoldersController(QObject):
             self._schedule_repository_retry()
             return
         process_names = list(processes or self._process_names_for_record(record))
+        search_key = str(record.get("searchKey") or "")
         worker = env_inst.local_pool.add_task(
             self._mkdirs, paths, process_names
         )
         self._workers.add(worker)
         self._busy = True
         worker.result.connect(
-            lambda _result, current=worker, item=row:
+            lambda _result, current=worker, item=search_key:
                 self._paths_ready(current, item),
             Qt.ConnectionType.QueuedConnection,
         )
@@ -681,9 +684,16 @@ class WatchFoldersController(QObject):
                 (root / process).mkdir(parents=True, exist_ok=True)
         return True
 
-    def _paths_ready(self, worker, row):
+    def _paths_ready(self, worker, row_or_key):
         self._workers.discard(worker)
         self._busy = bool(self._workers)
+        if isinstance(row_or_key, int):
+            row = row_or_key
+        else:
+            row = next((
+                index for index, record in enumerate(self.model._records)
+                if record.get("searchKey") == str(row_or_key or "")
+            ), -1)
         if 0 <= row < len(self.model._records):
             if self.model._records[row]["watchEnabled"]:
                 self._start_row(row)
@@ -857,7 +867,10 @@ class WatchFoldersController(QObject):
         if bool(getattr(event, "is_directory", False)):
             return
         path = Path(str(getattr(event, "src_path", "") or ""))
-        if not path.is_file():
+        try:
+            if not path.is_file():
+                return
+        except OSError:
             return
         row = next((
             index for index, record in enumerate(self.model._records)

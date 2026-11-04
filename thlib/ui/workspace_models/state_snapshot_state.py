@@ -345,8 +345,10 @@ class SnapshotStateMixin:
                 self.snapshot_preview_model.update_record(
                     row, self._snapshot_preview_records[row]
                 )
-            if changed_snapshot_rows:
-                self.snapshot_model.replace(self._snapshot_records)
+            for row in changed_snapshot_rows:
+                self.snapshot_model.update_record(
+                    row, self._snapshot_records[row]
+                )
         self._preview_helper._pending_preview_paths = {
             token: path
             for token, path in self._preview_helper._pending_preview_paths.items()
@@ -377,10 +379,15 @@ class SnapshotStateMixin:
         exists: bool,
         matches_remote: bool,
     ) -> None:
-        for record in self._snapshot_file_records_cache:
+        values = {
+            "exists": bool(exists),
+            "checking": False,
+            "matchesRemote": bool(matches_remote),
+        }
+        visible = getattr(self, "_snapshot_presentation_visible", True)
+        for row, record in enumerate(self._snapshot_file_records_cache):
             if record.get("token") != token:
                 continue
-            record["exists"] = bool(exists)
-            record["checking"] = False
-            record["matchesRemote"] = bool(matches_remote)
-        self._publish_snapshot_presentation()
+            record.update(values)
+            if visible:
+                self.snapshot_file_model.update_record(row, values)

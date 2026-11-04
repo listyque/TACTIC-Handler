@@ -47,6 +47,9 @@ class CommitQueueModel(QAbstractListModel):
             name: Qt.UserRole + index + 1
             for index, name in enumerate(self._roles)
         }
+        self._role_names_by_id = {
+            role_id: name for name, role_id in self._role_ids.items()
+        }
         self._records: list[dict] = []
 
     def roleNames(self) -> dict[int, bytes]:
@@ -61,13 +64,7 @@ class CommitQueueModel(QAbstractListModel):
     def data(self, index: QModelIndex, role=Qt.DisplayRole):
         if not index.isValid() or not 0 <= index.row() < len(self._records):
             return None
-        name = next(
-            (
-                role_name for role_name, role_id in self._role_ids.items()
-                if role_id == role
-            ),
-            None,
-        )
+        name = self._role_names_by_id.get(role)
         return self._records[index.row()].get(name) if name else None
 
     def append(self, record: dict) -> None:
@@ -1360,6 +1357,7 @@ class CommitQueueController(QObject):
             long_abs_path=True,
         ) or []
         repaired_repository = False
+        restored_records = []
         for entry in entries if isinstance(entries, list) else []:
             payload = entry.get("payload") if isinstance(entry, dict) else None
             if not isinstance(payload, dict):
@@ -1392,7 +1390,9 @@ class CommitQueueController(QObject):
                 record["status"] = "Missing files"
                 record["error"] = f"Source file is unavailable: {missing}"
                 record["canCommit"] = False
-            self.model.append(record)
+            restored_records.append(record)
+        if restored_records:
+            self.model.append_records(restored_records)
         if self.model._records:
             self._select_id(self.model._records[0]["operationId"])
         if repaired_repository:

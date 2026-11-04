@@ -2331,7 +2331,13 @@ class TasksController(QObject):
                 "expanded": False,
                 "dirty": bool(draft),
             })
-        self.process_model.replace(records)
+        if [
+            record.get("process") for record in self.process_model._records
+        ] == [record["process"] for record in records]:
+            for row, record in enumerate(records):
+                self.process_model.update_record(row, record)
+        else:
+            self.process_model.replace(records)
 
     def _process_task(self, row):
         if not 0 <= row < len(self.process_model._records):
@@ -6483,7 +6489,11 @@ class TasksController(QObject):
             str(record.get("taskCode") or "")
             for record in self.advanced_model._records
         ]
-        if shift and self._advanced_selection_anchor in visible_codes:
+        if (
+            shift
+            and self._advanced_selection_anchor in visible_codes
+            and task_code in visible_codes
+        ):
             start = visible_codes.index(self._advanced_selection_anchor)
             end = visible_codes.index(task_code)
             if start > end:
@@ -7066,9 +7076,14 @@ class TasksController(QObject):
 
         def operation():
             import thlib.tactic_classes as tc
+            from thlib import server_cache
             server = tc.server_start(project=project_code)
             tc.update_multiple_compatible(
                 server, data=payload, triggers=True
+            )
+            server_cache.invalidate_domains(
+                ("tasks", "notes", "search", "activity", "work_hours"),
+                project_code,
             )
             return {"completed": list(changes_by_code)}
 

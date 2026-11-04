@@ -1121,6 +1121,8 @@ class CheckinOutController(QObject):
         from thlib.environment import env_inst
         import thlib.tactic_classes as tc
 
+        if not (0 <= self._current_tab < len(self._tabs)):
+            return
         tab = self._tabs[self._current_tab]
         worker = env_inst.server_pool.add_task(
             tc.get_virtual_snapshot,

@@ -314,7 +314,7 @@ class HandlerServer:
         self._broadcast_capabilities()
         self.logger.info("Client disconnected: %s", client_id)
 
-    def _send_to(self, client_id, payload):
+    def _send_to(self, client_id, payload, *, defer_remove=False):
         with self._lock:
             client = self._clients.get(client_id)
         if not client:
@@ -323,14 +323,19 @@ class HandlerServer:
             client.send(payload)
             return True
         except OSError:
-            self._remove(client_id, "send_failed")
+            if not defer_remove:
+                self._remove(client_id, "send_failed")
             return False
 
     def _broadcast(self, payload):
         with self._lock:
             client_ids = list(self._clients)
-        for client_id in client_ids:
-            self._send_to(client_id, payload)
+        failed = [
+            client_id for client_id in client_ids
+            if not self._send_to(client_id, payload, defer_remove=True)
+        ]
+        for client_id in failed:
+            self._remove(client_id, "send_failed")
 
     def _broadcast_operators(self, payload):
         with self._lock:
@@ -338,8 +343,12 @@ class HandlerServer:
                 client.client_id for client in self._clients.values()
                 if client.application_type in {"tactic_handler", "operator"}
             ]
-        for client_id in client_ids:
-            self._send_to(client_id, payload)
+        failed = [
+            client_id for client_id in client_ids
+            if not self._send_to(client_id, payload, defer_remove=True)
+        ]
+        for client_id in failed:
+            self._remove(client_id, "send_failed")
 
     def _broadcast_capabilities(self):
         self._broadcast(message("capabilities", clients=self.clients))

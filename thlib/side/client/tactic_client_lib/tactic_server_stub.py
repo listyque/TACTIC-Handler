@@ -227,6 +227,8 @@ class TacticServerStub(object):
             url = "%s/tactic/default/Api/" % self.server_name
         else:
             url = "http://%s/tactic/default/Api/" % self.server_name
+        if self.transport is not None and hasattr(self.transport, 'scheme'):
+            self.transport.scheme = 'https' if url.startswith('https:') else 'http'
         #url = "http://localhost:8081/"
 
         # TODO: Not implmeneted: This is needed for isolation of transactions

@@ -104,6 +104,22 @@ class TransportOpenerTests(unittest.TestCase):
         self.assertEqual(opener.requests[0][1], 17)
         self.assertTrue(all(response.closed for response in opener.responses))
 
+    def test_sdk_preserves_https_and_switches_scheme_with_the_server(self):
+        from thlib.side.client.tactic_client_lib.tactic_server_stub import TacticServerStub
+
+        opener = FakeOpener()
+        transport = proxy.UrllibTransport()
+        client = TacticServerStub(setup=False)
+        client.set_transport(transport)
+        with patch.object(proxy, 'build_opener', return_value=opener):
+            for server in ('https://server.test:443', 'http://other.test:8081'):
+                client.set_server(server)
+                self.assertEqual(client.server.ping('private-test-ticket'), b'XML response')
+                request = opener.requests[-1][0]
+                self.assertEqual(request.full_url, server + '/tactic/default/Api/')
+                self.assertIn(b'private-test-ticket', request.data)
+        self.assertTrue(all(response.closed for response in opener.responses))
+
     def test_proxy_auth_and_host_changes_rebuild_opener(self):
         openers = []
         handlers = []

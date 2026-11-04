@@ -1828,12 +1828,17 @@ class CommunicationController(QObject):
 
         def operation():
             import thlib.tactic_classes as tc
+            from thlib import server_cache
             from thlib.environment import env_server
-            return tc.add_note(
+            result = tc.add_note(
                 search_key, process, process, body,
                 env_server.get_user(), attachments=list(attachments or []),
                 project_code=project_code,
             )
+            server_cache.invalidate_domains(
+                ("notes", "tasks", "search", "activity"), project_code
+            )
+            return result
 
         self._run(operation, clear_composer=True)
 
@@ -1866,10 +1871,16 @@ class CommunicationController(QObject):
 
         def operation():
             import thlib.tactic_classes as tc
-            return tc.change_note(
+            from thlib import server_cache
+            target_project = self._target_project_code(note) or None
+            result = tc.change_note(
                 note.get_search_key(), "edit", body,
-                project_code=self._target_project_code(note) or None,
+                project_code=target_project,
             )
+            server_cache.invalidate_domains(
+                ("notes", "tasks", "search", "activity"), target_project
+            )
+            return result
 
         self._run(operation)
         return True
@@ -1915,10 +1926,16 @@ class CommunicationController(QObject):
 
         def operation():
             import thlib.tactic_classes as tc
-            return tc.change_note(
+            from thlib import server_cache
+            target_project = self._target_project_code(note) or None
+            result = tc.change_note(
                 note.get_search_key(), "delete",
-                project_code=self._target_project_code(note) or None,
+                project_code=target_project,
             )
+            server_cache.invalidate_domains(
+                ("notes", "tasks", "search", "activity"), target_project
+            )
+            return result
 
         self._run(operation)
 

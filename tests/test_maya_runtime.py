@@ -63,6 +63,10 @@ class _Client:
 
     def request(self, target, action, payload, timeout):
         self.requests.append((target, action, payload, timeout))
+        if action == "handler.call":
+            if (payload or {}).get("member") == "project":
+                return {"value": {"kind": "ref", "id": "project:demo", "type": "Project"}}
+            return {"value": True}
         return {"accepted": True}
 
     def publish_event(self, action, status, payload):

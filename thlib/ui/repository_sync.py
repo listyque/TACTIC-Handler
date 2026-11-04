@@ -796,6 +796,7 @@ class RepositorySyncController(QObject):
                 unique_id = entry.unique_id
                 if unique_id is not None:
                     if not entry.is_ui_preview:
+                        handle._unique_id = unique_id
                         self.queue_dict[unique_id] = handle
                 if auto_start:
                     handle.download()
@@ -824,6 +825,7 @@ class RepositorySyncController(QObject):
         key_index[key] = task_id
         unique_id = entry.unique_id
         if unique_id is not None and not entry.is_ui_preview:
+            handle._unique_id = unique_id
             self.queue_dict[unique_id] = handle
         record = {
             "taskId": task_id, "title": title, "process": process,
@@ -1087,11 +1089,16 @@ class RepositorySyncController(QObject):
                 task.signals = None
             task.file_object = None
             task.handle = None
-        self.queue_dict = {
-            key: queued_handle
-            for key, queued_handle in self.queue_dict.items()
-            if queued_handle.task_id != task_id
-        }
+        unique_id = getattr(handle, "_unique_id", None) if handle else None
+        if unique_id is not None:
+            if self.queue_dict.get(unique_id) is handle:
+                self.queue_dict.pop(unique_id, None)
+        elif self.queue_dict:
+            self.queue_dict = {
+                key: queued_handle
+                for key, queued_handle in self.queue_dict.items()
+                if queued_handle.task_id != task_id
+            }
         if handle:
             handle.file_object = None
             handle.detach(terminal_status)
@@ -2468,7 +2475,7 @@ class RepositorySyncController(QObject):
             int(payload.get("discoveredBytes") or 0),
         )
         self._discovery_state = str(payload.get("stage") or "streaming")
-        self._refresh_aggregate()
+        self._request_aggregate_refresh()
         self.state_changed.emit()
         entries = payload.get("entries") or []
         if self._discovery_mode != "partial" or not entries:
@@ -2641,7 +2648,7 @@ class RepositorySyncController(QObject):
         self.model.extend(records)
         if self._publication_entries:
             self.state_changed.emit()
-            self._refresh_aggregate()
+            self._request_aggregate_refresh()
             self._discovery_publication_requested.emit()
             return
         preset_name, only_updates, started = self._discovery_metadata

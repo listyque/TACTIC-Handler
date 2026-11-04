@@ -63,33 +63,30 @@ class RecordsMixin:
             self._emit_node_roles(node, [])
 
     def update_description(self, search_key: str, value: str) -> None:
-        node = next((
-            item for item in self._nodes.values()
-            if item.search_key == search_key
-        ), None)
-        if not node:
-            return
         description = str(value or "")
-        node.subtitle = description
-        if node.source is not None:
-            try:
-                info = (
-                    node.source.get_snapshot()
-                    if node.node_type == "snapshot"
-                    else node.source.get_info()
-                )
-                if info is not None:
-                    info["description"] = description
-                    if node.node_type == "sobject":
-                        node.subtitle = self._sobject_subtitle(
-                            self._stype, info
-                        )
-            except (AttributeError, KeyError, TypeError):
-                pass
-        row = self._row_by_node_id.get(node.node_id, -1)
-        if row >= 0:
-            index = self.index(row, 0)
-            self.dataChanged.emit(index, index, [self.SubtitleRole])
+        for node in self._nodes.values():
+            if node.search_key != search_key:
+                continue
+            node.subtitle = description
+            if node.source is not None:
+                try:
+                    info = (
+                        node.source.get_snapshot()
+                        if node.node_type == "snapshot"
+                        else node.source.get_info()
+                    )
+                    if info is not None:
+                        info["description"] = description
+                        if node.node_type == "sobject":
+                            node.subtitle = self._sobject_subtitle(
+                                self._stype, info
+                            )
+                except (AttributeError, KeyError, TypeError):
+                    pass
+            row = self._row_by_node_id.get(node.node_id, -1)
+            if row >= 0:
+                index = self.index(row, 0)
+                self.dataChanged.emit(index, index, [self.SubtitleRole])
 
     @Slot(str, str)
     def update_watch_state(self, search_key: str, state: str) -> None:

@@ -38,6 +38,7 @@ class UrllibTransport(xmlrpclib.Transport, object):
         self.proxy_enabled = self.proxy['enabled']
         self._opener = None
         self._opener_key = None
+        self.scheme = 'http'
 
     @staticmethod
     def _normalize_proxy(proxy_dict=None):
@@ -98,7 +99,7 @@ class UrllibTransport(xmlrpclib.Transport, object):
 
     def request(self, host, handler, request_body, verbose=0):
         self.verbose = verbose
-        address = "http://%s%s" % (unquote(host), handler)
+        address = "%s://%s%s" % (self.scheme, unquote(host), handler)
         request = Request(address, request_body)
         request.add_header('User-agent', self.user_agent)
         request.add_header("Content-Type", "text/xml")
