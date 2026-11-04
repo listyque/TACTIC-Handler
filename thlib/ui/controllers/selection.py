@@ -184,10 +184,19 @@ class SelectionMixin:
     @Slot()
     def select_all_result_siblings(self) -> None:
         tab = self._current_tab()
-        current = self.workspace_model.node_for(
-            tab.selected_node_id if tab else ""
-        )
-        if not tab or not current or current.node_type in {"process", "relation"}:
+        if not tab:
+            return
+        current = self.workspace_model.node_for(tab.selected_node_id)
+        if not current or current.node_type in {"group", "process", "relation"}:
+            current = next(
+                (
+                    node
+                    for node in self.workspace_model._items
+                    if node.node_type not in {"group", "process", "relation"}
+                ),
+                None,
+            )
+        if not current:
             return
         selected_ids = [
             node.node_id
@@ -196,6 +205,8 @@ class SelectionMixin:
         ]
         if not selected_ids:
             return
+        if not tab.selected_node_id:
+            tab.selected_node_id = current.node_id
         tab.selected_node_ids = selected_ids
         if not tab.selection_anchor_id:
             tab.selection_anchor_id = current.node_id

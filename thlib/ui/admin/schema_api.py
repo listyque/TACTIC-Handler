@@ -2,7 +2,8 @@
 
 
 def schema_request(action: str, project_code: str, identity: str = '',
-                   document: dict = None, expected_revision: str = '') -> str:
+                   document: dict = None, expected_revision: str = '',
+                   draft: dict = None) -> str:
     import hashlib
     import json
     import math
@@ -16,12 +17,12 @@ def schema_request(action: str, project_code: str, identity: str = '',
         raise PermissionError('TACTIC administrator access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing its schema')
-    if action not in ('list', 'load', 'save'):
+    if action not in ('list', 'load', 'save', 'register_type'):
         raise ValueError('Unknown schema operation')
     # Native Schema.get resolves these projects to the predefined system
     # document, which TACTIC deliberately does not allow DB rows to override.
     builtin = project_code in ('admin', 'sthpw')
-    if action == 'save' and builtin:
+    if action in ('save', 'register_type') and builtin:
         raise PermissionError('The built-in system schema is read-only')
     catalog = [{'identity': project_code, 'label': project_code}]
 
@@ -34,6 +35,33 @@ def schema_request(action: str, project_code: str, identity: str = '',
 
     if action == 'list':
         return json.dumps({'catalog': catalog, 'metadata': metadata(), 'canWrite': not builtin})
+    if action == 'register_type':
+        from pyasm.search import DbContainer
+        from tactic_client_lib import TacticServerStub
+        sql = DbContainer.get('sthpw')
+        sql.get_database_impl().lock_collection_table(sql, SearchType.get('sthpw/search_object').get_table())
+        if not re.fullmatch(re.escape(project_code) + r'/[a-z][a-z0-9_]*', identity or ''):
+            raise ValueError('Draft Search Types must use the current project and a lowercase table name')
+        table = identity.split('/')[1]
+        registered = {row.get_code() for row in Search('sthpw/search_object').get_sobjects()}
+        if identity in registered or Project.get().get_sql().table_exists(table):
+            raise ValueError('Search Type or table %s already exists.' % identity)
+        spec = draft or {}
+        title = str(spec.get('title') or table).strip() or table
+        description = str(spec.get('description') or 'Created from project schema').strip()
+        color = str(spec.get('color') or '').strip()
+        has_pipeline = bool(spec.get('hasPipeline', True))
+        api = TacticServerStub.get(protocol='local')
+        api.create_search_type(table, title, description, has_pipeline=has_pipeline)
+        if color:
+            sobj = SearchType.get(identity)
+            sobj.set_value('color', color)
+            sobj.commit()
+        Schema.get(reset_cache=True, project_code=project_code)
+        item = Schema.get_by_code(project_code)
+        current_xml = item.get_value('schema') if item else '<schema/>'
+        revision = hashlib.sha256(current_xml.encode()).hexdigest()
+        return json.dumps({'identity': identity, 'metadata': metadata(), 'revision': revision, 'schemaXml': current_xml}, default=str)
     identity = identity or project_code
     if identity != project_code:
         raise ValueError('This schema is not part of the selected project')
@@ -56,21 +84,23 @@ def schema_request(action: str, project_code: str, identity: str = '',
         if root.tag != 'schema':
             raise ValueError('The document must have a schema root')
         new_types = (document or {}).get('newTypes', {})
+        draft_types = (document or {}).get('draftTypes', {})
         create_columns = (document or {}).get('createColumns', [])
-        if not isinstance(new_types, dict) or not isinstance(create_columns, list):
+        if not isinstance(new_types, dict) or not isinstance(draft_types, dict) or not isinstance(create_columns, list):
             raise ValueError('Invalid schema creation plan')
-        registered = {row.get_code() for row in Search('sthpw/search_object').get_sobjects()} if new_types else set()
-        for name in new_types:
+        pending_types = set(new_types) | set(draft_types)
+        registered = {row.get_code() for row in Search('sthpw/search_object').get_sobjects()} if pending_types else set()
+        for name in pending_types:
             if not re.fullmatch(re.escape(project_code) + r'/[a-z][a-z0-9_]*', name):
-                raise ValueError('Instance Search Types must use the current project and a lowercase table name')
+                raise ValueError('New Search Types must use the current project and a lowercase table name')
             if name in registered or Project.get().get_sql().table_exists(name.split('/')[1]):
-                raise ValueError('Search Type or table %s already exists. Choose another instance name.' % name)
+                raise ValueError('Search Type or table %s already exists. Choose another table name.' % name)
         names = set()
         for node in root.findall('search_type'):
             name = node.get('name')
             if not name or name in names:
                 raise ValueError('Schema nodes must have unique Search Type identities')
-            if name != '*' and name not in new_types:
+            if name != '*' and name not in pending_types:
                 SearchType.get(name)
             names.add(name)
             for axis in ('xpos', 'ypos'):
@@ -86,13 +116,18 @@ def schema_request(action: str, project_code: str, identity: str = '',
                     or len({edge.get('from_col') for edge in links}) != 2
                     or any(edge.get('from') != name or edge.get('to') in new_types
                            or edge.get('to') == '*' or edge.get('relationship') != 'code' for edge in links)):
-                raise ValueError('Each new instance needs a node and two code connections to distinct existing Search Types')
+                raise ValueError('Each new instance needs a node and two code connections to distinct Search Types')
         column_info = {}
         additions = {}
 
         def columns(name):
             if name not in column_info:
-                if name in new_types:
+                if name in draft_types:
+                    column_info[name] = {
+                        'id': {'data_type': 'integer'},
+                        'code': {'data_type': 'varchar', 'size': 256},
+                    }
+                elif name in new_types:
                     column_info[name] = {}
                 else:
                     obj = SearchType.get(name)
@@ -127,7 +162,7 @@ def schema_request(action: str, project_code: str, identity: str = '',
             for endpoint in (source, target):
                 if not endpoint:
                     raise ValueError('Every relationship needs a source and a target')
-                if endpoint != '*' and endpoint not in new_types:
+                if endpoint != '*' and endpoint not in pending_types:
                     SearchType.get(endpoint)
             if edge.get('relationship') == 'many_to_many' and dict(edge.attrib) not in previous_edges:
                 raise ValueError('Use an instance Search Type with two code connections for many-to-many')
@@ -139,9 +174,9 @@ def schema_request(action: str, project_code: str, identity: str = '',
                 if not column or search_type == '*' or column in columns(search_type):
                     continue
                 key = {key: edge.get(key, '') for key in ('from', 'to', 'path')}
-                if search_type not in new_types and key not in create_columns:
+                if search_type not in pending_types and key not in create_columns:
                     raise ValueError('Column %s does not exist on %s. Enable Create missing columns or choose an existing column.' % (column, search_type))
-                if not re.fullmatch(r'[a-z][a-z0-9_]*', column) or (search_type in new_types and column in (
+                if not re.fullmatch(r'[a-z][a-z0-9_]*', column) or (search_type in pending_types and column in (
                         'id', 'code', 'name', 'description', 'keywords', 's_status', 'timestamp', 'login')):
                     raise ValueError('New relationship columns must be non-reserved lowercase SQL identifiers')
                 opposite, other_field = (target, 'to_col') if field == 'from_col' else (source, 'from_col')
@@ -155,6 +190,17 @@ def schema_request(action: str, project_code: str, identity: str = '',
         # registration, key creation and XML. Validate every edge before writes.
         from tactic_client_lib import TacticServerStub
         api = TacticServerStub.get(protocol='local')
+        for name, spec in draft_types.items():
+            table = name.split('/')[1]
+            title = str((spec or {}).get('title') or table).strip() or table
+            description = str((spec or {}).get('description') or 'Created from project schema').strip()
+            color = str((spec or {}).get('color') or '').strip()
+            has_pipeline = bool((spec or {}).get('hasPipeline', True))
+            api.create_search_type(table, title, description, has_pipeline=has_pipeline)
+            if color:
+                sobj = SearchType.get(name)
+                sobj.set_value('color', color)
+                sobj.commit()
         for name in new_types:
             table = name.split('/')[1]
             api.create_search_type(table, table, 'Many-to-many relationship', has_pipeline=False)
@@ -163,7 +209,7 @@ def schema_request(action: str, project_code: str, identity: str = '',
             SearchType.clear_column_cache(name)
         # Native SearchTypeCreatorCmd also modifies this schema. Fetch its
         # current object before replacing it with the complete authored draft.
-        if new_types:
+        if pending_types:
             item = Schema.get_by_code(project_code)
         if not item:
             item = Schema.create(project_code, 'Project schema', xml)

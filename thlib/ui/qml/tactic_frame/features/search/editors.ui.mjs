@@ -112,12 +112,13 @@ export function selection(model, width, language) {
 
 export function available(model, width, language) {
     const text = (key) => translate(key, language),
-        compact = width < 500;
+        compact = width < 500,
+        checkWidth = compact ? width : language === 'ru' ? 232 : 164;
     return {
         nodes: [
             label(
                 'quickFilterAvailableTitle',
-                rect(0, 0, compact ? width : width - 250, 32),
+                rect(0, 0, compact ? width : width - checkWidth - 8, 32),
                 text('Available filters'),
                 { weight: 600 }
             ),
@@ -125,9 +126,9 @@ export function available(model, width, language) {
                 'CheckBox',
                 'showHiddenQuickFilters',
                 rect(
-                    compact ? 0 : width - 246,
+                    compact ? 0 : width - checkWidth,
                     compact ? 32 : 0,
-                    compact ? width : 246,
+                    checkWidth,
                     32
                 ),
                 {
@@ -143,13 +144,15 @@ export function available(model, width, language) {
 
 export function group(model, width, language) {
     const text = (key) => translate(key, language),
-        enabled = !model.busy && model.canEdit !== false;
+        enabled = !model.busy && model.canEdit !== false,
+        compact = width < 440,
+        iconY = compact ? 44 : 2;
     return {
         nodes: [
             node(
                 'CheckBox',
                 'quickFilterGroupToggle:' + model.key,
-                rect(0, 0, width - 80, 36),
+                rect(0, 0, compact ? width - 80 : width - 276, 36),
                 {
                     text: model.title,
                     checked: !!model.enabled,
@@ -177,13 +180,14 @@ export function group(model, width, language) {
             ),
             label(
                 'quickFilterIconLabel_' + model.index,
-                rect(0, 44, 112, 32),
-                text('Filter icon')
+                rect(compact ? 0 : width - 272, iconY, 108, 32),
+                text('Filter icon'),
+                { color: 'secondaryText' }
             ),
             node(
                 'IconChoice',
                 'quickFilterIcon_' + model.index,
-                rect(120, 44, 32, 32),
+                rect(compact ? 116 : width - 158, iconY, 32, 32),
                 {
                     value: quickIcon(model),
                     enabled,
@@ -192,7 +196,7 @@ export function group(model, width, language) {
             ),
             button(
                 'quickFilterIconReset_' + model.index,
-                rect(160, 44, 32, 32),
+                rect(compact ? 156 : width - 120, iconY, 32, 32),
                 text('Use column icon'),
                 'refresh',
                 { type: 'iconReset', index: model.index },
@@ -200,7 +204,7 @@ export function group(model, width, language) {
                 { iconOnly: true }
             )
         ],
-        contentHeight: 76
+        contentHeight: compact ? 76 : 36
     };
 }
 

@@ -186,8 +186,11 @@ export function describe(model, ui, width, height, language) {
         };
     }
     const split = width >= 850,
+        treeVisible = ui.treeVisible !== false,
         treeWidth = split
-            ? Math.min(Math.max(280, ui.treeWidth), width * 0.48)
+            ? treeVisible
+                ? Math.min(Math.max(280, ui.treeWidth), width * 0.48)
+                : 56
             : width,
         minHeight = split ? 270 : 320;
     const contentHeight = Math.max(minHeight, height - y - (compact ? 0 : 38));
@@ -199,9 +202,10 @@ export function describe(model, ui, width, height, language) {
             ui,
             rect(0, 0, treeWidth, contentHeight),
             language,
-            edit
+            edit,
+            split
         );
-    if (split)
+    if (split && treeVisible)
         children.push(
             node(
                 'Splitter',
@@ -273,85 +277,126 @@ export function describe(model, ui, width, height, language) {
         nodes
     };
 }
-function tree(nodes, model, ui, bounds, language, edit) {
+function tree(nodes, model, ui, bounds, language, edit, split = false) {
     const tr = (text) => translate(text, language),
         width = bounds.width,
+        treeVisible = !split || ui.treeVisible !== false,
         children = [];
-    children.push(
-        label(
-            'sidebarTreeTitle',
-            rect(12, 8, width - 24, 28),
-            tr(model.source === 'handler' ? 'TH sidebar' : 'TACTIC sidebar'),
-            {
-                weight: 600
-            }
-        )
-    );
-    let y = 44;
-    if (model.source === 'handler') {
-        children.push(
-            node('Choice', 'sidebarGroupPreview', rect(12, y, width - 24, 38), {
-                label: tr('Preview group'),
-                options: model.previewOptions.map((option) => ({
-                    value: option.value,
-                    label: option.label
-                })),
-                value: model.previewGroup,
-                enabled: edit,
-                action: {
-                    type: 'preview'
-                }
-            })
-        );
-        y += 46;
-    }
-    children.push(
-        label('sidebarAddLabel', rect(12, y, width - 158, 38), tr('Add'), muted)
-    );
-    [
-        ['link', 'Add link', 'add'],
-        ['section', 'Add section', 'folder'],
-        ['separator', 'Add separator', 'sidebar-separator']
-    ].forEach(([value, text, icon], index) =>
-        children.push(
-            button(
-                'sidebarAdd_' + value,
-                rect(width - 138 + index * 42, y, 38, 38),
-                tr(text),
-                icon,
-                {
-                    type: 'add',
-                    value
-                },
-                edit,
-                {
-                    iconOnly: true
-                }
-            )
-        )
-    );
-    y += 46;
-    children.push(
-        list(
-            'sidebarEditorEntries',
-            rect(8, y, width - 16, bounds.height - y - 8),
-            'entries',
-            64
-        )
-    );
-    if (!model.entries.length)
+    if (treeVisible) {
         children.push(
             label(
-                'sidebarTreeEmpty',
-                rect(20, y + 12, width - 40, 70),
+                'sidebarTreeTitle',
+                rect(12, 10, Math.max(0, width - (split ? 62 : 24)), 34),
                 tr(
-                    model.previewGroup
-                        ? 'This group has no sidebar items'
-                        : 'This sidebar has no items'
+                    model.source === 'handler'
+                        ? 'TH sidebar'
+                        : 'TACTIC sidebar'
                 ),
                 {
-                    wrap: true,
-                    color: 'secondaryText'
+                    weight: 600
+                }
+            )
+        );
+        let y = 52;
+        if (model.source === 'handler') {
+            children.push(
+                node(
+                    'Choice',
+                    'sidebarGroupPreview',
+                    rect(12, y, width - 24, 38),
+                    {
+                        label: tr('Preview group'),
+                        options: model.previewOptions.map((option) => ({
+                            value: option.value,
+                            label: option.label
+                        })),
+                        value: model.previewGroup,
+                        enabled: edit,
+                        action: {
+                            type: 'preview'
+                        }
+                    }
+                )
+            );
+            y += 46;
+        }
+        children.push(
+            label(
+                'sidebarAddLabel',
+                rect(12, y, width - 158, 38),
+                tr('Add'),
+                muted
+            )
+        );
+        [
+            ['link', 'Add link', 'add'],
+            ['section', 'Add section', 'folder'],
+            ['separator', 'Add separator', 'sidebar-separator']
+        ].forEach(([value, text, icon], index) =>
+            children.push(
+                button(
+                    'sidebarAdd_' + value,
+                    rect(width - 138 + index * 42, y, 38, 38),
+                    tr(text),
+                    icon,
+                    {
+                        type: 'add',
+                        value
+                    },
+                    edit,
+                    {
+                        iconOnly: true,
+                        round: false
+                    }
+                )
+            )
+        );
+        y += 46;
+        children.push(
+            list(
+                'sidebarEditorEntries',
+                rect(8, y, width - 16, bounds.height - y - 8),
+                'entries',
+                64
+            )
+        );
+        if (!model.entries.length)
+            children.push(
+                label(
+                    'sidebarTreeEmpty',
+                    rect(20, y + 12, width - 40, 70),
+                    tr(
+                        model.previewGroup
+                            ? 'This group has no sidebar items'
+                            : 'This sidebar has no items'
+                    ),
+                    {
+                        wrap: true,
+                        color: 'secondaryText'
+                    }
+                )
+            );
+    }
+    if (split)
+        children.push(
+            button(
+                'sidebarToggleTree',
+                rect(
+                    treeVisible ? width - 46 : (width - 34) / 2,
+                    10,
+                    34,
+                    34
+                ),
+                tr(treeVisible ? 'Hide sidebar tree' : 'Show sidebar tree'),
+                treeVisible ? 'chevron-left' : 'chevron-right',
+                {
+                    type: 'treeVisible'
+                },
+                true,
+                {
+                    iconOnly: true,
+                    iconAction: true,
+                    round: false
                 }
             )
         );

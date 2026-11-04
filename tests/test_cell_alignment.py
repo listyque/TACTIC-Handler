@@ -40,6 +40,23 @@ class CellAlignmentTests(unittest.TestCase):
             self.assertIn('<!--keep-->', changed)
         for bad in ('justify', 'LEFT', 'left; color:red'):
             self.assertEqual(controller.update_catalog_wizard(source, row['path'], 'valueAlign', bad), '')
+        self.assertIn('<justify>right</justify>', row['xml'])
+        updated_xml = controller.update_catalog_wizard(
+            source, row['path'], 'xml',
+            '<element name="description" title="Custom Desc" width="220"><display class="tactic.ui.table.ExpressionElementWdg"><expression>@GET(.description)</expression></display></element>'
+        )
+        self.assertTrue(updated_xml)
+        updated_row = controller.catalog_wizard(updated_xml)['elements'][0]
+        self.assertEqual(updated_row['title'], 'Custom Desc')
+        self.assertEqual(updated_row['width'], 220)
+        self.assertEqual(updated_row['widget'], 'tactic.ui.table.ExpressionElementWdg')
+        self.assertIn('<expression>@GET(.description)</expression>', updated_row['xml'])
+        options = controller.widget_options_for(updated_row['widget'])
+        self.assertEqual(len(options), 21)
+        self.assertIn({'value': 'tactic.ui.table.ExpressionElementWdg', 'label': 'Expression'}, options)
+        self.assertFalse(any(row['value'] == 'expression' for row in options))
+        for bad_xml in ('', '<element/>', '<other name="x"/>', '<element name="x">broken'):
+            self.assertEqual(controller.update_catalog_wizard(source, row['path'], 'xml', bad_xml), '')
 
     def props(self, **extra):
         return dict(controller=_TableController(), columnsController=None, userModel=None,

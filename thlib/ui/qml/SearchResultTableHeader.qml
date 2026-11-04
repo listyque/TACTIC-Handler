@@ -404,6 +404,7 @@ Rectangle {
         radius: root.radius
 
         Controls.CheckBox {
+            id: selectAllBox
             objectName: "tableSelectionAll"
             visible: root.selectable
             anchors.centerIn: parent
@@ -411,9 +412,14 @@ Rectangle {
             height: 28
             leftPadding: 4
             theme: root.theme
-            checkState: root.selectedIds.length === 0 ? Qt.Unchecked : root.rowCount > 0 && root.selectedIds.length >= root.rowCount ? Qt.Checked : Qt.PartiallyChecked
+            readonly property int modelCheckState: root.selectedIds.length === 0 ? Qt.Unchecked : root.rowCount > 0 && root.selectedIds.length >= root.rowCount ? Qt.Checked : Qt.PartiallyChecked
+            checkState: modelCheckState
             Accessible.name: qsTr("Select all rows")
-            onClicked: root.selectAllRequested(checked)
+            onClicked: {
+                const selectAll = modelCheckState !== Qt.Checked;
+                checkState = Qt.binding(() => selectAllBox.modelCheckState);
+                root.selectAllRequested(selectAll);
+            }
         }
     }
 

@@ -11,7 +11,6 @@ Item {
         id: surfaceLoader
         objectName: "taskDockSurfaceLoader"
         anchors.fill: parent
-        asynchronous: true
         sourceComponent: tasksController.workspaceSurface === "browser"
             ? browserComponent : quickComponent
     }

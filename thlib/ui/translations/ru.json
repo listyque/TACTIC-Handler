@@ -1,5 +1,7 @@
 {
   "This layout requires TACTIC Stream.": "Для этого макета требуется TACTIC Stream.",
+  "Slide over left": "Накатывать слева",
+  "Slide over right": "Накатывать справа",
   "Database resources require TACTIC Stream.": "Для управления ресурсами баз данных требуется TACTIC Stream.",
   "Backend server controls require TACTIC Stream.": "Для управления серверными процессами требуется TACTIC Stream.",
   "Invalid cell alignment": "Неверное выравнивание ячейки",
@@ -6160,5 +6162,18 @@
   "Create a desktop shortcut for TACTIC Handler": "Создать ярлык TACTIC Handler на рабочем столе",
   "Create a desktop shortcut by default": "Создавать ярлык на рабочем столе по умолчанию",
   "No shared or personal shelves found in this project on the server.": "В этом проекте на сервере пока нет общих или личных полок.",
-  "Use a local folder or a network share. Server paths stay unchanged.": "Укажите локальную или сетевую папку для файлов проекта. Серверные пути не меняются."
+  "Use a local folder or a network share. Server paths stay unchanged.": "Укажите локальную или сетевую папку для файлов проекта. Серверные пути не меняются.",
+  "Running test\\u2026": "╨Т╤Л╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░тАж",
+  "Manual · Task": "Ручной · Задача (manual)",
+  "Action · Auto script": "Действие · Автоскрипт (action)",
+  "Condition · Branching": "Условие · Ветвление (condition)",
+  "Approval · Sign-off": "Согласование · Приёмка (approval)",
+  "Hierarchy · Sub-workflow": "Иерархия · Подпайплайн (hierarchy)",
+  "Dependency · External wait": "Зависимость · Ожидание (dependency)",
+  "Progress · Tracker": "Прогресс · Сводка (progress)",
+  "Status · Task state": "Статус · Состояние (status)",
+  "Choose how this stage behaves in the workflow and how it is drawn on the canvas:": "Выберите, как этот этап работает в пайплайне и как он отображается на схеме:",
+  "Config table · config": "Таблица конфигурации · config",
+  "System table · sthpw": "Системная таблица · sthpw",
+  "External · {ns}": "Внешний проект · {ns}"
 }

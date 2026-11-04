@@ -144,6 +144,11 @@ class TaskSearchSyncTests(unittest.TestCase):
         self.application.section_state_changed.emit()
         self.deliver_details(self.first)
         self.tasks.refresh_advanced.assert_called_once_with()
+        self.application.clear_result_selection()
+        self.assertEqual(self.tab.selected_node_id, "")
+        self.assertEqual(self.tab.selected_node_ids, [])
+        self.application.select_all_result_siblings()
+        self.assertCountEqual(self.tab.selected_node_ids, [self.first.code, self.second.code])
 
     def test_ctrl_deselection_uses_remaining_object_not_last_clicked_row(self):
         self.tasks.open_workspace()
@@ -467,8 +472,8 @@ class TaskSearchSyncTests(unittest.TestCase):
         view.setSize(window.size())
         window.show()
         try:
-            self.wait_frame(window, lambda: view.findChild(
-                QQuickItem, "quickTaskViewSwitcher",
+            self.wait_frame(window, lambda: self.visual_item(
+                view, "quickTaskViewSwitcher",
             ) is not None)
             yield window, view
             self.assertEqual(warnings, [])
@@ -497,14 +502,14 @@ class TaskSearchSyncTests(unittest.TestCase):
     def test_qml_surface_switch_selection_and_search_type_scope(self):
         self.tasks.open_quick_workspace()
         with self.scene(1480) as (window, view):
-            switcher = view.findChild(QQuickItem, "quickTaskViewSwitcher")
+            switcher = self.visual_item(view, "quickTaskViewSwitcher")
             self.click(window, switcher, 5 / 6)
-            self.wait_frame(window, lambda: view.findChild(
-                QQuickItem, "embeddedScopeSwitcher",
+            self.wait_frame(window, lambda: self.visual_item(
+                view, "embeddedScopeSwitcher",
             ) is not None)
             self.assertEqual(self.tasks.workspaceSurface, "browser")
             self.assertTrue(self.tasks._advanced_visible)
-            results = view.findChild(QQuickItem, "searchResultsListView")
+            results = self.visual_item(view, "searchResultsListView")
             self.click(window, results, 0.35)
             self.application._selection_load_timer.stop()
             self.assertEqual(self.tab.selected_node_id, self.second.code)
@@ -525,10 +530,10 @@ class TaskSearchSyncTests(unittest.TestCase):
             stype.get_pretty_name = lambda: "Episode"
             self.tab.stype = stype
             self.application.section_state_changed.emit()
-            scope = view.findChild(QQuickItem, "embeddedScopeSwitcher")
+            scope = self.visual_item(view, "embeddedScopeSwitcher")
             self.assertEqual(scope.property("model").toVariant()[1]["label"], "All Episode")
             self.wait_frame(window)
-            segment = self.visual_item(scope, "segmentedButtonSegment_search_type")
+            segment = self.visual_item(scope, "embeddedScopeSwitcher_search_type")
             self.assertIsNotNone(segment)
             self.assertTrue(segment.isEnabled())
             self.assertTrue(segment.isVisible())
@@ -540,15 +545,15 @@ class TaskSearchSyncTests(unittest.TestCase):
     def test_qml_narrow_browser_keeps_scope_action_available(self):
         self.tasks.open_workspace()
         with self.scene(460) as (window, view):
-            self.wait_frame(window, lambda: view.findChild(
-                QQuickItem, "compactScopeButton",
+            self.wait_frame(window, lambda: self.visual_item(
+                view, "compactScopeButton",
             ) is not None)
-            scope = view.findChild(QQuickItem, "compactScopeButton")
+            scope = self.visual_item(view, "compactScopeButton")
             self.assertTrue(scope.isVisible())
             self.assertGreater(scope.width(), 0)
             self.click(window, scope)
             self.wait_frame(window)
-            browser = view.findChild(QObject, "tasksWorkspaceView")
+            browser = self.visual_item(view, "tasksWorkspaceView")
             self.assertIsNotNone(browser)
 
 

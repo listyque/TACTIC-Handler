@@ -36,11 +36,17 @@ class ShellPermissionTests(unittest.TestCase):
             for action in self.controller.menu_actions("configuration")
         }
         self.assertTrue({
-            "show_tools", "show_ui_performance", "show_handler_server"
+            "show_tools", "show_ui_performance", "show_handler_server",
+            "show_administration", "open_agent_request",
         }.isdisjoint(actions))
         self.assertIn("show_update", actions)
         self.assertIn("open_script_editor", actions)
         self.assertEqual(self.controller.menu_actions("tools"), [])
+        main_qml = (
+            Path(__file__).resolve().parents[1] / "thlib/ui/qml/Main.qml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("canAdminister: appController.can_administer", main_qml)
+        self.assertNotIn("canAdminister: true", main_qml)
 
         for command in (
             "show_tools", "show_ui_performance", "show_handler_server",
@@ -62,6 +68,9 @@ class ShellPermissionTests(unittest.TestCase):
 
     def test_supervisor_keeps_server_controls_without_tools_menu(self):
         self.users.canManageUsers = True
+        self.controller._administration_identity = (
+            self.controller.server_url, self.controller.server_user
+        )
         with patch.object(env_server, 'get_ticket', return_value='test-ticket'):
             self.controller._set_server_state('online', 'Authenticated')
             actions = {

@@ -167,7 +167,7 @@ class AdminDocumentEditor(QObject):
             self._metadata = result.get('metadata', {})
             self._can_write = bool(result.get('canWrite'))
             self._catalog_loaded()
-            if action == 'list':
+            if action == 'list' or 'document' not in result:
                 if not self._catalog:
                     self._identity = self._revision = ''
                     self._document = {}
@@ -188,12 +188,19 @@ class AdminDocumentEditor(QObject):
             self._document = copy.deepcopy(result['document'])
             self._original = copy.deepcopy(self._document)
             self._document_loaded()
+            if self._requested_identity:
+                requested, self._requested_identity = self._requested_identity, ''
+                if not any(row['identity'] == requested for row in self._catalog):
+                    self.stateChanged.emit()
+                    self.fail(self.tr('The configured table target is unavailable'))
+                    return
+                if requested != self._identity:
+                    self.stateChanged.emit()
+                    self.select(requested)
+                    return
             self.stateChanged.emit()
             if action == 'save':
                 self.committed.emit()
-            elif self._requested_identity:
-                requested, self._requested_identity = self._requested_identity, ''
-                self.select(requested)
 
         def failed(error):
             if self._closed or generation != self._generation:

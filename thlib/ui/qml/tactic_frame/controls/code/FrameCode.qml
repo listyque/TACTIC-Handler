@@ -27,6 +27,11 @@ Item {
         };
     }
     objectName: node.id
+    property alias text: source.text
+    property alias readOnly: source.readOnly
+    function focusEditor() {
+        source.forceActiveFocus();
+    }
     function synchronize() {
         const key = String(node.bufferKey || node.id), value = String(node.text || "");
         if (activeBuffer !== key) {
@@ -86,6 +91,7 @@ Item {
         height: root.height - y
         theme: root.theme
         controller: root.controller
+        syntax: String(root.node.syntax || "auto")
         readOnly: root.node.readOnly || !root.node.enabled
         fontPointSize: root.codeFont
         onTextEdited: if (root.node.action)

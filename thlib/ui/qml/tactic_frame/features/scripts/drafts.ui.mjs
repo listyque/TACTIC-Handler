@@ -125,6 +125,7 @@ export function describe(model, width, height, language) {
                 label: tr('Draft source'),
                 readOnly: true,
                 enabled: true,
+                monospace: true,
                 wrap: false
             }),
             node('Area', 'agentDraftReports', report, {

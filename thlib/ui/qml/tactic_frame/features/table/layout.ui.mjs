@@ -1043,12 +1043,13 @@ export function describe(
             viewportHeight - footerHeight - Math.min(180, viewportHeight * 0.45)
         )
     );
-    if (head.height > headerHeight)
+    if (head.height > headerHeight && !cell.layoutEditing)
         head = header(Math.max(0, width - controlMetrics.scrollBar.extent - 4));
     headerNodes = head.nodes;
     if (
         footerExtent + frameSpacing.content * 2 > footerHeight &&
-        footerHeight
+        footerHeight &&
+        !cell.layoutEditing
     ) {
         foot = [];
         footerExtent = drawRegion(
@@ -1096,7 +1097,10 @@ export function describe(
     }
     let contentWidth = Math.max(0, width),
         extent = render(contentWidth);
-    if (extent + (cell.layoutError ? 80 : 0) > bodyHeight) {
+    if (
+        extent + (cell.layoutError ? 80 : 0) > bodyHeight &&
+        !cell.layoutEditing
+    ) {
         contentWidth = Math.max(0, width - controlMetrics.scrollBar.extent - 4);
         extent = render(contentWidth);
     }

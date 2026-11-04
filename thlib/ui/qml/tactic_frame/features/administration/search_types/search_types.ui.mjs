@@ -17,25 +17,33 @@ import {
     removalReasons
 } from './search_types.fields.mjs';
 export function records(model, ui) {
-    const query = ui.query.toLowerCase();
+    const query = (ui.query || '').toLowerCase();
+    if (!query && !ui.projectOnly && !ui.hideConfig) return model.catalog;
     return model.catalog.filter(
         (row) =>
             (!ui.projectOnly || row.projectLocal) &&
             (!ui.hideConfig || row.namespace !== 'config') &&
-            [row.label, row.identity].join(' ').toLowerCase().indexOf(query) >=
-                0
+            (!query ||
+                String(row.label || '')
+                    .toLowerCase()
+                    .indexOf(query) >= 0 ||
+                String(row.identity || '')
+                    .toLowerCase()
+                    .indexOf(query) >= 0)
     );
 }
 export function existing(model, ui) {
-    return Object.keys(model.metadata.columns || {})
-        .filter(
-            (name) =>
-                name.toLowerCase().indexOf(ui.fieldQuery.toLowerCase()) >= 0
-        )
-        .map((name) => ({
-            name,
-            info: model.metadata.columns[name]
-        }));
+    const columns = model.metadata.columns || {},
+        query = (ui.fieldQuery || '').toLowerCase(),
+        names = Object.keys(columns);
+    return (
+        query
+            ? names.filter((name) => name.toLowerCase().indexOf(query) >= 0)
+            : names
+    ).map((name) => ({
+        name,
+        info: columns[name]
+    }));
 }
 export function toolbar(model, ui, width, language) {
     if (ui.page === 'naming')
@@ -116,7 +124,12 @@ export function describe(model, ui, width, height, language) {
             ]
         };
     const split = !model.creationOnly && width >= 850,
-        left = split ? Math.min(ui.catalogWidth, width * 0.4) : width,
+        catalogVisible = ui.catalogVisible !== false,
+        left = split
+            ? catalogVisible
+                ? Math.min(ui.catalogWidth, width * 0.4)
+                : 56
+            : width,
         edit = policy(model).editable && !ui.confirmation,
         navigate =
             !model.busy &&
@@ -125,80 +138,109 @@ export function describe(model, ui, width, height, language) {
             !model.namingLocked &&
             !ui.confirmation;
     if (!model.creationOnly && (split || !ui.editing)) {
-        const children = [
-            label(
-                'typesCatalogTitle',
-                rect(12, 8, left - 24, 28),
-                tr('Search Types'),
-                {
-                    fontRole: 'section',
-                    weight: 600
-                }
-            ),
-            node(
-                'Field',
-                'adminSearchTypeFilter',
-                rect(12, 44, left - 24, 38),
-                {
-                    label: tr('Find a Search Type'),
-                    placeholder: tr('Find a Search Type'),
-                    text: ui.query,
-                    enabled: !model.busy,
-                    action: {
-                        type: 'query'
-                    }
-                }
-            ),
-            node(
-                'CheckBox',
-                'adminSearchTypesProjectOnly',
-                rect(12, 90, left - 24, 32),
-                {
-                    text: tr('Only current project'),
-                    checked: ui.projectOnly,
-                    enabled: !model.busy,
-                    action: {
-                        type: 'projectOnly'
-                    }
-                }
-            ),
-            node(
-                'CheckBox',
-                'adminSearchTypesHideConfig',
-                rect(12, 128, left - 24, 32),
-                {
-                    text: tr('Hide config types'),
-                    checked: ui.hideConfig,
-                    enabled: !model.busy,
-                    action: {
-                        type: 'hideConfig'
-                    }
-                }
-            ),
-            node(
-                'List',
-                'adminSearchTypesList',
-                rect(12, 170, left - 24, h - 182),
-                {
-                    source: 'types',
-                    rowHeight: 88,
-                    keyField: 'identity',
-                    scrollbarId: 'adminSearchTypesScrollBar'
-                }
-            )
-        ];
-        if (!records(model, ui).length)
+        const children = [];
+        if (!split || catalogVisible) {
             children.push(
                 label(
-                    'typesCatalogEmpty',
-                    rect(12, 180, left - 24, 90),
-                    tr('No types found'),
-                    Object.assign(
-                        {
-                            wrap: true
-                        },
-                        muted
+                    'typesCatalogTitle',
+                    rect(12, 10, Math.max(0, left - (split ? 62 : 24)), 34),
+                    tr('Search Types'),
+                    {
+                        weight: 600
+                    }
+                ),
+                node(
+                    'Field',
+                    'adminSearchTypeFilter',
+                    rect(12, 52, left - 24, 38),
+                    {
+                        label: tr('Find a Search Type'),
+                        placeholder: tr('Find a Search Type'),
+                        text: ui.query,
+                        enabled: !model.busy,
+                        action: {
+                            type: 'query'
+                        }
+                    }
+                ),
+                node(
+                    'CheckBox',
+                    'adminSearchTypesProjectOnly',
+                    rect(12, 98, left - 24, 32),
+                    {
+                        text: tr('Only current project'),
+                        checked: ui.projectOnly,
+                        enabled: !model.busy,
+                        action: {
+                            type: 'projectOnly'
+                        }
+                    }
+                ),
+                node(
+                    'CheckBox',
+                    'adminSearchTypesHideConfig',
+                    rect(12, 136, left - 24, 32),
+                    {
+                        text: tr('Hide config types'),
+                        checked: ui.hideConfig,
+                        enabled: !model.busy,
+                        action: {
+                            type: 'hideConfig'
+                        }
+                    }
+                ),
+                node(
+                    'List',
+                    'adminSearchTypesList',
+                    rect(12, 176, left - 24, Math.max(0, h - 188)),
+                    {
+                        source: 'types',
+                        rowHeight: 88,
+                        keyField: 'identity',
+                        scrollbarId: 'adminSearchTypesScrollBar'
+                    }
+                )
+            );
+            if (!records(model, ui).length)
+                children.push(
+                    label(
+                        'typesCatalogEmpty',
+                        rect(12, 186, left - 24, 90),
+                        tr('No types found'),
+                        Object.assign(
+                            {
+                                wrap: true
+                            },
+                            muted
+                        )
                     )
+                );
+        }
+        if (split)
+            children.push(
+                button(
+                    'adminToggleTypesCatalog',
+                    rect(
+                        catalogVisible ? left - 46 : (left - 34) / 2,
+                        10,
+                        34,
+                        34
+                    ),
+                    tr(
+                        catalogVisible
+                            ? 'Hide Search Types'
+                            : 'Show Search Types'
+                    ),
+                    catalogVisible ? 'chevron-left' : 'chevron-right',
+                    {
+                        type: 'catalogVisible'
+                    },
+                    true,
+                    {
+                        iconOnly: true,
+                        iconAction: true,
+                        round: false
+                    }
                 )
             );
         nodes.push(
@@ -209,7 +251,7 @@ export function describe(model, ui, width, height, language) {
             })
         );
     }
-    if (split)
+    if (split && catalogVisible)
         nodes.push(
             node('Splitter', 'typesCatalogSplitHandle', rect(left, y, 10, h), {
                 text: tr('Search Types panel width'),
@@ -679,37 +721,87 @@ function content(model, ui, width, height, language, edit, navigate) {
         );
         y += body.height;
         // These examples describe the type; they never create sample database values.
-        nodes.push(
-            label(
-                'adminNewColumnExample',
-                rect(0, y, width, 64),
-                tr('Example: {name} = {value}', {
-                    name: ui.fieldName.trim() || field.name,
-                    value: tr(field.example)
-                }) +
-                    ' · ' +
-                    tr('Database type: {type}', {
-                        type: ui.fieldType
-                    }),
-                Object.assign(
-                    {
-                        wrap: true
-                    },
-                    muted
-                )
+        const addPad = width < 380 ? 10 : 14,
+            inlineAdd = width >= 560,
+            addBtnW = inlineAdd
+                ? Math.min(
+                      Math.max(164, tr('Add field').length * 7.5 + 48),
+                      210
+                  )
+                : Math.max(1, width - addPad * 2),
+            exampleW = Math.max(
+                40,
+                width -
+                    addPad * 2 -
+                    28 -
+                    (inlineAdd ? addBtnW + 14 : 0)
             ),
-            button(
-                'adminStageColumn',
-                rect(0, y + 72, width, 38),
-                tr('Add field'),
-                'add',
+            addCardH = inlineAdd ? 62 : 104;
+        nodes.push(
+            node(
+                'Box',
+                'typeAddFieldFooterCard',
+                rect(0, y, width, addCardH),
                 {
-                    type: 'addField'
-                },
-                edit && !!ui.fieldName.trim()
+                    background: 'surfaceContainer',
+                    border: 'outlineVariant',
+                    radius: 10,
+                    children: [
+                        node(
+                            'Icon',
+                            'typeAddFieldExampleIcon',
+                            rect(addPad, inlineAdd ? 22 : 14, 18, 18),
+                            {
+                                icon: 'code',
+                                color: 'action'
+                            }
+                        ),
+                        label(
+                            'adminNewColumnExample',
+                            rect(
+                                addPad + 26,
+                                inlineAdd ? 10 : 8,
+                                exampleW,
+                                42
+                            ),
+                            tr('Example: {name} = {value}', {
+                                name: ui.fieldName.trim() || field.name,
+                                value: tr(field.example)
+                            }) +
+                                ' · ' +
+                                tr('Database type: {type}', {
+                                    type: ui.fieldType
+                                }),
+                            Object.assign(
+                                {
+                                    wrap: true,
+                                    monospace: true
+                                },
+                                muted
+                            )
+                        ),
+                        button(
+                            'adminStageColumn',
+                            inlineAdd
+                                ? rect(
+                                      width - addPad - addBtnW,
+                                      12,
+                                      addBtnW,
+                                      38
+                                  )
+                                : rect(addPad, 54, addBtnW, 38),
+                            tr('Add field'),
+                            'add',
+                            {
+                                type: 'addField'
+                            },
+                            edit && !!ui.fieldName.trim()
+                        )
+                    ]
+                }
             )
         );
-        y += 118;
+        y += addCardH + 14;
         if ((doc.columns || []).length) {
             heading(
                 'typeDraftFieldsHeading',
@@ -721,40 +813,74 @@ function content(model, ui, width, height, language, edit, navigate) {
                 )
             );
             for (let index = 0; index < doc.columns.length; index++) {
-                const row = doc.columns[index];
+                const row = doc.columns[index],
+                    dPad = width < 380 ? 10 : 14;
                 nodes.push(
-                    label(
-                        'typeDraftName_' + row.name,
-                        rect(0, y, width - 44, 26),
-                        row.name,
+                    node(
+                        'Box',
+                        'typeDraftCard_' + row.name,
+                        rect(0, y, width, 62),
                         {
-                            weight: 600
-                        }
-                    ),
-                    label(
-                        'typeDraftType_' + row.name,
-                        rect(0, y + 30, width - 44, 26),
-                        row.type,
-                        muted
-                    ),
-                    button(
-                        'adminRemoveColumn_' + row.name,
-                        rect(width - 38, y, 38, 38),
-                        tr('Remove draft field {name}', {
-                            name: row.name
-                        }),
-                        'delete',
-                        {
-                            type: 'removeDraft',
-                            index
-                        },
-                        edit,
-                        {
-                            iconOnly: true
+                            background: 'surfaceContainer',
+                            border: 'outlineVariant',
+                            radius: 10,
+                            children: [
+                                node(
+                                    'Icon',
+                                    'typeDraftIcon_' + row.name,
+                                    rect(dPad, 14, 18, 18),
+                                    {
+                                        icon: 'add',
+                                        color: 'action'
+                                    }
+                                ),
+                                label(
+                                    'typeDraftName_' + row.name,
+                                    rect(
+                                        dPad + 26,
+                                        8,
+                                        Math.max(0, width - dPad * 2 - 74),
+                                        24
+                                    ),
+                                    row.name,
+                                    {
+                                        weight: 600,
+                                        monospace: true
+                                    }
+                                ),
+                                label(
+                                    'typeDraftType_' + row.name,
+                                    rect(
+                                        dPad + 26,
+                                        32,
+                                        Math.max(0, width - dPad * 2 - 74),
+                                        20
+                                    ),
+                                    row.type,
+                                    Object.assign({ monospace: true }, muted)
+                                ),
+                                button(
+                                    'adminRemoveColumn_' + row.name,
+                                    rect(width - dPad - 38, 12, 38, 38),
+                                    tr('Remove draft field {name}', {
+                                        name: row.name
+                                    }),
+                                    'delete',
+                                    {
+                                        type: 'removeDraft',
+                                        index
+                                    },
+                                    edit,
+                                    {
+                                        iconOnly: true,
+                                        round: false
+                                    }
+                                )
+                            ]
                         }
                     )
                 );
-                y += 66;
+                y += 70;
             }
         }
         if (model.identity) {
@@ -791,7 +917,7 @@ function content(model, ui, width, height, language, edit, navigate) {
                     {
                         source: 'fields',
                         keyField: 'name',
-                        rowHeight: width < 420 ? 192 : 144,
+                        rowHeight: width < 420 ? 188 : 136,
                         scrollbarId: 'typeExistingFieldsScrollBar'
                     }
                 )
@@ -900,7 +1026,7 @@ function content(model, ui, width, height, language, edit, navigate) {
                 {
                     background: 'surfaceContainerHigh',
                     border: 'outlineVariant',
-                    radius: 0,
+                    radius: 10,
                     children: metricNodes
                 }
             )
@@ -939,28 +1065,138 @@ function content(model, ui, width, height, language, edit, navigate) {
                     : "Relationships come from this project's schema and inherited schemas, not from table names."
             )
         );
+        const locPad = width < 380 ? 10 : 14,
+            locInner = Math.max(1, width - locPad * 2),
+            locCols = locInner >= 420 ? 2 : 1,
+            locCellW = (locInner - (locCols - 1) * 10) / locCols,
+            locScopeText = tr(
+                meta.projectLocal
+                    ? 'Stored in the selected project'
+                    : 'Shared data outside the selected project'
+            ),
+            locText =
+                tr('Database') +
+                ': ' +
+                (meta.database || '—') +
+                ' · ' +
+                tr('Table') +
+                ': ' +
+                (meta.table || '—') +
+                '\n' +
+                locScopeText,
+            locRows = locCols === 2 ? 1 : 2,
+            locCardH = 44 + locRows * 52 + (locRows - 1) * 8 + 12,
+            locChildren = [
+                node('Icon', 'typeDataLocationIcon', rect(locPad, 12, 18, 18), {
+                    icon: 'storage',
+                    color: 'action'
+                }),
+                label(
+                    'typeDataLocationTitle',
+                    rect(locPad + 26, 9, Math.max(0, locInner - 26), 24),
+                    tr('Data location'),
+                    {
+                        weight: 600
+                    }
+                )
+            ];
+        if (width >= 460) {
+            const badgeW = Math.min(
+                Math.max(150, locScopeText.length * 6.8 + 36),
+                Math.floor(width * 0.56)
+            );
+            locChildren.push(
+                node(
+                    'Box',
+                    'typeDataLocationScopeBadge',
+                    rect(width - locPad - badgeW, 8, badgeW, 26),
+                    {
+                        background: 'surfaceContainerHigh',
+                        border: 'outlineVariant',
+                        radius: 13,
+                        children: [
+                            node(
+                                'Icon',
+                                'typeDataLocationScopeIcon',
+                                rect(10, 5, 15, 15),
+                                {
+                                    icon: meta.projectLocal
+                                        ? 'folder-open'
+                                        : 'layers',
+                                    color: 'action'
+                                }
+                            ),
+                            label(
+                                'typeDataLocationScopeLabel',
+                                rect(30, 3, Math.max(0, badgeW - 38), 20),
+                                locScopeText,
+                                {
+                                    fontRole: 'secondary',
+                                    weight: 600
+                                }
+                            )
+                        ]
+                    }
+                )
+            );
+        }
+        [
+            ['db', 'dns', tr('Database'), meta.database || '—'],
+            ['table', 'table-view', tr('Table'), meta.table || '—']
+        ].forEach(([key, iconName, titleText, valText], idx) => {
+            const r = Math.floor(idx / locCols),
+                c = idx % locCols,
+                tx = locPad + c * (locCellW + 10),
+                ty = 44 + r * 60;
+            locChildren.push(
+                node(
+                    'Box',
+                    'typeDataLocationTile_' + key,
+                    rect(tx, ty, locCellW, 52),
+                    {
+                        background: 'surfaceContainerHigh',
+                        border: 'outlineVariant',
+                        radius: 8,
+                        children: [
+                            node(
+                                'Icon',
+                                'typeDataLocationTileIcon_' + key,
+                                rect(10, 8, 14, 14),
+                                {
+                                    icon: iconName,
+                                    color: 'action'
+                                }
+                            ),
+                            label(
+                                'typeDataLocationTileLabel_' + key,
+                                rect(28, 5, Math.max(0, locCellW - 36), 18),
+                                titleText,
+                                muted
+                            ),
+                            label(
+                                'typeDataLocationTileValue_' + key,
+                                rect(10, 25, Math.max(0, locCellW - 20), 22),
+                                valText,
+                                {
+                                    weight: 600,
+                                    monospace: true
+                                }
+                            )
+                        ]
+                    }
+                )
+            );
+        });
         nodes.push(
-            node('Area', 'typeDataLocation', rect(0, y, width, 64), {
-                text:
-                    tr('Database') +
-                    ': ' +
-                    (meta.database || '—') +
-                    ' · ' +
-                    tr('Table') +
-                    ': ' +
-                    (meta.table || '—') +
-                    '\n' +
-                    tr(
-                        meta.projectLocal
-                            ? 'Stored in the selected project'
-                            : 'Shared data outside the selected project'
-                    ),
-                label: tr('Data location'),
-                readOnly: true,
-                notice: true
+            node('Box', 'typeDataLocation', rect(0, y, width, locCardH), {
+                text: locText,
+                background: 'surfaceContainer',
+                border: 'outlineVariant',
+                radius: 10,
+                children: locChildren
             })
         );
-        y += 72;
+        y += locCardH + 10;
         for (
             let index = 0;
             index < (meta.relationships || []).length;
@@ -970,30 +1206,231 @@ function content(model, ui, width, height, language, edit, navigate) {
                 name = (id) =>
                     (model.catalog.find((row) => row.identity === id) || {})
                         .label || id,
+                fromLabel = name(edge.from),
+                toLabel = name(edge.to),
                 description =
-                    name(edge.from) +
+                    fromLabel +
                     ' → ' +
-                    name(edge.to) +
+                    toLabel +
                     '\n' +
                     relationshipDescription(edge, language),
-                relationHeight = Math.max(
-                    64,
-                    Math.min(224, textHeight(description) + 16)
+                cardPad = width < 380 ? 10 : 14,
+                innerW = Math.max(1, width - cardPad * 2),
+                tiles = [];
+            if (edge.from_col || edge.to_col)
+                tiles.push([
+                    'keys',
+                    'key',
+                    tr('Key fields'),
+                    (edge.from_col || '—') + '  →  ' + (edge.to_col || '—'),
+                    true
+                ]);
+            if (edge.relationship || edge.type)
+                tiles.push([
+                    'kind',
+                    'code',
+                    tr('Relationship in schema'),
+                    String(edge.relationship || edge.type),
+                    true
+                ]);
+            tiles.push([
+                'schema',
+                'folder-open',
+                tr('Schema'),
+                String(edge.schema || '—'),
+                true
+            ]);
+            if (edge.instanceType)
+                tiles.push([
+                    'linkTable',
+                    'link',
+                    tr('Link table'),
+                    String(edge.instanceType),
+                    true
+                ]);
+            const tileCols =
+                    innerW >= 620
+                        ? Math.min(tiles.length, 3)
+                        : innerW >= 400
+                          ? Math.min(tiles.length, 2)
+                          : 1,
+                tileGap = 10,
+                tileW =
+                    (innerW - (tileCols - 1) * tileGap) /
+                    Math.max(1, tileCols),
+                tileRows = Math.ceil(tiles.length / Math.max(1, tileCols)),
+                manyNote = edge.manyToMany
+                    ? tr(
+                          'Many-to-many (M:N): each side can be linked to several objects on the other side.'
+                      )
+                    : '',
+                manyNoteH = manyNote ? (width < 460 ? 44 : 26) : 0,
+                relationHeight =
+                    52 +
+                    tileRows * 52 +
+                    Math.max(0, tileRows - 1) * 8 +
+                    (manyNoteH ? manyNoteH + 10 : 0) +
+                    14,
+                modeBadgeText = edge.manyToMany
+                    ? tr('Many-to-many · M:N')
+                    : edge.type === 'hierarchy'
+                      ? tr('Hierarchy · child → parent')
+                      : tr('Schema link'),
+                showBadge = width >= 460,
+                badgeW = showBadge
+                    ? Math.min(
+                          Math.max(130, modeBadgeText.length * 6.8 + 34),
+                          Math.floor(width * 0.44)
+                      )
+                    : 0,
+                headerAvailW = Math.max(
+                    60,
+                    innerW - 26 - (showBadge ? badgeW + 10 : 0)
+                ),
+                relChildren = [
+                    node(
+                        'Icon',
+                        'adminSearchTypeRelationIcon_' + index,
+                        rect(cardPad, 13, 18, 18),
+                        {
+                            icon: edge.manyToMany ? 'link' : 'hierarchy',
+                            color: 'action'
+                        }
+                    ),
+                    label(
+                        'adminSearchTypeRelationTitle_' + index,
+                        rect(cardPad + 26, 10, headerAvailW, 24),
+                        fromLabel + '  →  ' + toLabel,
+                        {
+                            fontRole: 'section',
+                            weight: 600
+                        }
+                    ),
+                    node(
+                        'Box',
+                        'adminSearchTypeRelationDivider_' + index,
+                        rect(cardPad, 42, innerW, 1),
+                        {
+                            background: 'outlineVariant'
+                        }
+                    )
+                ];
+            if (showBadge) {
+                relChildren.push(
+                    node(
+                        'Box',
+                        'adminSearchTypeRelationBadge_' + index,
+                        rect(width - cardPad - badgeW, 9, badgeW, 26),
+                        {
+                            background: 'surfaceContainerHigh',
+                            border: 'outlineVariant',
+                            radius: 13,
+                            children: [
+                                node(
+                                    'Icon',
+                                    'adminSearchTypeRelationBadgeIcon_' + index,
+                                    rect(10, 5, 15, 15),
+                                    {
+                                        icon: edge.manyToMany
+                                            ? 'link'
+                                            : 'hierarchy',
+                                        color: 'action'
+                                    }
+                                ),
+                                label(
+                                    'adminSearchTypeRelationBadgeText_' + index,
+                                    rect(30, 3, Math.max(0, badgeW - 38), 20),
+                                    modeBadgeText,
+                                    {
+                                        fontRole: 'secondary',
+                                        weight: 600
+                                    }
+                                )
+                            ]
+                        }
+                    )
                 );
+            }
+            tiles.forEach(([tKey, tIcon, tLabel, tVal, mono], tIdx) => {
+                const r = Math.floor(tIdx / tileCols),
+                    c = tIdx % tileCols,
+                    tx = cardPad + c * (tileW + tileGap),
+                    ty = 52 + r * 60;
+                relChildren.push(
+                    node(
+                        'Box',
+                        'adminSearchTypeRelationTile_' + index + '_' + tKey,
+                        rect(tx, ty, tileW, 52),
+                        {
+                            background: 'surfaceContainerHigh',
+                            border: 'outlineVariant',
+                            radius: 8,
+                            children: [
+                                node(
+                                    'Icon',
+                                    'adminSearchTypeRelationTileIcon_' +
+                                        index +
+                                        '_' +
+                                        tKey,
+                                    rect(10, 8, 14, 14),
+                                    {
+                                        icon: tIcon,
+                                        color: 'action'
+                                    }
+                                ),
+                                label(
+                                    'adminSearchTypeRelationTileLabel_' +
+                                        index +
+                                        '_' +
+                                        tKey,
+                                    rect(28, 5, Math.max(0, tileW - 36), 18),
+                                    tLabel,
+                                    muted
+                                ),
+                                label(
+                                    'adminSearchTypeRelationTileValue_' +
+                                        index +
+                                        '_' +
+                                        tKey,
+                                    rect(10, 25, Math.max(0, tileW - 20), 22),
+                                    tVal,
+                                    {
+                                        weight: 600,
+                                        monospace: !!mono
+                                    }
+                                )
+                            ]
+                        }
+                    )
+                );
+            });
+            if (manyNote) {
+                const noteY =
+                    52 + tileRows * 52 + Math.max(0, tileRows - 1) * 8 + 8;
+                relChildren.push(
+                    label(
+                        'adminSearchTypeRelationNote_' + index,
+                        rect(cardPad, noteY, innerW, manyNoteH),
+                        manyNote,
+                        Object.assign({ wrap: true }, muted)
+                    )
+                );
+            }
             nodes.push(
                 node(
-                    'Area',
+                    'Box',
                     'adminSearchTypeRelation_' + index,
                     rect(0, y, width, relationHeight),
                     {
                         text: description,
-                        label: tr('Schema relationships'),
-                        readOnly: true,
-                        notice: true
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 10,
+                        children: relChildren
                     }
                 )
             );
-            y += relationHeight + 8;
+            y += relationHeight + 10;
         }
         if (!(meta.relationships || []).length) {
             const empty = tr(
@@ -1024,99 +1461,412 @@ function content(model, ui, width, height, language, edit, navigate) {
             )
         );
         if (!meta.hasPipeline) {
+            const missingPad = width < 380 ? 10 : 14,
+                missingH = width < 520 ? 76 : 56;
             nodes.push(
-                label(
-                    'typePipelineMissing',
-                    rect(0, y, width, 80),
-                    tr(
-                        'This type has no pipeline_code field. Add it in Fields to assign workflows to its objects.'
-                    ),
-                    Object.assign(
-                        {
-                            wrap: true
-                        },
-                        muted
-                    )
+                node(
+                    'Box',
+                    'typePipelineMissingCard',
+                    rect(0, y, width, missingH),
+                    {
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 10,
+                        children: [
+                            node(
+                                'Icon',
+                                'typePipelineMissingIcon',
+                                rect(missingPad, 14, 18, 18),
+                                {
+                                    icon: 'warning',
+                                    color: 'warning'
+                                }
+                            ),
+                            label(
+                                'typePipelineMissing',
+                                rect(
+                                    missingPad + 28,
+                                    10,
+                                    Math.max(0, width - missingPad * 2 - 28),
+                                    missingH - 20
+                                ),
+                                tr(
+                                    'This type has no pipeline_code field. Add it in Fields to assign workflows to its objects.'
+                                ),
+                                Object.assign({ wrap: true }, muted)
+                            )
+                        ]
+                    }
                 )
             );
-            y += 88;
+            y += missingH + 12;
         }
+        const canOpenWorkflow =
+            !model.busy && !model.uncertain && !model.namingLocked;
         for (const row of meta.pipelines || []) {
-            nodes.push(
-                label(
-                    'typeWorkflowTitle_' + row.identity,
-                    rect(0, y, width, 28),
-                    row.label,
-                    {
-                        weight: 600
-                    }
+            const cardPad = width < 380 ? 10 : 14,
+                innerW = Math.max(1, width - cardPad * 2),
+                inlineAction = width >= 460,
+                openBtnW = inlineAction
+                    ? Math.min(
+                          Math.max(156, tr('Open workflow').length * 7.5 + 44),
+                          210
+                      )
+                    : innerW,
+                scopeText = row.shared
+                    ? tr('Shared · read-only')
+                    : tr('Current project'),
+                showBadge = width >= 660,
+                badgeW = showBadge
+                    ? Math.min(
+                          Math.max(126, scopeText.length * 6.8 + 34),
+                          Math.floor(width * 0.34)
+                      )
+                    : 0,
+                titleW = Math.max(
+                    60,
+                    innerW -
+                        28 -
+                        (inlineAction ? openBtnW + 10 : 0) -
+                        (showBadge ? badgeW + 10 : 0)
                 ),
-                node(
-                    'Area',
-                    'typeWorkflowDescription_' + row.identity,
-                    rect(0, y + 32, width, 86),
-                    {
-                        text:
-                            (row.description || '') +
-                            '\n' +
-                            tr('{count} processes', {
-                                count: row.processCount
-                            }) +
-                            (row.shared
-                                ? ' · ' + tr('Shared · read-only')
-                                : ''),
-                        label: tr('Workflow'),
-                        readOnly: true,
-                        notice: true
-                    }
-                ),
+                tiles = [
+                    ['code', 'code', tr('Code'), row.identity, true],
+                    [
+                        'processes',
+                        'checklist',
+                        tr('Processes'),
+                        tr('{count} processes', { count: row.processCount }),
+                        false
+                    ],
+                    [
+                        'scope',
+                        row.shared ? 'layers' : 'folder-open',
+                        tr('Data location'),
+                        scopeText,
+                        false
+                    ]
+                ],
+                tileCols =
+                    innerW >= 580 ? 3 : innerW >= 380 ? 2 : 1,
+                tileGap = 10,
+                tileW =
+                    (innerW - (tileCols - 1) * tileGap) /
+                    Math.max(1, tileCols),
+                tileRows = Math.ceil(tiles.length / Math.max(1, tileCols)),
+                descText = String(row.description || '').trim(),
+                descH = descText
+                    ? Math.max(
+                          24,
+                          Math.ceil(
+                              descText.length /
+                                  Math.max(18, Math.floor((innerW - 28) / 7))
+                          ) * 20
+                      )
+                    : 0,
+                tilesTop = 54,
+                tilesBottom =
+                    tilesTop +
+                    tileRows * 52 +
+                    Math.max(0, tileRows - 1) * 8,
+                descTop = descH ? tilesBottom + 10 : tilesBottom,
+                bottomBtnTop = !inlineAction
+                    ? (descH ? descTop + descH + 10 : tilesBottom + 10)
+                    : 0,
+                cardH =
+                    (!inlineAction
+                        ? bottomBtnTop + 38
+                        : descH
+                          ? descTop + descH
+                          : tilesBottom) + 14,
+                summaryText =
+                    (descText ? descText + '\n' : '') +
+                    tr('{count} processes', { count: row.processCount }) +
+                    (row.shared ? ' · ' + tr('Shared · read-only') : ''),
+                cardChildren = [
+                    node(
+                        'Icon',
+                        'typeWorkflowIcon_' + row.identity,
+                        rect(cardPad, 15, 18, 18),
+                        {
+                            icon: 'workflow',
+                            color: row.color || 'action'
+                        }
+                    ),
+                    label(
+                        'typeWorkflowTitle_' + row.identity,
+                        rect(cardPad + 26, 11, titleW, 26),
+                        row.label,
+                        {
+                            fontRole: 'section',
+                            weight: 600
+                        }
+                    ),
+                    node(
+                        'Box',
+                        'typeWorkflowDivider_' + row.identity,
+                        rect(cardPad, 45, innerW, 1),
+                        {
+                            background: 'outlineVariant'
+                        }
+                    )
+                ];
+            if (showBadge) {
+                const badgeX =
+                    width -
+                    cardPad -
+                    (inlineAction ? openBtnW + 10 : 0) -
+                    badgeW;
+                cardChildren.push(
+                    node(
+                        'Box',
+                        'typeWorkflowBadge_' + row.identity,
+                        rect(badgeX, 10, badgeW, 26),
+                        {
+                            background: 'surfaceContainerHigh',
+                            border: 'outlineVariant',
+                            radius: 13,
+                            children: [
+                                node(
+                                    'Icon',
+                                    'typeWorkflowBadgeIcon_' + row.identity,
+                                    rect(10, 5, 15, 15),
+                                    {
+                                        icon: row.shared
+                                            ? 'layers'
+                                            : 'folder-open',
+                                        color: row.color || 'action'
+                                    }
+                                ),
+                                label(
+                                    'typeWorkflowBadgeText_' + row.identity,
+                                    rect(30, 3, Math.max(0, badgeW - 38), 20),
+                                    scopeText,
+                                    {
+                                        fontRole: 'secondary',
+                                        weight: 600
+                                    }
+                                )
+                            ]
+                        }
+                    )
+                );
+            }
+            tiles.forEach(([tKey, tIcon, tLabel, tVal, mono], tIdx) => {
+                const r = Math.floor(tIdx / tileCols),
+                    c = tIdx % tileCols,
+                    tx = cardPad + c * (tileW + tileGap),
+                    ty = tilesTop + r * 60;
+                cardChildren.push(
+                    node(
+                        'Box',
+                        'typeWorkflowTile_' + row.identity + '_' + tKey,
+                        rect(tx, ty, tileW, 52),
+                        {
+                            background: 'surfaceContainerHigh',
+                            border: 'outlineVariant',
+                            radius: 8,
+                            children: [
+                                node(
+                                    'Icon',
+                                    'typeWorkflowTileIcon_' +
+                                        row.identity +
+                                        '_' +
+                                        tKey,
+                                    rect(10, 8, 14, 14),
+                                    {
+                                        icon: tIcon,
+                                        color: row.color || 'action'
+                                    }
+                                ),
+                                label(
+                                    'typeWorkflowTileLabel_' +
+                                        row.identity +
+                                        '_' +
+                                        tKey,
+                                    rect(28, 5, Math.max(0, tileW - 36), 18),
+                                    tLabel,
+                                    muted
+                                ),
+                                label(
+                                    'typeWorkflowTileValue_' +
+                                        row.identity +
+                                        '_' +
+                                        tKey,
+                                    rect(10, 25, Math.max(0, tileW - 20), 22),
+                                    tVal,
+                                    {
+                                        weight: 600,
+                                        monospace: !!mono
+                                    }
+                                )
+                            ]
+                        }
+                    )
+                );
+            });
+            if (descH) {
+                cardChildren.push(
+                    node(
+                        'Icon',
+                        'typeWorkflowDescIcon_' + row.identity,
+                        rect(cardPad, descTop + 3, 15, 15),
+                        {
+                            icon: 'description',
+                            color: 'muted'
+                        }
+                    ),
+                    label(
+                        'typeWorkflowDescription_' + row.identity,
+                        rect(
+                            cardPad + 24,
+                            descTop,
+                            Math.max(0, innerW - 24),
+                            descH
+                        ),
+                        descText,
+                        Object.assign({ wrap: true }, muted)
+                    )
+                );
+            }
+            cardChildren.push(
                 button(
                     'adminSearchTypeWorkflow_' + row.identity,
-                    rect(0, y + 126, width, 38),
+                    inlineAction
+                        ? rect(width - cardPad - openBtnW, 7, openBtnW, 32)
+                        : rect(cardPad, bottomBtnTop, innerW, 38),
                     tr('Open workflow'),
                     'workflow',
                     {
                         type: 'workflow',
                         identity: row.identity
                     },
-                    !model.busy && !model.uncertain && !model.namingLocked
+                    canOpenWorkflow
                 )
             );
-            y += 178;
+            nodes.push(
+                node(
+                    'Box',
+                    'typeWorkflowCard_' + row.identity,
+                    rect(0, y, width, cardH),
+                    {
+                        text: summaryText,
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 10,
+                        children: cardChildren
+                    }
+                )
+            );
+            y += cardH + 10;
         }
         if (!(meta.pipelines || []).length) {
+            const emptyPad = width < 380 ? 10 : 14;
             nodes.push(
-                label(
-                    'typeWorkflowsEmpty',
-                    rect(0, y, width, 70),
-                    tr('No workflows linked to this Search Type.'),
-                    Object.assign(
-                        {
-                            wrap: true
-                        },
-                        muted
-                    )
-                )
+                node('Box', 'typeWorkflowsEmptyCard', rect(0, y, width, 56), {
+                    background: 'surfaceContainer',
+                    border: 'outlineVariant',
+                    radius: 10,
+                    children: [
+                        node(
+                            'Icon',
+                            'typeWorkflowsEmptyIcon',
+                            rect(emptyPad, 19, 18, 18),
+                            {
+                                icon: 'workflow',
+                                color: 'muted'
+                            }
+                        ),
+                        label(
+                            'typeWorkflowsEmpty',
+                            rect(
+                                emptyPad + 28,
+                                16,
+                                Math.max(0, width - emptyPad * 2 - 28),
+                                24
+                            ),
+                            tr('No workflows linked to this Search Type.'),
+                            Object.assign({ wrap: true }, muted)
+                        )
+                    ]
+                })
             );
-            y += 78;
+            y += 68;
         }
+        const createPad = width < 380 ? 10 : 14,
+            inlineCreate = width >= 520,
+            createBtnW = inlineCreate
+                ? Math.min(
+                      Math.max(168, tr('Create workflow').length * 7.5 + 48),
+                      230
+                  )
+                : Math.max(1, width - createPad * 2),
+            createCardH = inlineCreate ? 56 : 92,
+            createChildren = [
+                node(
+                    'Icon',
+                    'typeCreateWorkflowIcon',
+                    rect(createPad, 19, 18, 18),
+                    {
+                        icon: 'add',
+                        color: 'action'
+                    }
+                ),
+                label(
+                    'typeCreateWorkflowHint',
+                    rect(
+                        createPad + 26,
+                        inlineCreate ? 16 : 12,
+                        Math.max(
+                            0,
+                            width -
+                                createPad * 2 -
+                                26 -
+                                (inlineCreate ? createBtnW + 12 : 0)
+                        ),
+                        24
+                    ),
+                    tr('New workflow'),
+                    {
+                        weight: 600
+                    }
+                ),
+                button(
+                    'adminCreateTypeWorkflow',
+                    inlineCreate
+                        ? rect(
+                              width - createPad - createBtnW,
+                              10,
+                              createBtnW,
+                              36
+                          )
+                        : rect(createPad, 44, createBtnW, 38),
+                    tr('Create workflow'),
+                    'add',
+                    {
+                        type: 'workflow',
+                        identity: ''
+                    },
+                    !model.busy &&
+                        !model.uncertain &&
+                        !model.namingLocked &&
+                        model.canWrite
+                )
+            ];
         nodes.push(
-            button(
-                'adminCreateTypeWorkflow',
-                rect(0, y, width, 38),
-                tr('Create workflow'),
-                'add',
+            node(
+                'Box',
+                'typeCreateWorkflowCard',
+                rect(0, y, width, createCardH),
                 {
-                    type: 'workflow',
-                    identity: ''
-                },
-                !model.busy &&
-                    !model.uncertain &&
-                    !model.namingLocked &&
-                    model.canWrite
+                    background: 'surfaceContainer',
+                    border: 'outlineVariant',
+                    radius: 10,
+                    children: createChildren
+                }
             )
         );
-        y += 46;
+        y += createCardH + 10;
     } else if (ui.page === 'ready') {
         heading(
             'adminSearchTypeCreationReview',
@@ -1359,46 +2109,258 @@ export function row(listNode, record, model, ui, language) {
             removalReasons[
                 (model.metadata.columnRemovalBlocks || {})[record.name]
             ],
-        narrow = width < 420;
-    return {
-        nodes: [
-            label(
-                'typeExistingName_' + record.name,
-                rect(0, 0, narrow ? width : width - 160, 26),
-                record.name,
+        narrow = width < 420,
+        cardPad = width < 380 ? 10 : 14,
+        cardH = narrow ? 180 : 128,
+        info = record.info || {},
+        rawType = String(info.data_type || '')
+            .toLowerCase()
+            .split('(')[0]
+            .trim(),
+        typeIndex = {
+            varchar: 0,
+            'character varying': 0,
+            character: 0,
+            char: 0,
+            text: 1,
+            integer: 2,
+            bigint: 2,
+            smallint: 2,
+            int: 2,
+            int4: 2,
+            int8: 2,
+            numeric: 3,
+            decimal: 3,
+            real: 3,
+            'double precision': 3,
+            boolean: 4,
+            bool: 4
+        }[rawType],
+        fieldTypeDef =
+            fieldTypes[rawType.indexOf('timestamp') === 0 ? 5 : typeIndex],
+        typeSummary = fieldTypeDef
+            ? tr(fieldTypeDef.label) + ' · ' + (info.data_type || '')
+            : info.data_type || '—',
+        constraints = [
+            info.character_maximum_length
+                ? tr('Up to {count} characters', {
+                      count: info.character_maximum_length
+                  })
+                : '',
+            info.is_nullable === 'NO' || info.is_nullable === false
+                ? tr('Cannot be empty in the database')
+                : '',
+            fieldTypeDef
+                ? tr('Example value: {value}', {
+                      value: tr(fieldTypeDef.example)
+                  })
+                : ''
+        ]
+            .filter(Boolean)
+            .join('  ·  '),
+        fullText = marked
+            ? tr(
+                  'Marked for deletion. The column and its data will be deleted when you save.'
+              )
+            : fieldDescription(info, language) +
+              (reason ? '\n' + tr(reason) : ''),
+        btnW = 152,
+        showTypeBadge = !narrow && width >= 540,
+        badgeText = String(info.data_type || 'text'),
+        badgeW = showTypeBadge
+            ? Math.min(Math.max(84, badgeText.length * 7 + 30), 170)
+            : 0,
+        nameAvailW = Math.max(
+            60,
+            width -
+                cardPad * 2 -
+                26 -
+                (narrow ? 0 : btnW + 10) -
+                (showTypeBadge ? badgeW + 10 : 0)
+        ),
+        fieldIcon = marked
+            ? 'delete'
+            : reason
+              ? 'lock'
+              : rawType.indexOf('timestamp') === 0
+                ? 'calendar'
+                : typeIndex === 2 || typeIndex === 3
+                  ? 'tag'
+                  : typeIndex === 4
+                    ? 'check'
+                    : 'description',
+        cardChildren = [
+            node(
+                'Icon',
+                'typeExistingIcon_' + record.name,
+                rect(cardPad, 13, 18, 18),
                 {
-                    weight: 600,
-                    strike: marked
+                    icon: fieldIcon,
+                    color: marked ? 'error' : reason ? 'muted' : 'action'
                 }
             ),
             label(
-                'adminExistingField_' + record.name,
-                rect(0, 32, narrow ? width : width - 160, narrow ? 104 : 100),
-                marked
-                    ? tr(
-                          'Marked for deletion. The column and its data will be deleted when you save.'
-                      )
-                    : fieldDescription(record.info, language) +
-                          (reason ? '\n' + tr(reason) : ''),
-                Object.assign(
-                    {
-                        wrap: true
-                    },
-                    muted
-                )
+                'typeExistingName_' + record.name,
+                rect(cardPad + 26, 9, nameAvailW, 24),
+                record.name,
+                {
+                    weight: 600,
+                    monospace: true,
+                    strike: marked
+                }
             ),
-            button(
-                'adminDeleteColumn_' + record.name,
-                rect(narrow ? 0 : width - 152, narrow ? 144 : 8, 152, 36),
-                tr(marked ? 'Undo deletion' : 'Delete field'),
-                marked ? 'undo' : 'delete',
+            node(
+                'Box',
+                'typeExistingDivider_' + record.name,
+                rect(cardPad, 43, Math.max(1, width - cardPad * 2), 1),
                 {
-                    type: 'removeField',
-                    name: record.name
-                },
-                policy(model).editable && (!reason || marked),
+                    background: 'outlineVariant'
+                }
+            )
+        ];
+    if (showTypeBadge) {
+        const bx = width - cardPad - btnW - 10 - badgeW;
+        cardChildren.push(
+            node(
+                'Box',
+                'typeExistingBadge_' + record.name,
+                rect(bx, 9, badgeW, 26),
                 {
-                    destructive: !marked && !reason
+                    background: 'surfaceContainerHigh',
+                    border: 'outlineVariant',
+                    radius: 13,
+                    children: [
+                        node(
+                            'Icon',
+                            'typeExistingBadgeIcon_' + record.name,
+                            rect(9, 6, 14, 14),
+                            {
+                                icon: 'code',
+                                color: 'action'
+                            }
+                        ),
+                        label(
+                            'typeExistingBadgeText_' + record.name,
+                            rect(26, 3, Math.max(0, badgeW - 34), 20),
+                            badgeText,
+                            {
+                                fontRole: 'secondary',
+                                weight: 600,
+                                monospace: true
+                            }
+                        )
+                    ]
+                }
+            )
+        );
+    }
+    if (marked) {
+        cardChildren.push(
+            node(
+                'Icon',
+                'typeExistingMarkedIcon_' + record.name,
+                rect(cardPad, 56, 16, 16),
+                {
+                    icon: 'warning',
+                    color: 'error'
+                }
+            ),
+            label(
+                'typeExistingMarkedText_' + record.name,
+                rect(
+                    cardPad + 24,
+                    52,
+                    Math.max(0, width - cardPad * 2 - 24),
+                    56
+                ),
+                tr(
+                    'Marked for deletion. The column and its data will be deleted when you save.'
+                ),
+                {
+                    wrap: true,
+                    color: 'error',
+                    weight: 600
+                }
+            )
+        );
+    } else {
+        cardChildren.push(
+            node(
+                'Icon',
+                'typeExistingTypeRowIcon_' + record.name,
+                rect(cardPad, 54, 15, 15),
+                {
+                    icon: 'storage',
+                    color: 'action'
+                }
+            ),
+            label(
+                'typeExistingTypeRowText_' + record.name,
+                rect(
+                    cardPad + 22,
+                    50,
+                    Math.max(0, width - cardPad * 2 - 22),
+                    22
+                ),
+                typeSummary + (constraints ? '  ·  ' + constraints : ''),
+                Object.assign({ wrap: true }, muted)
+            )
+        );
+        if (reason) {
+            cardChildren.push(
+                node(
+                    'Icon',
+                    'typeExistingReasonIcon_' + record.name,
+                    rect(cardPad, 82, 15, 15),
+                    {
+                        icon: 'lock',
+                        color: 'warning'
+                    }
+                ),
+                label(
+                    'typeExistingReasonText_' + record.name,
+                    rect(
+                        cardPad + 22,
+                        78,
+                        Math.max(0, width - cardPad * 2 - 22),
+                        40
+                    ),
+                    tr(reason),
+                    Object.assign({ wrap: true }, muted)
+                )
+            );
+        }
+    }
+    cardChildren.push(
+        button(
+            'adminDeleteColumn_' + record.name,
+            narrow
+                ? rect(cardPad, cardH - 46, Math.max(1, width - cardPad * 2), 36)
+                : rect(width - cardPad - btnW, 6, btnW, 32),
+            tr(marked ? 'Undo deletion' : 'Delete field'),
+            marked ? 'undo' : 'delete',
+            {
+                type: 'removeField',
+                name: record.name
+            },
+            policy(model).editable && (!reason || marked),
+            {
+                destructive: !marked && !reason
+            }
+        )
+    );
+    return {
+        nodes: [
+            node(
+                'Box',
+                'adminExistingField_' + record.name,
+                rect(0, 0, width, cardH),
+                {
+                    text: fullText,
+                    background: 'surfaceContainer',
+                    border: 'outlineVariant',
+                    radius: 10,
+                    children: cardChildren
                 }
             )
         ]

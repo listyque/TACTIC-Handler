@@ -58,6 +58,7 @@ class NestedTableController(QObject):
     @Property('QVariantMap', notify=changed)
     def model(self):
         model = dict(self._model)
+        model['dirtyTaskCount'] = self._columns.dirtyTaskCount if self._columns is not None else 0
         model['children'] = {}
         for row in model['rows']:
             child = self.services.nested_row(row['nodeId']) if row.get('nodeId') else None
@@ -187,6 +188,7 @@ class NestedTableController(QObject):
         if self._columns is None:
             from .nested_columns import NestedColumnsController
             self._columns = NestedColumnsController(self)
+            self._columns.stateChanged.connect(self.changed)
             if self._layout is not None:
                 self._accept_columns()
         return self._columns

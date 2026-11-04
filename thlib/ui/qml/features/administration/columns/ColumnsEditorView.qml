@@ -26,7 +26,8 @@ Item {
     readonly property var catalogRows: UI.records(frameModel, ui)
     readonly property var selectedCatalog: controller.definitionCatalog.find(row => row.identity === selectedCatalogIdentity) || ({})
     readonly property var elements: catalogWizardData.elements || []
-    readonly property var element: elements.find(row => row.path === ui.path) || elements[0] || ({})
+    readonly property var definitionElements: catalogWizardData.definitionElements || []
+    readonly property var element: elements.find(row => row.path === ui.path) || definitionElements.find(row => row.path === ui.path) || elements[0] || definitionElements[0] || ({})
     readonly property var frameModel: ({
             ready: !!selectedCatalog.identity,
             canWrite: canWrite,
@@ -41,14 +42,10 @@ Item {
             selected: selectedCatalog,
             wizard: catalogWizardData,
             elements: elements,
+            definitionElements: definitionElements,
             element: element,
             typeOptions: controller.definitionCatalogSearchTypes,
-            widgetOptions: element.widget && !controller.displayWidgetOptions.some(row => row.value === element.widget) ? [
-                {
-                    value: element.widget,
-                    label: element.widget
-                }
-            ].concat(controller.displayWidgetOptions) : controller.displayWidgetOptions
+            widgetOptions: controller.widget_options_for(element.widget || "", !!ui.showAllWidgets)
         })
     readonly property var frameScene: body.scene
     function toolbarScene(width) {
@@ -58,7 +55,7 @@ Item {
         return UI.row(list, record, frameModel, ui);
     }
     function reloadCatalogWizard() {
-        catalogWizardData = controller.catalog_wizard(catalogXmlText, selectedCatalog.view || "");
+        catalogWizardData = controller.catalog_wizard(catalogXmlText, selectedCatalog.view || "", selectedCatalog.searchType || "");
     }
     function updateCatalogWizardValue(path, field, value) {
         const changed = controller.update_catalog_wizard(catalogXmlText, path, field, String(value));
@@ -83,7 +80,8 @@ Item {
         selectCatalog(catalogRows.find(row => row.identity === selectedCatalogIdentity) || catalogRows[0] || null, force);
     }
     function applyText() {
-        for (const key of Object.keys(ui.text))
+        const keys = Object.keys(ui.text).sort((a, b) => a === "xml" ? -1 : b === "xml" ? 1 : 0);
+        for (const key of keys)
             if (!updateCatalogWizardValue(element.path, key, ui.text[key]))
                 return false;
         ui = State.transition(ui, frameModel, {

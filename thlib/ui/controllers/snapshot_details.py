@@ -98,21 +98,37 @@ class SnapshotDetailsMixin:
             if worker is None:
                 raise RuntimeError("Server worker pool is not available")
             self._task_snapshot_worker = worker
+            worker.add_result_data((request_id, identity, source_token))
             worker.result.connect(
-                lambda result: self._task_snapshot_context_ready(
-                    request_id, identity, source_token, result
-                ),
+                self._async_task_snapshot_context_ready,
                 Qt.ConnectionType.QueuedConnection,
             )
             worker.error.connect(
-                lambda error: self._task_snapshot_context_failed(
-                    request_id, error
-                ),
+                self._async_task_snapshot_context_failed,
                 Qt.ConnectionType.QueuedConnection,
             )
             worker.start()
         except Exception as error:
             self._task_snapshot_context_failed(request_id, error)
+
+    @Slot(object)
+    def _async_task_snapshot_context_ready(self, payload) -> None:
+        nodes, icon_nodes, metadata = payload
+        request_id, identity, source_token = metadata
+        self._task_snapshot_context_ready(
+            request_id, identity, source_token, (nodes, icon_nodes)
+        )
+
+    @Slot(object)
+    def _async_task_snapshot_context_failed(self, error) -> None:
+        worker = error[1] if isinstance(error, tuple) and len(error) > 1 else None
+        metadata = worker.get_result_data() if worker is not None else None
+        request_id = (
+            metadata[0]
+            if isinstance(metadata, tuple) and metadata
+            else self._task_snapshot_request_id
+        )
+        self._task_snapshot_context_failed(request_id, error)
 
     def _task_snapshot_context_ready(
         self, request_id: str, identity: tuple, source_token: tuple, result,
@@ -437,6 +453,15 @@ class SnapshotDetailsMixin:
             )
             tasks = list((tasks_data or {}).values())
             notes = list((notes_data or {}).values())
+            if not process and getattr(sobject, "project", None) is not None:
+                from thlib import server_cache
+
+                sobject.tasks_sobjects = (dict(tasks_data or {}), {})
+                sobject.notes_sobjects = (dict(notes_data or {}), {})
+                sobject._details_cache_token = server_cache.token(
+                    "search", sobject.project.get_code()
+                )
+                sobject.info["__details__"] = True
         else:
             tasks = values(sobject.get_tasks_sobjects(
                 process=None,
@@ -623,13 +648,21 @@ class SnapshotDetailsMixin:
             items,
         )
         worker.add_result_data(request_id)
-        worker.result.connect(self._snapshot_files_checked)
+        worker.result.connect(
+            self._snapshot_files_checked,
+            Qt.ConnectionType.QueuedConnection,
+        )
         worker.error.connect(
-            lambda error: self._report_error_payload(
-                error[0], "snapshot_browser/file_check", error[1]
-            )
+            self._snapshot_files_check_failed,
+            Qt.ConnectionType.QueuedConnection,
         )
         worker.start()
+
+    @Slot(object)
+    def _snapshot_files_check_failed(self, error) -> None:
+        self._report_error_payload(
+            error[0], "snapshot_browser/file_check", error[1]
+        )
 
     @Slot(object)
     def _snapshot_files_checked(self, result) -> None:
@@ -676,12 +709,18 @@ class SnapshotDetailsMixin:
             tab = self._current_tab()
             detail_node = None
             if tab:
-                detail_node = self.workspace_model.node_for(
+                selected_tab_node = self.workspace_model.node_for(
                     tab.selected_node_id
-                ) or next((
-                    node for node in self.workspace_model._roots
-                    if node.search_key == search_key
-                ), None)
+                )
+                detail_node = (
+                    selected_tab_node
+                    if selected_tab_node
+                    and selected_tab_node.search_key == search_key
+                    else next((
+                        node for node in self.workspace_model._roots
+                        if node.search_key == search_key
+                    ), None)
+                )
             if tab and detail_node:
                 self._cache_tab_details(
                     tab,

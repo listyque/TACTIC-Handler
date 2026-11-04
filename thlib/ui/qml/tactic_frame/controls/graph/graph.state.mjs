@@ -18,7 +18,8 @@ export function initial() {
             x: 0,
             y: 0
         },
-        touch: null
+        touch: null,
+        menu: null
     };
 }
 export function size(node, style) {
@@ -145,27 +146,77 @@ export function curves(ui, model) {
         if (!from || !to) continue;
         const a = bounds(ui, from, model.style),
             b = bounds(ui, to, model.style),
-            reverse = model.edges.some(
-                (row) => row.from === edge.to && row.to === edge.from
-            );
-        const offset = reverse
-            ? String(edge.from) < String(edge.to)
-                ? -24
-                : 24
-            : 0;
+            selfLoop = edge.from === edge.to,
+            pairEdges = selfLoop
+                ? model.edges.filter(
+                      (row) => row.from === edge.from && row.to === edge.to
+                  )
+                : model.edges.filter(
+                      (row) =>
+                          (row.from === edge.from && row.to === edge.to) ||
+                          (row.from === edge.to && row.to === edge.from)
+                  ),
+            sameDirEdges = selfLoop
+                ? pairEdges
+                : model.edges.filter(
+                      (row) => row.from === edge.from && row.to === edge.to
+                  ),
+            pairIndex = Math.max(0, pairEdges.indexOf(edge)),
+            reverse =
+                !selfLoop &&
+                model.edges.some(
+                    (row) => row.from === edge.to && row.to === edge.from
+                );
+        const offset = selfLoop
+            ? 0
+            : sameDirEdges.length > 1 || pairEdges.length > 2
+              ? (pairIndex - (pairEdges.length - 1) / 2) * 60
+              : reverse
+                ? String(edge.from) < String(edge.to)
+                    ? -36
+                    : 36
+                : 0;
+        const backward =
+            !!model.readOnly && !selfLoop && a.x >= b.x + b.width;
+        const x1 = backward ? a.x : a.x + a.width,
+            y1 = a.y + a.height / 2,
+            x2 = backward ? b.x + b.width : b.x,
+            y2 = b.y + b.height / 2,
+            dx = x2 - x1,
+            dy = y2 - y1,
+            tBack = clamp((80 - dx) / 160, 0, 1),
+            backW =
+                backward || selfLoop ? 0 : tBack * tBack * (3 - 2 * tBack),
+            tVert = clamp((Math.abs(dy) - 48) / 48, 0, 1),
+            vertW = tVert * tVert * (3 - 2 * tVert),
+            corrPull = dy * 0.64 * vertW,
+            archOffset = -88 * (1 - vertW),
+            loopArch = 96 + pairIndex * 40,
+            cy1 = selfLoop
+                ? y1 + loopArch
+                : y1 + backW * (corrPull + archOffset) + offset,
+            cy2 = selfLoop
+                ? y2 + loopArch
+                : y2 + backW * (-corrPull + archOffset) + offset;
         rows.push(
             curve(
-                a.x + a.width,
-                a.y + a.height / 2 + offset,
-                b.x,
-                b.y + b.height / 2 + offset,
+                x1,
+                y1,
+                x2,
+                y2,
                 Object.assign(
                     {
                         index
                     },
                     edge,
                     {
-                        color: edge.color || from.color || 'action'
+                        color: edge.color || from.color || 'action',
+                        backward,
+                        selfLoop,
+                        backW,
+                        corridor: backW > 0.5 && vertW > 0.5,
+                        cy1,
+                        cy2
                     }
                 )
             )
@@ -193,19 +244,33 @@ export function curves(ui, model) {
     return rows;
 }
 function curve(x1, y1, x2, y2, data) {
+    const forwardSpan = Math.max(70, Math.max(0, x2 - x1) / 2),
+        backSpan = Math.max(96, Math.max(0, x1 - x2) * 0.55),
+        w = data && data.backW !== undefined ? data.backW : 0,
+        span =
+            data && data.selfLoop
+                ? 70
+                : forwardSpan * (1 - w) + backSpan * w;
     return Object.assign(
         {
             x1,
             y1,
             x2,
             y2,
-            bend: Math.max(70, Math.abs(x2 - x1) / 2)
+            cy1: y1,
+            cy2: y2,
+            bend:
+                data && data.backward
+                    ? -Math.min(span, Math.abs(x2 - x1) / 2)
+                    : span
         },
         data
     );
 }
 export function curvePoint(edge, t) {
-    const u = 1 - t;
+    const u = 1 - t,
+        cy1 = edge.cy1 === undefined ? edge.y1 : edge.cy1,
+        cy2 = edge.cy2 === undefined ? edge.y2 : edge.cy2;
     return {
         x:
             u * u * u * edge.x1 +
@@ -214,8 +279,8 @@ export function curvePoint(edge, t) {
             t * t * t * edge.x2,
         y:
             u * u * u * edge.y1 +
-            3 * u * u * t * edge.y1 +
-            3 * u * t * t * edge.y2 +
+            3 * u * u * t * cy1 +
+            3 * u * t * t * cy2 +
             t * t * t * edge.y2
     };
 }
@@ -359,13 +424,60 @@ export function reduce(previous, event, model, viewport) {
         ui = Object.assign({}, ui, {
             pointer: null,
             pending: null,
-            touch: null
+            touch: null,
+            menu: null
         });
+        return result();
+    }
+    if (event.type === 'context') {
+        if (model.readOnly || !model.contextMenu) return result();
+        const start = point(ui, event.x, event.y),
+            rawTarget = hit(ui, model, start),
+            target =
+                rawTarget.kind === 'selection'
+                    ? { kind: 'canvas' }
+                    : rawTarget;
+        if (target.kind === 'node') {
+            const names =
+                (model.selectedNodes || []).indexOf(target.identity) >= 0
+                    ? model.selectedNodes
+                    : [target.identity];
+            commands.push(selectedCommand(names, target.identity));
+        } else if (target.kind === 'edge') {
+            commands.push({
+                type: 'selectEdge',
+                index: target.index
+            });
+        }
+        ui = Object.assign({}, ui, {
+            pointer: null,
+            pending: null,
+            menu: {
+                x: event.x,
+                y: event.y,
+                worldX: Math.round(start.x),
+                worldY: Math.round(start.y),
+                target
+            }
+        });
+        return result();
+    }
+    if (event.type === 'menuCommand') {
+        ui = Object.assign({}, ui, {
+            menu: null
+        });
+        if (event.command) {
+            if (event.command.internal)
+                return reduce(ui, event.command.internal, model, viewport);
+            commands.push(event.command);
+        }
         return result();
     }
     if (event.type === 'scroll') {
         ui = pan(
-            ui,
+            Object.assign({}, ui, {
+                menu: null
+            }),
             ui.world.x + event.x / ui.zoom,
             ui.world.y + event.y / ui.zoom,
             viewport,
@@ -380,7 +492,9 @@ export function reduce(previous, event, model, viewport) {
     if (event.type === 'zoom') {
         if (!ui.pointer)
             ui = zoom(
-                ui,
+                Object.assign({}, ui, {
+                    menu: null
+                }),
                 event.value,
                 event.x === undefined ? viewport.width / 2 : event.x,
                 event.y === undefined ? viewport.height / 2 : event.y,
@@ -425,11 +539,12 @@ export function reduce(previous, event, model, viewport) {
     }
     if (event.type === 'key') {
         if (event.key === 'Escape') {
-            if (ui.pointer || ui.pending || ui.touch)
+            if (ui.pointer || ui.pending || ui.touch || ui.menu)
                 ui = Object.assign({}, ui, {
                     pointer: null,
                     pending: null,
-                    touch: null
+                    touch: null,
+                    menu: null
                 });
             else if (model.selectionEnabled !== false)
                 commands.push({
@@ -593,6 +708,11 @@ export function reduce(previous, event, model, viewport) {
         );
     }
     if (event.type === 'down') {
+        if (ui.menu) {
+            ui = Object.assign({}, ui, {
+                menu: null
+            });
+        }
         if (ui.pointer) return result();
         const start = point(ui, event.x, event.y),
             target =

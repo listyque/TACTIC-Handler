@@ -34,7 +34,9 @@ Item {
             groupCount: controller.groupsModel.count()
         })
     onCurrentIdentityChanged: ui = Object.assign({}, ui, {
-        page: "profile"
+        page: "profile",
+        showPassword: false,
+        passwordConfirm: ""
     })
 
     function rowScene(list, record) {

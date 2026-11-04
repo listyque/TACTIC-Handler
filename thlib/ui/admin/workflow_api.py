@@ -79,6 +79,11 @@ def workflow_request(action: str, project_code: str, identity: str = '',
         'canCreate': True}
     if action == 'list':
         return json.dumps({'catalog': pipelines, 'metadata': metadata, 'canWrite': True})
+    if action == 'load' and not identity:
+        if not pipelines:
+            return json.dumps({'identity': '', 'revision': '', 'document': {},
+                               'catalog': [], 'metadata': metadata, 'canWrite': True})
+        identity = pipelines[0]['identity']
     if action == 'new':
         if identity not in {row['identity'] for row in metadata['searchTypes']}:
             raise ValueError('Choose a registered Search Type')
@@ -98,20 +103,43 @@ def workflow_request(action: str, project_code: str, identity: str = '',
         query.add_filter('pipeline_code', identity)
         return query.get_sobjects() if identity else []
 
-    def read_document():
-        if not item:
-            return {}
+    def load_state():
         records = processes()
+        if not item:
+            return records, {}, []
+        codes = [row.get_code() for row in records if row.get_code()]
+        process_triggers = []
+        if codes:
+            query = Search('config/trigger')
+            query.add_filters('process', codes)
+            process_triggers = query.get_sobjects()
+        action_trigger_by_process = {
+            row.get_value('process'): row
+            for row in process_triggers
+            if row.get_value('event') == 'process|action'
+        }
+        script_targets = {}
+        for row in records:
+            trigger = action_trigger_by_process.get(row.get_code())
+            if trigger and not trigger.get_value('class_name') and trigger.get_value('script_path'):
+                path = trigger.get_value('script_path')
+                script_targets[path] = posixpath.split(path)
+        scripts_by_pair = {}
+        if script_targets:
+            folders = list(dict.fromkeys(pair[0] for pair in script_targets.values()))
+            titles = list(dict.fromkeys(pair[1] for pair in script_targets.values()))
+            scripts = Search('config/custom_script')
+            scripts.add_filters('folder', folders)
+            scripts.add_filters('title', titles)
+            for script in scripts.get_sobjects():
+                scripts_by_pair[(script.get_value('folder'), script.get_value('title'))] = script
         settings = {row.get_value('process'): row.get_json_value('workflow') or {}
                     for row in records}
         # Native installations can keep action code only in custom_script,
         # rather than duplicating it in workflow JSON. Hydrate that source so
         # editing a description cannot accidentally disconnect its trigger.
         for row in records:
-            query = Search('config/trigger')
-            query.add_filter('process', row.get_code())
-            query.add_filter('event', 'process|action')
-            trigger = query.get_sobject()
+            trigger = action_trigger_by_process.get(row.get_code())
             if not trigger:
                 continue
             defaults = settings[row.get_value('process')].setdefault('default', {})
@@ -120,31 +148,21 @@ def workflow_request(action: str, project_code: str, identity: str = '',
                 defaults.update(action='command', on_action_class=trigger.get_value('class_name'))
             elif trigger.get_value('script_path'):
                 path = trigger.get_value('script_path')
-                folder, title = posixpath.split(path)
-                scripts = Search('config/custom_script')
-                scripts.add_filter('folder', folder)
-                scripts.add_filter('title', title)
-                script = scripts.get_sobject()
+                script = scripts_by_pair.get(script_targets.get(path))
                 defaults.update(action='create_new', script_path=path,
                                 script=script.get_value('script') if script else '',
                                 language=script.get_value('language') if script else 'python')
         descriptions = {row.get_value('process'): row.get_value('description') or ''
                         for row in records}
-        return {'xml': item.get_value('pipeline') or '<pipeline/>',
-                'name': item.get_value('name') or '',
-                'description': item.get_value('description') or '',
-                'color': item.get_value('color') or '',
-                'searchType': item.get_value('search_type') or '',
-                'processSettings': settings, 'processDescriptions': descriptions}
-
-    def trigger_data():
-        records = processes()
-        codes = [row.get_code() for row in records]
+        doc = {'xml': item.get_value('pipeline') or '<pipeline/>',
+               'name': item.get_value('name') or '',
+               'description': item.get_value('description') or '',
+               'color': item.get_value('color') or '',
+               'searchType': item.get_value('search_type') or '',
+               'processSettings': settings, 'processDescriptions': descriptions}
         if not codes:
-            return []
-        query = Search('config/trigger')
-        query.add_filters('process', codes)
-        result = {row.get_code(): row.get_data() for row in query.get_sobjects()}
+            return records, doc, []
+        result = {row.get_code(): row.get_data() for row in process_triggers}
         listeners = [(row.get_json_value('workflow') or {}).get('progress', {}).get('trigger_code')
                      for row in records]
         listeners = [code for code in listeners if code]
@@ -152,10 +170,9 @@ def workflow_request(action: str, project_code: str, identity: str = '',
             query = Search('config/trigger')
             query.add_filters('code', listeners)
             result.update({row.get_code(): row.get_data() for row in query.get_sobjects()})
-        return list(result.values())
+        return records, doc, list(result.values())
 
-    current = read_document()
-    triggers = trigger_data()
+    process_records, current, triggers = load_state()
 
     def revision():
         owned_triggers = [row for row in triggers if row.get('event') == 'process|action'
@@ -254,7 +271,7 @@ def workflow_request(action: str, project_code: str, identity: str = '',
                                      description=description, version=2)
         # Native update_dependencies removes config/process records for removed
         # nodes. Reject deletion/renaming while operational data still uses them.
-        for process in processes():
+        for process in process_records:
             name = process.get_value('process')
             if name in names:
                 continue
@@ -293,13 +310,12 @@ def workflow_request(action: str, project_code: str, identity: str = '',
             NewProcessInfoCmd(**kwargs).execute()
         Pipeline.clear_cache(search_key=item.get_search_key())
         item = Pipeline.get_by_code(identity)
-        current = read_document()
-        triggers = trigger_data()
+        process_records, current, triggers = load_state()
         metadata['pipelines'] = catalog()
         metadata['processes'] = process_catalog(metadata['pipelines'])
     if not item:
         raise ValueError('Select a pipeline')
-    metadata['processCodes'] = {row.get_value('process'): row.get_code() for row in processes()}
+    metadata['processCodes'] = {row.get_value('process'): row.get_code() for row in process_records}
     return json.dumps({'identity': identity, 'revision': revision(),
                        'canWrite': not shared and bool(current['searchType']),
                        'catalog': metadata['pipelines'], 'metadata': metadata,

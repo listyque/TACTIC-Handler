@@ -19,6 +19,10 @@ from .docks_tree import (
 
 class RecordsMixin:
     @staticmethod
+    def _is_overlay_area(dock_area: str) -> bool:
+        return dock_area in {"floating", "slide_left", "slide_right"}
+
+    @staticmethod
     def _default_dock_area(panel_id: str) -> str:
         return {
             "results": "center",
@@ -91,8 +95,8 @@ class RecordsMixin:
             dock_area = value.get("dock_area")
             if dock_area not in {
                 "left", "right", "top", "bottom", "center",
-                "docked", "floating",
-            }:
+                "docked", "floating", "slide_left", "slide_right",
+            } or (panel_id == "results" and dock_area in {"slide_left", "slide_right"}):
                 dock_area = self._default_dock_area(panel_id)
             previous_area = value.get("previous_dock_area")
             if not isinstance(previous_area, str):
@@ -113,6 +117,11 @@ class RecordsMixin:
                 y = max(-3.0, min(3.0, y))
                 width = max(0.20, min(3.0, width))
                 height = max(0.16, min(3.0, height))
+            elif dock_area in {"slide_left", "slide_right"}:
+                width = max(0.20, min(0.80, width))
+                x = 0.0 if dock_area == "slide_left" else 1.0 - width
+                y = 0.0
+                height = 1.0
             else:
                 x = max(0.0, min(0.96, x))
                 y = max(0.0, min(0.96, y))
@@ -194,8 +203,9 @@ class RecordsMixin:
         if layout is None:
             return False
 
-        if self._maximized_panel:
+        if self._maximized_panel or self._slide_open_panel:
             self._maximized_panel = ""
+            self._slide_open_panel = ""
             self._notify_layout_structure_changed()
         if panels == self._panels and layout == self._layout_root:
             return True
@@ -292,7 +302,7 @@ class RecordsMixin:
             return None
         panel = self._panels[index.row()]
         stack = None
-        if not panel.detached and panel.dock_area != "floating":
+        if not panel.detached and not self._is_overlay_area(panel.dock_area):
             stack = stack_for_panel(self._layout_root, panel.panel_id)
         stack_members = []
         if stack is not None:
@@ -304,7 +314,7 @@ class RecordsMixin:
                 if (
                     not member.visible
                     or member.detached
-                    or member.dock_area == "floating"
+                    or self._is_overlay_area(member.dock_area)
                 ):
                     continue
                 stack_members.append({
@@ -375,6 +385,8 @@ class RecordsMixin:
             return False
         if self._maximized_panel and not panel.detached:
             return panel.panel_id == self._maximized_panel
+        if panel.dock_area in {"slide_left", "slide_right"}:
+            return self._slide_open_panel == panel.panel_id
         if panel.detached or panel.dock_area == "floating":
             return True
         stack = stack_for_panel(self._layout_root, panel.panel_id)
@@ -386,10 +398,14 @@ class RecordsMixin:
             return False
         if not panel.visible or panel.detached or panel.dock_area == "floating":
             return False
+        if panel.dock_area == "slide_left":
+            return edge == "right" and self._slide_open_panel == panel.panel_id
+        if panel.dock_area == "slide_right":
+            return edge == "left" and self._slide_open_panel == panel.panel_id
         available = {
             value.panel_id for value in self._panels
             if value.visible and not value.detached
-            and value.dock_area != "floating"
+            and not self._is_overlay_area(value.dock_area)
         }
         return has_resizable_edge(
             self._layout_root, panel.panel_id, edge, available

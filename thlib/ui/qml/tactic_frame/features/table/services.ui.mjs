@@ -149,11 +149,15 @@ export function describe(
                         enabled,
                         role: 'button',
                         expanded: nestedOpen,
+                        selected: nestedOpen,
                         description:
                             action.translateLabel === false
                                 ? action.label
                                 : translate(action.label, language),
-                        normalColor: 'surfaceContainerHigh',
+                        normalColor: nestedOpen
+                            ? 'action'
+                            : 'surfaceContainerHigh',
+                        selectedColor: 'action',
                         radius: 4,
                         action: command,
                         children: [
@@ -161,7 +165,12 @@ export function describe(
                                 'Box',
                                 'tableServiceBorder',
                                 rect(0, 0, w, size),
-                                { border: 'outlineVariant', radius: 4 }
+                                {
+                                    border: nestedOpen
+                                        ? 'action'
+                                        : 'outlineVariant',
+                                    radius: 4
+                                }
                             ),
                             label(
                                 'tableServiceValue',
@@ -171,7 +180,9 @@ export function describe(
                                     fontRole: font.role,
                                     weight: font.weight || 600,
                                     color: enabled
-                                        ? 'primaryText'
+                                        ? nestedOpen
+                                            ? 'selectedText'
+                                            : 'primaryText'
                                         : 'disabledText'
                                 }
                             ),
@@ -184,7 +195,9 @@ export function describe(
                                           {
                                               icon: leadingIcon,
                                               color: enabled
-                                                  ? 'action'
+                                                  ? nestedOpen
+                                                      ? 'selectedText'
+                                                      : 'action'
                                                   : 'disabledText'
                                           }
                                       )
@@ -202,7 +215,9 @@ export function describe(
                                 {
                                     icon,
                                     color: enabled
-                                        ? action.iconColor || 'action'
+                                        ? nestedOpen
+                                            ? 'selectedText'
+                                            : action.iconColor || 'action'
                                         : 'disabledText'
                                 }
                             )
@@ -237,6 +252,7 @@ export function describe(
                 enabled,
                 {
                     iconOnly: true,
+                    highlighted: action.name === 'nested-table' && nestedOpen,
                     destructive: !!action.destructive,
                     iconSize: action.iconSize,
                     iconColor: action.iconColor || undefined,
@@ -294,7 +310,8 @@ function summary(cell, width, height, language) {
                         ? {
                               type: 'service',
                               name: 'nested-table',
-                              nestedTable: entry.nestedTable
+                              nestedTable: entry.nestedTable,
+                              text: String(entry.value ?? '')
                           }
                         : null
                 }

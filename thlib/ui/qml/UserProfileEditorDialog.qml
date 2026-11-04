@@ -53,7 +53,6 @@ Controls.Dialog {
             namespace: "namespace",
             s_status: "status",
             project_code: "accountProject",
-            license_type: "licenseType",
             hourly_wage: "hourlyWage"
         };
         const values = {

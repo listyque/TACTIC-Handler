@@ -117,7 +117,7 @@ Item {
 
         Item {
             clip: true
-            Label {
+            Text {
                 id: label
                 anchors.fill: parent
                 leftPadding: root.columnIndex === 0 ? 14 : 10
@@ -128,9 +128,6 @@ Item {
                 text: Cells.text(root.cell, root.textValue, root.language)
                 wrapMode: Text.Wrap
                 elide: Text.ElideRight
-                background: Rectangle {
-                    color: "transparent"
-                }
                 color: root.cell.error ? root.theme.error : root.clickableLink ? root.theme.action : root.theme[Cells.textRole(root.cell)]
                 font.family: root.theme.fontFamily
                 font.pixelSize: root.valueFont.size

@@ -12,7 +12,7 @@ Item {
     property var ui: State.initial()
     readonly property var frameModel: ({
             ready: controller.ready,
-            streamApi: appController.is_stream_server,
+            streamApi: typeof appController !== "undefined" && appController ? appController.is_stream_server : false,
             projectTitle: controller.projectTitle,
             canWrite: controller.canEdit,
             canLoad: true,

@@ -168,6 +168,20 @@ class SearchRuntimeMixin:
                 "search", cache_key, raw_payload, project_code,
                 expected_token=cache_token,
             )
+            if details_search_key:
+                base_cache_key = SearchRuntimeMixin._search_cache_key(
+                    search_type,
+                    base_filters,
+                    extra_filters,
+                    limit,
+                    offset,
+                    sort_mode,
+                    "",
+                )
+                server_cache.write_entry(
+                    "search", base_cache_key, raw_payload, project_code,
+                    expected_token=cache_token,
+                )
         if not result:
             return [], {"cacheHit": cache_hit}, None
         sobjects, info = result
@@ -483,7 +497,15 @@ class SearchRuntimeMixin:
             offset=request_offset,
             sort_mode=tab.sort_mode,
             bypass_cache=bypass_cache,
-            details_search_key=getattr(self, "_selected_detail_key", "") if is_current else "",
+            details_search_key=(
+                getattr(self, "_selected_detail_key", "")
+                or (
+                    tab.selected_node_id.split(":", 1)[0]
+                    if tab.selected_node_id
+                    and not tab.selected_node_id.startswith("skey://")
+                    else tab.selected_node_id
+                )
+            ) if is_current else "",
             item_view=tab.table_view if tab.view_mode != 'table' else '',
         )
         if worker is None:

@@ -1144,8 +1144,18 @@ export function describe(model, ui, width, height, language) {
         };
     }
     const wide = width >= 1000,
-        left = wide ? Math.min(ui.catalogWidth, width * 0.24) : width,
-        properties = wide ? Math.min(ui.propertiesWidth, width * 0.34) : width;
+        catalogVisible = ui.catalogVisible !== false,
+        propertiesVisible = ui.propertiesVisible !== false,
+        left = wide
+            ? catalogVisible
+                ? Math.min(ui.catalogWidth, width * 0.24)
+                : 56
+            : width,
+        properties = wide
+            ? propertiesVisible
+                ? Math.min(ui.propertiesWidth, width * 0.34)
+                : 56
+            : width;
     if (!wide) {
         nodes.push(
             sectionSelector(
@@ -1176,18 +1186,20 @@ export function describe(model, ui, width, height, language) {
     if (wide || ui.panel === 'elements') {
         const w = left,
             viewsHeight = Math.min(144, Math.max(68, bodyHeight * 0.24)),
-            elementsTop = 52 + viewsHeight,
-            children = [
+            elementsTop = 58 + viewsHeight,
+            children = [];
+        if (!wide || catalogVisible)
+            children.push(
                 label(
                     'layoutViewsHeading',
-                    rect(12, 12, w - 24, 28),
+                    rect(12, 10, Math.max(0, w - (wide ? 62 : 24)), 34),
                     tr('Views'),
                     { weight: 600 }
                 ),
                 node(
                     'List',
                     'layoutViewsList',
-                    rect(12, 46, w - 24, viewsHeight),
+                    rect(12, 52, w - 24, viewsHeight),
                     {
                         source: 'layoutViews',
                         keyField: 'value',
@@ -1268,7 +1280,34 @@ export function describe(model, ui, width, height, language) {
                         iconOnly: true
                     }
                 )
-            ];
+            );
+        if (wide)
+            children.push(
+                button(
+                    'layoutToggleElements',
+                    rect(
+                        catalogVisible ? w - 46 : (w - 34) / 2,
+                        10,
+                        34,
+                        34
+                    ),
+                    tr(
+                        catalogVisible
+                            ? 'Hide elements'
+                            : 'Show elements'
+                    ),
+                    catalogVisible ? 'chevron-left' : 'chevron-right',
+                    {
+                        type: 'catalogVisible'
+                    },
+                    true,
+                    {
+                        iconOnly: true,
+                        iconAction: true,
+                        round: false
+                    }
+                )
+            );
         nodes.push(
             node('Box', 'layoutElementsPanel', rect(0, y, w, bodyHeight), {
                 background: 'surfaceContainerLow',
@@ -1276,7 +1315,7 @@ export function describe(model, ui, width, height, language) {
                 children
             })
         );
-        if (wide)
+        if (wide && catalogVisible)
             nodes.push(
                 node(
                     'Splitter',
@@ -1297,58 +1336,95 @@ export function describe(model, ui, width, height, language) {
     if (wide || ui.panel === 'settings') {
         const w = properties,
             x = wide ? width - w : 0,
-            fields = propertyFields(model, ui, language, w),
-            body = form(fields, w - 40, language, edit && !pending(ui));
-        if (selected) {
-            body.nodes.push(
-                button(
-                    'layoutRemoveElement',
-                    rect(0, body.height, w - 40, 38),
-                    tr('Remove element'),
-                    'delete',
-                    {
-                        type: 'remove'
-                    },
-                    edit && !pending(ui)
-                )
-            );
-            body.height += 46;
-        } else {
-            body.nodes.push(
-                label(
-                    'layoutSelectHelp',
-                    rect(0, 0, w - 40, 120),
-                    tr('Select an element or add a new widget.'),
-                    Object.assign(
+            settingsChildren = [];
+        if (!wide || propertiesVisible) {
+            const fields = propertyFields(model, ui, language, w),
+                body = form(fields, w - 40, language, edit && !pending(ui));
+            if (selected) {
+                body.nodes.push(
+                    button(
+                        'layoutRemoveElement',
+                        rect(0, body.height, w - 40, 38),
+                        tr('Remove element'),
+                        'delete',
                         {
-                            wrap: true
+                            type: 'remove'
                         },
-                        muted
+                        edit && !pending(ui)
                     )
+                );
+                body.height += 46;
+            } else {
+                body.nodes.push(
+                    label(
+                        'layoutSelectHelp',
+                        rect(0, 0, w - 40, 120),
+                        tr('Select an element or add a new widget.'),
+                        Object.assign(
+                            {
+                                wrap: true
+                            },
+                            muted
+                        )
+                    )
+                );
+                body.height = 128;
+            }
+            settingsChildren.push(
+                label(
+                    'layoutSettingsHeading',
+                    rect(12, 10, Math.max(0, w - (wide ? 62 : 24)), 34),
+                    tr('Element settings'),
+                    { weight: 600 }
+                ),
+                node(
+                    'Scroll',
+                    'layoutSettingsScroll',
+                    rect(12, 52, w - 24, Math.max(0, bodyHeight - 64)),
+                    {
+                        contentHeight: body.height,
+                        resetKey: ui.selected,
+                        scrollbarId: 'layoutSettingsScrollBar',
+                        children: body.nodes
+                    }
                 )
             );
-            body.height = 128;
         }
+        if (wide)
+            settingsChildren.push(
+                button(
+                    'layoutToggleSettings',
+                    rect(
+                        propertiesVisible ? w - 46 : (w - 34) / 2,
+                        10,
+                        34,
+                        34
+                    ),
+                    tr(
+                        propertiesVisible
+                            ? 'Hide element settings'
+                            : 'Show element settings'
+                    ),
+                    propertiesVisible ? 'chevron-right' : 'chevron-left',
+                    {
+                        type: 'propertiesVisible'
+                    },
+                    true,
+                    {
+                        iconOnly: true,
+                        iconAction: true,
+                        round: false
+                    }
+                )
+            );
         nodes.push(
             node('Box', 'layoutSettingsPanel', rect(x, y, w, bodyHeight), {
                 background: 'surfaceContainerLow',
                 border: 'outlineVariant',
-                children: [
-                    node(
-                        'Scroll',
-                        'layoutSettingsScroll',
-                        rect(12, 12, w - 24, bodyHeight - 24),
-                        {
-                            contentHeight: body.height,
-                            resetKey: ui.selected,
-                            scrollbarId: 'layoutSettingsScrollBar',
-                            children: body.nodes
-                        }
-                    )
-                ]
+                children: settingsChildren
             })
         );
-        if (wide)
+        if (wide && propertiesVisible)
             nodes.push(
                 node(
                     'Splitter',

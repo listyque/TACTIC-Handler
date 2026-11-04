@@ -140,7 +140,7 @@ Item {
     function targetAt(pointerX, pointerY, excludedPanelId) {
         for (let index = dockRepeater.count - 1; index >= 0; --index) {
             const item = dockRepeater.itemAt(index);
-            if (!item || item.panelId === excludedPanelId || !item.panelVisible || item.detached || !item.stackActive || item.dockArea === "floating")
+            if (!item || item.panelId === excludedPanelId || !item.panelVisible || item.detached || !item.stackActive || item.dockArea === "floating" || item.dockArea === "slide_left" || item.dockArea === "slide_right")
                 continue;
             const rect = {
                 "x": item.panelX * width,
@@ -192,6 +192,12 @@ Item {
         enabled: root.dockDragActive || root.dockResizeActive
         context: Qt.WindowShortcut
         onActivated: root.cancelActiveGesture()
+    }
+    Shortcut {
+        sequence: "Escape"
+        enabled: !root.dockDragActive && !root.dockResizeActive && dockModel.slideOpenPanelId.length > 0
+        context: Qt.WindowShortcut
+        onActivated: dockModel.collapse_slide_panels()
     }
     Connections {
         target: root.ownerWindow
@@ -281,12 +287,7 @@ Item {
         if (rootZone.length) {
             activeSnapZone = rootZone;
             activeSnapTargetId = "";
-            activeTargetRect = ({
-                    "x": 0,
-                    "y": 0,
-                    "width": width,
-                    "height": height
-                });
+            activeTargetRect = ({ "x": 0, "y": 0, "width": width, "height": height });
             activeSnapRect = rootSnapRectFor(rootZone);
             return;
         }
@@ -300,18 +301,8 @@ Item {
         }
         activeSnapZone = "";
         activeSnapTargetId = "";
-        activeTargetRect = ({
-                "x": 0,
-                "y": 0,
-                "width": 0,
-                "height": 0
-            });
-        activeSnapRect = ({
-                "x": 0,
-                "y": 0,
-                "width": 0,
-                "height": 0
-            });
+        activeTargetRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 });
+        activeSnapRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 });
     }
 
     function finishDockDrag(panelId, panelX, panelY, panelWidth, panelHeight, wasFloating) {
@@ -328,18 +319,22 @@ Item {
         draggingPanelId = "";
         activeSnapZone = "";
         activeSnapTargetId = "";
-        activeTargetRect = ({
-                "x": 0,
-                "y": 0,
-                "width": 0,
-                "height": 0
-            });
-        activeSnapRect = ({
-                "x": 0,
-                "y": 0,
-                "width": 0,
-                "height": 0
-            });
+        activeTargetRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 });
+        activeSnapRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 });
+    }
+
+    function slidePanelContains(pointerX, pointerY) {
+        for (let index = 0; index < dockRepeater.count; index++) {
+            const item = dockRepeater.itemAt(index) as DockDelegate;
+            const panel = item ? item.panel : null;
+            if (!panel || !panel.visible)
+                continue;
+            if (panel.panelId === dockModel.slideOpenPanelId || panel.dockArea === "floating") {
+                if (pointerX >= panel.x && pointerX <= panel.x + panel.width && pointerY >= panel.y && pointerY <= panel.y + panel.height)
+                    return true;
+            }
+        }
+        return false;
     }
 
     Item {
@@ -348,10 +343,54 @@ Item {
         anchors.fill: parent
         clip: true
         visible: root.workspaceActive
+        TapHandler {
+            target: null
+            enabled: dockModel.slideOpenPanelId.length > 0
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            gesturePolicy: TapHandler.DragThreshold
+            onTapped: (eventPoint) => {
+                if (Controls.PopupCoordinator.activeMenu || Date.now() - Controls.PopupCoordinator.lastClosedAt < 220)
+                    return;
+                if (!root.slidePanelContains(eventPoint.position.x, eventPoint.position.y))
+                    Qt.callLater(() => dockModel.collapse_slide_panels());
+            }
+        }
         Repeater {
             id: dockRepeater
             model: root.workspaceActive ? visibleDockModel : 0
             delegate: DockDelegate {}
+        }
+        Repeater {
+            model: ["slide_left", "slide_right"]
+            delegate: Column {
+                required property string modelData
+                z: 16000
+                x: modelData === "slide_left" ? 6 : parent.width - width - 6
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+                Repeater {
+                    model: root.workspaceActive ? visibleDockModel : 0
+                    delegate: Controls.CompactIconButton {
+                        required property string panelId
+                        required property string kind
+                        required property string title
+                        required property string dockArea
+                        required property bool panelVisible
+                        required property bool detached
+                        visible: panelVisible && !detached && dockArea === modelData && dockModel.slideOpenPanelId !== panelId
+                        width: visible ? 32 : 0
+                        height: visible ? 32 : 0
+                        theme: root.theme
+                        round: false
+                        iconName: kind === "snapshot" ? "movie" : kind === "tasks" ? "tasks" : kind === "task_calendar" ? "calendar-month" : kind === "drop_plate" || kind === "commit_queue" ? "publish" : kind === "notes" ? "comment" : kind === "knowledge" ? "book-open" : kind === "advanced_search" ? "search" : kind === "repo_sync_queue" ? "repository-sync" : kind === "watch_folders" ? "folder" : kind === "description" ? "description" : "view_kanban"
+                        iconSize: 16
+                        iconColor: root.theme.primaryText
+                        backgroundColor: root.theme.surfaceContainerHigh
+                        toolTip: title
+                        onClicked: dockModel.show_panel(panelId)
+                    }
+                }
+            }
         }
     }
 

@@ -18,7 +18,13 @@ export function initial() {
         typeToAdd: '',
         source: '',
         target: '',
+        connectMode: 'hierarchy',
+        contextPosition: null,
         arrange: 'flow',
+        showColumns: false,
+        showRoles: false,
+        showCodes: false,
+        showLegend: false,
         text: {},
         confirmation: '',
         pending: null,
@@ -165,6 +171,14 @@ export function transition(ui, model, event) {
         case 'propertiesVisible':
             next.propertiesVisible = !next.propertiesVisible;
             break;
+        case 'toggleSchemaView':
+            if (
+                ['showColumns', 'showRoles', 'showCodes', 'showLegend'].indexOf(
+                    event.key
+                ) >= 0
+            )
+                next[event.key] = !next[event.key];
+            break;
         case 'catalogSplit':
             next.catalogWidth = Math.max(
                 180,
@@ -191,14 +205,46 @@ export function transition(ui, model, event) {
         case 'typeToAdd':
         case 'source':
         case 'target':
+        case 'connectMode':
         case 'arrange':
             next[event.type] = event.value;
+            break;
+        case 'openAddNodeAt':
+            next.inspector = 'add_node';
+            next.propertiesVisible = true;
+            next.panel = 'properties';
+            next.contextPosition = {
+                x: Number(event.x) || 40,
+                y: Number(event.y) || 40
+            };
+            break;
+        case 'openConnectManyToMany':
+            next.inspector = 'add_node';
+            next.propertiesVisible = true;
+            next.panel = 'properties';
+            next.connectMode = 'many_to_many';
+            if (event.source || event.from)
+                next.source = event.source || event.from;
             break;
         case 'buffer':
             if (edit)
                 next.text = Object.assign({}, next.text, {
                     [event.key]: event.value
                 });
+            break;
+        case 'commitDraftTable':
+            if (edit && next.text.draftTable !== undefined) {
+                const value = next.text.draftTable.trim();
+                if (!/^[a-z][a-z0-9_]*$/.test(value)) {
+                    next.error =
+                        'Use a lowercase table name with letters, digits and underscores';
+                    break;
+                }
+                commands.push({
+                    type: 'renameDraftTable',
+                    value
+                });
+            }
             break;
         case 'commitInstance':
             if (edit && next.text.instance !== undefined) {
@@ -331,11 +377,13 @@ export function transition(ui, model, event) {
                 commands.push({
                     type: 'addNode',
                     identity: name,
+                    position: next.contextPosition,
                     kind:
                         model.document.searchType === 'sthpw/task'
                             ? 'status'
                             : next.nodeKind
                 });
+                next.contextPosition = null;
             }
             break;
         case 'connect':
@@ -343,7 +391,10 @@ export function transition(ui, model, event) {
                 commands.push({
                     type: 'connect',
                     from: event.from || next.source,
-                    to: event.to || next.target
+                    to: event.to || next.target,
+                    mode:
+                        event.mode ||
+                        (event.from ? 'hierarchy' : next.connectMode || 'hierarchy')
                 });
             break;
         case 'field':
@@ -353,6 +404,13 @@ export function transition(ui, model, event) {
         case 'moveNodes':
         case 'column':
         case 'renameInstance':
+        case 'renameDraftTable':
+        case 'createDraftNode':
+        case 'createProcessAt':
+        case 'registerDraftType':
+        case 'openDraftCreator':
+        case 'draftField':
+        case 'edgePreset':
         case 'relationship':
         case 'createColumns':
         case 'reverse':
@@ -388,6 +446,7 @@ export function applied(ui, key) {
 }
 export function completed(ui, command) {
     if (command.type === 'renameInstance') return applied(ui, 'instance');
+    if (command.type === 'renameDraftTable') return applied(ui, 'draftTable');
     if (
         ['reload', 'discard', 'selectPipeline', 'createWorkflow'].indexOf(
             command.type

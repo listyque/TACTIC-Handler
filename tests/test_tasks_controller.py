@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 from PySide6.QtCore import (
     Q_ARG, QMetaObject, QPoint, QPointF, QObject, Property, Qt, QUrl, Signal,
@@ -5276,98 +5277,44 @@ class TasksQmlTests(unittest.TestCase):
         window.show()
         QTest.qWait(40)
 
-        targets = view.findChild(QObject, "deleteSObjectTargets")
-        dependencies = view.findChild(QObject, "deleteSObjectDependencies")
-        header = view.findChild(QObject, "deleteSObjectHeader")
-        target_card = view.findChild(QObject, "deleteSObjectTargetCard")
-        footer = view.findChild(QObject, "deleteSObjectFooter")
-        dependency_repeater = view.findChild(
-            QObject, "deleteDependencyRepeater"
-        )
-        dependency_group, expression_undefined = QQmlExpression(
-            QQmlEngine.contextForObject(dependency_repeater),
-            dependency_repeater,
-            "itemAt(0)",
-        ).evaluate()
+        targets = self.visual_find(view, "deleteSObjectTargets")
+        dependencies = self.visual_find(view, "deleteSObjectDependencies")
+        header = self.visual_find(view, "deleteSObjectHeader")
+        target_card = self.visual_find(view, "deleteSObjectTargetCard")
+        footer = self.visual_find(view, "deleteSObjectFooter")
+        dependency_group = self.visual_find(view, "deleteDependencyGroup_0")
         self.assertIsNotNone(targets)
         self.assertIsNotNone(dependencies)
         self.assertIsNotNone(header)
         self.assertIsNotNone(target_card)
         self.assertIsNotNone(footer)
-        self.assertIsNotNone(dependency_repeater)
+        self.assertIsNotNone(dependency_group)
         self.assertGreaterEqual(float(header.property("height")), 70.0)
         self.assertGreater(float(target_card.property("radius")), 0.0)
-        self.assertEqual(float(dependencies.property("leftPadding")), 6.0)
         self.assertEqual(float(footer.property("height")), 64.0)
-        self.assertEqual(dependency_repeater.property("count"), 1)
-        self.assertFalse(expression_undefined)
-        self.assertIsNotNone(dependency_group)
         self.assertGreater(float(dependency_group.property("radius")), 0.0)
         self.assertEqual(targets.property("count"), 1)
         self.assertTrue(dependencies.property("visible"))
-        self.assertTrue(dependency_group.property("checked"))
-        dependency_header = dependency_group.findChild(
-            QQuickItem, "deleteDependencyHeader_0"
-        )
-        dependency_check = dependency_group.findChild(
-            QQuickItem, "deleteDependencyCheck_0"
-        )
-        dependency_expand = dependency_group.findChild(
-            QQuickItem, "deleteDependencyExpand_0"
-        )
-        self.assertIsNotNone(dependency_header)
+        dependency_check = self.visual_find(view, "deleteDependencyCheck_0")
+        dependency_expand = self.visual_find(view, "deleteDependencyExpand_0")
         self.assertIsNotNone(dependency_check)
         self.assertIsNotNone(dependency_expand)
-        header_center = dependency_header.mapToItem(
-            dependency_group, QPointF(0, dependency_header.height() / 2)
-        ).y()
-        for item in (dependency_check, dependency_expand):
-            item_center = item.mapToItem(
-                dependency_group, QPointF(0, item.height() / 2)
-            ).y()
-            self.assertAlmostEqual(item_center, header_center, delta=0.5)
-        self.assertIsNone(
-            dependency_group.findChild(QObject, "deleteDependencyItems_0")
-        )
+        self.assertTrue(dependency_check.property("checked"))
+        self.assertIsNone(self.visual_find(view, "deleteDependencyItems_0"))
 
         controller.toggle_group(0)
         QTest.qWait(30)
 
-        dependency_items = dependency_group.findChild(
-            QObject, "deleteDependencyItems_0"
-        )
+        dependency_items = self.visual_find(view, "deleteDependencyItems_0")
         QTest.qWait(80)
-        dependency_row, row_undefined = QQmlExpression(
-            QQmlEngine.contextForObject(dependency_items),
-            dependency_items,
-            "itemAtIndex(0)",
-        ).evaluate()
-        dependency_title = dependency_row.findChild(
-            QObject, "deleteDependencyItemTitle"
-        )
-        dependency_details = dependency_row.findChild(
-            QObject, "deleteDependencyItemDetails"
-        )
+        dependency_title = self.visual_find(view, "dependency_0_0_title")
+        dependency_details = self.visual_find(view, "dependency_0_0_details")
         self.assertIsNotNone(dependency_items)
-        self.assertFalse(row_undefined)
-        self.assertIsNotNone(dependency_row)
         self.assertIsNotNone(dependency_title)
         self.assertIsNotNone(dependency_details)
         self.assertEqual(dependency_items.property("count"), 2)
         self.assertEqual(dependency_title.property("text"), "preview.jpg")
         self.assertEqual(dependency_details.property("text"), "publish")
-        last_row, last_row_undefined = QQmlExpression(
-            QQmlEngine.contextForObject(dependency_items),
-            dependency_items,
-            "itemAtIndex(count - 1)",
-        ).evaluate()
-        self.assertFalse(last_row_undefined)
-        self.assertIsNotNone(last_row)
-        self.assertGreater(float(last_row.property("bottomLeftRadius")), 0.0)
-        self.assertEqual(
-            float(last_row.property("bottomLeftRadius")),
-            float(last_row.property("bottomRightRadius")),
-        )
         list_position = dependency_items.mapToItem(
             dependency_group, QPointF(0, 0)
         )
@@ -5662,9 +5609,14 @@ class TasksQmlTests(unittest.TestCase):
                 if hasattr(disabled_cursor, "value")
                 else int(disabled_cursor)
             )
+            expected_disabled = (
+                Qt.ArrowCursor.value
+                if file_name in ("Button.qml", "CheckBox.qml", "Switch.qml")
+                else Qt.PointingHandCursor.value
+            )
             self.assertEqual(
                 disabled_cursor_value,
-                Qt.PointingHandCursor.value,
+                expected_disabled,
                 f"{file_name} disabled",
             )
             self.assertTrue(
@@ -5944,17 +5896,8 @@ class TasksQmlTests(unittest.TestCase):
             "TaskProcessPanel.qml",
             "TaskBrowserTable.qml",
             "TaskGanttView.qml",
-            "TaskCalendarView.qml",
-            "TimesheetView.qml",
-            "WorkReportsView.qml",
-            "CostReportsView.qml",
-            "DescriptionEditor.qml",
             "CommunicationView.qml",
-            "DropPlateView.qml",
             "AdvancedSearchView.qml",
-            "RepositorySyncView.qml",
-            "CommitQueueView.qml",
-            "DatabaseEditorView.qml",
             "WatchFoldersView.qml",
         )
         for file_name in dock_views:

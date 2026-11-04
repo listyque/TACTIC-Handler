@@ -179,6 +179,8 @@ class TagCloudQmlTests(unittest.TestCase):
                 popup, sample = self.measure_open(window, view)
                 self.assertGreater(sample["chipsCreated"], 0)
                 self.assertLess(sample["chipsCreated"], 80, sample)
+                for chip in self.visible_chips(popup):
+                    self.assertAlmostEqual(chip.property("cornerRadius"), chip.height() / 2)
                 self.assertEqual(self.controller._tag_workers, {})
                 self.assertTrue(popup.property("opened"))
                 self.assertEqual(popup.property("scale"), 1)

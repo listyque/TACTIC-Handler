@@ -58,6 +58,7 @@ class SidebarNavigationTargetTests(unittest.TestCase):
         self.enterContext(patch.object(env_inst, 'current_project', None))
         self.enterContext(patch.object(env_inst, 'exit_pools'))
         self.enterContext(patch.object(env_server, 'get_server_presets', return_value={}))
+        self.enterContext(patch('thlib.environment.get_server_api', return_value='stream'))
         self.enterContext(patch.object(cfg_controls, 'get_checkin_out_projects', return_value={}))
         self.enterContext(patch.object(cfg_controls, 'set_checkin_out_projects'))
         self.rpc = self.enterContext(patch.object(
@@ -175,6 +176,7 @@ class SidebarNavigationTargetTests(unittest.TestCase):
                            'active_stype': SEARCH_KEY}}
         with (patch.object(env_inst, 'get_current_login_object', return_value=SimpleNamespace(check_security=lambda **kwargs:'allow')),
               patch.object(project, 'query_search_types', return_value=True) as metadata,
+              patch('thlib.ui.theme_catalog.read_project_theme', return_value=None),
               patch.object(cfg_controls, 'get_checkin_out_projects', return_value=saved),
               patch.object(workspace, 'action') as action,
               patch.object(self.controller, 'open_window')):
@@ -326,6 +328,32 @@ class SidebarNavigationTargetTests(unittest.TestCase):
         self.controller.navigation_model.replace(sidebar_entries(sidebar_project(display_options='<widget_key>view_panel</widget_key>')))
         section = self.controller._create_section('config/naming', 'Naming')
         self.assertEqual(section.tabs[0].view_mode, 'table')
+
+    def test_selected_project_reuses_cached_shell_sessions_and_models(self):
+        project = sidebar_project()
+        env_inst.projects['admin'] = project
+        entries = sidebar_entries(project)
+        saved = {
+            'admin': {
+                'stypes_list': [SEARCH_KEY],
+                'active_stype': SEARCH_KEY,
+            },
+        }
+        with patch.object(cfg_controls, 'get_checkin_out_projects', return_value=saved):
+            self.controller._apply_cached_project_shell('admin', 'Admin', entries, project)
+            self.app.processEvents()
+            cached_section = self.controller._sessions[SEARCH_KEY]
+            cached_tab = cached_section.tabs[0]
+            cached_model = cached_tab.workspace_model
+            self.assertIsNotNone(cached_model)
+            self.assertEqual(self.shown_targets, [])
+
+            self.controller._apply_selected_project('admin', 'Admin', entries, project)
+            self.app.processEvents()
+            self.assertIs(self.controller._sessions[SEARCH_KEY], cached_section)
+            self.assertIs(self.controller._sessions[SEARCH_KEY].tabs[0], cached_tab)
+            self.assertIs(cached_tab.workspace_model, cached_model)
+            self.assertEqual(self.shown_targets, ['config/naming'])
 
 
 if __name__ == '__main__':

@@ -22,6 +22,8 @@ Flickable {
     property real rowsHeight: 0
     property bool ready: false
     property bool updating: false
+    property int firstIndex: -1
+    property int lastIndex: -1
     property var displayScene: ({
             nodes: []
         })
@@ -64,14 +66,23 @@ Flickable {
         rowsHeight = offsets ? offsets[rows.length] : rows.length * node.rowHeight;
         contentY = Math.max(0, Math.min(offset, Math.max(0, contentHeight - height)));
         updating = false;
-        refreshScene();
+        firstIndex = -1;
+        lastIndex = -1;
+        refreshScene(true);
     }
-    function refreshScene() {
-        if (ready && !updating)
-            displayScene = rowScene();
-    }
-    function rowScene() {
+    function refreshScene(force = false) {
+        if (!ready || updating)
+            return;
         const range = Contract.listRange(records.length, node.rowHeight, height, contentY, 3, rowOffsets);
+        if (!force && range.first === firstIndex && range.last === lastIndex)
+            return;
+        firstIndex = range.first;
+        lastIndex = range.last;
+        displayScene = rowScene(range);
+    }
+    function rowScene(range) {
+        if (!range)
+            range = Contract.listRange(records.length, node.rowHeight, height, contentY, 3, rowOffsets);
         const nodes = [];
         for (let index = range.first; index < range.last; index++) {
             const record = records[index];
@@ -119,9 +130,9 @@ Flickable {
         replaceRecords()
     onNodeChanged: if (ready)
         replaceRecords()
-    onContentYChanged: refreshScene()
-    onWidthChanged: refreshScene()
-    onHeightChanged: refreshScene()
+    onContentYChanged: refreshScene(false)
+    onWidthChanged: refreshScene(true)
+    onHeightChanged: refreshScene(true)
     Component.onCompleted: {
         ready = true;
         replaceRecords();

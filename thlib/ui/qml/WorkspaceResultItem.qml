@@ -74,7 +74,7 @@ Item {
     property bool layoutEditing: false
     property bool presentationReadOnly: false
     property string selectedLayoutElement: ""
-    readonly property var compositionRecord: ({
+    readonly property var compositionRecord: !configuredLayout ? null : ({
             kind: root.objectCard ? "object" : root.snapshotCard ? "snapshot" : root.branchRow ? "branch" : root.nodeType,
             depth: root.depth,
             title: root.title,
@@ -451,7 +451,9 @@ Item {
         y: root.cardLayout.content.y
         width: root.cardLayout.content.width
         height: root.cardLayout.content.height
-        readonly property var bodyScene: Card.body(root.cardModel, width, height)
+        readonly property var bodyScene: Card.body(root.nodeType === "sobject" ? Object.assign({}, root.cardModel, {
+            reserve: root.contentTrailingReserve
+        }) : root.cardModel, width, height)
         readonly property var bodyParts: {
             const parts = {};
             for (const item of bodyScene.nodes)
@@ -567,15 +569,8 @@ Item {
                 objectName: "workspaceObjectBody"
                 anchors.fill: parent
                 // Hot list delegates bind the common nodes directly, retaining native controls and pooling.
-                readonly property var scene: Card.body(Object.assign({}, root.cardModel, {
-                    reserve: root.contentTrailingReserve
-                }), width, height)
-                readonly property var parts: {
-                    const result = {};
-                    for (const node of scene.nodes)
-                        result[node.id] = node;
-                    return result;
-                }
+                readonly property var scene: content.bodyScene
+                readonly property var parts: content.bodyParts
                 Label {
                     id: objectTitle
                     objectName: "workspaceObjectTitle"
@@ -687,7 +682,7 @@ Item {
             Item {
                 id: snapshotBody
                 anchors.fill: parent
-                readonly property var scene: Card.body(root.cardModel, width, height)
+                readonly property var scene: content.bodyScene
                 Item {
                     x: snapshotBody.scene.nodes[0].x
                     y: snapshotBody.scene.nodes[0].y

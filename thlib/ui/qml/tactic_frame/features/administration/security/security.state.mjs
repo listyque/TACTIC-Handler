@@ -18,6 +18,7 @@ export function initial() {
         groupQuery: '',
         targetQuery: '',
         editing: false,
+        railVisible: true,
         selectedCell: null,
         confirmation: '',
         text: '',
@@ -238,7 +239,8 @@ export function transition(ui, model, event) {
             if (canNavigate) {
                 next.editing = true;
                 next.targetQuery = '';
-                if (ui.scope === 'technical') next.page = 'rule';
+                if (ui.scope === 'technical' && event.openJson)
+                    next.page = 'rule';
                 commands.push({
                     type: 'selectRule',
                     index: event.index
@@ -248,12 +250,69 @@ export function transition(ui, model, event) {
         case 'back':
             next.editing = false;
             break;
+        case 'railVisible':
+            next.railVisible = ui.railVisible === false;
+            break;
         case 'addRule':
             if (allow.editable && !pending(ui)) {
+                const targetScope =
+                    ui.scope === 'technical'
+                        ? model.attributes?.group ||
+                          model.attributes?.category ||
+                          'project'
+                        : ui.scope;
                 next.editing = true;
                 commands.push({
                     type: 'addRule',
-                    scope: ui.scope
+                    scope: targetScope
+                });
+            }
+            break;
+        case 'ruleCategory':
+            if (allow.editable && model.selected >= 0 && !pending(ui)) {
+                const cat = String(event.value || 'project');
+                const cur = model.attributes || {};
+                const defaults = {
+                    project: { code: '*' },
+                    search_type: { code: '*' },
+                    process: { process: '*', pipeline: '*' },
+                    link: { element: '*' },
+                    builtin: { key: 'view_side_bar' },
+                    script_runner: { key: '*' },
+                    sobject: { key: '*' },
+                    sobject_column: { search_type: '*', column: '*' },
+                    gear_menu: { submenu: '*', label: '*' },
+                    search_filter: {
+                        search_type: '',
+                        column: '',
+                        op: '=',
+                        value: ''
+                    }
+                };
+                const nextAttrs = Object.assign(
+                    { group: cat },
+                    defaults[cat] || { key: '*' }
+                );
+                if (cat !== 'search_filter') {
+                    nextAttrs.access =
+                        cat === 'builtin' || cat === 'script_runner'
+                            ? cur.access === 'allow'
+                                ? 'allow'
+                                : 'deny'
+                            : cur.access || 'deny';
+                }
+                if (
+                    !['project', 'builtin'].includes(cat) &&
+                    (cur.project || model.groupDocument?.project)
+                ) {
+                    nextAttrs.project =
+                        cur.project || model.groupDocument.project;
+                }
+                next.targetQuery = '';
+                commands.push({
+                    type: 'applyText',
+                    page: 'rule',
+                    text: JSON.stringify(nextAttrs)
                 });
             }
             break;

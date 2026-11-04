@@ -127,27 +127,37 @@ export function treeRow(list, record, model, ui, language, blockTitle) {
 }
 export function treePanel(model, ui, bounds, language, enabled, narrow) {
     const tr = (text) => translate(text, language),
-        width = bounds.width;
+        width = bounds.width,
+        collapsed = ui.layersHidden && !narrow;
     const children = [
         button(
             'pageLayersToggle',
-            rect(width - 32, 0, 32, 32),
-            tr('Page blocks'),
+            rect(
+                collapsed ? (width - 28) / 2 : width - 46,
+                10,
+                collapsed ? 28 : 34,
+                34
+            ),
+            tr(
+                ui.layersHidden
+                    ? 'Show page blocks'
+                    : 'Hide page blocks'
+            ),
             ui.layersHidden ? 'chevron-right' : 'chevron-left',
             { type: 'togglePanel', panel: 'layers' },
             true,
-            { iconOnly: true }
+            { iconOnly: true, iconAction: true, round: false }
         )
     ];
     if (!ui.layersHidden || narrow)
         children.push(
             label(
                 'pageLayersTitle',
-                rect(8, 0, width - 44, 32),
+                rect(12, 10, Math.max(0, width - (narrow ? 24 : 62)), 34),
                 tr('Page blocks'),
                 { weight: 600 }
             ),
-            node('Choice', 'pageAddWidget', rect(8, 34, width - 16, 32), {
+            node('Choice', 'pageAddWidget', rect(12, 52, width - 24, 36), {
                 label: tr('Add widget'),
                 value: '',
                 enabled,
@@ -169,7 +179,7 @@ export function treePanel(model, ui, bounds, language, enabled, narrow) {
             node(
                 'List',
                 'pageBlocks',
-                rect(4, 72, width - 8, Math.max(0, bounds.height - 76)),
+                rect(8, 96, width - 16, Math.max(0, bounds.height - 104)),
                 {
                     source: 'pageBlocks',
                     keyField: 'key',
@@ -187,23 +197,34 @@ export function treePanel(model, ui, bounds, language, enabled, narrow) {
     });
 }
 export function propertiesHeader(ui, width, language, narrow) {
-    const children = [
-        button(
-            'pagePropertiesToggle',
-            rect(0, 0, 32, 32),
-            translate('Properties', language),
-            ui.propertiesHidden ? 'chevron-left' : 'chevron-right',
-            { type: 'togglePanel', panel: 'properties' },
-            true,
-            { iconOnly: true }
-        )
-    ];
+    const tr = (text) => translate(text, language),
+        collapsed = ui.propertiesHidden && !narrow,
+        children = [
+            button(
+                'pagePropertiesToggle',
+                rect(
+                    collapsed ? (width - 28) / 2 : width - 46,
+                    10,
+                    collapsed ? 28 : 34,
+                    34
+                ),
+                tr(
+                    ui.propertiesHidden
+                        ? 'Show properties'
+                        : 'Hide properties'
+                ),
+                ui.propertiesHidden ? 'chevron-left' : 'chevron-right',
+                { type: 'togglePanel', panel: 'properties' },
+                true,
+                { iconOnly: true, iconAction: true, round: false }
+            )
+        ];
     if (!ui.propertiesHidden || narrow)
         children.push(
             label(
                 'pagePropertiesTitle',
-                rect(narrow ? 8 : 36, 0, width - 44, 32),
-                translate('Properties', language),
+                rect(12, 10, Math.max(0, width - (narrow ? 24 : 62)), 34),
+                tr('Properties'),
                 { weight: 600 }
             )
         );

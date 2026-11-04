@@ -47,7 +47,8 @@ Frame.FrameView {
             services.customLayout.open_cell(nodeId, cell);
         else if (action.name === "nested-table")
             services.toggle_nested(nodeId, Object.assign({}, cell, {
-                nestedTable: action.nestedTable || cell.nestedTable
+                nestedTable: action.nestedTable || cell.nestedTable,
+                text: action.text !== undefined ? action.text : cell.text
             }));
         else if (action.name === "dependencies")
             services.dependencyViewer.open(nodeId, cell);

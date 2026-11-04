@@ -2162,8 +2162,20 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertTrue(wizard["supported"])
             self.assertEqual(wizard["view"], "table")
             self.assertEqual(wizard["elements"], [{
-                "path": "1/0", "name": "code", "title": "Code",
-                "visible": True, "width": 146, "widget": "LinkWdg",
+                "path": "1/0", "name": "code", "rawTitle": "Code", "title": "Code",
+                "visible": True, "rawWidth": "146px", "width": 146, "color": True,
+                "editable": True, "widget": "LinkWdg", "widgetKey": "",
+                "displayClass": "LinkWdg", "displayOptions": {"option": "keep"},
+                "editWidget": "", "editWidgetKey": "", "editClass": "",
+                "editOptions": {}, "actionClass": "", "actionOptions": {},
+                "xml": (
+                    '<element name="code" title="Code" hidden="false" '
+                    'width="146px" custom="keep">\n'
+                    '  <display class="LinkWdg">\n'
+                    '    <option>keep</option>\n'
+                    '  </display>\n'
+                    '</element>'
+                ),
             }])
             for field, value in (
                 ("title", "Asset code"),

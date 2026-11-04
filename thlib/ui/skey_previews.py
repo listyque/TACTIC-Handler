@@ -21,8 +21,11 @@ WEB_PATTERN = re.compile(r"(?:https?|ftp|tactic-search)://[^\s<>\"]+")
 
 
 def extract_skeys(value):
+    text = str(value or "")
+    if not text or "skey://" not in text:
+        return []
     result = []
-    for match in SKEY_PATTERN.finditer(str(value or "")):
+    for match in SKEY_PATTERN.finditer(text):
         key = match.group(0).rstrip(".,;:!?)]}")
         if key and key not in result:
             result.append(key)
@@ -30,22 +33,27 @@ def extract_skeys(value):
 
 
 def display_html_without_skeys(value):
-    def remove_key(match):
-        raw = match.group(0)
-        key = raw.rstrip(".,;:!?)]}")
-        return raw[len(key):]
+    raw_text = str(value or "")
+    if "skey://" in raw_text:
+        def remove_key(match):
+            raw = match.group(0)
+            key = raw.rstrip(".,;:!?)]}")
+            return raw[len(key):]
 
-    text = SKEY_PATTERN.sub(remove_key, str(value or "")).strip()
+        text = SKEY_PATTERN.sub(remove_key, raw_text).strip()
+    else:
+        text = raw_text.strip()
     escaped = html.escape(text)
-    def link(match):
-        raw = match.group(0)
-        target = raw.rstrip(".,;:!?)]}")
-        return '<a href="{0}">{0}</a>{1}'.format(
-            target, raw[len(target):]
-        )
+    if "://" in escaped:
+        def link(match):
+            raw = match.group(0)
+            target = raw.rstrip(".,;:!?)]}")
+            return '<a href="{0}">{0}</a>{1}'.format(
+                target, raw[len(target):]
+            )
 
-    linked = WEB_PATTERN.sub(link, escaped)
-    return linked.replace("\n", "<br>")
+        escaped = WEB_PATTERN.sub(link, escaped)
+    return escaped.replace("\n", "<br>")
 
 
 class SearchKeyPreviewResolver(QObject):
@@ -169,11 +177,13 @@ class SearchKeyPreviewResolver(QObject):
         return self.records_for_keys(extract_skeys(value))
 
     def records_for_keys(self, search_keys):
+        if not search_keys:
+            return []
         records = []
         unresolved = []
         scope = self._scope()
         normalized = []
-        for raw_search_key in search_keys or []:
+        for raw_search_key in search_keys:
             search_key = self._normalize(raw_search_key)
             if search_key and search_key not in normalized:
                 normalized.append(search_key)
@@ -183,13 +193,16 @@ class SearchKeyPreviewResolver(QObject):
             records.append(dict(cached or self._placeholder(search_key)))
             if not cached:
                 unresolved.append(search_key)
-        self.request_many(unresolved)
+        if unresolved:
+            self.request_many(unresolved)
         return records
 
     def request_many(self, search_keys):
+        if not search_keys:
+            return
         changed = False
         scope = self._scope()
-        for value in search_keys or []:
+        for value in search_keys:
             search_key = self._normalize(value)
             cache_key = (*scope, search_key)
             if not search_key or cache_key in self._cache or cache_key in self._pending:

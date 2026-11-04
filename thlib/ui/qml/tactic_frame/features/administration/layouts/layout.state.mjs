@@ -7,6 +7,8 @@ export function initial() {
         panel: 'elements',
         selected: '',
         context: '',
+        catalogVisible: true,
+        propertiesVisible: true,
         catalogWidth: 220,
         propertiesWidth: 330,
         newName: '',
@@ -213,7 +215,7 @@ export function transition(ui, model, event) {
         case 'openLayout':
         case 'backLayout': {
             if (model.dirty || model.uncertain || pending(ui)) {
-                next.error = 'Save or discard changes before continuing';
+                next.confirmation = 'discard';
                 break;
             }
             const target =
@@ -283,6 +285,12 @@ export function transition(ui, model, event) {
                 240,
                 Math.min(520, Number(event.value))
             );
+            break;
+        case 'catalogVisible':
+            next.catalogVisible = next.catalogVisible === false;
+            break;
+        case 'propertiesVisible':
+            next.propertiesVisible = next.propertiesVisible === false;
             break;
         case 'newName':
         case 'template':

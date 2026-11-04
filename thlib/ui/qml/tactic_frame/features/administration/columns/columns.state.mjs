@@ -3,15 +3,49 @@ export const initial = () => ({
     query: '',
     searchType: '',
     mode: 'simple',
+    viewMode: 'view',
     path: '',
     editing: false,
+    showAllWidgets: false,
+    catalogVisible: true,
     catalogWidth: 350,
     columnWidth: 250,
     columnHeight: 170,
+    collapsedCategories: {},
+    expandedLayers: {},
+    colorsOpen: false,
+    configsOpen: true,
     confirmation: '',
     text: {}
 });
 export const pending = (ui) => Object.keys(ui.text).length > 0;
+
+export function elementFieldValue(element, field) {
+    if (!element) return '';
+    if (field === 'title')
+        return element.rawTitle !== undefined
+            ? String(element.rawTitle || '')
+            : String(element.title || '');
+    if (field === 'extraOptionAdd') return '';
+    if (field.indexOf('option:') === 0)
+        return String(
+            (element.displayOptions &&
+                element.displayOptions[field.slice(7)]) ||
+                ''
+        );
+    if (field.indexOf('editOption:') === 0)
+        return String(
+            (element.editOptions && element.editOptions[field.slice(11)]) || ''
+        );
+    if (field.indexOf('actionOption:') === 0)
+        return String(
+            (element.actionOptions &&
+                element.actionOptions[field.slice(13)]) ||
+                ''
+        );
+    return String(element[field] ?? '');
+}
+
 export function definitionSource(records, request, elements) {
     const views =
         request.view === 'edit_definition'
@@ -57,11 +91,25 @@ export function completed(ui, command, model) {
     if (command.type === 'column') next.path = command.path;
     if (command.type === 'mode') next.mode = command.value;
     if (command.type === 'back') next.editing = false;
-    if (command.type === 'change' && command.field === 'move')
-        next.path = (
-            model.elements.find((row) => row.name === command.name) ||
-            model.element
-        ).path;
+    if (command.type === 'change') {
+        if (command.field === 'move')
+            next.path = (
+                model.elements.find((row) => row.name === command.name) ||
+                model.element
+            ).path;
+        else if (command.field === 'addElement')
+            next.path = (
+                model.elements.find((row) => row.name === command.value) ||
+                model.element
+            ).path;
+        else if (command.field === 'removeElement')
+            next.path = model.elements[0] ? model.elements[0].path : '';
+        else if (String(next.path || '').indexOf('def:') === 0) {
+            const addedName = String(next.path).slice(4);
+            const found = model.elements.find((row) => row.name === addedName);
+            if (found) next.path = found.path;
+        }
+    }
     return next;
 }
 export function transition(ui, model, event) {
@@ -90,6 +138,9 @@ export function transition(ui, model, event) {
                 ) >= 0
             )
                 next[event.field] = event.value;
+            break;
+        case 'catalogVisible':
+            next.catalogVisible = next.catalogVisible === false;
             break;
         case 'query':
         case 'searchType':
@@ -121,17 +172,71 @@ export function transition(ui, model, event) {
                     value: event.value
                 });
             break;
+        case 'viewMode':
+            if (['view', 'edit'].indexOf(event.value) >= 0)
+                next.viewMode = event.value;
+            break;
+        case 'toggleCategory':
+            if (event.key)
+                next.collapsedCategories = Object.assign(
+                    {},
+                    ui.collapsedCategories,
+                    {
+                        [event.key]: !ui.collapsedCategories[event.key]
+                    }
+                );
+            break;
+        case 'toggleLayer':
+            if (event.key)
+                next.expandedLayers = Object.assign({}, ui.expandedLayers, {
+                    [event.key]: !ui.expandedLayers[event.key]
+                });
+            break;
+        case 'toggleSection':
+            if (event.section === 'colors') next.colorsOpen = !ui.colorsOpen;
+            else if (event.section === 'configs')
+                next.configsOpen = !ui.configsOpen;
+            break;
         case 'column':
-            if (model.elements.some((row) => row.path === event.path))
+            if (
+                model.elements.some((row) => row.path === event.path) ||
+                (model.definitionElements || []).some(
+                    (row) => row.path === event.path
+                )
+            )
                 commands.push({
                     type: 'column',
                     path: event.path
                 });
             break;
+        case 'addElement':
+            if (allow.editable && event.name)
+                commands.push({
+                    type: 'change',
+                    field: 'addElement',
+                    value: event.name
+                });
+            break;
+        case 'removeElement':
+            if (
+                allow.editable &&
+                model.elements.length > 1 &&
+                model.element &&
+                model.element.inView !== false
+            )
+                commands.push({
+                    type: 'change',
+                    field: 'removeElement',
+                    value: model.element.name
+                });
+            break;
         case 'text':
             if (allow.editable) {
                 next.text = Object.assign({}, ui.text);
-                if (String(event.value) === String(model.element[event.field]))
+                if (
+                    String(event.value) ===
+                    elementFieldValue(model.element, event.field)
+                )
                     delete next.text[event.field];
                 else next.text[event.field] = event.value;
             }
@@ -157,6 +262,7 @@ export function transition(ui, model, event) {
             if (
                 allow.editable &&
                 !pending(ui) &&
+                index >= 0 &&
                 (event.value === -1 || event.value === 1) &&
                 model.elements[index + event.value]
             )
@@ -189,6 +295,9 @@ export function transition(ui, model, event) {
                     type: 'xml',
                     value: event.value
                 });
+            break;
+        case 'showAllWidgets':
+            next.showAllWidgets = Boolean(event.value);
             break;
         default:
             throw Error('Unsupported Columns event: ' + event.type);

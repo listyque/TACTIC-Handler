@@ -81,14 +81,89 @@ export function transform(box, handle, dx, dy) {
     }
     return next;
 }
+export function combineRegions(scene) {
+    const nodes = scene?.nodes || [];
+    const index = nodes.findIndex((n) => n.id === 'customLayoutScroll');
+    const header = nodes.find((n) => n.id === 'customLayoutHeader');
+    const footer = nodes.find((n) => n.id === 'customLayoutFooter');
+    if (index < 0 || (!header && !footer)) return scene;
+    const scroll = nodes[index];
+    const headerScroll = header?.children?.find(
+        (n) => n.id === 'customLayoutHeaderScroll'
+    );
+    const footerScroll = footer?.children?.find(
+        (n) => n.id === 'customLayoutFooterScroll'
+    );
+    const headerOffset = headerScroll ? headerScroll.contentHeight || 0 : 0;
+    const contentHeight = scroll.contentHeight || 0;
+    const footerOffset = headerOffset + contentHeight;
+    const footerHeight = footerScroll ? footerScroll.contentHeight || 0 : 0;
+    const children = [];
+    if (headerScroll) {
+        children.push(...(headerScroll.children || []));
+        if (headerOffset > 0 && (contentHeight > 0 || footerHeight > 0))
+            children.push(
+                node(
+                    'Box',
+                    'customLayoutHeaderDivider',
+                    rect(0, headerOffset - 1, scroll.width, 1),
+                    { background: 'outlineVariant', radius: 0 }
+                )
+            );
+    }
+    children.push(
+        ...(scroll.children || []).map((item) =>
+            headerOffset
+                ? Object.assign({}, item, { y: item.y + headerOffset })
+                : item
+        )
+    );
+    if (footerScroll) {
+        if (footerHeight > 0 && footerOffset > 0)
+            children.push(
+                node(
+                    'Box',
+                    'customLayoutFooterDivider',
+                    rect(0, footerOffset, scroll.width, 1),
+                    { background: 'outlineVariant', radius: 0 }
+                )
+            );
+        children.push(
+            ...(footerScroll.children || []).map((item) =>
+                footerOffset
+                    ? Object.assign({}, item, { y: item.y + footerOffset })
+                    : item
+            )
+        );
+    }
+    return Object.assign({}, scene, {
+        nodes: nodes
+            .filter(
+                (n) =>
+                    n.id !== 'customLayoutHeader' &&
+                    n.id !== 'customLayoutFooter'
+            )
+            .map((n) =>
+                n.id === 'customLayoutScroll'
+                    ? Object.assign({}, scroll, {
+                          y: 0,
+                          contentHeight:
+                              headerOffset + contentHeight + footerHeight,
+                          children
+                      })
+                    : n
+            )
+    });
+}
 export function decorate(
     scene,
     field,
     view = 'canvasOverlay',
     accept = () => true
 ) {
-    const result = Object.assign({}, scene, {
-        nodes: (scene.nodes || []).slice()
+    const merged = combineRegions(scene);
+    const result = Object.assign({}, merged, {
+        nodes: (merged.nodes || []).slice()
     });
     const index = result.nodes.findIndex((n) => n.id === 'customLayoutScroll');
     const scroll =
@@ -100,7 +175,7 @@ export function decorate(
     if (scroll) result.nodes[index] = scroll;
     const children = scroll ? scroll.children : result.nodes;
     const targets = boxes(children, field).filter(accept);
-    if (!targets.length) return scene;
+    if (!targets.length) return merged;
     children.push(
         node(
             'View',

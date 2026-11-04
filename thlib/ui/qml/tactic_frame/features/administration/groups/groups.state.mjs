@@ -3,6 +3,7 @@ export function initial() {
     return {
         page: 'members',
         query: '',
+        catalogVisible: true,
         confirmation: ''
     };
 }
@@ -47,6 +48,9 @@ export function transition(ui, model, event) {
                     value: next.query
                 });
             }
+            break;
+        case 'catalogVisible':
+            next.catalogVisible = next.catalogVisible === false;
             break;
         case 'create':
             if (allow.create) {

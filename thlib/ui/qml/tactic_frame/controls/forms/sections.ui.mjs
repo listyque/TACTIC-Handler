@@ -29,8 +29,58 @@ function choices(field, properties, width, controlHeight) {
     const options = properties.options,
         columns = width >= 206 ? 2 : 1;
     const cellWidth = (width - (columns - 1) * spacing.compact) / columns;
-    const children = options.map((option, index) =>
-        node(
+    const children = options.map((option, index) => {
+        const selected = properties.value === option.value,
+            hasAccent = !!option.color,
+            hasIcon = !!option.icon,
+            labelX = hasIcon
+                ? (hasAccent ? 13 : 10) + 22
+                : hasAccent
+                  ? spacing.content + 6
+                  : spacing.content,
+            itemChildren = [];
+        if (hasAccent)
+            itemChildren.push(
+                node(
+                    'Box',
+                    field.id + '_accent_' + option.value,
+                    rect(4, 7, 3, Math.max(8, controlHeight - 14)),
+                    {
+                        background: option.color,
+                        radius: 2
+                    }
+                )
+            );
+        if (hasIcon)
+            itemChildren.push(
+                node(
+                    'Icon',
+                    field.id + '_icon_' + option.value,
+                    rect(
+                        hasAccent ? 13 : 10,
+                        Math.round((controlHeight - 16) / 2),
+                        16,
+                        16
+                    ),
+                    {
+                        icon: option.icon,
+                        color: option.color || 'primaryText'
+                    }
+                )
+            );
+        itemChildren.push(
+            label(
+                field.id + '_label_' + option.value,
+                rect(
+                    labelX,
+                    0,
+                    Math.max(0, cellWidth - labelX - spacing.content),
+                    controlHeight
+                ),
+                option.label
+            )
+        );
+        return node(
             'Action',
             field.id + '_' + option.value,
             rect(
@@ -39,30 +89,22 @@ function choices(field, properties, width, controlHeight) {
                 cellWidth,
                 controlHeight
             ),
-            {
-                text: option.label,
-                enabled: properties.enabled,
-                selected: properties.value === option.value,
-                normalColor: 'surfaceContainerHigh',
-                selectedColor: 'contentSelection',
-                children: [
-                    label(
-                        field.id + '_label_' + option.value,
-                        rect(
-                            spacing.content,
-                            0,
-                            cellWidth - spacing.content * 2,
-                            controlHeight
-                        ),
-                        option.label
-                    )
-                ],
-                action: Object.assign({}, properties.action, {
-                    value: option.value
-                })
-            }
-        )
-    );
+            Object.assign(
+                {
+                    text: option.label,
+                    enabled: properties.enabled,
+                    selected,
+                    normalColor: 'surfaceContainerHigh',
+                    selectedColor: 'contentSelection',
+                    children: itemChildren,
+                    action: Object.assign({}, properties.action, {
+                        value: option.value
+                    })
+                },
+                option.description ? { toolTip: option.description } : null
+            )
+        );
+    });
     return {
         children,
         height: Math.max(

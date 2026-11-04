@@ -146,6 +146,7 @@ Controls.ScrollablePopup {
         id: sizingChip
         visible: false
         theme: root.theme
+        cornerRadius: height / 2
     }
 
     Column {
@@ -239,6 +240,7 @@ Controls.ScrollablePopup {
                 }
                 readonly property var record: root.filteredRecords[cell.index] || null
                 theme: root.theme
+                cornerRadius: height / 2
                 text: record ? record.tag : root.allLabel
                 width: cell.width
                 emphasis: record ? record.weight : 0

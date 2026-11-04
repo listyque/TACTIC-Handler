@@ -46,6 +46,29 @@ Item {
                 required property string replyError
                 width: stack.width
                 height: presenter.implicitHeight
+                property real slideOffset: root.theme.popupAnimationsEnabled ? 24 : 0
+                opacity: root.theme.popupAnimationsEnabled ? 0 : 1
+                transform: Translate {
+                    y: notice.slideOffset
+                }
+                Component.onCompleted: {
+                    slideOffset = 0;
+                    opacity = 1;
+                }
+                Behavior on slideOffset {
+                    enabled: root.theme.popupAnimationsEnabled
+                    NumberAnimation {
+                        duration: 80
+                        easing.type: Easing.OutCubic
+                    }
+                }
+                Behavior on opacity {
+                    enabled: root.theme.popupAnimationsEnabled
+                    NumberAnimation {
+                        duration: 70
+                        easing.type: Easing.OutCubic
+                    }
+                }
                 Accessible.role: Accessible.Button
                 Accessible.name: notice.message
                 Accessible.description: notice.detail

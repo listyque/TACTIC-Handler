@@ -6,6 +6,7 @@ import "../../tactic_frame/features/messages/forms.ui.mjs" as UI
 Frame.FrameView {
     id: root
     property string mode: "create"
+    property bool active: true
     property string text: ""
     property var selectedLogins: []
     property var peopleItem: null
@@ -33,9 +34,11 @@ Frame.FrameView {
             canCreateGroup,
             activeSearch
         })
-    scene: UI.form(presentation, width, availableBodyHeight, language, {
+    scene: active ? UI.form(presentation, width, availableBodyHeight, language, {
         description: descriptionHeight
-    })
+    }) : ({
+            nodes: []
+        })
     views: ({
             people: peoplePort,
             description: descriptionPort
@@ -91,7 +94,8 @@ Frame.FrameView {
             wrapMode: Text.Wrap
             function measure() {
                 Qt.callLater(function () {
-                    root.descriptionHeight = description.contentHeight;
+                    if (description.contentHeight > 0 && root.descriptionHeight !== description.contentHeight)
+                        root.descriptionHeight = description.contentHeight;
                 });
             }
             onWidthChanged: measure()

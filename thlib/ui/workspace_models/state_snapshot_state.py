@@ -82,12 +82,8 @@ class SnapshotStateMixin:
                 "repository": node.repository,
                 "author": node.author,
                 "timestamp": node.timestamp,
-                "previewItems": (
-                    self._snapshot_preview_items(source) if source else []
-                ),
-                "files": (
-                    self._snapshot_file_records(source) if source else []
-                ),
+                "previewItems": [],
+                "files": [],
             })
         self._snapshot_records = records
         self._build_snapshot_browser_models(

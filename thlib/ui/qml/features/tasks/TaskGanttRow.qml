@@ -62,11 +62,16 @@ Column {
     property int panModifiers: Qt.NoModifier
     readonly property real scheduleViewportWidth: timelineRow.width
 
+    property bool viewPooled: false
+    property var lastRowRecord: ({})
+
     ListView.onPooled: {
+        viewPooled = true;
         host.stopScheduleAutoScroll(taskRow);
         if (host.activeGestureRow === taskRow)
             host.cancelGesture();
     }
+    ListView.onReused: viewPooled = false
 
     function updateSchedule(pointerX) {
         lastPointerX = pointerX;
@@ -77,6 +82,13 @@ Column {
         editDurationDays = gesture.duration;
     }
 
+    readonly property var rowRecord: {
+        if (viewPooled)
+            return lastRowRecord;
+        const next = record();
+        lastRowRecord = next;
+        return next;
+    }
     function record() {
         return {
             taskCode,
@@ -131,51 +143,61 @@ Column {
     width: host.taskList.width
     spacing: 0
 
-    Rectangle {
+    Loader {
         width: parent.width
         height: taskRow.ganttSectionFirst ? State.metrics.section : 0
-        visible: taskRow.ganttSectionFirst
-        color: "transparent"
-        Frame.FrameView {
-            theme: host.theme
-            anchors.fill: parent
-            interactive: false
-            scene: UI.band("section", host.labelWidth + host.timelineContentWidth)
-        }
+        active: taskRow.ganttSectionFirst
+        visible: active
+        sourceComponent: Item {
+            Frame.FrameView {
+                theme: host.theme
+                anchors.fill: parent
+                interactive: false
+                scene: UI.band("section", host.labelWidth + host.timelineContentWidth)
+            }
 
-        Frame.FrameView {
-            theme: host.theme
-            anchors.fill: parent
-            scene: UI.section(taskRow.record(), host.labelWidth, host.language)
+            Frame.FrameView {
+                theme: host.theme
+                anchors.fill: parent
+                scene: UI.section(taskRow.rowRecord, host.labelWidth, host.language)
+            }
         }
     }
 
-    Rectangle {
+    Loader {
         width: parent.width
         height: taskRow.groupFirst ? State.metrics.group : 0
-        visible: taskRow.groupFirst
-        color: "transparent"
-        Frame.FrameView {
-            theme: host.theme
-            anchors.fill: parent
-            scene: UI.band("group", host.labelWidth + host.timelineContentWidth, taskRow.record(), taskRow.groupCollapsed)
-            onEvent: action => controller.toggle_group_collapsed(action.value)
-        }
+        active: taskRow.groupFirst
+        visible: active
+        sourceComponent: Item {
+            Frame.FrameView {
+                theme: host.theme
+                anchors.fill: parent
+                scene: UI.band("group", host.labelWidth + host.timelineContentWidth, taskRow.rowRecord, taskRow.groupCollapsed)
+                onEvent: action => controller.toggle_group_collapsed(action.value)
+            }
 
-        Frame.FrameView {
-            theme: host.theme
-            width: host.labelWidth
-            height: State.metrics.group
-            interactive: false
-            scene: UI.group(taskRow.record(), width, taskRow.groupCollapsed)
-        }
-        Frame.FrameView {
-            theme: host.theme
-            x: host.labelWidth
-            width: host.timelineViewportWidth
-            height: State.metrics.group
-            interactive: false
-            scene: UI.groupTimeline(taskRow.record(), host.dayWidth, taskRow.groupCollapsed, host.timeline.contentX)
+            Frame.FrameView {
+                theme: host.theme
+                width: host.labelWidth
+                height: State.metrics.group
+                interactive: false
+                scene: UI.group(taskRow.rowRecord, width, taskRow.groupCollapsed)
+            }
+            Item {
+                x: host.labelWidth
+                width: host.timelineViewportWidth
+                height: State.metrics.group
+                clip: true
+                Frame.FrameView {
+                    theme: host.theme
+                    x: -host.timeline.contentX
+                    width: Math.max(host.timelineViewportWidth, host.timelineContentWidth)
+                    height: State.metrics.group
+                    interactive: false
+                    scene: UI.groupTimeline(taskRow.rowRecord, host.dayWidth, taskRow.groupCollapsed, 0)
+                }
+            }
         }
     }
 
@@ -185,25 +207,35 @@ Column {
         height: taskRow.groupCollapsed ? 0 : State.metrics.row
         visible: !taskRow.groupCollapsed
 
-        Frame.FrameView {
-            theme: host.theme
+        Rectangle {
+            objectName: "ganttRowBackground"
             anchors.fill: parent
-            interactive: false
-            scene: UI.rowSurface(taskRow.record(), host.labelWidth + host.timelineContentWidth)
+            color: taskRow.checked ? host.theme.secondaryContainer : taskRow.selected ? host.theme.contentSelection : rowHover.hovered ? host.theme.rowHover : "transparent"
+            opacity: taskRow.checked ? 0.55 : 1
+        }
+
+        Rectangle {
+            objectName: "ganttRowSeparator"
+            width: parent.width
+            y: State.metrics.row - 1
+            height: 1
+            color: host.theme.separator
         }
 
         Frame.FrameView {
             theme: host.theme
             width: host.labelWidth
             height: State.metrics.row
-            scene: UI.taskLabel(taskRow.record(), width, host.language)
+            scene: taskRow.groupCollapsed ? ({
+                    nodes: []
+                }) : UI.taskLabel(taskRow.rowRecord, width, host.language)
             onEvent: action => {
                 if (action.type === "select")
                     controller.toggle_advanced_checked(taskRow.taskCode);
                 else if (action.type === "object")
                     controller.open_object(taskRow.parentKey);
                 else if (action.type === "edit")
-                    host.openSchedule(taskRow.record());
+                    host.openSchedule(taskRow.rowRecord);
                 else
                     controller.activate_advanced_task(taskRow.taskCode, 0);
             }
@@ -223,8 +255,8 @@ Column {
                 id: scheduleBar
                 z: 2
                 visible: taskRow.ganttScheduled || taskRow.editingSchedule
-                readonly property var bounds: State.bar(taskRow.editingSchedule ? taskRow.editStartDay : taskRow.ganttStartDay, taskRow.editingSchedule ? taskRow.editDurationDays : taskRow.ganttDurationDays, host.dayWidth, host.timeline.contentX)
-                x: bounds.x
+                readonly property var bounds: State.bar(taskRow.editingSchedule ? taskRow.editStartDay : taskRow.ganttStartDay, taskRow.editingSchedule ? taskRow.editDurationDays : taskRow.ganttDurationDays, host.dayWidth, 0)
+                x: bounds.x - host.timeline.contentX
                 y: bounds.y
                 width: bounds.width
                 height: bounds.height
@@ -233,47 +265,56 @@ Column {
                     id: scheduleHover
                 }
 
-                Rectangle {
-                    id: startDateChip
-                    visible: scheduleHover.hovered && !taskRow.editingSchedule
+                Loader {
                     z: 8
-                    x: 0
-                    y: -10
-                    height: 17
-                    width: startDateText.implicitWidth + 12
-                    radius: height / 2
-                    color: host.theme.surfaceContainerHighest
-                    border.width: 1
-                    border.color: host.theme.outlineVariant
-                    Label {
-                        id: startDateText
-                        anchors.centerIn: parent
-                        text: scheduleBar.width < 110 ? host.shortDate(taskRow.start) + "  \u00b7  " + host.shortDate(taskRow.end) : host.shortDate(taskRow.start)
-                        color: host.theme.primaryText
-                        font.family: host.theme.fontFamily
-                        font.pointSize: Controls.Typography.micro
-                        font.weight: Font.DemiBold
-                    }
-                }
-                Rectangle {
-                    visible: scheduleHover.hovered && !taskRow.editingSchedule && scheduleBar.width >= 110
-                    z: 8
-                    x: Math.max(0, scheduleBar.width - width)
-                    y: -10
-                    height: 17
-                    width: endDateText.implicitWidth + 12
-                    radius: height / 2
-                    color: host.theme.surfaceContainerHighest
-                    border.width: 1
-                    border.color: host.theme.outlineVariant
-                    Label {
-                        id: endDateText
-                        anchors.centerIn: parent
-                        text: host.shortDate(taskRow.end)
-                        color: host.theme.primaryText
-                        font.family: host.theme.fontFamily
-                        font.pointSize: Controls.Typography.micro
-                        font.weight: Font.DemiBold
+                    active: scheduleHover.hovered && !taskRow.editingSchedule
+                    visible: active
+                    sourceComponent: Item {
+                        Rectangle {
+                            id: startDateChip
+                            x: 0
+                            y: -10
+                            height: 17
+                            width: startDateText.implicitWidth + 12
+                            radius: height / 2
+                            color: host.theme.surfaceContainerHighest
+                            border.width: 1
+                            border.color: host.theme.outlineVariant
+                            Label {
+                                id: startDateText
+                                anchors.centerIn: parent
+                                text: scheduleBar.width < 110 ? host.shortDate(taskRow.start) + "  \u00b7  " + host.shortDate(taskRow.end) : host.shortDate(taskRow.start)
+                                color: host.theme.primaryText
+                                font.family: host.theme.fontFamily
+                                font.pointSize: Controls.Typography.micro
+                                font.weight: Font.DemiBold
+                            }
+                        }
+                        Rectangle {
+                            visible: scheduleBar.width >= 110
+                            x: Math.max(0, scheduleBar.width - width)
+                            y: -10
+                            height: 17
+                            width: endDateText.implicitWidth + 12
+                            radius: height / 2
+                            color: host.theme.surfaceContainerHighest
+                            border.width: 1
+                            border.color: host.theme.outlineVariant
+                            Label {
+                                id: endDateText
+                                anchors.centerIn: parent
+                                text: host.shortDate(taskRow.end)
+                                color: host.theme.primaryText
+                                font.family: host.theme.fontFamily
+                                font.pointSize: Controls.Typography.micro
+                                font.weight: Font.DemiBold
+                            }
+                        }
+                        Controls.ToolTip {
+                            theme: host.theme
+                            visible: true
+                            text: taskRow.parentTitle + " · " + taskRow.processLabel + "\n" + taskRow.status + " · " + taskRow.assignedLabel + "\n" + host.compactDate(taskRow.start) + " — " + host.compactDate(taskRow.end) + " · " + taskRow.progress + "%" + (taskRow.ganttWarning ? "\n" + host.ganttMessages(taskRow.ganttWarning) : "")
+                        }
                     }
                 }
 
@@ -281,13 +322,15 @@ Column {
                     theme: host.theme
                     anchors.fill: parent
                     interactive: false
-                    scene: UI.scheduleBar(Object.assign(taskRow.record(), {
+                    scene: !scheduleBar.visible ? ({
+                            nodes: []
+                        }) : UI.scheduleBar(Object.assign({}, taskRow.rowRecord, {
                         radius: host.theme.itemRadius,
                         progress: progressHandle.displayProgress,
                         progressSupported: controller.progressSupported,
                         editing: taskRow.editingSchedule,
-                        startLabel: host.dateForDay(taskRow.editStartDay),
-                        endLabel: host.dateForDay(taskRow.editStartDay + taskRow.editDurationDays - 1)
+                        startLabel: taskRow.editingSchedule ? host.dateForDay(taskRow.editStartDay) : "",
+                        endLabel: taskRow.editingSchedule ? host.dateForDay(taskRow.editStartDay + taskRow.editDurationDays - 1) : ""
                     }), width, host.language)
                 }
                 TaskGanttProgressHandle {
@@ -302,26 +345,24 @@ Column {
                     scheduled: taskRow.ganttScheduled
                     progressSupported: controller.progressSupported
                 }
-                Controls.ToolTip {
-                    theme: host.theme
-                    visible: scheduleHover.hovered && !taskRow.editingSchedule
-                    text: taskRow.parentTitle + " · " + taskRow.processLabel + "\n" + taskRow.status + " · " + taskRow.assignedLabel + "\n" + host.compactDate(taskRow.start) + " — " + host.compactDate(taskRow.end) + " · " + taskRow.progress + "%" + (taskRow.ganttWarning ? "\n" + host.ganttMessages(taskRow.ganttWarning) : "")
-                }
             }
 
-            Frame.FrameView {
-                id: unscheduledChip
-                objectName: "ganttUnscheduledIssueChip"
-                theme: host.theme
-                visible: !taskRow.ganttScheduled && !taskRow.editingSchedule
+            Loader {
                 x: 10
                 y: 10
-                width: scene.width
-                height: 30
-                interactive: false
-                scene: UI.issue(Object.assign(taskRow.record(), {
-                    radius: host.theme.itemRadius
-                }), host.timelineViewportWidth, host.language)
+                active: !taskRow.viewPooled && !taskRow.groupCollapsed && !taskRow.ganttScheduled && !taskRow.editingSchedule
+                visible: active
+                sourceComponent: Frame.FrameView {
+                    id: unscheduledChip
+                    objectName: "ganttUnscheduledIssueChip"
+                    theme: host.theme
+                    width: scene.width || 0
+                    height: 30
+                    interactive: false
+                    scene: UI.issue(Object.assign({}, taskRow.rowRecord, {
+                        radius: host.theme.itemRadius
+                    }), host.timelineViewportWidth, host.language)
+                }
             }
 
             MouseArea {
@@ -334,6 +375,8 @@ Column {
                 cursorShape: {
                     if (taskRow.editingSchedule)
                         return Qt.ClosedHandCursor;
+                    if (!containsMouse)
+                        return Qt.OpenHandCursor;
                     const start = taskRow.ganttStartDay * host.dayWidth - host.timeline.contentX;
                     const width = Math.max(7, taskRow.ganttDurationDays * host.dayWidth - 4);
                     if (taskRow.ganttScheduled && mouseX >= start - 12 && mouseX <= start + width + 12) {

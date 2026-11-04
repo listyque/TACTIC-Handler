@@ -267,6 +267,7 @@ export function ruleEditor(model, width, language) {
             label: tr('Extra Search Object values (JSON)'),
             text: options.extraDataJson || '{}',
             enabled,
+            monospace: true,
             action: { type: 'option', field: 'extraDataJson' }
         })
     );

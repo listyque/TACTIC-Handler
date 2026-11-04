@@ -48,7 +48,7 @@ class GraphDocument:
             result.append({'identity': node.get('name'), 'attributes': dict(node.attrib),
                            'nodeX': float(node.get('xpos', str(40 + index % 3 * 240))),
                            'nodeY': float(node.get('ypos', str(40 + index // 3 * 130))),
-                           'kind': node.get('type') or self.tag,
+                           'kind': node.get('type') or node.get('node_type') or self.tag,
                            'color': node.get('color') or '', 'referenceOnly': False})
         # Old generated schemas put every node at (0, 0); spread the view only.
         coincident = len(result) > 1 and len({(row['nodeX'], row['nodeY']) for row in result}) == 1

@@ -49,7 +49,7 @@ class QuickFilterPersonalLayoutTests(unittest.TestCase):
             self.controller.save_quick_filter_layout(self.tab.tab_id, {
                 "groups": [
                     {"key": "column:priority", "enabled": True},
-                    {"key": "column:category", "options": ["props", "characters"]},
+                    {"key": "column:category", "options": ["props", "characters"], "icon": "material-design:clock-time-eight"},
                     {"key": "column:duration", "enabled": False},
                 ],
                 "defaultSelections": {
@@ -66,6 +66,7 @@ class QuickFilterPersonalLayoutTests(unittest.TestCase):
         groups = self.controller.quick_filter_editor_context(shared=False)["groups"]
         by_key = {group["key"]: group for group in groups}
         self.assertNotIn("column:priority", by_key)
+        self.assertEqual(by_key["column:category"].get("icon"), "material-design:clock-time-eight")
         self.assertEqual([option["key"] for option in by_key["column:category"]["options"]], ["props"])
         self.assertFalse(by_key["column:duration"]["enabled"])
         self.controller._write_search_cache()

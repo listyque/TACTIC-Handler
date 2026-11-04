@@ -1,6 +1,111 @@
 import { fieldGroups } from './workflow.fields.mjs';
 import { translate } from '../../../core/strings.mjs';
 
+export function nodeTypeMeta(kind, tr = (text) => text) {
+    const key = kind === 'node' ? 'manual' : kind || 'manual';
+    const map = {
+        manual: {
+            value: 'manual',
+            label: tr('Manual · Task'),
+            shortLabel: tr('Manual'),
+            icon: 'person',
+            color: '#4d79b8',
+            badge: 'TASK',
+            description: tr(
+                'Standard human task stage (rectangular card). Creates an artist task and advances when its status reaches complete.'
+            )
+        },
+        action: {
+            value: 'action',
+            label: tr('Action · Auto script'),
+            shortLabel: tr('Action'),
+            icon: 'bolt',
+            color: '#2e9b88',
+            badge: 'AUTO',
+            description: tr(
+                'Automated process (rounded pill). Runs a server script or command class automatically when triggered by upstream stages.'
+            )
+        },
+        condition: {
+            value: 'condition',
+            label: tr('Condition · Branching'),
+            shortLabel: tr('Condition'),
+            icon: 'help',
+            color: '#cf8a2e',
+            badge: 'IF / ?',
+            description: tr(
+                'Conditional branch (diamond markers). Evaluates a script condition and routes flow to success or failure output streams.'
+            )
+        },
+        approval: {
+            value: 'approval',
+            label: tr('Approval · Sign-off'),
+            shortLabel: tr('Approval'),
+            icon: 'approval',
+            color: '#8a5ec4',
+            badge: 'GATE',
+            description: tr(
+                'Review gate (double-ring stadium). Requires supervisor approval; rejecting sends status back to upstream stages.'
+            )
+        },
+        hierarchy: {
+            value: 'hierarchy',
+            label: tr('Hierarchy · Sub-workflow'),
+            shortLabel: tr('Hierarchy'),
+            icon: 'hierarchy',
+            color: '#3e8eb8',
+            badge: 'SUB',
+            description: tr(
+                'Nested sub-pipeline container. Expands into child workflow processes and can create parent and child tasks.'
+            )
+        },
+        dependency: {
+            value: 'dependency',
+            label: tr('Dependency · External wait'),
+            shortLabel: tr('Dependency'),
+            icon: 'link',
+            color: '#c76a3e',
+            badge: 'WAIT',
+            description: tr(
+                'Cross-object dependency node. Waits for or triggers a process on a related Search Type (parent, child, or expression).'
+            )
+        },
+        progress: {
+            value: 'progress',
+            label: tr('Progress · Tracker'),
+            shortLabel: tr('Progress'),
+            icon: 'progress',
+            color: '#49a065',
+            badge: '%',
+            description: tr(
+                'Circular progress aggregator. Tracks completion across related objects in another Search Type and pipeline.'
+            )
+        },
+        status: {
+            value: 'status',
+            label: tr('Status · Task state'),
+            shortLabel: tr('Status'),
+            icon: 'status',
+            color: '#5b73c7',
+            badge: 'STATE',
+            description: tr(
+                'Task status state (used in sthpw/task status pipelines). Defines a status name, color, and completion flag.'
+            )
+        }
+    };
+    return (
+        map[key] || {
+            value: key,
+            label: key,
+            shortLabel: key,
+            icon: 'schema',
+            color: '#4d79b8',
+            badge: String(key).toUpperCase(),
+            description: ''
+        }
+    );
+}
+
 export function section(field, kind) {
     return field.section === undefined
         ? kind === 'progress'
@@ -58,6 +163,7 @@ export function options(model, field, language) {
 export function fields(model, ui, language) {
     const tr = (text) => translate(text, language),
         kind = model.processKind,
+        currentMeta = nodeTypeMeta(kind, tr),
         settings = model.processSettings || {},
         defaults = settings.default || {},
         catalog = model.processCatalog || model.metadata || {};
@@ -67,7 +173,12 @@ export function fields(model, ui, language) {
             id: 'processHeading',
             title: model.selectedNode,
             dataLabel: true,
-            description: tr('Node type: %1').replace('%1', kind)
+            description:
+                tr('Node type: %1').replace(
+                    '%1',
+                    currentMeta.label + ' (' + kind + ')'
+                ) +
+                (currentMeta.description ? '\n' + currentMeta.description : '')
         },
         {
             id: 'adminProcessDescription',
@@ -423,22 +534,43 @@ export function fields(model, ui, language) {
             )
         );
     if (model.document.searchType !== 'sthpw/task')
-        out.push({
-            kind: 'ChoiceGrid',
-            id: 'adminProcessKind',
-            title: 'Node type',
-            description: 'Choose the native behavior of this process.',
-            options: (model.metadata.nodeTypes || []).map((value) => ({
-                value,
-                label: value
-            })),
-            props: {
-                value: kind,
-                action: {
-                    type: 'attribute',
-                    key: 'type'
+        out.push(
+            {
+                kind: 'Heading',
+                id: 'processKindHeading',
+                title: 'Node type',
+                description:
+                    tr(
+                        'Choose how this stage behaves in the workflow and how it is drawn on the canvas:'
+                    ) +
+                    '\n• ' +
+                    currentMeta.label +
+                    ': ' +
+                    currentMeta.description
+            },
+            {
+                kind: 'ChoiceGrid',
+                id: 'adminProcessKind',
+                title: 'Node type',
+                description: 'Choose the native behavior of this process.',
+                options: (model.metadata.nodeTypes || []).map((value) => {
+                    const meta = nodeTypeMeta(value, tr);
+                    return {
+                        value,
+                        label: meta.label,
+                        icon: meta.icon,
+                        color: meta.color,
+                        description: meta.description
+                    };
+                }),
+                props: {
+                    value: kind,
+                    action: {
+                        type: 'attribute',
+                        key: 'type'
+                    }
                 }
             }
-        });
+        );
     return out;
 }

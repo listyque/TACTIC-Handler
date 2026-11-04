@@ -157,10 +157,72 @@ Item {
             widthOverrides = ({});
             columnsController.begin_session();
         }
+        if (visible)
+            syncTableAppearance(true);
+    }
+    onPresentationActiveChanged: {
+        if (presentationActive && visible)
+            syncTableAppearance(true);
+    }
+    onColumnsChanged: {
+        const hasCols = columns.length > 0;
+        if (hasCols && !_hadColumns) {
+            _hadColumns = true;
+            syncTableAppearance(true);
+        } else if (!hasCols) {
+            _hadColumns = false;
+        }
     }
     Component.onCompleted: {
         if (visible && columnsController)
             columnsController.begin_session();
+        rowsOpacity = tablePresented ? 1 : 0;
+        rowsSlideY = 0;
+        _hadColumns = columns.length > 0;
+        _hadRows = rows.count > 0;
+        _tableReady = true;
+    }
+
+    property bool _tableReady: false
+    property bool _hadColumns: false
+    property bool _hadRows: false
+    readonly property bool tablePresented: initialTablePresentation.ready && (root.columns.length > 0 || !root.columnsBusy)
+    property real rowsOpacity: 1
+    property real rowsSlideY: 0
+    onTablePresentedChanged: syncTableAppearance(true)
+    ParallelAnimation {
+        id: rowsAppearAnimation
+        NumberAnimation {
+            target: root
+            property: "rowsOpacity"
+            from: 0
+            to: 1
+            duration: 220
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: root
+            property: "rowsSlideY"
+            from: 8
+            to: 0
+            duration: 220
+            easing.type: Easing.OutCubic
+        }
+    }
+    function syncTableAppearance(animate) {
+        if (!tablePresented) {
+            rowsAppearAnimation.stop();
+            rowsOpacity = 0;
+            rowsSlideY = 0;
+            return;
+        }
+        const canAnimate = animate && _tableReady && root.presentationActive && root.visible && Boolean(root.theme && !root.theme.suppressTransientMotion && root.theme.motionMedium > 0);
+        if (canAnimate && rows.count > 0 && root.columns.length > 0) {
+            rowsAppearAnimation.restart();
+        } else if (!rowsAppearAnimation.running) {
+            rowsOpacity = 1;
+            rowsSlideY = 0;
+        }
     }
 
     Connections {
@@ -175,7 +237,8 @@ Item {
     Loader {
         id: selectionActions
         objectName: "tableSelectionActions"
-        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        z: 5
         width: parent.width
         height: active ? 36 : 0
         active: root.checkedIds.length > 0
@@ -206,15 +269,17 @@ Item {
         id: scrollBarFrame
         anchors.fill: parent
         anchors.margins: 0
-        anchors.topMargin: selectionActions.height + (taskDraftActions.visible ? taskDraftActions.height + 12 : 0)
+        anchors.topMargin: 0
+        anchors.bottomMargin: selectionActions.height + (taskDraftActions.visible ? taskDraftActions.height + 12 : 0)
     }
 
     Loader {
         id: taskDraftActions
         objectName: "tableTaskDraftActions"
-        anchors.top: selectionActions.bottom
+        anchors.bottom: selectionActions.active ? selectionActions.top : parent.bottom
         anchors.right: parent.right
-        anchors.margins: 8
+        anchors.margins: 6
+        z: 5
         active: Number(root.columnsController ? root.columnsController.dirtyTaskCount || 0 : 0) > 0
         visible: active
         sourceComponent: RowLayout {
@@ -252,7 +317,17 @@ Item {
         anchors.fill: parent
         anchors.margins: 0
         anchors.topMargin: scrollBarFrame.y
-        opacity: initialTablePresentation.ready ? 1 : 0
+        anchors.bottomMargin: parent.height - (scrollBarFrame.y + scrollBarFrame.height)
+        opacity: root.rowsOpacity
+        onCountChanged: {
+            const hasItems = count > 0;
+            if (hasItems && !root._hadRows) {
+                root._hadRows = true;
+                root.syncTableAppearance(true);
+            } else if (!hasItems) {
+                root._hadRows = false;
+            }
+        }
         model: initialTablePresentation.activated ? root.resultModel : null
         clip: true
         spacing: 0
@@ -372,11 +447,6 @@ Item {
             onSelectAllRequested: selected => {
                 if (!selected) {
                     root.selectionOwner.clear_result_selection();
-                } else if (rows.currentIndex < 0) {
-                    rows.selectRow(0, 0);
-                    Qt.callLater(function () {
-                        root.selectionOwner.select_all_result_siblings();
-                    });
                 } else {
                     root.selectionOwner.select_all_result_siblings();
                 }
@@ -386,6 +456,9 @@ Item {
         delegate: Item {
             id: resultRow
             objectName: "searchResultTableRow"
+            transform: Translate {
+                y: root.rowsSlideY
+            }
             required property int index
             required property string nodeId
             required property string nodeType
@@ -402,34 +475,103 @@ Item {
             required property bool expanded
             required property int childCount
             property bool viewPooled: false
+            property bool _rowReady: false
+            property bool _wasScopeOpen: false
+            property bool _wasScopeLoaded: false
             readonly property var nestedScope: root.tableServices ? root.tableServices.nested_row(nodeId, root.tableServices.nestedRevision) : null
-            readonly property real nestedHeight: nestedScope ? Nested.extent(nestedScope.model, rows.width, Math.max(0, rows.height - root.headerHeight - root.effectiveRowHeight)) : 0
+            readonly property bool nestedScopeLoaded: Boolean(nestedScope && nestedScope.model && nestedScope.model.loaded)
+            readonly property real nestedTargetHeight: nestedScope ? Nested.extent(nestedScope.model, rows.width, Math.max(0, rows.height - root.headerHeight - root.effectiveRowHeight)) : 0
+            property real nestedHeight: 0
+            property real nestedLayoutHeight: 0
             property var nestedView: null
+            NumberAnimation {
+                id: nestedHeightAnimation
+                target: resultRow
+                property: "nestedHeight"
+                duration: 220
+                easing.type: Easing.OutCubic
+                onStopped: {
+                    if (!resultRow.nestedScope && resultRow.nestedHeight <= 0.5) {
+                        resultRow.nestedHeight = 0;
+                        resultRow.nestedLayoutHeight = 0;
+                        resultRow.destroyNestedView();
+                    }
+                }
+            }
+            function destroyNestedView() {
+                if (!nestedView)
+                    return;
+                if (root.focusedNestedView === nestedView)
+                    root.focusedNestedView = null;
+                nestedView.destroy();
+                nestedView = null;
+            }
             function updateNestedView() {
-                if (nestedScope && inVerticalViewport && !viewPooled) {
+                if (!_rowReady)
+                    return;
+                const isOpen = Boolean(nestedScope);
+                const targetHeight = isOpen ? Nested.extent(nestedScope.model, rows.width, Math.max(0, rows.height - root.headerHeight - root.effectiveRowHeight)) : 0;
+                const openChanged = isOpen !== _wasScopeOpen;
+                const loadFinished = isOpen && nestedScopeLoaded && !_wasScopeLoaded;
+                _wasScopeOpen = isOpen;
+                _wasScopeLoaded = nestedScopeLoaded;
+                const canAnimate = inVerticalViewport && !viewPooled && Boolean(root.theme && !root.theme.suppressTransientMotion && root.theme.motionMedium > 0);
+                const shouldAnimate = canAnimate && (openChanged || loadFinished || nestedHeightAnimation.running);
+
+                if (isOpen && inVerticalViewport && !viewPooled) {
+                    nestedLayoutHeight = targetHeight;
                     if (!nestedView) {
                         nestedView = nestedTableComponent.createObject(resultRow, {
                             scope: nestedScope,
+                            opacity: shouldAnimate ? 0 : 1,
                             height: Qt.binding(() => resultRow.nestedHeight),
+                            layoutHeight: Qt.binding(() => resultRow.nestedLayoutHeight),
                             y: Qt.binding(() => root.effectiveRowHeight),
                             x: Qt.binding(() => rows.contentX),
                             width: Qt.binding(() => Math.max(0, rows.width))
                         });
-                        root.focusedNestedView = nestedView;
-                    } else
+                        if (shouldAnimate)
+                            nestedView.opacity = 1;
+                    } else {
+                        nestedView.enabled = true;
                         nestedView.scope = nestedScope;
+                        nestedView.opacity = 1;
+                    }
+                    root.focusedNestedView = nestedView;
                 } else if (nestedView) {
                     if (root.focusedNestedView === nestedView)
                         root.focusedNestedView = null;
-                    nestedView.destroy();
-                    nestedView = null;
+                    if (shouldAnimate && nestedHeight > 0.5) {
+                        nestedView.enabled = false;
+                        nestedView.opacity = 0;
+                    } else {
+                        destroyNestedView();
+                    }
+                }
+
+                if (shouldAnimate && Math.abs(nestedHeight - targetHeight) > 0.5) {
+                    if (!nestedHeightAnimation.running || Math.abs(nestedHeightAnimation.to - targetHeight) > 0.5) {
+                        nestedHeightAnimation.stop();
+                        nestedHeightAnimation.from = nestedHeight;
+                        nestedHeightAnimation.to = targetHeight;
+                        nestedHeightAnimation.start();
+                    }
+                } else if (!nestedHeightAnimation.running) {
+                    nestedHeight = targetHeight;
+                    if (!isOpen) {
+                        nestedLayoutHeight = 0;
+                        destroyNestedView();
+                    }
                 }
             }
             Component.onDestruction: {
+                nestedHeightAnimation.stop();
                 if (root.focusedNestedView === nestedView)
                     root.focusedNestedView = null;
             }
             onNestedScopeChanged: updateNestedView()
+            onNestedScopeLoadedChanged: updateNestedView()
+            onNestedTargetHeightChanged: updateNestedView()
             onInVerticalViewportChanged: updateNestedView()
             onViewPooledChanged: updateNestedView()
             readonly property bool isGroup: nodeType === "group"
@@ -438,7 +580,13 @@ Item {
             readonly property bool selected: !isGroup && root.checkedIds.indexOf(nodeId) >= 0
             readonly property bool inVerticalViewport: y + height >= rows.contentY && y <= rows.contentY + rows.height
             readonly property bool previewActive: root.presentationActive && root.hasThumbnailColumn && !isGroup && inVerticalViewport && !viewPooled
-            readonly property var nativeCells: !isGroup && root.columnsController ? root.columnsController.row_cells(searchKey, root.columnsController.cellRevision) : ({})
+            property string lastSearchKey: searchKey
+            readonly property string effectiveSearchKey: viewPooled ? lastSearchKey : searchKey
+            onEffectiveSearchKeyChanged: lastSearchKey = effectiveSearchKey
+            property int lastCellRevision: root.columnsController ? root.columnsController.cellRevision : 0
+            readonly property int effectiveCellRevision: viewPooled || !root.columnsController ? lastCellRevision : root.columnsController.cellRevision
+            onEffectiveCellRevisionChanged: lastCellRevision = effectiveCellRevision
+            readonly property var nativeCells: !isGroup && root.columnsController ? root.columnsController.row_cells(effectiveSearchKey, effectiveCellRevision) : ({})
             readonly property real actionX: Math.max(0, rows.contentX + rows.width - root.actionColumnWidth)
             width: root.tableWidth
             height: isGroup ? (parentGroup ? ParentUI.groupHeight : TableHost.metrics.group) : root.effectiveRowHeight + nestedHeight
@@ -487,15 +635,36 @@ Item {
                     root.controller.request_item_preview(nodeId);
             }
 
-            Component.onCompleted: requestPreviewIfNeeded()
+            Component.onCompleted: {
+                nestedHeight = nestedTargetHeight;
+                nestedLayoutHeight = nestedTargetHeight;
+                _wasScopeOpen = Boolean(nestedScope);
+                _wasScopeLoaded = nestedScopeLoaded;
+                _rowReady = true;
+                updateNestedView();
+                requestPreviewIfNeeded();
+            }
             onPreviewActiveChanged: requestPreviewIfNeeded()
             onPreviewUrlChanged: requestPreviewIfNeeded()
             onPreviewRequestedChanged: requestPreviewIfNeeded()
-            ListView.onPooled: viewPooled = true
+            ListView.onPooled: {
+                _rowReady = false;
+                viewPooled = true;
+                nestedHeightAnimation.stop();
+                destroyNestedView();
+            }
             ListView.onReused: {
                 viewPooled = false;
+                nestedHeight = nestedTargetHeight;
+                nestedLayoutHeight = nestedTargetHeight;
+                _wasScopeOpen = Boolean(nestedScope);
+                _wasScopeLoaded = nestedScopeLoaded;
+                _rowReady = true;
+                updateNestedView();
                 requestPreviewIfNeeded();
             }
+
+            readonly property bool rowHovered: !root.focusedNestedView && rowHover.hovered && rowHover.point.position.y < root.effectiveRowHeight
 
             Controls.ItemSurface {
                 id: rowSurface
@@ -504,7 +673,7 @@ Item {
                 anchors.bottomMargin: resultRow.nestedHeight
                 theme: root.theme
                 selected: resultRow.selected || resultRow.active || resultRow.activeFocus
-                normalColor: rowHover.hovered ? root.theme.rowHover : resultRow.isGroup ? root.theme.surfaceContainerHigh : root.theme[resultRow.index % 2 ? TableHost.paint.alternateRow : TableHost.paint.row]
+                normalColor: resultRow.rowHovered ? root.theme.rowHover : resultRow.isGroup ? root.theme.surfaceContainerHigh : root.theme[resultRow.index % 2 ? TableHost.paint.alternateRow : TableHost.paint.row]
                 separatorVisible: false
                 railVisible: false
                 animateStateChanges: !rows.moving
@@ -723,6 +892,7 @@ Item {
                 }
 
                 Controls.CheckBox {
+                    id: rowSelectBox
                     objectName: "tableSelection_" + resultRow.nodeId
                     anchors.centerIn: parent
                     width: 28
@@ -732,7 +902,10 @@ Item {
                     visible: root.selectable
                     checked: resultRow.selected
                     Accessible.name: qsTr("Select row") + " " + resultRow.title
-                    onClicked: root.selectionOwner.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, Qt.ControlModifier, false)
+                    onClicked: {
+                        checked = Qt.binding(() => resultRow.selected);
+                        root.selectionOwner.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, Qt.ControlModifier, false);
+                    }
                 }
             }
             Rectangle {
@@ -754,7 +927,7 @@ Item {
                 z: 4
                 theme: root.theme
                 iconName: "more_vert"
-                opacity: rowHover.hovered || resultRow.selected || resultRow.active ? 1 : 0.35
+                opacity: resultRow.rowHovered || resultRow.selected || resultRow.active ? 1 : 0.35
                 toolTip: qsTr("Item actions")
                 visible: !resultRow.isGroup
                 Accessible.name: qsTr("Item actions")
@@ -815,7 +988,7 @@ Item {
     Binding {
         target: rows
         property: "anchors.bottomMargin"
-        value: horizontalBar.hasOverflow ? horizontalBar.reservedExtent + 4 : 0
+        value: selectionActions.height + (horizontalBar.hasOverflow ? horizontalBar.reservedExtent + 4 : 0)
         delayed: true
     }
 

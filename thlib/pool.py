@@ -5,11 +5,6 @@ import logging
 from thlib.side.Qt import QtCore
 
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(message)s"
-)
-
 logger = logging.getLogger("connection.log")
 
 

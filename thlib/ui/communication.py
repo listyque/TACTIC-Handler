@@ -801,9 +801,21 @@ class CommunicationController(QObject):
             if not self._process or process == self._process:
                 tasks.append(task)
         # Workspace projections contain only notes parented to the sObject.
-        # Multiple tasks require the complete task-parent note branches.
+        # Multiple tasks require the complete task-parent note branches unless
+        # get_tasks_and_notes already hydrated every task branch.
         if len(tasks) > 1:
-            return False
+            if not all(
+                isinstance(task.get_info(), dict)
+                and "__notes_count__" in task.get_info()
+                for task in tasks
+            ):
+                return False
+            expected_notes = sum(
+                int((task.get_info() or {}).get("__notes_count__") or 0)
+                for task in tasks
+            )
+            if len(notes) != expected_notes:
+                return False
         request_id = uuid.uuid4().hex
         self._request_id = request_id
         self._busy = True
@@ -974,6 +986,18 @@ class CommunicationController(QObject):
     def _refresh_process_counts(self, sobject, bypass_cache=False):
         processes = [choice["value"] for choice in self._process_choices]
         if not self._visible or not sobject or not processes:
+            return
+        if (
+            not bypass_cache
+            and getattr(self._workspace, "_notes_loaded", False)
+            and isinstance(getattr(sobject, "notes_count", None), dict)
+            and sobject.notes_count
+        ):
+            for choice in self._process_choices:
+                choice["count"] = int(
+                    sobject.notes_count.get(choice["value"]) or 0
+                )
+            self.stateChanged.emit()
             return
         if (
             getattr(self._workspace, "_notes_loaded", False)
@@ -1237,12 +1261,20 @@ class CommunicationController(QObject):
     def _user_record(self, login):
         if not self._users:
             return {}
-        return next((
-            record for record in self._users._records
-            if str(record.get("login") or "") == str(login or "")
-        ), {})
+        records = self._users._records
+        cache = getattr(self, "_user_lookup_cache", None)
+        token = (id(records), len(records))
+        if cache is None or cache[0] != token:
+            lookup = {
+                str(record.get("login") or ""): record
+                for record in records
+            }
+            cache = (token, lookup)
+            self._user_lookup_cache = cache
+        return cache[1].get(str(login or ""), {})
 
     def _users_changed(self):
+        self._user_lookup_cache = None
         if not self._visible:
             return
         changed = False
@@ -1347,35 +1379,37 @@ class CommunicationController(QObject):
         user = self._user_record(author)
         timestamp = str(info.get("timestamp") or "")
         pretty, simple = self._timestamp_values(note, timestamp)
-        can_change = self._can_change_note_info(info)
+        current_user = str(env_server.get_user() or "")
+        can_change = self._can_change_note_info(info, current_user)
         parent_type = str(info.get("search_type") or "").split("?", 1)[0]
         search_code = str(info.get("search_code") or "")
-        task_codes = set()
-        for task in self._process_tasks:
-            try:
-                task_code = str((task.get_info() or {}).get("code") or "")
-            except (AttributeError, TypeError):
-                task_code = ""
-            if task_code:
-                task_codes.add(task_code)
-        parent_task_code = (
-            search_code
-            if parent_type == "sthpw/task" or search_code in task_codes else ""
-        )
+        parent_task_code = ""
+        if parent_type == "sthpw/task":
+            parent_task_code = search_code
+        elif search_code and self._process_tasks:
+            for task in self._process_tasks:
+                try:
+                    task_code = str((task.get_info() or {}).get("code") or "")
+                except (AttributeError, TypeError):
+                    task_code = ""
+                if task_code == search_code:
+                    parent_task_code = search_code
+                    break
+        note_body = info.get("note")
         return {
             "noteId": str(info.get("code") or search_key),
             "searchKey": search_key,
             "author": author,
             "time": timestamp,
-            "body": str(info.get("note") or ""),
-            "bodyHtml": self._display_html(info.get("note")),
-            "displayHtml": display_html_without_skeys(info.get("note")),
-            "skeyPreviews": self._preview_records(info.get("note")),
+            "body": str(note_body or ""),
+            "bodyHtml": self._display_html(note_body),
+            "displayHtml": display_html_without_skeys(note_body),
+            "skeyPreviews": self._preview_records(note_body),
             "status": str(info.get("status") or ""),
             "process": str(info.get("process") or ""),
             "parentTaskCode": parent_task_code,
             "taskScoped": bool(parent_task_code),
-            "isOwn": author == str(env_server.get_user() or ""),
+            "isOwn": author == current_user,
             "unread": False,
             "attachments": attachments,
             "attachmentCount": len(attachments),
@@ -1399,11 +1433,11 @@ class CommunicationController(QObject):
             "canDelete": can_change,
         }
 
-    def _can_change_note_info(self, info) -> bool:
+    def _can_change_note_info(self, info, current_user: str | None = None) -> bool:
         return can_change_published_text(
             str(info.get("login") or ""),
             info.get("timestamp"),
-            str(env_server.get_user() or ""),
+            str(current_user if current_user is not None else (env_server.get_user() or "")),
             bool(getattr(self._application, "can_manage_tools", False)),
             self._clock,
         )

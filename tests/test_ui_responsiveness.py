@@ -26,6 +26,18 @@ from tests.profile_ui_responsiveness import frame
 QML = Path(__file__).resolve().parents[1] / "thlib/ui/qml"
 
 
+def _visual_find(item, object_name):
+    if item is None:
+        return None
+    if item.objectName() == object_name:
+        return item
+    for child in item.childItems():
+        found = _visual_find(child, object_name)
+        if found is not None:
+            return found
+    return item.findChild(QQuickItem, object_name)
+
+
 class UiResponsivenessTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -65,12 +77,14 @@ class UiResponsivenessTests(TestCase):
         self.assertEqual(model.get(1), rows[0])
 
     def test_reopening_notes_reuses_history_only_for_the_same_task(self):
-        from tests.test_notes_qml import _Application, _SObject
+        from tests.test_notes_qml import _Application, _SObject, _Task
         from thlib.ui.communication import CommunicationController
 
         application = _Application()
         key = "test/assets?code=ASSET1"
-        application.workspace_state._selected_sobject = _SObject({"code": "ASSET1"}, key)
+        sobject = _SObject({"code": "ASSET1"}, key)
+        sobject.notes_count = {"publish": 2, "model": 1}
+        application.workspace_state._selected_sobject = sobject
         controller = CommunicationController(application)
         controller._selected_object = {"searchKey": key}
         controller._selected_task_code = "TASK1"
@@ -86,6 +100,37 @@ class UiResponsivenessTests(TestCase):
         controller._selected_task_code = "TASK2"
         controller.set_visible(True)
         controller.refresh.assert_called_once_with()
+        controller.shutdown()
+
+    def test_workspace_notes_and_process_counts_skip_redundant_rpc_when_hydrated(self):
+        from tests.test_notes_qml import _Application, _SObject, _Task
+        from thlib.ui.communication import CommunicationController
+
+        application = _Application()
+        key = "test/assets?code=ASSET1"
+        sobject = _SObject({"code": "ASSET1"}, key)
+        sobject.notes_count = {"publish": 2, "model": 3}
+        t1 = _Task({"code": "T1", "process": "publish", "__notes_count__": 1}, [])
+        t2 = _Task({"code": "T2", "process": "publish", "__notes_count__": 1}, [])
+        n1 = _SObject({"code": "N1", "process": "publish"}, "sthpw/note?code=N1")
+        n2 = _SObject({"code": "N2", "process": "publish"}, "sthpw/note?code=N2")
+        application.workspace_state._selected_sobject = sobject
+        application.workspace_state._notes_loaded = True
+        application.workspace_state._notes_process = "publish"
+        application.workspace_state._task_sobjects = [t1, t2]
+        application.workspace_state._note_sobjects = [n1, n2]
+        controller = CommunicationController(application)
+        controller._visible = True
+        controller._process = "publish"
+        controller._process_choices = [
+            {"value": "publish", "label": "Publish", "count": 0},
+            {"value": "model", "label": "Model", "count": 0},
+        ]
+        controller._history_ready = Mock()
+        self.assertTrue(controller._use_workspace_history())
+        controller._history_ready.assert_called_once()
+        controller._refresh_process_counts(sobject, bypass_cache=False)
+        self.assertEqual([c["count"] for c in controller._process_choices], [2, 3])
         controller.shutdown()
 
     def test_keyed_reconciliation_updates_only_the_edited_row(self):
@@ -243,7 +288,7 @@ class UiResponsivenessTests(TestCase):
         theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / "Theme.qml")))
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / "UiPerformanceView.qml")))
-        view = component.createWithInitialProperties({"theme": theme})
+        view = component.createWithInitialProperties({"theme": theme, "language": "ru"})
         self.assertIsNotNone(view, [e.toString() for e in component.errors()])
         window = QQuickWindow()
         window.setTitle("Diagnostic test")
@@ -260,11 +305,11 @@ class UiResponsivenessTests(TestCase):
                     window.resize(width, height)
                     view.setSize(window.size())
                 frame(window, resize)
-                history = view.findChild(QQuickItem, "uiPerformanceSamples")
+                history = _visual_find(view, "uiPerformanceSamples")
                 self.assertGreater(history.height(), 80)
                 self.assertGreater(history.property("contentHeight"), history.height())
                 for name in ("pauseUiMeasurements", "copyUiMeasurements", "clearUiMeasurements", "uiMeasurementDetails"):
-                    item = view.findChild(QQuickItem, name)
+                    item = _visual_find(view, name)
                     self.assertIsNotNone(item, name)
                     bottom = item.mapToItem(view, QPointF(item.width(), item.height()))
                     self.assertLessEqual(bottom.x(), width)
@@ -272,7 +317,7 @@ class UiResponsivenessTests(TestCase):
                 self.assertFalse(window.grabWindow().isNull())
 
             monitor.install()
-            pause = view.findChild(QQuickItem, "pauseUiMeasurements")
+            pause = _visual_find(view, "pauseUiMeasurements")
             self.assertEqual(pause.property("text"), "Продолжить замеры")
             point = pause.mapToScene(QPointF(pause.width() / 2, pause.height() / 2)).toPoint()
             frame(window, lambda: QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, point))
@@ -289,7 +334,7 @@ class UiResponsivenessTests(TestCase):
             self.assertFalse(monitor.recording)
             samples = [s for s in monitor._samples if s["window"] == "Diagnostic test"]
             self.assertTrue(any(s["status"] == "Frame presented" and s["frameMs"] >= 0 for s in samples))
-            copy = view.findChild(QQuickItem, "copyUiMeasurements")
+            copy = _visual_find(view, "copyUiMeasurements")
             point = copy.mapToScene(QPointF(copy.width() / 2, copy.height() / 2)).toPoint()
             frame(window, lambda: QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, point))
             self.assertTrue(json.loads(self.app.clipboard().text()))

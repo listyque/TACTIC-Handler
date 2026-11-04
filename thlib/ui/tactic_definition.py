@@ -42,14 +42,87 @@ INPUT_LABELS = {
     "PasswordWdg": "Password",
 }
 
-DISPLAY_WIDGETS = tuple(
-    (row["value"], row["label"])
-    for row in json.loads(
+_WIDGET_CATALOG = tuple(
+    json.loads(
         (
             Path(__file__).parent / "qml/tactic_frame/features/table/widgets.json"
         ).read_text(encoding="utf-8")
     )
 )
+
+_WIZARD_WIDGET_VALUES = frozenset({
+    "",
+    "format",
+    "expression",
+    "tactic.ui.table.expression_element_wdg.ExpressionValueElementWdg",
+    "link",
+    "pyasm.widget.ThumbWdg",
+    "tactic.ui.widget.DiscussionElementWdg",
+    "tactic.ui.table.TaskElementWdg",
+    "tactic.ui.table.TaskCompletionWdg",
+    "tactic.ui.table.gantt_element_wdg.GanttElementWdg",
+    "tactic.ui.table.hidden_row_element_wdg.HiddenRowElementWdg",
+    "tactic.ui.table.DropElementWdg",
+    "tactic.ui.table.ButtonElementWdg",
+    "tactic.ui.table.CustomLayoutElementWdg",
+    "tactic.ui.table.SObjectDetailElementWdg",
+    "tactic.ui.table.CheckinButtonElementWdg",
+    "tactic.ui.table.ExploreElementWdg",
+    "tactic.ui.table.SObjectFilesElementWdg",
+    "tactic.ui.table.MetadataElementWdg",
+    "tactic.ui.table.DeleteElementWdg",
+    "tactic.ui.common.base_table_element_wdg.RawTableElementWdg",
+})
+
+_LEGACY_DUPLICATE_WIDGET_VALUES = frozenset({
+    "pyasm.widget.statistic_wdg.TaskCompletionWdg",
+    "tactic.ui.table.explorer_wdg.ExplorerTableElementWdg",
+    "tactic.ui.widget.discussion_wdg.DiscussionWdg",
+    "pyasm.widget.discussion_wdg.DiscussionWdg",
+    "pyasm.widget.task_wdg.SObjectTaskTableElement",
+    "HiddenRowToggleWdg",
+    "GanttWdg",
+})
+
+_CURATED_CATALOG = tuple(
+    row for row in _WIDGET_CATALOG if row["value"] in _WIZARD_WIDGET_VALUES
+)
+
+_EXTENDED_CATALOG = _CURATED_CATALOG + tuple(
+    row
+    for row in _WIDGET_CATALOG
+    if row["value"] not in _WIZARD_WIDGET_VALUES
+    and row["value"] not in _LEGACY_DUPLICATE_WIDGET_VALUES
+)
+
+DISPLAY_WIDGETS = tuple(
+    (row["value"], row["label"]) for row in _CURATED_CATALOG
+)
+
+ALL_DISPLAY_WIDGETS = tuple(
+    (row["value"], row["label"]) for row in _EXTENDED_CATALOG
+)
+
+
+def widget_options(
+    widget: str = "", show_all: bool = False
+) -> tuple[tuple[str, str, bool], ...]:
+    value = str(widget or "").strip()
+    active_catalog = _EXTENDED_CATALOG if show_all else _CURATED_CATALOG
+    active_list = ALL_DISPLAY_WIDGETS if show_all else DISPLAY_WIDGETS
+    base = tuple((val, label, True) for val, label in active_list)
+    if not value or any(val == value for val, _ in active_list):
+        return base
+    for row in active_catalog:
+        if value in (row.get("aliases") or ()):
+            return tuple(
+                (value if val == row["value"] else val, label, True)
+                for val, label in active_list
+            )
+    for row in _WIDGET_CATALOG:
+        if row["value"] == value or value in (row.get("aliases") or ()):
+            return ((value, row["label"], True), *base)
+    return ((value, value, False), *base)
 
 
 def width(value) -> int:

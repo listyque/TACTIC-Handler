@@ -510,7 +510,7 @@ class FloatingWindowModel(QAbstractListModel):
 class VisibleFloatingWindowModel(QSortFilterProxyModel):
     """Floating windows currently presented by the native window host."""
 
-    RETAINED_WORKSPACES = {"tasks_workspace", "messages", "activity_feed", "notifications", "help"}
+    RETAINED_WORKSPACES = {"tasks_workspace", "messages", "activity_feed", "notifications", "administration"}
 
     def __init__(self, source: FloatingWindowModel, parent=None) -> None:
         super().__init__(parent)

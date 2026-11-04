@@ -255,9 +255,9 @@ class PresentationMixin:
         try:
             path = file_object.get_full_abs_path()
             if path and file_object.is_local_current():
-                resolved = Path(path).resolve()
+                resolved = Path(path)
                 stat = resolved.stat()
-                url = QUrl.fromLocalFile(str(resolved))
+                url = QUrl.fromLocalFile(str(resolved.resolve()))
                 # Versionless previews deliberately reuse their repository
                 # path.  Qt caches decoded images by URL, so returning the
                 # bare path after an overwrite keeps showing the previous

@@ -436,7 +436,6 @@ class UserController(QObject):
             "namespace": str(info.get("namespace") or ""),
             "status": str(info.get("s_status") or ""),
             "accountProject": str(info.get("project_code") or ""),
-            "licenseType": str(info.get("license_type") or ""),
             "hourlyWage": str(info.get("hourly_wage") or ""),
             "groups": groups,
             "loginGroup": str(
@@ -1001,7 +1000,7 @@ class UserController(QObject):
             "first_name", "last_name", "display_name", "email",
             "phone_number", "address", "department", "upn", "namespace",
             "s_status",
-            "project_code", "license_type", "hourly_wage",
+            "project_code", "hourly_wage",
         }
         payload = {
             key: value for key, value in payload.items() if key in allowed
@@ -1056,7 +1055,7 @@ class UserController(QObject):
         if self.canManageUsers:
             allowed.update({
                 "upn", "namespace", "s_status", "project_code",
-                "license_type", "hourly_wage",
+                "hourly_wage",
             })
         payload = {
             key: value for key, value in payload.items() if key in allowed

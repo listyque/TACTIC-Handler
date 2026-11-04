@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.379 - 2026-11-04
+
+- Synchronize Tactic Frame (`276` shared modules) with TACTIC Stream (`0.112.413`), including square service icon buttons, administration/workflow/layouts QML V4 compatibility (`Object.fromEntries` removal), plugin theme catalog integration, and updated EN/RU translations and Help articles.
+- Emit `stateChanged` when toggling dependency groups in `SObjectDeleteController` so Frame-based `DeleteSObjectView` expands dependency items reactive to user actions, and use `Text` in `TacticTableCellDisplay` `textCell` to respect cell horizontal padding under `QtQuick.Controls.Basic`.
+
 ## 0.6.0.378 - 2026-11-04
 
 - Cache parsed JSON configuration documents by `(st_mtime_ns, st_size)` and skip redundant unchanged cursor writes in `server_cache`.

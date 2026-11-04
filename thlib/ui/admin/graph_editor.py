@@ -564,6 +564,10 @@ class GraphEditor(AdminDocumentEditor):
     @Slot()
     @Slot(bool)
     def reload(self, force=False) -> None:
+        if self._mode == 'schema':
+            if not self.busy and (force or not self.dirty):
+                self._request('load', self._project)
+            return
         if force:
             if not self.busy:
                 self._request('load' if self.identity else 'list', self.identity)

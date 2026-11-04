@@ -28,16 +28,14 @@ def activity_timestamp_labels(value: str, clock=None) -> tuple[str, str]:
         return "", ""
     try:
         import thlib.global_functions as gf
+        from thlib.time_presentation import get_pretty_and_full_datetime
 
         parsed = (
             clock.presentation_datetime(timestamp)
             if clock is not None else gf.parce_timestamp(timestamp)
         )
-        return (
-            str(gf.get_pretty_datetime(
-                parsed, now=clock.now() if clock is not None else None
-            ) or ""),
-            str(gf.get_full_datetime(parsed) or ""),
+        return get_pretty_and_full_datetime(
+            parsed, now=clock.now() if clock is not None else None
         )
     except (AttributeError, TypeError, ValueError):
         # Raw transport timestamps are diagnostic data, not a UI fallback.

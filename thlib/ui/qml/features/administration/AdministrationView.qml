@@ -15,6 +15,11 @@ Item {
     property var ui: State.initial()
     property bool columnsDirty: false
     readonly property string language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
+    readonly property var sectionModels: ({
+            sections: UI.availableSections({
+                streamApi: controller.streamAvailable
+            })
+        })
     readonly property var frameModel: ({
             section: controller.section,
             streamApi: controller.streamAvailable,
@@ -56,6 +61,7 @@ Item {
         return !!editor && (editor.dirty || editor.writeUncertain);
     }
     function dispatch(event) {
+        const lockedClose = event.type === "close" && frameModel.locked;
         const result = State.transition(ui, frameModel, event);
         ui = result.ui;
         for (const command of result.commands) {
@@ -82,6 +88,8 @@ Item {
                 break;
             }
         }
+        if (lockedClose)
+            root.discardCurrent();
     }
     property var contentHost: null
     Connections {
@@ -90,7 +98,8 @@ Item {
             const columns = root.contentHost ? root.contentHost.columns : null;
             const same = columns && columns.selectedCatalog.searchType === searchType && columns.selectedCatalog.view === view && !columnsEditorController.busy;
             if (!same && (columnsEditorController.busy || columnsEditorController.catalogUncertain || (columns && columns.catalogDirty))) {
-                root.controller.dashboardEditor.fail(qsTr("Save or discard changes before continuing"));
+                root.controller.select_section("columns");
+                root.discardCurrent();
                 return;
             }
             root.controller.remember_page_layout("columns", "");
@@ -176,10 +185,16 @@ Item {
     }
 
     function discardCurrent() {
-        if (!controller.canManage || !savePage || !saveDirty || saveBusy)
+        if (!controller.canManage || !savePage || saveBusy)
             return;
-        if (namingActive)
+        if (namingActive || (!saveDirty && controller.section === "types" && controller.namingEditor && (controller.namingEditor.dirty || controller.namingEditor.writeUncertain) && savePage.namingView)) {
             savePage.namingView.discardChanges();
+            return;
+        }
+        if (!saveDirty && !(saveController && (saveController.writeUncertain || saveController.groupUncertain)))
+            return;
+        if (controller.section === "plugins" && savePage.promptDiscard)
+            savePage.promptDiscard();
         else
             savePage.discardChanges();
     }
@@ -209,7 +224,7 @@ Item {
         theme: root.theme
         scene: UI.describe(root.frameModel, root.ui, width, height, root.language)
         models: ({
-                sections: UI.availableSections(root.frameModel)
+                sections: root.sectionModels.sections
             })
         describeRow: (list, record) => UI.row(list, record, root.frameModel, root.ui, root.language)
         views: ({
@@ -247,7 +262,7 @@ Item {
         Item {
             Component.onCompleted: root.contentHost = this
             Component.onDestruction: root.contentHost = null
-            readonly property var groups: groupsView
+            readonly property var groups: groupsLoader.item
             readonly property var raw: rawLoader.item
             readonly property var plugins: pluginsLoader.item
             readonly property var types: typesLoader.item
@@ -259,16 +274,23 @@ Item {
             readonly property var dashboards: dashboardsLoader.item
             readonly property var layouts: layoutsLoader.item
             readonly property var sidebar: sidebarLoader.item
-            SecurityGroupsView {
-                id: groupsView
+            Loader {
+                id: groupsLoader
                 anchors.fill: parent
                 visible: root.controller.section === "groups"
-                theme: root.theme
-                controller: root.controller
-                groupsModel: administrationGroupModel
-                membersModel: administrationMemberModel
-                language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
-                saveActionsInHeader: true
+                active: false
+                onVisibleChanged: if (visible)
+                    active = true
+                Component.onCompleted: if (visible)
+                    active = true
+                sourceComponent: SecurityGroupsView {
+                    theme: root.theme
+                    controller: root.controller
+                    groupsModel: administrationGroupModel
+                    membersModel: administrationMemberModel
+                    language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
+                    saveActionsInHeader: true
+                }
             }
             Loader {
                 id: showcaseLoader

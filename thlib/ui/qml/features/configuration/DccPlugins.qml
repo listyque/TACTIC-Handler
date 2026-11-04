@@ -59,9 +59,7 @@ Item {
         Controls.SelectableText {
             Layout.fillWidth: true
             theme: root.theme
-            text: root.controller.error || (root.controller.restartRequired
-                  ? qsTr("Restart Handler to apply plugin changes. Active operations are preserved.")
-                  : qsTr("Plugin changes apply after restarting Handler. Maya registrations are managed on the plugin page."))
+            text: root.controller.error || (root.controller.restartRequired ? qsTr("Restart Handler to apply plugin changes. Active operations are preserved.") : qsTr("Plugin changes apply after restarting Handler. Maya registrations are managed on the plugin page."))
         }
     }
 }

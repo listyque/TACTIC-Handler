@@ -459,7 +459,7 @@ class CommandsMixin:
             return []
         actions = [
             action for action in self._menus.actions(menu_id)
-            if (action.get("command") != "show_administration" or self.can_manage_tools)
+            if (not action.get("admin") or self.can_manage_tools)
             and (action.get("command") not in self._stream_commands or self.is_stream_server)
         ]
         if menu_id == "configuration" and not self.can_manage_tools:

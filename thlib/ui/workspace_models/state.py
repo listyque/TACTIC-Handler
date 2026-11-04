@@ -74,7 +74,7 @@ class WorkspaceState(
             "resultModel",
             "viewMode",
             "splitterRatio",
-        ))
+        ), identity_role="entryKey")
         # Search Type switches must not replace the model owned by a retained
         # result surface.  The tab strip above shows only the active section,
         # while this model owns every open section/tab surface for its whole
@@ -85,7 +85,7 @@ class WorkspaceState(
             "resultModel",
             "viewMode",
             "splitterRatio",
-        ))
+        ), identity_role="surfaceKey")
         self.snapshot_model = RecordListModel((
             "nodeId", "searchKey", "title", "path", "version", "revision",
             "context", "kind", "selected", "previewUrl", "accent",

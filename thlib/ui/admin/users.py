@@ -14,7 +14,7 @@ class AdminUsersEditor(AdminDocumentEditor):
     profileChanged = Signal()
     FIELDS = ('first_name', 'last_name', 'display_name', 'email', 'phone_number',
               'address', 'department', 'upn', 'namespace', 's_status',
-              'project_code', 'license_type', 'hourly_wage')
+              'project_code', 'hourly_wage')
 
     def __init__(self, application, users, parent=None):
         super().__init__(application, query_admin_users, parent)

@@ -691,6 +691,49 @@ class QuickFilterEditorTests(unittest.TestCase):
         controller.set_option_selected("column:category", "props", True)
         self.assertEqual(controller.standardSelectionCount, 0)
 
+    def test_assigned_group_supports_my_tasks_and_user_picker_assignees(self):
+        application = _Application()
+        assigned_group = {
+            "key": "assigned",
+            "title": "ASSIGNED TO",
+            "enabled": True,
+            "userPicker": True,
+            "options": [],
+        }
+        application.context["groups"].append(assigned_group)
+        application.catalog_groups.append(deepcopy(assigned_group))
+        users = _Users()
+        users.users = type(
+            "UserModel",
+            (),
+            {
+                "lookup": staticmethod(
+                    lambda _field, login: {"displayName": "Artist One"}
+                    if login == "artist"
+                    else {}
+                )
+            },
+        )()
+        controller = QuickFilterEditorController(application, users)
+        controller._loaded[controller._key(application.context)] = {}
+        controller.begin_session()
+        controller.toggle_my_tasks_filter()
+        controller.set_quick_filter_assignees(["artist", "lead"])
+        self.assertTrue(controller.quick_filter_my_tasks)
+        self.assertEqual(controller.quick_filter_assignee_logins, ["artist", "lead"])
+        assigned = next(
+            group for group in controller.groups if group["key"] == "assigned"
+        )
+        self.assertTrue(assigned["myTasksSelected"])
+        self.assertEqual(assigned["selectedUserCount"], 2)
+        selections = {
+            item["key"]: item for item in controller.standardSelections
+        }
+        self.assertEqual(
+            selections["assigned"]["values"],
+            ["MY TASKS", "Artist One", "lead"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

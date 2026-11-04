@@ -1731,6 +1731,199 @@ class SearchContractTests(unittest.TestCase):
 
         self.assertEqual(stype.columns_info_calls, 1)
 
+    def test_sync_search_tabs_keeps_cold_tabs_and_surfaces_lazy(self):
+        first_active = SearchTabSession(tab_id="first-a", title="First A")
+        first_cold = SearchTabSession(tab_id="first-b", title="First B")
+        second_cold = SearchTabSession(tab_id="second-a", title="Second A")
+        first_section = SectionSession(
+            entry_key="demo/first", title="First", accent="#fff",
+            search_type="demo/asset", tabs=[first_active, first_cold],
+            current_tab_id=first_active.tab_id,
+        )
+        second_section = SectionSession(
+            entry_key="demo/second", title="Second", accent="#fff",
+            search_type="demo/shot", tabs=[second_cold],
+            current_tab_id=second_cold.tab_id,
+        )
+        captured = {}
+        signal = lambda: SimpleNamespace(emit=lambda *_args: None)
+        harness = SimpleNamespace(
+            _sessions={"demo/first": first_section, "demo/second": second_section},
+            _current_section_key="demo/first",
+            _current_section=lambda: first_section,
+            _current_tab=lambda: first_active,
+            _ensure_tab_workspace_model=lambda tab: setattr(
+                tab, "workspace_model", tab.workspace_model or object()
+            ) or tab.workspace_model,
+            _result_surface_key=lambda section_key, tab_id: f"{section_key}::{tab_id}",
+            _search_tab_switch_monitor=_SwitchMonitor(),
+            _filter_records_from_filters=lambda _filters: [],
+            _default_search_filter_record=lambda: {"column": "name"},
+            workspace_state=SimpleNamespace(
+                set_tabs=lambda items: captured.setdefault("tabs", items),
+                set_result_surfaces=lambda items: captured.setdefault("surfaces", items),
+                filter_model=SimpleNamespace(replace=lambda _records: None),
+                search_suggestion_model=SimpleNamespace(clear=lambda: None),
+            ),
+            search_text_changed=signal(),
+            search_tab_history_changed=signal(),
+            search_state_changed=signal(),
+            quick_filters_changed=signal(),
+            tag_cloud_changed=signal(),
+        )
+
+        NavigationMixin._sync_search_tabs(harness)
+
+        self.assertIsNotNone(first_active.workspace_model)
+        self.assertIsNone(first_cold.workspace_model)
+        self.assertIsNone(second_cold.workspace_model)
+        self.assertEqual(len(captured["tabs"]), 2)
+        self.assertIsNone(captured["tabs"][1]["resultModel"])
+        self.assertEqual(
+            [item["surfaceKey"] for item in captured["surfaces"]],
+            ["demo/first::first-a"],
+        )
+
+    def test_item_layout_samples_signal_ignores_non_layout_role_updates(self):
+        from thlib.ui.workspace_models.results import WorkspaceItemModel
+        from thlib.ui.workspace_models.results_types import WorkspaceNode
+
+        model = WorkspaceItemModel()
+        node = WorkspaceNode(
+            node_id="demo/asset?code=ASSET001",
+            node_type="sobject",
+            search_key="demo/asset?code=ASSET001",
+            code="ASSET001",
+            title="Asset 001",
+        )
+        model._items = [node]
+        model._row_by_node_id = {node.node_id: 0}
+        emitted = []
+        model.itemLayoutSamplesChanged.connect(lambda: emitted.append(True))
+        index = model.index(0, 0)
+
+        model.dataChanged.emit(index, index, [model.PreviewUrlRole, model.LoadingRole])
+        self.assertEqual(emitted, [])
+
+        model.dataChanged.emit(index, index, [model.SubtitleRole])
+        self.assertEqual(len(emitted), 1)
+
+    def test_controls_checkin_caches_missing_config_without_repeated_disk_reads(self):
+        from thlib import environment
+
+        controls = environment.Controls()
+        with (
+            patch.object(environment, "env_read_config", return_value=None) as read_cfg,
+            patch.object(environment.env_server, "is_team_local_repository", return_value=False),
+        ):
+            first = controls.get_checkin()
+            second = controls.get_checkin()
+
+        self.assertEqual(first, {})
+        self.assertEqual(second, {})
+        self.assertEqual(read_cfg.call_count, 1)
+
+    def test_replace_snapshot_nodes_skips_sync_file_exists_on_ui_thread(self):
+        from thlib.ui.workspace_models.state import WorkspaceState
+        from thlib.ui.workspace_models.results_types import WorkspaceNode
+
+        file_obj = SimpleNamespace(
+            get_code=lambda: "FILE001",
+            get_filename_with_ext=lambda: "asset.ma",
+            get_abs_path=lambda: "/repo/asset.ma",
+            get_full_abs_path=lambda: "/repo/asset.ma",
+            get_file_size=lambda: 1024,
+            get_base_type=lambda: "file",
+            get_meta_file_object=lambda: None,
+            is_exists=lambda: (_ for _ in ()).throw(
+                AssertionError("is_exists must not run synchronously on UI thread")
+            ),
+        )
+        snapshot = SimpleNamespace(
+            get_code=lambda: "SNAP001",
+            get_snapshot=lambda: {"id": 1, "version": 1, "repo": "base"},
+            get_files_objects=lambda group_by=None: (
+                {"main": [file_obj]} if group_by == "type" else [file_obj]
+            ),
+            get_previewable_files_objects=lambda: [],
+        )
+        node = WorkspaceNode(
+            node_id="demo/asset?code=ASSET001:snapshot:SNAP001",
+            node_type="snapshot",
+            search_key="sthpw/snapshot?code=SNAP001",
+            code="SNAP001",
+            title="asset.ma",
+            source=snapshot,
+        )
+        state = WorkspaceState()
+
+        state.replace_snapshot_nodes([node])
+
+        self.assertEqual(state._snapshot_records[0]["files"], [])
+        self.assertEqual(state._snapshot_records[0]["previewItems"], [])
+
+    def test_save_window_state_skips_timer_when_geometry_is_unchanged(self):
+        from thlib.ui.controllers.lifecycle import LifecycleMixin
+
+        timer_starts = []
+        harness = SimpleNamespace(
+            _window_state={
+                "x": 100, "y": 120, "width": 1280, "height": 800,
+                "maximized": False,
+            },
+            clamp_main_window_geometry=lambda x, y, w, h: {
+                "x": round(x), "y": round(y),
+                "width": round(w), "height": round(h),
+                "maximized": False,
+            },
+            _window_state_timer=SimpleNamespace(
+                start=lambda ms: timer_starts.append(ms)
+            ),
+        )
+
+        LifecycleMixin.save_window_state(harness, 100, 120, 1280, 800, 2)
+        self.assertEqual(timer_starts, [])
+
+        LifecycleMixin.save_window_state(harness, 140, 120, 1280, 800, 2)
+        self.assertEqual(timer_starts, [180])
+
+    def test_server_fast_ping_always_uses_urllib_transport_with_timeout(self):
+        import thlib.tactic_classes as tc
+
+        assigned_transports = []
+        fake_stub = SimpleNamespace(
+            transport=None,
+            set_transport=lambda tr: assigned_transports.append(tr),
+            set_server=lambda _url: None,
+            fast_ping=lambda: "OK",
+        )
+        with (
+            patch.object(tc, "TacticServerStub", return_value=fake_stub),
+            patch.object(
+                tc.env_server, "get_proxy",
+                return_value={"login": "", "pass": "", "server": "", "enabled": False},
+            ),
+            patch.object(tc.env_server, "get_server", return_value="127.0.0.1:80"),
+        ):
+            result = tc.server_fast_ping()
+
+        self.assertEqual(result, "ping_ok")
+        self.assertEqual(len(assigned_transports), 1)
+        self.assertIsNotNone(assigned_transports[0])
+        self.assertFalse(assigned_transports[0].proxy_enabled)
+
+    def test_async_authentication_result_unpacks_worker_tuple_with_request_id(self):
+        from thlib.ui.controllers.connection import ConnectionMixin
+
+        received = []
+        harness = SimpleNamespace(
+            _authentication_result_for=lambda req_id, res: received.append((req_id, res)),
+        )
+
+        ConnectionMixin._async_authentication_result(harness, ("admin", "TICKET123", "req-1"))
+
+        self.assertEqual(received, [("req-1", ("admin", "TICKET123"))])
+
 
 if __name__ == "__main__":
     unittest.main()

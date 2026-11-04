@@ -21,8 +21,8 @@ QtObject {
     function restore() {
         if (!presented || controller.loading || !view || !controller.hasTarget || !pending)
             return
-        view.forceLayout()
         if (positions[contextKey] !== undefined) {
+            view.forceLayout()
             const minimum = view.originY
             const maximum = Math.max(minimum, minimum + view.contentHeight - view.height)
             view.contentY = Math.max(minimum, Math.min(maximum, positions[contextKey]))

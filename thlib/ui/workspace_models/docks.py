@@ -82,6 +82,10 @@ class DockPanelModel(
     def maximizedPanelId(self) -> str:
         return self._maximized_panel
 
+    @Property(str, notify=minimumHostSizeChanged)
+    def slideOpenPanelId(self) -> str:
+        return self._slide_open_panel
+
     @Property(int, notify=minimumHostSizeChanged)
     def minimumHostWidth(self) -> int:
         return ceil(self._minimum_host_pixel_size()[0])
@@ -94,13 +98,15 @@ class DockPanelModel(
         super().__init__()
         self._settings = settings
         self._maximized_panel = ""
+        self._slide_open_panel = ""
+        self._last_show_monotonic = 0.0
         restored, restored_layout, needs_save = self._restore()
         self._panels = restored or self._defaults()
         if restored and restored_layout is None:
             restored_layout = layout_from_rectangles({
                 panel.panel_id: (panel.x, panel.y, panel.width, panel.height)
                 for panel in self._panels
-                if not panel.detached and panel.dock_area != "floating"
+                if not panel.detached and not self._is_overlay_area(panel.dock_area)
             })
         self._layout_root = restored_layout or default_layout()
         self._resize_restore = None
@@ -133,7 +139,7 @@ class DockPanelModel(
     def _is_presented_in_layout(panel, layout_root) -> bool:
         if not panel.visible:
             return False
-        if panel.detached or panel.dock_area == "floating":
+        if panel.detached or DockPanelModel._is_overlay_area(panel.dock_area):
             return True
         stack = stack_for_panel(layout_root, panel.panel_id)
         return stack is None or stack.active_panel_id == panel.panel_id

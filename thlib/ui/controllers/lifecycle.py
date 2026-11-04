@@ -184,6 +184,7 @@ class LifecycleMixin:
         height: float,
         visibility: int,
     ) -> None:
+        previous = dict(self._window_state)
         if visibility == 2:
             safe_state = self.clamp_main_window_geometry(
                 x, y, width, height
@@ -193,5 +194,7 @@ class LifecycleMixin:
         elif visibility == 4:
             self._window_state["maximized"] = True
         else:
+            return
+        if self._window_state == previous:
             return
         self._window_state_timer.start(180)

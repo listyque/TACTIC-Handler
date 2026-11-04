@@ -76,6 +76,11 @@ Item {
             type: "discard"
         });
     }
+    function promptDiscard() {
+        dispatch({
+            type: "prompt-discard"
+        });
+    }
     function rowScene(list, record) {
         return UI.row(list, record, frameModel, language);
     }

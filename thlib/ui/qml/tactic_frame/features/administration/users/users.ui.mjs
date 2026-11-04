@@ -27,9 +27,43 @@ const russian = {
     UPN: 'UPN',
     Namespace: 'Пространство имён',
     'Project code': 'Код проекта',
-    'License type': 'Тип лицензии',
     'Hourly wage': 'Почасовая ставка',
     Password: 'Пароль',
+    'Identity & name': 'Учётная запись и имя',
+    'Contact information': 'Контактные данные',
+    'Directory, project & billing': 'Каталог, проект и ставка',
+    'Password & authentication': 'Пароль и аутентификация',
+    'Account status & lifecycle': 'Статус и жизненный цикл аккаунта',
+    'Security & status': 'Безопасность и статус',
+    'Public display name': 'Публичное имя в интерфейсе',
+    'Department or team': 'Отдел или подразделение',
+    'City, office or location': 'Город, офис или локация',
+    'Default namespace': 'Пространство имён по умолчанию',
+    'Default project code': 'Код проекта по умолчанию',
+    'Confirm password': 'Подтверждение пароля',
+    'Re-enter new password to verify': 'Повторите новый пароль для проверки',
+    'Enter initial password': 'Введите начальный пароль',
+    'Show password': 'Показать пароль',
+    'Hide password': 'Скрыть пароль',
+    'Generate password': 'Сгенерировать пароль',
+    'Clear password': 'Очистить',
+    'Server password kept': 'Текущий пароль сохранён',
+    'Initial password': 'Начальный пароль',
+    'Short password': 'Короткий пароль',
+    'Good password': 'Средний пароль',
+    'Strong password': 'Надёжный пароль',
+    'Passwords do not match': 'Пароли не совпадают',
+    'Passwords match — ready to save': 'Пароли совпадают — готово к сохранению',
+    'New password will be applied when you save':
+        'Новый пароль будет применён при сохранении',
+    'Password hashes never leave the server. Enter or generate a new password to reset it.':
+        'Хэши паролей не покидают сервер. Введите или сгенерируйте новый пароль для смены.',
+    'Configure password credentials, directory identity (SSO), default project, billing rate and account status.':
+        'Настройте пароль для входа, учётную запись каталога (SSO), стартовый проект, ставку и статус аккаунта.',
+    'Use login': 'Из логина',
+    'Active account': 'Активный аккаунт',
+    'Retired account': 'Архивный аккаунт',
+    Active: 'Активен',
     'Unique login, without spaces': 'Уникальный логин без пробелов',
     'Leave empty to keep the current password':
         'Оставьте пустым, чтобы сохранить текущий пароль',
@@ -112,21 +146,22 @@ const muted = {
     fontRole: 'secondary',
     color: 'secondaryText'
 };
-const profileFields = [
-    ['first_name', 'First name'],
-    ['last_name', 'Last name'],
-    ['display_name', 'Display name'],
-    ['department', 'Department'],
-    ['email', 'Email'],
-    ['phone_number', 'Phone number'],
-    ['address', 'Address']
+const profileIdentityFields = [
+    ['first_name', 'First name', 'person', 'First name'],
+    ['last_name', 'Last name', 'person', 'Last name'],
+    ['display_name', 'Display name', 'id-card', 'Public display name'],
+    ['department', 'Department', 'building', 'Department or team']
+];
+const profileContactFields = [
+    ['email', 'Email', 'envelope', 'name@studio.com'],
+    ['phone_number', 'Phone number', 'phone', '+7 (999) 000-00-00'],
+    ['address', 'Address', 'map-marker', 'City, office or location']
 ];
 const accountFields = [
-    ['upn', 'UPN'],
-    ['namespace', 'Namespace'],
-    ['project_code', 'Project code'],
-    ['license_type', 'License type'],
-    ['hourly_wage', 'Hourly wage']
+    ['upn', 'UPN', 'account-circle', 'user@domain.local'],
+    ['namespace', 'Namespace', 'layers', 'Default namespace'],
+    ['project_code', 'Project code', 'folder-open', 'Default project code'],
+    ['hourly_wage', 'Hourly wage', 'payments', '0.00']
 ];
 
 export function profile(draft, record) {
@@ -371,93 +406,134 @@ export function describe(model, ui, width, height, language) {
         top += h + 8;
     }
     const stacked = width < 600,
+        catalogVisible = stacked || ui.catalogVisible !== false,
         remaining = Math.max(1, height - top),
-        catalogWidth = stacked ? width : width < 780 ? 220 : 290;
+        catalogWidth = stacked
+            ? width
+            : catalogVisible
+              ? width < 780
+                  ? 220
+                  : 290
+              : 56;
     const catalogHeight = stacked ? Math.min(240, remaining * 0.37) : remaining;
     const docX = stacked ? 0 : catalogWidth + 12,
         docY = stacked ? top + catalogHeight + 12 : top;
     const docWidth = stacked ? width : width - docX,
         docHeight = Math.max(1, height - docY),
         inner = Math.max(1, docWidth - pad * 2);
-    const catalog = [
-        node('Icon', 'adminUsersIcon', box(pad, 14, 20, 20), {
-            icon: 'groups',
-            color: 'action'
-        }),
-        label(
-            'adminUsersTitle',
-            box(44, 12, catalogWidth - 58, 24),
-            tr('User directory'),
-            {
-                fontRole: 'section',
-                weight: 600
-            }
-        ),
-        node(
-            'Field',
-            'adminUserSearch',
-            box(pad, 48, catalogWidth - pad * 2, 38),
-            {
-                text: ui.query,
-                label: tr('Name, login or email'),
-                placeholder: tr('Name, login or email'),
-                enabled: allow.search,
-                action: {
-                    type: 'query'
-                }
-            }
-        ),
-        node(
-            'CheckBox',
-            'adminShowRetiredUsers',
-            box(pad, 92, catalogWidth - pad * 2, 30),
-            {
-                text: tr('Show retired users'),
-                checked: ui.showRetired,
-                enabled: allow.search,
-                indicatorX: 0,
-                children: [
-                    label(
-                        'adminShowRetiredLabel',
-                        box(27, 0, catalogWidth - pad * 2 - 27, 30),
-                        tr('Show retired users')
-                    )
-                ],
-                action: {
-                    type: 'showRetired'
-                }
-            }
-        ),
-        node(
-            'List',
-            'adminUsersList',
-            box(pad, 130, catalogWidth - pad * 2, catalogHeight - 130 - pad),
-            {
-                source: 'users',
-                keyField: 'login',
-                fields: [
-                    'login',
-                    'displayName',
-                    'initials',
-                    'avatarUrl',
-                    'avatarColor',
-                    'retired'
-                ],
-                rowHeight: 68,
-                scrollbarId: 'adminUsersScrollBar',
-                label: tr('User directory')
-            }
-        )
-    ];
-    if (!model.userCount && !model.busy)
+    const catalog = [];
+    if (catalogVisible) {
         catalog.push(
             label(
-                'adminUsersEmpty',
-                box(pad, 130, catalogWidth - pad * 2 - 16, 50),
-                tr('No users match the search'),
+                'adminUsersTitle',
+                box(
+                    12,
+                    10,
+                    Math.max(0, catalogWidth - (stacked ? 24 : 62)),
+                    34
+                ),
+                tr('User directory'),
                 {
-                    wrap: true,
-                    color: 'secondaryText'
+                    weight: 600
+                }
+            ),
+            node(
+                'Field',
+                'adminUserSearch',
+                box(pad, 52, catalogWidth - pad * 2, 38),
+                {
+                    text: ui.query,
+                    label: tr('Name, login or email'),
+                    placeholder: tr('Name, login or email'),
+                    enabled: allow.search,
+                    action: {
+                        type: 'query'
+                    }
+                }
+            ),
+            node(
+                'CheckBox',
+                'adminShowRetiredUsers',
+                box(pad, 96, catalogWidth - pad * 2, 30),
+                {
+                    text: tr('Show retired users'),
+                    checked: ui.showRetired,
+                    enabled: allow.search,
+                    indicatorX: 0,
+                    children: [
+                        label(
+                            'adminShowRetiredLabel',
+                            box(27, 0, catalogWidth - pad * 2 - 27, 30),
+                            tr('Show retired users')
+                        )
+                    ],
+                    action: {
+                        type: 'showRetired'
+                    }
+                }
+            ),
+            node(
+                'List',
+                'adminUsersList',
+                box(
+                    pad,
+                    134,
+                    catalogWidth - pad * 2,
+                    catalogHeight - 134 - pad
+                ),
+                {
+                    source: 'users',
+                    keyField: 'login',
+                    fields: [
+                        'login',
+                        'displayName',
+                        'initials',
+                        'avatarUrl',
+                        'avatarColor',
+                        'retired'
+                    ],
+                    rowHeight: 68,
+                    scrollbarId: 'adminUsersScrollBar',
+                    label: tr('User directory')
+                }
+            )
+        );
+        if (!model.userCount && !model.busy)
+            catalog.push(
+                label(
+                    'adminUsersEmpty',
+                    box(pad, 134, catalogWidth - pad * 2 - 16, 50),
+                    tr('No users match the search'),
+                    {
+                        wrap: true,
+                        color: 'secondaryText'
+                    }
+                )
+            );
+    }
+    if (!stacked)
+        catalog.push(
+            node(
+                'Button',
+                'adminToggleUsersCatalog',
+                box(
+                    catalogVisible
+                        ? catalogWidth - 46
+                        : (catalogWidth - 34) / 2,
+                    10,
+                    34,
+                    34
+                ),
+                {
+                    text: tr('User directory'),
+                    icon: catalogVisible ? 'chevron-left' : 'chevron-right',
+                    iconOnly: true,
+                    iconAction: true,
+                    round: false,
+                    enabled: true,
+                    action: {
+                        type: 'catalogVisible'
+                    }
                 }
             )
         );
@@ -489,14 +565,123 @@ export function describe(model, ui, width, height, language) {
     else {
         const profile = Object.assign({}, model.profile);
         if (!profile.displayName) profile.displayName = tr('New user');
+        const fullName = [model.draft.first_name, model.draft.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+        const headerSubtitle = [
+            profile.login ? '@' + profile.login : '',
+            fullName && fullName !== profile.displayName ? fullName : '',
+            model.draft.department || '',
+            model.draft.email || ''
+        ]
+            .filter(Boolean)
+            .join(' · ');
+        const headerProfile = Object.assign({}, profile, {
+            subtitle: headerSubtitle
+        });
         content.push(
-            ...identity(profile, pad, pad, inner - 44, 60, 'userIdentity')
+            node('Box', 'adminUserHeaderCard', box(pad, pad, inner, 66), {
+                background: 'surfaceContainerHigh',
+                border: 'outlineVariant',
+                radius: 10
+            })
         );
+        const headerAvatarSize = 48;
+        const headerTitle = headerProfile.displayName || headerProfile.login || '';
+        const headerSecondary =
+            headerProfile.subtitle ||
+            (headerProfile.login && headerProfile.login !== headerTitle
+                ? headerProfile.login
+                : '');
+        content.push(
+            node(
+                'Preview',
+                'userIdentityAvatar_' + headerProfile.login,
+                box(pad + 10, pad + 9, headerAvatarSize, headerAvatarSize),
+                {
+                    source: headerProfile.avatarUrl || '',
+                    initials: headerProfile.initials || '?',
+                    accent: headerProfile.avatarColor || '',
+                    opacity: headerProfile.retired ? 0.5 : 1
+                }
+            ),
+            label(
+                'userIdentityTitle_' + headerProfile.login,
+                box(
+                    pad + headerAvatarSize + 22,
+                    pad + (headerSecondary ? 11 : 22),
+                    Math.max(0, inner - headerAvatarSize - 80),
+                    24
+                ),
+                headerTitle,
+                {
+                    weight: 600,
+                    fontRole: 'section',
+                    opacity: headerProfile.retired ? 0.5 : 1
+                }
+            ),
+            label(
+                'userIdentityLogin_' + headerProfile.login,
+                box(
+                    pad + headerAvatarSize + 22,
+                    pad + 36,
+                    Math.max(0, inner - headerAvatarSize - 80),
+                    18
+                ),
+                headerSecondary,
+                Object.assign(
+                    {
+                        opacity: headerProfile.retired ? 0.5 : 1
+                    },
+                    muted
+                )
+            )
+        );
+        if (inner >= 460) {
+            const retired = model.draft.s_status === 'retired';
+            const badgeText = tr(retired ? 'Retired user' : 'Active');
+            const badgeW = retired ? 136 : 96;
+            const badgeX = docWidth - pad - 48 - badgeW - 10;
+            content.push(
+                node(
+                    'Box',
+                    'adminUserStatusBadge',
+                    box(badgeX, pad + 19, badgeW, 28),
+                    {
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 14,
+                        children: [
+                            node(
+                                'Icon',
+                                'adminUserStatusBadgeIcon',
+                                box(10, 6, 16, 16),
+                                {
+                                    icon: retired ? 'archive' : 'verified',
+                                    color: retired ? 'secondaryText' : 'action'
+                                }
+                            ),
+                            label(
+                                'adminUserStatusBadgeText',
+                                box(30, 4, badgeW - 38, 20),
+                                badgeText,
+                                {
+                                    fontRole: 'secondary',
+                                    weight: 600,
+                                    color: retired ? 'secondaryText' : 'primaryText'
+                                }
+                            )
+                        ]
+                    }
+                )
+            );
+        }
         content.push(
             node(
                 'Button',
                 'adminUserManageGroups',
-                box(docWidth - pad - 38, pad + 11, 38, 38),
+                box(docWidth - pad - 48, pad + 14, 38, 38),
                 {
                     text: tr('Edit group membership'),
                     icon: 'groups',
@@ -568,12 +753,37 @@ export function describe(model, ui, width, height, language) {
         const formWidth = Math.max(1, inner - 16),
             fields = [];
         let y = 0;
-        const help = (text) => {
-            const h = formWidth < 320 ? 56 : 36;
+        const help = (text, iconName) => {
+            const h = formWidth < 360 ? 58 : 42;
             fields.push(
+                node(
+                    'Box',
+                    'adminUserHelpCard_' + ui.page,
+                    box(0, y, formWidth, h),
+                    {
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 8
+                    }
+                ),
+                node(
+                    'Icon',
+                    'adminUserHelpIcon_' + ui.page,
+                    box(12, y + Math.floor((h - 18) / 2), 18, 18),
+                    {
+                        icon:
+                            iconName ||
+                            (ui.page === 'profile'
+                                ? 'id-card'
+                                : ui.page === 'account'
+                                  ? 'security'
+                                  : 'groups'),
+                        color: 'action'
+                    }
+                ),
                 label(
                     'adminUserHelp_' + ui.page,
-                    box(0, y, formWidth, h),
+                    box(38, y + 4, Math.max(0, formWidth - 50), h - 8),
                     tr(text),
                     Object.assign(
                         {
@@ -583,13 +793,57 @@ export function describe(model, ui, width, height, language) {
                     )
                 )
             );
-            y += h + 8;
+            y += h + 12;
         };
-        const field = (key, text, x, top, w, extra) => {
+        const sectionHeader = (id, titleText, iconName, topY) => {
             fields.push(
-                label('adminUserLabel_' + key, box(x, top, w, 22), tr(text), {
-                    weight: 600
-                })
+                node('Icon', id + '_icon', box(14, topY + 13, 18, 18), {
+                    icon: iconName,
+                    color: 'action'
+                }),
+                label(
+                    id + '_title',
+                    box(38, topY + 10, Math.max(0, formWidth - 52), 24),
+                    tr(titleText),
+                    {
+                        fontRole: 'section',
+                        weight: 600
+                    }
+                ),
+                node(
+                    'Box',
+                    id + '_divider',
+                    box(14, topY + 40, Math.max(0, formWidth - 28), 1),
+                    {
+                        background: 'outlineVariant'
+                    }
+                )
+            );
+        };
+        const field = (key, text, x, top, w, extra, iconName) => {
+            if (iconName) {
+                fields.push(
+                    node(
+                        'Icon',
+                        'adminUserFieldIcon_' + key,
+                        box(x, top + 3, 16, 16),
+                        {
+                            icon: iconName,
+                            color: 'action'
+                        }
+                    )
+                );
+            }
+            const labelOffset = iconName ? 22 : 0;
+            fields.push(
+                label(
+                    'adminUserLabel_' + key,
+                    box(x + labelOffset, top, Math.max(0, w - labelOffset), 22),
+                    tr(text),
+                    {
+                        weight: 600
+                    }
+                )
             );
             fields.push(
                 node(
@@ -621,68 +875,581 @@ export function describe(model, ui, width, height, language) {
                 )
             );
         };
-        if (ui.page === 'profile') {
-            help(
-                'These details are shown in profiles, messages and user pickers.'
-            );
-            field('login', 'Login', 0, y, formWidth, {
-                readOnly: !!model.identity,
-                placeholder: tr('Unique login, without spaces')
-            });
-            y += 77;
-        }
-        if (ui.page !== 'groups') {
-            const availableFields = (
-                    ui.page === 'profile' ? profileFields : accountFields
-                ).filter(([key]) =>
-                    Object.prototype.hasOwnProperty.call(model.draft, key)
-                ),
-                columns = formWidth > 620 ? 2 : 1,
-                cell = (formWidth - (columns - 1) * 12) / columns;
-            availableFields.forEach(([key, text], index) =>
+        const renderFieldGrid = (list, startY, cardPad) => {
+            const innerW = Math.max(1, formWidth - cardPad * 2),
+                columns = innerW > 580 ? 2 : 1,
+                cell = (innerW - (columns - 1) * 12) / columns;
+            list.forEach(([key, text, iconName, placeholder], index) =>
                 field(
                     key,
                     text,
-                    (index % columns) * (cell + 12),
-                    y + Math.floor(index / columns) * 77,
+                    cardPad + (index % columns) * (cell + 12),
+                    startY + Math.floor(index / columns) * 77,
                     cell,
                     {
-                        inputMode: key === 'hourly_wage' ? 'decimal' : 'text'
+                        inputMode: key === 'hourly_wage' ? 'decimal' : 'text',
+                        placeholder: placeholder ? tr(placeholder) : ''
+                    },
+                    iconName
+                )
+            );
+            return Math.ceil(list.length / columns) * 77;
+        };
+        if (ui.page === 'profile') {
+            help(
+                'These details are shown in profiles, messages and user pickers.',
+                'id-card'
+            );
+            const cardPad = formWidth < 360 ? 10 : 14;
+            const identityList = profileIdentityFields.filter(([key]) =>
+                Object.prototype.hasOwnProperty.call(model.draft, key)
+            );
+            const columns = Math.max(1, formWidth - cardPad * 2) > 580 ? 2 : 1;
+            const identityRows = Math.ceil(identityList.length / columns);
+            const identityCardH = 52 + 77 + identityRows * 77 + 8;
+            fields.push(
+                node(
+                    'Box',
+                    'adminUserProfileIdentityCard',
+                    box(0, y, formWidth, identityCardH),
+                    {
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 10
                     }
                 )
             );
-            y += Math.ceil(availableFields.length / columns) * 77;
+            sectionHeader(
+                'adminUserProfileIdentityHeader',
+                'Identity & name',
+                'id-card',
+                y
+            );
+            let cy = y + 52;
+            field(
+                'login',
+                'Login',
+                cardPad,
+                cy,
+                Math.max(1, formWidth - cardPad * 2),
+                {
+                    readOnly: !!model.identity,
+                    placeholder: tr('Unique login, without spaces')
+                },
+                'at'
+            );
+            cy += 77;
+            cy += renderFieldGrid(identityList, cy, cardPad);
+            y += identityCardH + 12;
+
+            const contactList = profileContactFields.filter(([key]) =>
+                Object.prototype.hasOwnProperty.call(model.draft, key)
+            );
+            if (contactList.length) {
+                const contactRows = Math.ceil(contactList.length / columns);
+                const contactCardH = 52 + contactRows * 77 + 8;
+                fields.push(
+                    node(
+                        'Box',
+                        'adminUserProfileContactCard',
+                        box(0, y, formWidth, contactCardH),
+                        {
+                            background: 'surfaceContainer',
+                            border: 'outlineVariant',
+                            radius: 10
+                        }
+                    )
+                );
+                sectionHeader(
+                    'adminUserProfileContactHeader',
+                    'Contact information',
+                    'envelope',
+                    y
+                );
+                renderFieldGrid(contactList, y + 52, cardPad);
+                y += contactCardH + 8;
+            }
         }
         if (ui.page === 'account') {
-            field('password', 'Password', 0, y, formWidth, {
-                password: true,
-                placeholder: tr('Leave empty to keep the current password')
-            });
-            y += 77;
+            const cardPad = formWidth < 360 ? 10 : 14,
+                innerW = Math.max(1, formWidth - cardPad * 2),
+                columns = innerW > 580 ? 2 : 1,
+                cell = (innerW - (columns - 1) * 12) / columns;
+            const introH = formWidth < 460 ? 58 : 42;
             fields.push(
-                node('CheckBox', 'adminUserRetired', box(0, y, formWidth, 32), {
-                    text: tr('Retired'),
-                    checked: model.draft.s_status === 'retired',
-                    enabled: allow.editable,
-                    children: [
-                        label(
-                            'adminUserRetiredLabel',
-                            box(27, 0, formWidth - 27, 32),
-                            tr('Retired')
-                        )
-                    ],
-                    action: {
-                        type: 'retired'
+                node(
+                    'Box',
+                    'adminUserAccountIntroCard',
+                    box(0, y, formWidth, introH),
+                    {
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 8
                     }
-                })
+                ),
+                node(
+                    'Icon',
+                    'adminUserAccountIntroIcon',
+                    box(12, y + Math.floor((introH - 18) / 2), 18, 18),
+                    {
+                        icon: 'security',
+                        color: 'action'
+                    }
+                ),
+                label(
+                    'adminUserAccountIntroText',
+                    box(38, y + 4, Math.max(0, formWidth - 50), introH - 8),
+                    tr(
+                        'Configure password credentials, directory identity (SSO), default project, billing rate and account status.'
+                    ),
+                    Object.assign({ wrap: true }, muted)
+                )
             );
-            y += 40;
-            help(
-                "Retiring keeps this user's history. Clear this option to reactivate the account, then save."
+            y += introH + 12;
+
+            // 1. Password & authentication card
+            const pwdValue = String(model.draft.password || ''),
+                confirmValue = String(ui.passwordConfirm || ''),
+                pwdRows = columns === 2 ? 1 : 2,
+                pwdToolbarStacked = innerW < 540,
+                pwdStatusH = pwdToolbarStacked ? 76 : 38,
+                pwdCardH = 52 + pwdRows * 77 + pwdStatusH + 14;
+            fields.push(
+                node(
+                    'Box',
+                    'adminUserAccountSecurityCard',
+                    box(0, y, formWidth, pwdCardH),
+                    {
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 10
+                    }
+                )
             );
+            sectionHeader(
+                'adminUserAccountSecurityHeader',
+                'Password & authentication',
+                'key',
+                y
+            );
+            if (formWidth >= 420) {
+                const pwdBadgeText = pwdValue
+                    ? tr(
+                          pwdValue.length < 8
+                              ? 'Short password'
+                              : pwdValue.length < 12
+                                ? 'Good password'
+                                : 'Strong password'
+                      ) +
+                      ' · ' +
+                      pwdValue.length
+                    : tr(
+                          model.identity
+                              ? 'Server password kept'
+                              : 'Initial password'
+                      );
+                const pwdBadgeW = Math.min(
+                    Math.max(120, pwdBadgeText.length * 7 + 34),
+                    Math.max(120, Math.floor(formWidth * 0.46))
+                );
+                fields.push(
+                    node(
+                        'Box',
+                        'adminUserPasswordBadge',
+                        box(formWidth - cardPad - pwdBadgeW, y + 8, pwdBadgeW, 26),
+                        {
+                            background: 'surfaceContainerHigh',
+                            border: 'outlineVariant',
+                            radius: 13,
+                            children: [
+                                node(
+                                    'Icon',
+                                    'adminUserPasswordBadgeIcon',
+                                    box(10, 5, 15, 15),
+                                    {
+                                        icon: pwdValue
+                                            ? pwdValue.length < 8
+                                                ? 'warning'
+                                                : 'verified'
+                                            : model.identity
+                                              ? 'check-circle'
+                                              : 'key',
+                                        color:
+                                            pwdValue && pwdValue.length < 8
+                                                ? 'red'
+                                                : 'action'
+                                    }
+                                ),
+                                label(
+                                    'adminUserPasswordBadgeText',
+                                    box(30, 3, Math.max(0, pwdBadgeW - 38), 20),
+                                    pwdBadgeText,
+                                    {
+                                        fontRole: 'secondary',
+                                        weight: 600
+                                    }
+                                )
+                            ]
+                        }
+                    )
+                );
+            }
+            let sy = y + 52;
+            const pwdFieldW = Math.max(1, (columns === 2 ? cell : innerW) - 44);
+            field(
+                'password',
+                'Password',
+                cardPad,
+                sy,
+                pwdFieldW,
+                {
+                    password: !ui.showPassword,
+                    placeholder: tr(
+                        model.identity
+                            ? 'Leave empty to keep the current password'
+                            : 'Enter initial password'
+                    )
+                },
+                'key'
+            );
+            fields.push(
+                node(
+                    'Button',
+                    'adminUserPasswordToggle',
+                    box(cardPad + pwdFieldW + 6, sy + 27, 38, 38),
+                    {
+                        text: tr(
+                            ui.showPassword ? 'Hide password' : 'Show password'
+                        ),
+                        icon: ui.showPassword ? 'visibility-off' : 'visibility',
+                        iconOnly: true,
+                        round: false,
+                        enabled: !model.busy,
+                        action: {
+                            type: 'togglePasswordVisibility'
+                        }
+                    }
+                )
+            );
+            const confirmX = columns === 2 ? cardPad + cell + 12 : cardPad,
+                confirmY = columns === 2 ? sy : sy + 77,
+                confirmW = columns === 2 ? cell : innerW;
+            fields.push(
+                node(
+                    'Icon',
+                    'adminUserFieldIcon_password_confirm',
+                    box(confirmX, confirmY + 3, 16, 16),
+                    {
+                        icon: 'lock',
+                        color: 'action'
+                    }
+                ),
+                label(
+                    'adminUserLabel_password_confirm',
+                    box(confirmX + 22, confirmY, Math.max(0, confirmW - 22), 22),
+                    tr('Confirm password'),
+                    {
+                        weight: 600
+                    }
+                ),
+                node(
+                    'Field',
+                    'adminUserPasswordConfirm',
+                    box(confirmX, confirmY + 27, confirmW, 38),
+                    {
+                        text: confirmValue,
+                        label: tr('Confirm password'),
+                        enabled: allow.editable,
+                        password: !ui.showPassword,
+                        maxLength: 4096,
+                        placeholder: tr('Re-enter new password to verify'),
+                        action: {
+                            type: 'passwordConfirm'
+                        }
+                    }
+                )
+            );
+            sy += pwdRows * 77;
+            const genBtnW = Math.min(
+                    language === 'ru' ? 196 : 168,
+                    Math.max(110, Math.floor((innerW - 8) * 0.62))
+                ),
+                clearBtnW = Math.min(
+                    language === 'ru' ? 112 : 104,
+                    Math.max(72, innerW - genBtnW - 8)
+                );
+            fields.push(
+                node(
+                    'Button',
+                    'adminUserPasswordGenerate',
+                    box(cardPad, sy, genBtnW, 34),
+                    {
+                        text: tr('Generate password'),
+                        icon: 'refresh',
+                        enabled: allow.editable,
+                        action: {
+                            type: 'generatePassword'
+                        }
+                    }
+                ),
+                node(
+                    'Button',
+                    'adminUserPasswordClear',
+                    box(cardPad + genBtnW + 8, sy, clearBtnW, 34),
+                    {
+                        text: tr('Clear password'),
+                        icon: 'close',
+                        enabled:
+                            allow.editable && !!(pwdValue || confirmValue),
+                        action: {
+                            type: 'clearPassword'
+                        }
+                    }
+                )
+            );
+            const pwdMismatch =
+                    Boolean(confirmValue) && confirmValue !== pwdValue,
+                pwdMatched =
+                    Boolean(confirmValue) && confirmValue === pwdValue,
+                hintIcon = pwdMismatch
+                    ? 'warning'
+                    : pwdMatched
+                      ? 'check-circle'
+                      : pwdValue
+                        ? 'key'
+                        : 'lock',
+                hintColor = pwdMismatch
+                    ? 'red'
+                    : pwdMatched || pwdValue
+                      ? 'action'
+                      : 'secondaryText',
+                hintText = tr(
+                    pwdMismatch
+                        ? 'Passwords do not match'
+                        : pwdMatched
+                          ? 'Passwords match — ready to save'
+                          : pwdValue
+                            ? 'New password will be applied when you save'
+                            : 'Password hashes never leave the server. Enter or generate a new password to reset it.'
+                ),
+                hintX = pwdToolbarStacked
+                    ? cardPad
+                    : cardPad + genBtnW + clearBtnW + 18,
+                hintY = pwdToolbarStacked ? sy + 40 : sy + 2,
+                hintW = pwdToolbarStacked
+                    ? innerW
+                    : Math.max(0, innerW - genBtnW - clearBtnW - 18);
+            fields.push(
+                node(
+                    'Icon',
+                    'adminUserPasswordHintIcon',
+                    box(hintX, hintY + 7, 16, 16),
+                    {
+                        icon: hintIcon,
+                        color: hintColor
+                    }
+                ),
+                label(
+                    'adminUserPasswordHintText',
+                    box(
+                        hintX + 22,
+                        hintY,
+                        Math.max(0, hintW - 22),
+                        pwdToolbarStacked ? 34 : 30
+                    ),
+                    hintText,
+                    Object.assign(
+                        {
+                            wrap: true
+                        },
+                        pwdMismatch
+                            ? {
+                                  fontRole: 'secondary',
+                                  color: 'red',
+                                  weight: 600
+                              }
+                            : muted
+                    )
+                )
+            );
+            y += pwdCardH + 12;
+
+            // 2. Directory, project & billing card
+            const workspaceFields = accountFields.filter(([key]) =>
+                Object.prototype.hasOwnProperty.call(model.draft, key)
+            );
+            if (workspaceFields.length) {
+                const wsRows = Math.ceil(workspaceFields.length / columns),
+                    accountCardH = 52 + wsRows * 77 + 8;
+                fields.push(
+                    node(
+                        'Box',
+                        'adminUserAccountWorkspaceCard',
+                        box(0, y, formWidth, accountCardH),
+                        {
+                            background: 'surfaceContainer',
+                            border: 'outlineVariant',
+                            radius: 10
+                        }
+                    )
+                );
+                sectionHeader(
+                    'adminUserAccountWorkspaceHeader',
+                    'Directory, project & billing',
+                    'tune',
+                    y
+                );
+                renderFieldGrid(workspaceFields, y + 52, cardPad);
+                if (
+                    Object.prototype.hasOwnProperty.call(model.draft, 'upn') &&
+                    String(model.draft.login || '').trim() &&
+                    cell >= 210
+                ) {
+                    const upnBtnW = language === 'ru' ? 96 : 86;
+                    fields.push(
+                        node(
+                            'Button',
+                            'adminUserUpnFromLogin',
+                            box(
+                                cardPad + cell - upnBtnW,
+                                y + 50,
+                                upnBtnW,
+                                24
+                            ),
+                            {
+                                text: tr('Use login'),
+                                enabled:
+                                    allow.editable &&
+                                    String(model.draft.upn || '') !==
+                                        String(model.draft.login || '').trim(),
+                                action: {
+                                    type: 'upnFromLogin'
+                                }
+                            }
+                        )
+                    );
+                }
+                y += accountCardH + 12;
+            }
+
+            // 3. Account status & lifecycle card (kept at the bottom of the Account form)
+            const retireHelpH = formWidth < 360 ? 58 : 42,
+                statusCardH = 52 + 38 + 40 + retireHelpH + 14,
+                isRetired = model.draft.s_status === 'retired';
+            fields.push(
+                node(
+                    'Box',
+                    'adminUserAccountStatusCard',
+                    box(0, y, formWidth, statusCardH),
+                    {
+                        background: 'surfaceContainer',
+                        border: 'outlineVariant',
+                        radius: 10
+                    }
+                )
+            );
+            sectionHeader(
+                'adminUserAccountStatusHeader',
+                'Account status & lifecycle',
+                isRetired ? 'archive' : 'verified',
+                y
+            );
+            let sty = y + 52;
+            const statusChipW = Math.max(80, (innerW - 8) / 2);
+            fields.push(
+                node(
+                    'Button',
+                    'adminUserStatusActive',
+                    box(cardPad, sty, statusChipW, 32),
+                    {
+                        text: tr('Active account'),
+                        icon: 'verified',
+                        radio: true,
+                        selected: !isRetired,
+                        enabled: allow.editable,
+                        action: {
+                            type: 'retired',
+                            value: false
+                        }
+                    }
+                ),
+                node(
+                    'Button',
+                    'adminUserStatusRetired',
+                    box(cardPad + statusChipW + 8, sty, statusChipW, 32),
+                    {
+                        text: tr('Retired account'),
+                        icon: 'archive',
+                        radio: true,
+                        selected: isRetired,
+                        enabled: allow.editable,
+                        action: {
+                            type: 'retired',
+                            value: true
+                        }
+                    }
+                )
+            );
+            sty += 38;
+            fields.push(
+                node(
+                    'CheckBox',
+                    'adminUserRetired',
+                    box(cardPad, sty, innerW, 32),
+                    {
+                        text: tr('Retired'),
+                        checked: isRetired,
+                        enabled: allow.editable,
+                        children: [
+                            node(
+                                'Icon',
+                                'adminUserRetiredCheckIcon',
+                                box(28, 8, 16, 16),
+                                {
+                                    icon: 'archive',
+                                    color: isRetired
+                                        ? 'action'
+                                        : 'secondaryText'
+                                }
+                            ),
+                            label(
+                                'adminUserRetiredLabel',
+                                box(50, 0, Math.max(0, innerW - 50), 32),
+                                tr('Retired'),
+                                {
+                                    weight: 600
+                                }
+                            )
+                        ],
+                        action: {
+                            type: 'retired'
+                        }
+                    }
+                )
+            );
+            sty += 40;
+            fields.push(
+                label(
+                    'adminUserHelp_' + ui.page,
+                    box(cardPad, sty, innerW, retireHelpH),
+                    tr(
+                        "Retiring keeps this user's history. Clear this option to reactivate the account, then save."
+                    ),
+                    Object.assign(
+                        {
+                            wrap: true
+                        },
+                        muted
+                    )
+                )
+            );
+            y += statusCardH + 8;
         }
         if (ui.page === 'groups') {
-            help("Group membership changes affect this user's permissions.");
+            help(
+                "Group membership changes affect this user's permissions.",
+                'groups'
+            );
             fields.push(
                 node(
                     'List',
@@ -820,9 +1587,18 @@ export function row(list, record, model, ui, language) {
                     normalColor: 'transparent',
                     selectedColor: 'transparent',
                     children: [
+                        node(
+                            'Icon',
+                            'userGroupIcon_' + record.name,
+                            box(36, info ? 6 : 12, 16, 16),
+                            {
+                                icon: record.isDefault ? 'security' : 'groups',
+                                color: checked ? 'action' : 'secondaryText'
+                            }
+                        ),
                         label(
                             'userGroupTitle_' + record.name,
-                            box(39, info ? 3 : 9, width - 49, 22),
+                            box(58, info ? 3 : 9, Math.max(0, width - 68), 22),
                             record.name,
                             {
                                 weight: 600
@@ -830,13 +1606,13 @@ export function row(list, record, model, ui, language) {
                         ),
                         label(
                             'userGroupDescription_' + record.name,
-                            box(39, info ? 24 : 31, width - 49, 18),
+                            box(58, info ? 24 : 31, Math.max(0, width - 68), 18),
                             record.description || '',
                             muted
                         ),
                         label(
                             'userGroupScope_' + record.name,
-                            box(39, 41, width - 49, 16),
+                            box(58, 41, Math.max(0, width - 68), 16),
                             info,
                             muted
                         )

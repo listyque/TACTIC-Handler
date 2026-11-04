@@ -14,25 +14,33 @@ Frame.FrameView {
     signal previewMenu(var anchor, var record, real localX, real localY)
     signal attachmentMenu(var anchor, var record, real localX, real localY)
     signal forwardedMessage(string conversationId, string messageId)
+    readonly property var bodyFlags: ({
+            status: model.entryType === "status",
+            statusText: model.statusTo,
+            statusColor: String(model.statusColor || ""),
+            text: model.entryType !== "status" && !!model.displayHtml,
+            previews: !!(model.skeyPreviews || []).length,
+            attachments: !!(model.attachments || []).length
+        })
+    function updateScene() {
+        scene = UI.body(bodyFlags, width, measured);
+    }
+    onReadyChanged: if (ready)
+        updateScene()
+    onBodyFlagsChanged: if (ready)
+        updateScene()
+    onWidthChanged: if (ready)
+        updateScene()
     function measure(part, height) {
-        if (height <= 0)
+        if (height <= 0 || measured[part] === height)
             return;
-        Qt.callLater(function () {
-            if (measured[part] !== height)
-                measured = Object.assign({}, measured, {
-                    [part]: height
-                });
+        measured = Object.assign({}, measured, {
+            [part]: height
         });
+        if (ready)
+            updateScene();
     }
     implicitHeight: scene.height
-    scene: UI.body({
-        status: model.entryType === "status",
-        statusText: model.statusTo,
-        statusColor: String(model.statusColor || ""),
-        text: model.entryType !== "status" && !!model.displayHtml,
-        previews: !!(model.skeyPreviews || []).length,
-        attachments: !!(model.attachments || []).length
-    }, width, measured)
     views: ({
             status: statusPort,
             text: textPort,
@@ -42,8 +50,10 @@ Frame.FrameView {
     Component {
         id: statusPort
         RowLayout {
+            width: parent ? parent.width : root.width
             spacing: 8
             onImplicitHeightChanged: root.measure("status", implicitHeight)
+            Component.onCompleted: root.measure("status", implicitHeight)
             Controls.MaterialIcon {
                 name: "status"
                 size: 22
@@ -64,8 +74,10 @@ Frame.FrameView {
         id: textPort
         Objects.MessageBodyText {
             objectName: "noteBodyText"
+            width: parent ? parent.width : root.width
 
             onContentHeightChanged: root.measure("text", contentHeight)
+            Component.onCompleted: root.measure("text", contentHeight)
             theme: root.theme
             sourceHtml: root.model.displayHtml
             rawText: root.model.body
@@ -76,8 +88,9 @@ Frame.FrameView {
     Component {
         id: previewsPort
         ColumnLayout {
-            width: parent ? parent.width : 0
+            width: parent ? parent.width : root.width
             onImplicitHeightChanged: root.measure("previews", implicitHeight)
+            Component.onCompleted: root.measure("previews", implicitHeight)
             spacing: UI.bodyMetrics.gap
             Repeater {
                 model: root.model.skeyPreviews
@@ -111,8 +124,9 @@ Frame.FrameView {
         id: attachmentsPort
         Controls.ResponsiveFlow {
             id: noteAttachmentFlow
-            width: parent ? parent.width : 0
+            width: parent ? parent.width : root.width
             onImplicitHeightChanged: root.measure("attachments", implicitHeight)
+            Component.onCompleted: root.measure("attachments", implicitHeight)
             minimumCellWidth: UI.bodyMetrics.minimumCellWidth
             preferredCellWidth: UI.bodyMetrics.preferredCellWidth
             maximumColumns: UI.bodyMetrics.maximumColumns

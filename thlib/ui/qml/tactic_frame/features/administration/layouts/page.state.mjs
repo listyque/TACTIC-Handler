@@ -32,6 +32,7 @@ export function initial() {
         propertiesHidden: false,
         collapsed: [],
         source: false,
+        xmlDraft: '',
         canvasSettings: false,
         error: ''
     };
@@ -122,6 +123,7 @@ export function transition(ui, model, event) {
                 selected: '',
                 selection: [],
                 text: {},
+                xmlDraft: '',
                 past: [],
                 future: [],
                 historyDocument: ''
@@ -163,8 +165,40 @@ export function transition(ui, model, event) {
         return { ui: next, commands };
     }
     if (event.type === 'sourceXml' || event.type === 'canvasSettings') {
+        if (
+            event.type === 'sourceXml' &&
+            ui.source &&
+            Object.prototype.hasOwnProperty.call(ui.text, 'xml')
+        ) {
+            next.error =
+                next.error ||
+                'Apply or discard the pending text before continuing';
+            return { ui: next, commands };
+        }
         next[event.type === 'sourceXml' ? 'source' : 'canvasSettings'] =
             event.type === 'sourceXml' ? !ui.source : !ui.canvasSettings;
+        if (event.type === 'sourceXml') {
+            next.xmlDraft = '';
+            next.error = '';
+        }
+        return { ui: next, commands };
+    }
+    if (event.type === 'xmlEdit') {
+        if (model.busy || ui.confirmation || !model.canWrite || model.uncertain)
+            return { ui: next, commands };
+        const value = String(event.value ?? '');
+        try {
+            const parsed = Document.fromXml(value, model.document.name);
+            const nextText = Object.assign({}, ui.text);
+            delete nextText.xml;
+            next.text = nextText;
+            next.xmlDraft = value;
+            next.error = '';
+            replace(parsed);
+        } catch (e) {
+            next.text = Object.assign({}, ui.text, { xml: value });
+            next.error = e.message;
+        }
         return { ui: next, commands };
     }
     if (model.busy || ui.confirmation) return { ui: next, commands };
@@ -530,8 +564,10 @@ export function transition(ui, model, event) {
                 }
                 break;
             case 'new':
-                if (model.dirty)
-                    throw Error('Save or discard changes before continuing');
+                if (model.dirty) {
+                    next.confirmation = 'discard';
+                    break;
+                }
                 next.creating = true;
                 break;
             case 'cancelNew':
@@ -542,8 +578,10 @@ export function transition(ui, model, event) {
                 next[event.type] = event.value;
                 break;
             case 'create':
-                if (model.dirty)
-                    throw Error('Save or discard changes before continuing');
+                if (model.dirty) {
+                    next.confirmation = 'discard';
+                    break;
+                }
                 if (
                     !/^[a-z][a-z0-9_]{0,47}$/.test(ui.newName) ||
                     !ui.newTitle.trim()

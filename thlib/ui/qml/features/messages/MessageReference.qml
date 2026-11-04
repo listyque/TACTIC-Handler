@@ -51,9 +51,14 @@ Frame.FrameView {
                 maximumLineCount: root.forwarded ? 3 : 2
                 elide: Text.ElideRight
                 function measure() {
-                    Qt.callLater(function () {
-                        root.bodyHeight = bodyText.contentHeight;
-                    });
+                    const apply = function () {
+                        if (bodyText.contentHeight > 0 && root.bodyHeight !== bodyText.contentHeight)
+                            root.bodyHeight = bodyText.contentHeight;
+                    };
+                    if (root.inSceneChange)
+                        Qt.callLater(apply);
+                    else
+                        apply();
                 }
                 onContentHeightChanged: measure()
                 Component.onCompleted: measure()

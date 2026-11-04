@@ -7,6 +7,7 @@ export function initial() {
         hideConfig: true,
         page: 'summary',
         editing: false,
+        catalogVisible: true,
         catalogWidth: 280,
         fieldName: '',
         fieldType: 'varchar(256)',
@@ -57,6 +58,9 @@ export function transition(ui, model, event) {
                 200,
                 Math.min(420, Number(event.value))
             );
+            break;
+        case 'catalogVisible':
+            next.catalogVisible = next.catalogVisible === false;
             break;
         case 'back':
             if (!model.busy && model.identity) next.editing = false;

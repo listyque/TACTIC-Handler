@@ -68,20 +68,23 @@ def _safe_style(value: str) -> str:
 
 
 def _linked_fragment(value: str) -> str:
+    text = str(value or "")
+    if "://" not in text:
+        return html.escape(text)
     result = []
     offset = 0
-    for match in LINK_PATTERN.finditer(str(value or "")):
+    for match in LINK_PATTERN.finditer(text):
         raw = match.group(0)
         target = raw.rstrip(_TRAILING_PUNCTUATION)
         suffix = raw[len(target):]
         if not target:
             continue
-        result.append(html.escape(value[offset:match.start()]))
+        result.append(html.escape(text[offset:match.start()]))
         escaped = html.escape(target, quote=True)
         result.append(f'<a href="{escaped}">{html.escape(target)}</a>')
         result.append(html.escape(suffix))
         offset = match.end()
-    result.append(html.escape(value[offset:]))
+    result.append(html.escape(text[offset:]))
     return "".join(result)
 
 

@@ -606,9 +606,10 @@ class SObjectDeleteController(QObject):
         record = self.model.get(row)
         if not record:
             return
-        self.model.update_record(
+        if self.model.update_record(
             row, {"expanded": not bool(record.get("expanded"))}
-        )
+        ):
+            self.stateChanged.emit()
 
     def _selected_search_types(self) -> list[str]:
         selected = [

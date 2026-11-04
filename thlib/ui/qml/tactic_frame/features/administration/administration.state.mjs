@@ -42,15 +42,14 @@ export function transition(ui, model, event) {
             if (model.layoutParent?.name && !model.busy) commands.push(event);
             break;
         case 'close':
+            next.error = '';
             if (model.locked) {
-                next.error = 'Save or discard changes before continuing';
                 if ((model.drafts || []).length)
                     commands.push({
                         type: 'section',
                         value: model.drafts[0]
                     });
             } else if (!model.busy) {
-                next.error = '';
                 commands.push(event);
             }
             break;

@@ -139,6 +139,15 @@ class WorkspaceItemModel(
 
     TasksUpdatedRole = Qt.UserRole + 46
 
+    _LAYOUT_SAMPLE_ROLES = frozenset((
+        SearchKeyRole,
+        SubtitleRole,
+        NodeTypeRole,
+        DepthRole,
+        FileSizeRole,
+        FileExistsRole,
+    ))
+
     def __init__(self) -> None:
         super().__init__()
         self._item_layout = {}
@@ -148,7 +157,7 @@ class WorkspaceItemModel(
         self.modelReset.connect(self.itemLayoutSamplesChanged)
         self.rowsInserted.connect(self.itemLayoutSamplesChanged)
         self.rowsRemoved.connect(self.itemLayoutSamplesChanged)
-        self.dataChanged.connect(self.itemLayoutSamplesChanged)
+        self.dataChanged.connect(self._on_data_changed_for_layout_samples)
         self._roots: list[WorkspaceNode] = []
         self._root_groups: list[WorkspaceNode] = []
         self._items: list[WorkspaceNode] = []
@@ -220,6 +229,12 @@ class WorkspaceItemModel(
             self.CommentsUpdatedRole: "comments_updated",
             self.TasksUpdatedRole: "tasks_updated",
         }
+
+    def _on_data_changed_for_layout_samples(
+        self, _top_left, _bottom_right, roles=(),
+    ) -> None:
+        if not roles or self._LAYOUT_SAMPLE_ROLES.intersection(roles):
+            self.itemLayoutSamplesChanged.emit()
 
     def set_clock(self, clock) -> None:
         if self._clock is clock:

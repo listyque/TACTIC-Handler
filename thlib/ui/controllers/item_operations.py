@@ -566,7 +566,11 @@ class ItemOperationsMixin:
         panel: str = "",
         process_override: str = "",
     ) -> None:
-        node = self.workspace_model.node_for(node_id)
+        workspace_node = self.workspace_model.node_for(node_id)
+        resolve_any = getattr(self, "_node_for_any", None)
+        node = workspace_node or (
+            resolve_any(node_id) if callable(resolve_any) else None
+        )
         if not node:
             return
         if process_override:
@@ -581,22 +585,81 @@ class ItemOperationsMixin:
         if panel in {"tasks", "notes"} and callable(mark_process_seen):
             mark_process_seen(node_id, panel, process)
         tab = self._current_tab()
-        selection_changed = bool(
-            tab and tab.selected_node_id != node.node_id
-        )
-        if selection_changed:
-            self.select_result_node(
-                node.node_id,
-                node.search_key,
-                node.node_type,
-                0,
-                False,
+        if workspace_node is None:
+            table_services = getattr(self, "_table_services", None)
+            scope = (
+                table_services.scope_for(node.node_id)
+                if table_services is not None
+                and hasattr(table_services, "scope_for")
+                else None
             )
-        if tab and node.node_type == "sobject":
-            tab.detail_process_override = process
-        process_changed = process != self._selected_detail_process
-        if process_changed:
-            self._selected_detail_process = process
+            if scope is not None:
+                scope.select_result_node(
+                    node.node_id, node.search_key, node.node_type, 0, False
+                )
+            root_node = node
+            while (
+                root_node
+                and root_node.node_type != "sobject"
+                and getattr(root_node, "parent_id", "")
+                and callable(resolve_any)
+            ):
+                root_node = resolve_any(root_node.parent_id)
+            target_node = root_node or node
+            detail_key = str(getattr(target_node, "search_key", "") or "")
+            current_sobject = getattr(
+                self.workspace_state, "_selected_sobject", None
+            )
+            current_key = ""
+            if current_sobject is not None and hasattr(
+                current_sobject, "get_search_key"
+            ):
+                try:
+                    current_key = str(current_sobject.get_search_key() or "")
+                except (AttributeError, TypeError):
+                    current_key = ""
+            selection_changed = bool(detail_key and detail_key != current_key)
+            if tab and node.node_type == "sobject":
+                tab.detail_process_override = process
+            process_changed = process != self._selected_detail_process
+            if process_changed:
+                self._selected_detail_process = process
+            if selection_changed:
+                selection_timer = getattr(self, "_selection_load_timer", None)
+                if selection_timer is not None:
+                    selection_timer.stop()
+                self._pending_selection_load = None
+                cancel_worker = getattr(
+                    self, "_cancel_selected_payload_worker", None
+                )
+                if callable(cancel_worker):
+                    cancel_worker()
+                load_details = getattr(self, "_load_sobject_details", None)
+                if callable(load_details):
+                    load_details(
+                        detail_key,
+                        process,
+                        node.node_id if node.node_type == "snapshot" else None,
+                    )
+                else:
+                    self.workspace_state.selection_changed.emit()
+        else:
+            selection_changed = bool(
+                tab and tab.selected_node_id != node.node_id
+            )
+            if selection_changed:
+                self.select_result_node(
+                    node.node_id,
+                    node.search_key,
+                    node.node_type,
+                    0,
+                    False,
+                )
+            if tab and node.node_type == "sobject":
+                tab.detail_process_override = process
+            process_changed = process != self._selected_detail_process
+            if process_changed:
+                self._selected_detail_process = process
         if (
             panel == "tasks"
             and self._registry.invoke("show_selected_tasks_workspace")

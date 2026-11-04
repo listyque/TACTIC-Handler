@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import TacticHandler.Code 1.0
 import "." as Controls
 
 Item {
@@ -8,6 +9,11 @@ Item {
 
     required property var theme
     required property var controller
+    SourceEditorService {
+        id: fallbackController
+    }
+    readonly property var activeController: root.controller || fallbackController
+    property string syntax: "auto"
     property alias text: editor.text
     readonly property alias selectedText: editor.selectedText
     property alias cursorPosition: editor.cursorPosition
@@ -45,6 +51,7 @@ Item {
 
     function syntaxColors() {
         return {
+            "syntax": String(root.syntax || "auto"),
             "keyword": String(theme.syntaxKeyword),
             "string": String(theme.syntaxString),
             "comment": String(theme.syntaxComment),
@@ -60,6 +67,8 @@ Item {
         }
     }
 
+    onSyntaxChanged: activeController.attach_editor_document(editor.textDocument, syntaxColors())
+
     function searchOptions() {
         return {
             "caseSensitive": matchCase.checked,
@@ -69,12 +78,12 @@ Item {
     }
 
     function refreshHighlights() {
-        controller.update_editor_highlights(
+        activeController.update_editor_highlights(
             editor.selectedText, findField.text, searchOptions())
     }
 
     function updateMatches(selectNext) {
-        const matches = controller.search_matches(
+        const matches = activeController.search_matches(
             editor.text, findField.text, searchOptions())
         matchCount = matches.length
         if (!matches.length) {
@@ -109,7 +118,7 @@ Item {
     }
 
     function findNext(backwards) {
-        const matches = controller.search_matches(
+        const matches = activeController.search_matches(
             editor.text, findField.text, searchOptions())
         matchCount = matches.length
         if (!matches.length) {
@@ -146,7 +155,7 @@ Item {
             return
         if (!replaceVisible || !findField.text.length)
             return
-        const matches = controller.search_matches(
+        const matches = activeController.search_matches(
             editor.text, findField.text, searchOptions())
         let target = null
         for (let i = 0; i < matches.length; ++i) {
@@ -170,7 +179,7 @@ Item {
     function replaceAll() {
         if (readOnly)
             return
-        const matches = controller.search_matches(
+        const matches = activeController.search_matches(
             editor.text, findField.text, searchOptions())
         if (!matches.length)
             return
@@ -191,7 +200,7 @@ Item {
     function applyCommand(command) {
         if (readOnly)
             return
-        const result = controller.apply_editor_command(
+        const result = activeController.apply_editor_command(
             command, editor.text, editor.selectionStart, editor.selectionEnd)
         applyingCommand = true
         editor.text = result.text
@@ -424,7 +433,7 @@ Item {
     }
 
     function requestCompletions(manual) {
-        completionItems = controller.code_completions(
+        completionItems = activeController.code_completions(
             editor.text, editor.cursorPosition, manual)
         completionIndex = 0
         if (completionItems.length > 0) {
@@ -986,7 +995,7 @@ Item {
     }
 
     Component.onCompleted: {
-        controller.attach_editor_document(editor.textDocument, syntaxColors())
+        activeController.attach_editor_document(editor.textDocument, syntaxColors())
         refreshHighlights()
     }
 }

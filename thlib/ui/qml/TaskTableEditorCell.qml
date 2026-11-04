@@ -42,6 +42,8 @@ Tasks.TaskCellDisplay {
     }
 
     function resetEditor() {
+        if (!editorLoader.active && !editRequested && !editorPopupOpen && !editorResident && !editorPressPending)
+            return;
         const editor = editorLoader.item;
         if (editor && editor.popup)
             editor.popup.close();
@@ -140,6 +142,7 @@ Tasks.TaskCellDisplay {
     }
 
     Connections {
+        enabled: editorLoader.active
         target: editorLoader.item
         ignoreUnknownSignals: true
 
@@ -159,6 +162,7 @@ Tasks.TaskCellDisplay {
     }
 
     Connections {
+        enabled: editorLoader.active
         target: editorLoader.item && editorLoader.item.popup ? editorLoader.item.popup : null
         function onAboutToShow() {
             root.cancelEditorRelease();

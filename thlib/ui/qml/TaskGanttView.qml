@@ -52,7 +52,12 @@ Item {
         scheduled: tasksController.ganttScheduledCount,
         unscheduled: tasksController.ganttUnscheduledCount
     })
-    readonly property var displayTicks: State.ticks(projection, dayWidth, timelineHeader.contentX, timelineHeader.width)
+    readonly property var collapsedGroupKeys: records.filter(row => row.groupCollapsed).map(row => row.groupKey)
+    readonly property bool hasDependencies: records.some(row => !!row.dependencyId)
+    readonly property real windowStep: 256
+    readonly property real windowX: Math.max(0, Math.floor(timelineHeader.contentX / windowStep) * windowStep)
+    readonly property real windowWidth: timelineHeader.width + windowStep * 2
+    readonly property var displayTicks: State.ticks(projection, dayWidth, windowX, windowWidth)
     property var activeGestureRow: null
     property alias timeline: timelineHeader
     property alias taskList: ganttList
@@ -262,10 +267,10 @@ Item {
 
             Frame.FrameView {
                 theme: root.theme
-                x: timelineHeader.contentX
-                width: timelineHeader.width
+                x: root.windowX
+                width: root.windowWidth
                 height: State.metrics.heading
-                scene: UI.timelineHeading(root.projection, root.dayWidth, timelineHeader.contentX, width, root.language)
+                scene: UI.timelineHeading(root.projection, root.dayWidth, root.windowX, root.windowWidth, root.language)
                 onEvent: action => milestoneController.open_manager()
             }
 
@@ -312,21 +317,31 @@ Item {
             Frame.FrameView {
                 objectName: "ganttDailyGrid"
                 theme: root.theme
-                anchors.fill: parent
+                x: root.windowX - timelineHeader.contentX
+                width: root.windowWidth
+                height: parent.height
                 interactive: false
-                scene: UI.grid(root.projection, root.dayWidth, timelineHeader.contentX, width, height)
+                scene: UI.grid(root.projection, root.dayWidth, root.windowX, root.windowWidth, height)
             }
         }
 
-        Frame.FrameView {
+        Item {
             z: 2
-            theme: root.theme
             x: root.labelWidth
             width: root.timelineViewportWidth
             height: parent.height
             clip: true
-            interactive: false
-            scene: UI.dependencies(root.records, root.records.filter(row => row.groupCollapsed).map(row => row.groupKey), root.dayWidth, timelineHeader.contentX, ganttList.contentY)
+            Frame.FrameView {
+                theme: root.theme
+                x: -timelineHeader.contentX
+                y: -ganttList.contentY
+                width: Math.max(root.timelineViewportWidth, root.timelineContentWidth)
+                height: Math.max(parent.height, ganttList.contentHeight)
+                interactive: false
+                scene: root.hasDependencies ? UI.dependencies(root.records, root.collapsedGroupKeys, root.dayWidth, 0, 0) : ({
+                        nodes: []
+                    })
+            }
         }
 
         Controls.SmoothListView {
@@ -427,9 +442,11 @@ Item {
             theme: root.theme
             anchors.fill: parent
             interactive: false
+            readonly property real viewportWidth: Math.max(1, width - root.gutter - root.labelWidth)
+            readonly property real effectiveContentX: root.timelineContentWidth > viewportWidth ? timelineHeader.contentX : 0
             scene: UI.overview(Object.assign({}, root.projection, {
                 warnings: tasksController.ganttWarningCount
-            }), root.labelWidth, width - root.gutter, root.timelineContentWidth, timelineHeader.contentX, root.language)
+            }), root.labelWidth, width - root.gutter, root.timelineContentWidth, effectiveContentX, root.language)
         }
         MouseArea {
             id: overviewTimeline

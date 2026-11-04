@@ -1,5 +1,6 @@
 import { node, rect, label, button, muted } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
+import { combineRegions } from './canvas.mjs';
 
 export const zooms = [25, 50, 75, 100, 125, 150, 200];
 export function dimensions(settings, width, height) {
@@ -23,9 +24,10 @@ function step(settings, width, direction) {
               .find((value) => value < percent - 0.01) || 25;
 }
 export function describe(scene, settings, width, height) {
+    const merged = combineRegions(scene);
     const size = dimensions(settings, width, height);
-    const scroll = scene.nodes.find((item) => item.id === 'customLayoutScroll');
-    const sourceChildren = scroll ? scroll.children : scene.nodes;
+    const scroll = merged.nodes.find((item) => item.id === 'customLayoutScroll');
+    const sourceChildren = scroll ? scroll.children : merged.nodes;
     const pageHeight = Math.max(size.height, (scroll?.contentHeight || 0) + 24);
     const children = sourceChildren.map((child) =>
         child.id === 'canvasOverlay'
@@ -35,7 +37,7 @@ export function describe(scene, settings, width, height) {
               })
             : child
     );
-    return Object.assign({}, scene, {
+    return Object.assign({}, merged, {
         nodes: [
             node('Scroll', 'pageViewportScroll', rect(0, 0, width, height), {
                 contentWidth: Math.max(width, size.width * size.scale + 32),

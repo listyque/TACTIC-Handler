@@ -17,7 +17,7 @@ def query_admin_users() -> str:
     # enter the admin draft, QML, logs or local configuration.
     fields = ('code', 'login', 'display_name', 'first_name', 'last_name', 'email',
               'phone_number', 'address', 'department', 'upn', 'namespace',
-              's_status', 'project_code', 'license_type', 'hourly_wage')
+              's_status', 'project_code', 'hourly_wage')
     columns = set(SearchType.get_columns('sthpw/login'))
     fields = [field for field in fields if field in columns]
     catalog = []

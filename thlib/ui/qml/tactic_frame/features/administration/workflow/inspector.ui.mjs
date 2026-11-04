@@ -176,10 +176,19 @@ export function inspector(model, ui, width, language) {
                     kind: 'Choice',
                     id: 'adminNodeKind',
                     title: 'Node type',
-                    options: (model.metadata.nodeTypes || []).map((value) => ({
-                        value,
-                        label: value
-                    })),
+                    description: Process.nodeTypeMeta(
+                        model.document.searchType === 'sthpw/task'
+                            ? 'status'
+                            : ui.nodeKind,
+                        tr
+                    ).description,
+                    options: (model.metadata.nodeTypes || []).map((value) => {
+                        const meta = Process.nodeTypeMeta(value, tr);
+                        return {
+                            value,
+                            label: meta.label
+                        };
+                    }),
                     props: {
                         value:
                             model.document.searchType === 'sthpw/task'
@@ -198,6 +207,15 @@ export function inspector(model, ui, width, language) {
             action('adminCreateSchemaTypeInspector', 'New Search Type', 'add', {
                 type: 'createType'
             });
+            action(
+                'adminCreateDraftNodeInspector',
+                'New draft node ("skeleton")',
+                'add',
+                {
+                    type: 'createDraftNode'
+                },
+                editable
+            );
             addForm(
                 [
                     {
@@ -246,35 +264,73 @@ export function inspector(model, ui, width, language) {
                 value: row.identity,
                 label: row.label || row.identity
             }));
-        addForm([
-            {
-                kind: 'Choice',
-                id: 'adminConnectSource',
-                title: 'Source',
-                options,
-                props: {
-                    value: ui.source,
-                    action: {
-                        type: 'source'
+        addForm(
+            [
+                {
+                    kind: 'Choice',
+                    id: 'adminConnectSource',
+                    title: 'Source',
+                    options,
+                    props: {
+                        value: ui.source,
+                        action: {
+                            type: 'source'
+                        }
+                    }
+                },
+                {
+                    kind: 'Choice',
+                    id: 'adminConnectTarget',
+                    title: 'Destination',
+                    options,
+                    props: {
+                        value: ui.target,
+                        action: {
+                            type: 'target'
+                        }
                     }
                 }
-            },
-            {
-                kind: 'Choice',
-                id: 'adminConnectTarget',
-                title: 'Destination',
-                options,
-                props: {
-                    value: ui.target,
-                    action: {
-                        type: 'target'
-                    }
-                }
-            }
-        ]);
+            ].concat(
+                model.mode === 'schema'
+                    ? [
+                          {
+                              kind: 'Choice',
+                              id: 'adminConnectMode',
+                              title: 'Connection mode',
+                              description:
+                                  'Hierarchy connects Child → Parent by code. Many-to-many (M:N) automatically creates an intermediate link table.',
+                              options: [
+                                  {
+                                      value: 'hierarchy',
+                                      label: tr('Hierarchy · Child → Parent')
+                                  },
+                                  {
+                                      value: 'many_to_many',
+                                      label: tr(
+                                          'Many-to-many · M:N (link table)'
+                                      )
+                                  },
+                                  {
+                                      value: 'code',
+                                      label: tr('Direct key · code')
+                                  }
+                              ],
+                              props: {
+                                  value: ui.connectMode || 'hierarchy',
+                                  action: {
+                                      type: 'connectMode'
+                                  }
+                              }
+                          }
+                      ]
+                    : []
+            )
+        );
         action(
             'adminConnectNodes',
-            'Connect',
+            model.mode === 'schema' && ui.connectMode === 'many_to_many'
+                ? 'Connect Many-to-Many (M:N)'
+                : 'Connect',
             'link',
             {
                 type: 'connect'
@@ -323,18 +379,113 @@ export function inspector(model, ui, width, language) {
         }
         if (selectedNode && !referenceOnly) {
             if (model.mode === 'schema') addPositionFields();
-            if (model.mode === 'schema') {
-                action(
-                    'adminNodeWorkflows',
-                    'Workflows',
-                    'schema',
-                    {
-                        type: 'nodeWorkflows'
-                    },
-                    !model.busy
+            if (model.mode === 'schema' && model.draftType) {
+                heading(
+                    'schemaDraftTypeHeading',
+                    'Draft Search Type ("skeleton")',
+                    'This node exists only in your schema draft. You can rename it, wire connections, and register it in the database now or when saving the schema.'
                 );
+                addForm([
+                    {
+                        id: 'adminDraftTypeTitle',
+                        title: 'Title',
+                        props: {
+                            text: model.draftType.title || '',
+                            action: {
+                                type: 'draftField',
+                                key: 'title'
+                            }
+                        }
+                    },
+                    {
+                        id: 'adminDraftTypeTable',
+                        title: 'Table code (lowercase SQL)',
+                        props: {
+                            text: own(ui.text, 'draftTable')
+                                ? ui.text.draftTable
+                                : model.draftType.table ||
+                                  selectedNode.identity.split('/').pop(),
+                            action: {
+                                type: 'buffer',
+                                key: 'draftTable'
+                            },
+                            commitAction: {
+                                type: 'commitDraftTable'
+                            }
+                        }
+                    },
+                    {
+                        kind: 'ColorChoice',
+                        id: 'adminDraftTypeColor',
+                        title: 'Color',
+                        props: {
+                            value: model.draftType.color || '',
+                            action: {
+                                type: 'draftField',
+                                key: 'color'
+                            }
+                        }
+                    },
+                    {
+                        kind: 'Switch',
+                        id: 'adminDraftTypePipeline',
+                        title: 'Pipeline support (pipeline_code)',
+                        description:
+                            'Creates a pipeline_code column on registration so items can use Workflows.',
+                        props: {
+                            checked: model.draftType.hasPipeline !== false,
+                            action: {
+                                type: 'draftField',
+                                key: 'hasPipeline'
+                            }
+                        }
+                    }
+                ]);
+                if (own(ui.text, 'draftTable'))
+                    action(
+                        'adminApplyDraftTable',
+                        'Apply table code',
+                        'check',
+                        {
+                            type: 'commitDraftTable'
+                        },
+                        editable
+                    );
+                action(
+                    'adminRegisterDraftTypeNow',
+                    'Register Search Type in DB now',
+                    'check',
+                    {
+                        type: 'registerDraftType',
+                        identity: selectedNode.identity
+                    },
+                    editable
+                );
+                action(
+                    'adminOpenDraftCreator',
+                    'Open full Search Type creator…',
+                    'tune',
+                    {
+                        type: 'openDraftCreator',
+                        identity: selectedNode.identity
+                    },
+                    editable
+                );
+            }
+            if (model.mode === 'schema') {
+                if (!model.draftType)
+                    action(
+                        'adminNodeWorkflows',
+                        'Workflows',
+                        'schema',
+                        {
+                            type: 'nodeWorkflows'
+                        },
+                        !model.busy
+                    );
                 if (
                     !model.instance &&
+                    !model.draftType &&
                     ['sthpw', 'config'].indexOf(
                         selectedNode.identity.split('/')[0]
                     ) < 0
@@ -486,44 +637,123 @@ export function inspector(model, ui, width, language) {
                     );
                 }
                 if (selectedEdge) {
-                    if (!model.instance)
-                        addForm([
+                    if (
+                        !model.instance &&
+                        selectedEdge.relationship !== 'instance' &&
+                        [selectedEdge.from, selectedEdge.to].indexOf('*') < 0
+                    )
+                        action(
+                            'adminConvertEdgeToManyToMany',
+                            'Convert to Many-to-Many (M:N)',
+                            'link',
                             {
-                                kind: 'Choice',
-                                id: 'adminSchemaRelationship',
-                                title: 'Relationship type',
-                                description:
-                                    'Many-to-many creates a separate instance Search Type with two key connections.',
-                                options: [
-                                    {
-                                        value: 'code',
-                                        label: 'code'
-                                    },
-                                    {
-                                        value: 'id',
-                                        label: 'id'
-                                    }
-                                ].concat(
-                                    [
-                                        selectedEdge.from,
-                                        selectedEdge.to
-                                    ].indexOf('*') < 0
-                                        ? [
-                                              {
-                                                  value: 'many_to_many',
-                                                  label: 'many_to_many'
-                                              }
-                                          ]
-                                        : []
-                                ),
-                                props: {
-                                    value: selectedEdge.relationship || 'code',
-                                    action: {
-                                        type: 'relationship'
+                                type: 'relationship',
+                                value: 'many_to_many'
+                            },
+                            editable
+                        );
+                    if (!model.instance) {
+                        const instanceChoices = (model.nodes || [])
+                            .filter(
+                                (row) =>
+                                    !row.referenceOnly &&
+                                    row.identity !== selectedEdge.from &&
+                                    row.identity !== selectedEdge.to
+                            )
+                            .map((row) => ({
+                                value: row.identity,
+                                label:
+                                    (row.label || row.identity) +
+                                    ' (' +
+                                    row.identity +
+                                    ')'
+                            }));
+                        addForm(
+                            [
+                                {
+                                    kind: 'Choice',
+                                    id: 'adminSchemaRelationship',
+                                    title: 'Relationship type',
+                                    description:
+                                        'Many-to-many creates a separate instance Search Type with two key connections, or links through an existing intermediate table.',
+                                    options: [
+                                        {
+                                            value: 'hierarchy',
+                                            label: tr(
+                                                'Hierarchy · Child → Parent (code)'
+                                            )
+                                        },
+                                        {
+                                            value: 'code',
+                                            label: tr('Direct key · code')
+                                        },
+                                        {
+                                            value: 'id',
+                                            label: tr('Direct key · id')
+                                        },
+                                        {
+                                            value: 'instance',
+                                            label: tr(
+                                                'Many-to-many · via existing link table'
+                                            )
+                                        }
+                                    ].concat(
+                                        [
+                                            selectedEdge.from,
+                                            selectedEdge.to
+                                        ].indexOf('*') < 0
+                                            ? [
+                                                  {
+                                                      value: 'many_to_many',
+                                                      label: tr(
+                                                          'Many-to-many · create new link table'
+                                                      )
+                                                  }
+                                              ]
+                                            : []
+                                    ),
+                                    props: {
+                                        value:
+                                            selectedEdge.relationship ===
+                                            'instance'
+                                                ? 'instance'
+                                                : selectedEdge.type ===
+                                                        'hierarchy' &&
+                                                    (selectedEdge.relationship ||
+                                                        'code') === 'code'
+                                                  ? 'hierarchy'
+                                                  : selectedEdge.relationship ||
+                                                    'code',
+                                        action: {
+                                            type: 'relationship'
+                                        }
                                     }
                                 }
-                            }
-                        ]);
+                            ].concat(
+                                selectedEdge.relationship === 'instance'
+                                    ? [
+                                          {
+                                              kind: 'Choice',
+                                              id: 'adminSchemaInstanceType',
+                                              title: 'Link table (instance_type)',
+                                              description:
+                                                  'Intermediate Search Type storing foreign keys to both endpoints.',
+                                              options: instanceChoices,
+                                              props: {
+                                                  value:
+                                                      selectedEdge.instance_type ||
+                                                      '',
+                                                  action: {
+                                                      type: 'attribute',
+                                                      key: 'instance_type'
+                                                  }
+                                              }
+                                          }
+                                      ]
+                                    : []
+                            )
+                        );
+                    }
                     addForm([
                         {
                             kind: 'Switch',

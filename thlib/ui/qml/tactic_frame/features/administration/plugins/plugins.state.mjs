@@ -28,6 +28,7 @@ export const destructive = {
         'Activate this package in the selected project? Its manifest can create or update project data and run server code.',
     replace_file: 'Replace the selected file with a local upload?',
     reload_catalog: 'Discard unsaved changes and reload the plugin catalogue?',
+    discard_changes: 'Discard unsaved changes?',
     reload: 'Reload removes and reinstalls the plugin in this project. Its data may be replaced.',
     deactivate:
         'Remove this plugin and its manifest-defined data from the current project?',
@@ -186,6 +187,12 @@ export function transition(ui, model, event) {
         }
     } else if (event.type === 'discard' && !model.busy) commands.push(event);
     else if (
+        event.type === 'prompt-discard' &&
+        !model.busy &&
+        (model.dirty || model.uncertain)
+    )
+        next.operation = 'discard_changes';
+    else if (
         event.type === 'save' &&
         !blocked &&
         (!model.metadata?.new || canCreate(model))
@@ -226,6 +233,13 @@ export function transition(ui, model, event) {
     } else if (event.type === 'cancel' && !model.busy) {
         next.operation = '';
         if (model.metadata?.new) commands.push({ type: 'discard' });
+    } else if (
+        event.type === 'confirm' &&
+        ui.operation === 'discard_changes' &&
+        !model.busy
+    ) {
+        commands.push({ type: 'discard' });
+        next.operation = '';
     } else if (
         event.type === 'confirm' &&
         ui.operation === 'reload_catalog' &&

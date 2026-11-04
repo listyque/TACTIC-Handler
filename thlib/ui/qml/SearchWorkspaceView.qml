@@ -163,9 +163,11 @@ Item {
                     panels: panelsComponent
                 })
             onEvent: action => {
-                if (action.type === "refresh")
+                if (action.type === "refresh") {
                     appController.refresh_current();
-                else if (action.type === "help")
+                    if (root.quickFilterEditorController)
+                        root.quickFilterEditorController.reload_current();
+                } else if (action.type === "help")
                     windowModel.open_help("search");
                 else if (action.type === "shelf") {
                     root.shelfOpen = !root.shelfOpen;

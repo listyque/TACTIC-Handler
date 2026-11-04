@@ -147,6 +147,7 @@ Item {
             objectName: "tableTaskCardsPreview"
             parent: Overlay.overlay
             theme: root.theme
+            surfaceColor: root.theme.panelDeep
             usePopupWindow: false
             coordinateGlobally: false
             modal: false

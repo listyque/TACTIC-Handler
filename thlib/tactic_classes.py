@@ -210,13 +210,12 @@ def server_fast_ping_predefined(server_url, proxy_dict=None, rpc_transport='xmlr
 
 def server_fast_ping():
     server = TacticServerStub(protocol=env_server.get_rpc_transport(), setup=False)
+    transport = proxy.UrllibTransport()
     if env_server.get_proxy()['enabled']:
-        transport = proxy.UrllibTransport()
-        server.set_transport(transport)
+        transport.enable_proxy()
     else:
-        if server.transport:
-            server.transport.update_proxy()
-        server.set_transport(None)
+        transport.disable_proxy()
+    server.set_transport(transport)
     server.set_server(env_server.get_server())
 
     if server.fast_ping() == 'OK':
@@ -1096,6 +1095,7 @@ class Project(SObject):
 
         self.info = project
         self.stypes = None
+        self._stypes_cache_token = None
         self.workflow = None
         self.views = ViewsConfig([], project=self)
         self.sidebar = None
@@ -1164,6 +1164,14 @@ class Project(SObject):
         if use_cache and not force:
             from thlib import server_cache
 
+            cache_token = server_cache.token('reference', self.get_code())
+            if (
+                self.stypes is not None
+                and cache_token is not None
+                and cache_token == getattr(self, '_stypes_cache_token', None)
+            ):
+                return self.stypes
+
             stypes_result = server_cache.read_entry(
                 'reference', cache_key, self.get_code(),
             )
@@ -1204,7 +1212,12 @@ class Project(SObject):
 
         # System and newly created projects need not have a production schema
         # or pipelines. Their Search Types and views are still valid metadata.
-        return self.get_all_search_types(stypes, pipelines, prj_schema, views)
+        result = self.get_all_search_types(stypes, pipelines, prj_schema, views)
+        self._stypes_cache_token = (
+            server_cache.token('reference', self.get_code())
+            if use_cache else None
+        )
+        return result
 
     def get_all_search_types(self, stype_list, process_list, schema, views):
         pipeline = parse_tactic_xml(schema)
@@ -2970,11 +2983,35 @@ def get_all_projects_and_logins(force=False, cache_only=False):
     login_in_groups = projects_and_users.get('login_in_groups') or []
 
     projects_dict = collections.OrderedDict()
+    existing_projects = (
+        env_inst.projects
+        if session == (
+            env_server.get_server(),
+            env_server.get_user(),
+            env_server.get_ticket(),
+        ) and isinstance(env_inst.projects, dict)
+        else {}
+    )
 
     for project in projects:
+        code = project.get('code')
         project_sobject = Project(project)
         project_sobject.init_snapshots(project.get('__snapshots__') or [])
-        projects_dict[project.get('code')] = project_sobject
+        existing = existing_projects.get(code)
+        if isinstance(existing, Project) and existing.stypes is not None:
+            project_sobject.stypes = existing.stypes
+            project_sobject._stypes_cache_token = getattr(
+                existing, '_stypes_cache_token', None
+            )
+            project_sobject.workflow = existing.workflow
+            project_sobject.views = existing.views
+            if project_sobject.views is not None:
+                project_sobject.views.project = project_sobject
+            for stype in project_sobject.stypes.values():
+                stype.project = project_sobject
+            if hasattr(existing, 'plugin_theme'):
+                project_sobject.plugin_theme = existing.plugin_theme
+        projects_dict[code] = project_sobject
 
     logins_dict = collections.OrderedDict()
     login_groups_list = []
@@ -3006,7 +3043,7 @@ def get_all_projects_and_logins(force=False, cache_only=False):
 def get_tasks_and_notes(
         sobject=None, search_code=None, project_code=None,
         process='publish', include_all_tasks=False, return_payload=False,
-        payload=None):
+        payload=None, copy_payload=True):
 
     if sobject:
         search_code = sobject.get_code()
@@ -3027,8 +3064,12 @@ def get_tasks_and_notes(
             tq.get_tasks_and_notes, kwargs
         )
     else:
-        tasks_and_notes = copy.deepcopy(payload)
-    raw_payload = copy.deepcopy(tasks_and_notes or {})
+        tasks_and_notes = copy.deepcopy(payload) if copy_payload else payload
+    raw_payload = (
+        copy.deepcopy(tasks_and_notes or {})
+        if return_payload
+        else (tasks_and_notes or {})
+    )
 
     notes = tasks_and_notes.get('notes') or []
 
@@ -3542,7 +3583,7 @@ def hydrate_sobjects_payload(
             native._details_cache_token = server_cache.token('search', project_code)
             tasks, notes = get_tasks_and_notes(
                 sobject=native, process=None, include_all_tasks=True,
-                payload=sobject['__details__'],
+                payload=sobject['__details__'], copy_payload=False,
             )
             native.tasks_sobjects = (tasks, {})
             native.notes_sobjects = (notes, {})

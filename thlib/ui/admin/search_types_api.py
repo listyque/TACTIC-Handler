@@ -137,6 +137,11 @@ def search_types_request(action: str, project_code: str, identity: str = '',
     rows = catalog()
     if action == 'list':
         return json.dumps({'catalog': rows, 'canWrite': True})
+    if action == 'load' and not identity:
+        if not rows:
+            return json.dumps({'identity': '', 'revision': '', 'document': {},
+                               'catalog': [], 'metadata': {}, 'canWrite': True})
+        identity = next((row['identity'] for row in rows if row['namespace'] != 'config'), rows[0]['identity'])
     permitted = {item['identity'] for item in rows}
     if identity and identity not in permitted:
         raise ValueError('This Search Type is not registered in the selected project')

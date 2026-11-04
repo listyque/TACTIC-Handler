@@ -21,40 +21,28 @@ Item {
     readonly property bool cellEnabled: !!root.model.enabled
     readonly property bool cellHovered: !!root.model.hovered
     readonly property bool actionField: root.model.actionField !== false
+    readonly property bool isCardField: !!root.model.cardField
     readonly property var layout: UI.choiceLayout({
         avatar: root.hasAvatar,
         showAccent: root.hasAccent,
         accent: root.hasAccent,
         indicator: root.hasIndicator,
         fontRole: root.fontRole,
-        cardField: !!root.model.cardField,
+        cardField: root.isCardField,
         textHeight: cellMetrics ? cellMetrics.height : 0
     }, width, height)
     readonly property var surface: UI.choiceStyle({
         enabled: root.cellEnabled,
         hovered: root.cellHovered,
         actionField: root.actionField,
-        cardField: !!root.model.cardField
+        cardField: root.isCardField
     })
     readonly property var label: layout.label
     readonly property var avatar: layout.avatar
     readonly property var accent: layout.accent
     readonly property var indicator: layout.indicator
 
-    readonly property bool sharedFont: root.theme.fontFamily === Foundation.fontFamily && (root.fontRole === "body" || root.fontRole === "caption")
-    readonly property var cellMetrics: sharedFont ? (root.fontRole === "caption" ? Controls.Typography.captionMetrics : Controls.Typography.bodyMetrics) : fallbackMetrics.item
-    Loader {
-        id: fallbackMetrics
-        active: !root.sharedFont
-        sourceComponent: FontMetrics {
-            font: Qt.font({
-                family: root.theme.fontFamily,
-                pixelSize: Foundation.textStyles[root.fontRole],
-                weight: Font.Normal,
-                hintingPreference: Font.PreferVerticalHinting
-            })
-        }
-    }
+    readonly property var cellMetrics: root.fontRole === "caption" ? Controls.Typography.captionMetrics : Controls.Typography.bodyMetrics
     // Keep shared geometry, but do not build a recursive Frame tree for an idle value.
     Rectangle {
         visible: root.displayActive
@@ -112,17 +100,14 @@ Item {
             previewSize: root.avatar ? root.avatar.width : 0
         }
     }
-    Loader {
-        visible: root.displayActive
-        active: !!root.indicator
+    Controls.MaterialIcon {
+        visible: root.displayActive && !!root.indicator
         x: root.indicator ? root.indicator.x : 0
         y: root.indicator ? root.indicator.y : 0
         width: root.indicator ? root.indicator.width : 0
         height: root.indicator ? root.indicator.height : 0
-        sourceComponent: Controls.MaterialIcon {
-            name: root.surface.indicatorIcon
-            size: root.indicator.width
-            color: root.theme[root.surface.indicatorColor]
-        }
+        name: visible ? root.surface.indicatorIcon : ""
+        size: root.indicator ? root.indicator.width : 0
+        color: root.theme[root.surface.indicatorColor]
     }
 }

@@ -265,13 +265,13 @@ export function panel(model, ui, bounds, language, narrow = false) {
         children.push(
             label(
                 'adminWorkflowCatalogTitle',
-                rect(12, 12, w - (narrow ? 24 : 74), 38),
+                rect(12, 10, Math.max(0, w - (narrow ? 24 : 62)), 34),
                 tr('Workflows'),
                 {
                     weight: 600
                 }
             ),
-            node('Field', 'adminWorkflowSearch', rect(12, 58, w - 24, 38), {
+            node('Field', 'adminWorkflowSearch', rect(12, 52, w - 24, 38), {
                 text: ui.query,
                 placeholder: tr('Find a workflow'),
                 label: tr('Find a workflow'),
@@ -282,7 +282,7 @@ export function panel(model, ui, bounds, language, narrow = false) {
             node(
                 'List',
                 'adminWorkflowCatalog',
-                rect(12, 104, w - 24, Math.max(0, h - 116)),
+                rect(12, 98, w - 24, Math.max(0, h - 110)),
                 {
                     source: 'graphPipelines',
                     keyField: 'key',
@@ -295,7 +295,7 @@ export function panel(model, ui, bounds, language, narrow = false) {
         children.push(
             button(
                 'adminToggleWorkflowList',
-                rect(ui.catalogVisible ? w - 50 : (w - 38) / 2, 12, 38, 38),
+                rect(ui.catalogVisible ? w - 46 : (w - 34) / 2, 10, 34, 34),
                 tr(
                     ui.catalogVisible
                         ? 'Hide workflow list'
@@ -307,7 +307,9 @@ export function panel(model, ui, bounds, language, narrow = false) {
                 },
                 true,
                 {
-                    iconOnly: true
+                    iconOnly: true,
+                    iconAction: true,
+                    round: false
                 }
             )
         );

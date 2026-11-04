@@ -396,6 +396,60 @@ class StartupBootstrapTests(unittest.TestCase):
             "demo", "Demo", force_search_types=False
         )
 
+    def test_project_catalog_refresh_preserves_hydrated_search_types_when_token_matches(self):
+        import json
+        import thlib.tactic_classes as tc
+        from thlib import server_cache
+        from thlib.environment import env_inst, env_server
+
+        payload = json.dumps({
+            "schema": [],
+            "pipelines": [],
+            "stypes": [{
+                "code": "demo/assets",
+                "title": "Assets",
+                "color": "#123456",
+                "table_name": "assets",
+                "column_info": {},
+            }],
+            "views": [],
+        })
+        with (
+            patch.object(tc.env_mode, "get_mode", return_value="standalone"),
+            patch.object(env_server, "get_server", return_value="http://server"),
+            patch.object(env_server, "get_user", return_value="artist"),
+            patch.object(env_server, "get_ticket", return_value="ticket"),
+            patch.object(env_inst, "projects", {}),
+            patch.object(env_inst, "logins", {}),
+            patch.object(server_cache, "token", return_value="token-1"),
+            patch.object(server_cache, "read_entry", return_value=payload) as read_entry,
+            patch.object(server_cache, "write_entry"),
+            patch.object(server_cache, "invalidate_domains"),
+            patch.object(
+                tc,
+                "execute_procedure_serverside",
+                return_value={
+                    "projects": [{"code": "demo", "title": "Demo"}],
+                    "logins": [],
+                    "login_groups": [],
+                    "login_in_groups": [],
+                },
+            ),
+        ):
+            cached = tc.Project({"code": "demo", "title": "Demo"})
+            env_inst.projects["demo"] = cached
+            first_stypes = cached.query_search_types(cache_only=True)
+            self.assertEqual(read_entry.call_count, 1)
+
+            projects = tc.get_all_projects_and_logins(force=True)
+            refreshed = projects["demo"]
+            self.assertIs(refreshed.stypes, first_stypes)
+            self.assertIs(refreshed.stypes["demo/assets"].project, refreshed)
+
+            second_stypes = refreshed.query_search_types(force=False)
+            self.assertIs(second_stypes, first_stypes)
+            self.assertEqual(read_entry.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -565,6 +565,7 @@ class QuickFilterCatalog:
             "accent": group["accent"],
             "enabled": group.get("enabled", True),
             "columnIcon": group.get("columnIcon", ""),
+            "userPicker": bool(group.get("userPicker")),
             **({"icon": group["icon"]} if "icon" in group else {}),
             "options": [] if group.get("userPicker") else [
                 {

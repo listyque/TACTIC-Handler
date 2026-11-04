@@ -15,30 +15,40 @@ Frame.FrameView {
     property var naturalWidths: ({})
     implicitWidth: Object.values(naturalWidths).reduce((maximum, value) => Math.max(maximum, value), 0)
     implicitHeight: scene.height
-    function measure(part, item) {
-        Qt.callLater(function () {
-            if (!item)
-                return;
-            const height = part === "text" ? item.contentHeight : item.implicitHeight;
-            const natural = item.implicitWidth;
-            if (natural > 0 && naturalWidths[part] !== natural)
-                naturalWidths = Object.assign({}, naturalWidths, {
-                    [part]: natural
-                });
-            if (height > 0 && measured[part] !== height)
-                measured = Object.assign({}, measured, {
-                    [part]: height
-                });
-        });
+    readonly property var bodyFlags: ({
+            reply: !!model.replyTo?.messageId,
+            forward: !!model.forwardedFrom?.messageId,
+            previews: !!model.skeyPreviews?.length,
+            attachments: !!model.attachments?.length,
+            text: !!model.displayHtml,
+            reactions: !!model.reactions?.length
+        })
+    function updateScene() {
+        scene = UI.body(bodyFlags, width, measured);
     }
-    scene: UI.body({
-        reply: !!model.replyTo?.messageId,
-        forward: !!model.forwardedFrom?.messageId,
-        previews: !!model.skeyPreviews?.length,
-        attachments: !!model.attachments?.length,
-        text: !!model.displayHtml,
-        reactions: !!model.reactions?.length
-    }, width, measured)
+    onReadyChanged: if (ready)
+        updateScene()
+    onBodyFlagsChanged: if (ready)
+        updateScene()
+    onWidthChanged: if (ready)
+        updateScene()
+    function measure(part, item) {
+        if (!item)
+            return;
+        const natural = item.implicitWidth;
+        if (natural > 0 && naturalWidths[part] !== natural)
+            naturalWidths = Object.assign({}, naturalWidths, {
+                [part]: natural
+            });
+        const height = Math.ceil(part === "text" ? item.contentHeight : item.implicitHeight);
+        if (height > 0 && measured[part] !== height) {
+            measured = Object.assign({}, measured, {
+                [part]: height
+            });
+            if (ready)
+                updateScene();
+        }
+    }
     views: ({
             reply: replyPort,
             forward: forwardPort,
@@ -137,14 +147,17 @@ Frame.FrameView {
                 model: root.model.attachments
                 delegate: Messages.AttachmentCard {
                     id: attachmentCard
+                    required property var modelData
+                    readonly property string token: String(modelData.token || "")
                     objectName: "messageAttachmentCard-" + token
-                    required property string token
-                    required property int size
-                    required property bool hasWebPreview
                     width: imageAttachment ? messageAttachmentFlow.width : messageAttachmentFlow.cellWidth()
                     theme: root.theme
-                    webPreview: hasWebPreview
-                    sizeText: root.host.formatFileSize(size)
+                    title: String(modelData.title || "Attachment")
+                    extension: String(modelData.extension || "")
+                    previewUrl: String(modelData.previewUrl || "")
+                    local: !!modelData.local
+                    webPreview: !!modelData.hasWebPreview
+                    sizeText: root.host.formatFileSize(Number(modelData.size || 0))
                     animatePreview: false
                     onActivated: root.controller.attachment_action(token, "open")
                     onContextRequested: (localX, localY) => {

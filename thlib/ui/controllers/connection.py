@@ -488,8 +488,10 @@ class ConnectionMixin:
         self._clear_result_state()
         self._set_loading(False, self.tr("Project deactivated"))
         self.project_changed.emit("", "")
-        self.accent_changed.emit()
-        self.theme_style_changed.emit(self.theme_style)
+        if hasattr(self, 'accent_changed'):
+            self.accent_changed.emit()
+        if hasattr(self, 'theme_style_changed'):
+            self.theme_style_changed.emit(self.theme_style)
         self.project_state_changed.emit()
         self.section_state_changed.emit()
 
@@ -542,8 +544,10 @@ class ConnectionMixin:
         self.workspace_state.load_project(project)
         self.apply_cache_invalidation({code: ['reference', 'search', 'relations', 'tasks']})
         self.project_state_changed.emit()
-        self.accent_changed.emit()
-        self.theme_style_changed.emit(self.theme_style)
+        if hasattr(self, 'accent_changed'):
+            self.accent_changed.emit()
+        if hasattr(self, 'theme_style_changed'):
+            self.theme_style_changed.emit(self.theme_style)
     @Slot(str)
     def select_project(self, project_code: str) -> None:
         files = getattr(self, 'file_workspace', None)
@@ -604,7 +608,7 @@ class ConnectionMixin:
         )
         if cache_only and not loaded:
             return None
-        if not cache_only:
+        if not cache_only and getattr(self, 'is_stream_server', False):
             from thlib.ui.theme_catalog import read_project_theme
             project.plugin_theme = read_project_theme(project_code)
         entries = self.navigation_model.build_project_entries(
@@ -726,8 +730,10 @@ class ConnectionMixin:
             self._clear_result_state()
         self.project_state_changed.emit()
         self.section_state_changed.emit()
-        self.accent_changed.emit()
-        self.theme_style_changed.emit(self.theme_style)
+        if hasattr(self, 'accent_changed'):
+            self.accent_changed.emit()
+        if hasattr(self, 'theme_style_changed'):
+            self.theme_style_changed.emit(self.theme_style)
     @Slot(object)
     def _async_project_result(self, result) -> None:
         project_code, title, entries, project, request_id = result
@@ -761,6 +767,9 @@ class ConnectionMixin:
         self._notify(message)
     def _apply_selected_project(self, project_code, title, entries, project) -> None:
         previous_project_code = self._current_project_code
+        reuse_sessions = (
+            previous_project_code == project_code and bool(self._sessions)
+        )
         retained_layouts = self._persist_current_project_workspace()
         if previous_project_code != project_code:
             retained_layouts = {}
@@ -775,17 +784,6 @@ class ConnectionMixin:
         self._write_settings()
         self.workspace_state.load_project(project)
         self.navigation_model.replace(entries)
-        self.workspace_state.set_result_surfaces([])
-        self._dispose_all_tab_workspace_models()
-        self._sessions.clear()
-        self._current_section_key = ""
-        self.section_model.replace([])
-        self.workspace_state.set_tabs([])
-        self.workspace_model.clear()
-        self.project_changed.emit(project_code, title)
-        self.accent_changed.emit()
-        self.theme_style_changed.emit(self.theme_style)
-        self.project_state_changed.emit()
         links = {
             entry.key: entry for entry in entries
             if entry.entry_type == "link" and entry.available and entry.search_type
@@ -793,18 +791,82 @@ class ConnectionMixin:
         search_cache = self._load_search_cache(project_code)
         restored = [key for key in self._opened_section_keys(project_code) if key in links]
         saved_active = self._saved_active_section_key(project_code)
-        for key in restored:
-            entry = links[key]
-            section = self._create_section(entry.key, entry.title, entry.accent)
-            if key in search_cache:
-                self._restore_section_tabs(section, search_cache[key])
-            if key in retained_layouts:
-                self._restore_retained_workspace_layouts(
-                    section, retained_layouts[key]
-                )
+        if reuse_sessions:
+            for key in list(self._sessions):
+                if key not in restored:
+                    removed = self._sessions.pop(key)
+                    self._dispose_section_workspace_models(removed)
+            if self._current_section_key not in self._sessions:
+                self._current_section_key = ""
+            stypes = getattr(project, "stypes", None) or {}
+            for key in restored:
+                entry = links[key]
+                section = self._sessions.get(key)
+                if section is not None:
+                    section.title = entry.title
+                    section.accent = entry.accent or "#607d8b"
+                    section.search_type = entry.search_type
+                    section.search_view = str(entry.search_view or "")
+                    section.layout_preset = str(entry.layout_preset or "")
+                    stype = stypes.get(section.search_type)
+                    for tab in (*section.tabs, *section.closed_tabs):
+                        if stype is not None or tab.stype is not None:
+                            tab.stype = stype
+                        if tab.tab_kind == "base":
+                            tab.table_view = entry.table_view or "table"
+                            tab.layout_view = entry.layout_view or ""
+                    if key in retained_layouts:
+                        self._restore_retained_workspace_layouts(
+                            section, retained_layouts[key]
+                        )
+                    continue
+                section = self._create_section(entry.key, entry.title, entry.accent)
+                if key in search_cache:
+                    self._restore_section_tabs(section, search_cache[key])
+                if key in retained_layouts:
+                    self._restore_retained_workspace_layouts(
+                        section, retained_layouts[key]
+                    )
+            self._sessions = {
+                key: self._sessions[key]
+                for key in restored
+                if key in self._sessions
+            }
+            if not restored:
+                self.workspace_state.set_result_surfaces([])
+                self._current_section_key = ""
+                self.section_model.replace([])
+                self.workspace_state.set_tabs([])
+                self.workspace_model.clear()
+        else:
+            self.workspace_state.set_result_surfaces([])
+            self._dispose_all_tab_workspace_models()
+            self._sessions.clear()
+            self._current_section_key = ""
+            self.section_model.replace([])
+            self.workspace_state.set_tabs([])
+            self.workspace_model.clear()
+        self.project_changed.emit(project_code, title)
+        if hasattr(self, 'accent_changed'):
+            self.accent_changed.emit()
+        if hasattr(self, 'theme_style_changed'):
+            self.theme_style_changed.emit(self.theme_style)
+        self.project_state_changed.emit()
+        if not reuse_sessions:
+            for key in restored:
+                entry = links[key]
+                section = self._create_section(entry.key, entry.title, entry.accent)
+                if key in search_cache:
+                    self._restore_section_tabs(section, search_cache[key])
+                if key in retained_layouts:
+                    self._restore_retained_workspace_layouts(
+                        section, retained_layouts[key]
+                    )
         if search_cache:
             self._save_search_cache()
         if restored:
+            if reuse_sessions:
+                self._sync_section_model()
             self.activate_section(
                 saved_active if saved_active in restored else restored[0]
             )
@@ -1053,12 +1115,13 @@ class ConnectionMixin:
                 self._authenticate_task, login, password
             )
             self._authentication_worker = worker
+            worker.add_result_data(request_id)
             worker.result.connect(
-                lambda result: self._authentication_result_for(request_id, result),
+                self._async_authentication_result,
                 Qt.ConnectionType.QueuedConnection,
             )
             worker.error.connect(
-                lambda error: self._authentication_error_result_for(request_id, error),
+                self._async_authentication_error,
                 Qt.ConnectionType.QueuedConnection,
             )
             worker.start()
@@ -1067,6 +1130,21 @@ class ConnectionMixin:
                 "exception": error,
                 "stacktrace": traceback.format_exc(),
             }, None))
+
+    @Slot(object)
+    def _async_authentication_result(self, payload) -> None:
+        *result, request_id = payload
+        self._authentication_result_for(request_id, tuple(result))
+
+    @Slot(object)
+    def _async_authentication_error(self, error) -> None:
+        worker = error[1] if isinstance(error, tuple) and len(error) > 1 else None
+        request_id = (
+            worker.get_result_data()
+            if worker is not None
+            else self._authentication_request_id
+        )
+        self._authentication_error_result_for(request_id, error)
 
     def _authentication_result_for(self, request_id: str, result) -> None:
         if request_id != self._authentication_request_id:

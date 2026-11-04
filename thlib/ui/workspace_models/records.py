@@ -150,10 +150,14 @@ class RecordListModel(QAbstractListModel):
             return False
         # Reverse edit order keeps the old indices valid. The common prepend
         # and append paths emit one insertion, not dataChanged for every row.
-        edits = SequenceMatcher(None, old_keys, new_keys, autojunk=False).get_opcodes()
+        edits = [
+            edit
+            for edit in SequenceMatcher(None, old_keys, new_keys, autojunk=False).get_opcodes()
+            if edit[0] != "equal"
+        ]
+        if len(edits) > 8:
+            return False
         for operation, start, end, new_start, new_end in reversed(edits):
-            if operation == "equal":
-                continue
             if end > start:
                 self.beginRemoveRows(QModelIndex(), start, end - 1)
                 del self._records[start:end]

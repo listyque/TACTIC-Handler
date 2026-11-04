@@ -44,8 +44,33 @@ def _format(foreground=None, background=None, *, bold=False, italic=False):
     return value
 
 
+def _detect_source_language(source, hint="auto"):
+    text = str(source or "")
+    hint_value = str(hint or "auto").strip().casefold()
+    if hint_value in {"naming", "expression"}:
+        return "python"
+    if hint_value in {"xml", "html"}:
+        return "xml"
+    if hint_value in {"javascript", "js", "server_js", "json"}:
+        return "javascript"
+    if hint_value in {"python", "py", "python3"}:
+        return "python"
+    if re.match(r"^\s*<", text):
+        return "xml"
+    if re.search(r"\{(?:project|search_type|sobject|parent|snapshot|file|version|ext|basefile|@)", text):
+        return "python"
+    if re.match(r"^\s*[\[{]", text):
+        return "javascript"
+    if re.search(
+        r"(?:^|\n)\s*(?:function|const|let|var|export|import\s+.*from)\b",
+        text,
+    ):
+        return "javascript"
+    return "python"
+
+
 class PythonSyntaxHighlighter(QSyntaxHighlighter):
-    """Theme-aware Python highlighter with search and occurrence overlays."""
+    """Theme-aware code highlighter (Python, XML, JS/JSON) with overlays."""
 
     def __init__(self, document, colors=None, *, code_blocks_only=False):
         super().__init__(document)
@@ -55,6 +80,7 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
         self._search = ""
         self._search_options = {}
         self._module_names = ()
+        self._detected_language = "python"
         self._build_rules()
 
     def _color(self, name, fallback):
@@ -96,8 +122,16 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
                 _format(self._color("definition", "#ce8750"), bold=True),
             ),
             (
-                QRegularExpression(r"\b(?:self|cls)\b"),
+                QRegularExpression(r"\b(?:self|cls|project|search_type|sobject|parent|snapshot|file)\b"),
                 _format(self._color("self", "#78a6c4"), italic=True),
+            ),
+            (
+                QRegularExpression(r"\b(?:code|name|table_name|context|process|version|ext|basefile|pipeline_code|s_status)\b"),
+                _format(self._color("type", "#a06bb4")),
+            ),
+            (
+                QRegularExpression(r"[{}]"),
+                _format(self._color("keyword", "#d5bd51"), bold=True),
             ),
             (
                 QRegularExpression(r"(?<!\w)(?:[furbFURB]{0,2})'(?:\\.|[^'\\])*'"),
@@ -112,9 +146,90 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
                 _format(self._color("comment", "#52a86e"), italic=True),
             ),
         ]
+        self._xml_rules = [
+            (
+                QRegularExpression(r"<\/?[A-Za-z_][\w:.-]*|<\?xml|\?>|\/?>"),
+                _format(self._color("keyword", "#d5bd51"), bold=True),
+            ),
+            (
+                QRegularExpression(r"[A-Za-z_][\w:.-]*(?=\s*=)"),
+                _format(self._color("type", "#a06bb4")),
+            ),
+            (
+                QRegularExpression(r'"[^"\n]*"|\'[^\'\n]*\''),
+                _format(self._color("string", "#52a86e")),
+            ),
+            (
+                QRegularExpression(r"&(?:#\d+|#x[0-9a-fA-F]+|\w+);"),
+                _format(self._color("number", "#56a7b3")),
+            ),
+        ]
+        js_keywords = (
+            "async await break case catch class const continue debugger "
+            "default delete do else export extends finally for function if "
+            "import in instanceof let new of return static super switch "
+            "this throw try typeof var void while with yield true false "
+            "null undefined"
+        ).split()
+        js_builtins = (
+            "Array Boolean Date Error JSON Map Math Number Object Promise "
+            "RegExp Set String Symbol console document window context "
+            "project searchType searchKeys rpc refresh spt ServerStub"
+        ).split()
+        self._js_rules = [
+            (
+                QRegularExpression(r"\b(?:" + "|".join(js_keywords) + r")\b"),
+                _format(self._color("keyword", "#d5bd51"), bold=True),
+            ),
+            (
+                QRegularExpression(r"\b(?:" + "|".join(js_builtins) + r")\b"),
+                _format(self._color("type", "#a06bb4")),
+            ),
+            (
+                QRegularExpression(
+                    r"\b(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|"
+                    r"(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\b"
+                ),
+                _format(self._color("number", "#56a7b3")),
+            ),
+            (
+                QRegularExpression(r"\b[A-Za-z_$][\w$]*(?=\s*\()"),
+                _format(self._color("function", "#56a7b3")),
+            ),
+            (
+                QRegularExpression(r"\b(?:function|class)\s+\K[A-Za-z_$][\w$]*"),
+                _format(self._color("definition", "#ce8750"), bold=True),
+            ),
+            (
+                QRegularExpression(r"\b(?:this|super)\b"),
+                _format(self._color("self", "#78a6c4"), italic=True),
+            ),
+            (
+                QRegularExpression(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|`(?:\\.|[^`\\])*`"),
+                _format(self._color("string", "#52a86e")),
+            ),
+            (
+                QRegularExpression(r'"(?:\\.|[^"\\])*"(?=\s*:)'),
+                _format(self._color("type", "#a06bb4")),
+            ),
+            (
+                QRegularExpression(r"//[^\n]*"),
+                _format(self._color("comment", "#52a86e"), italic=True),
+            ),
+        ]
         self._triple_single = QRegularExpression("'''")
         self._triple_double = QRegularExpression('"""')
+        self._xml_comment_start = QRegularExpression(r"<!--")
+        self._xml_comment_end = QRegularExpression(r"-->")
+        self._xml_cdata_start = QRegularExpression(r"<!\[CDATA\[")
+        self._xml_cdata_end = QRegularExpression(r"\]\]>")
+        self._js_comment_start = QRegularExpression(r"/\*")
+        self._js_comment_end = QRegularExpression(r"\*/")
         self._string_format = _format(self._color("string", "#52a86e"))
+        self._comment_format = _format(
+            self._color("comment", "#52a86e"), italic=True
+        )
+        self._decorator_format = _format(self._color("decorator", "#ce8750"))
         self._module_format = _format(
             self._color("module", "#78a6c4"), bold=True
         )
@@ -176,6 +291,35 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
             start = next_match.capturedStart() if next_match.hasMatch() else -1
             continuing = False
 
+    def _highlight_span(
+        self, text, start_delim, end_delim, state, text_format
+    ):
+        start = 0
+        continuing = self.previousBlockState() == state
+        start_len = 0
+        if not continuing:
+            start_match = start_delim.match(text)
+            start = start_match.capturedStart() if start_match.hasMatch() else -1
+            start_len = start_match.capturedLength() if start_match.hasMatch() else 0
+        while start >= 0:
+            end_match = end_delim.match(
+                text, start if continuing else start + start_len
+            )
+            if not end_match.hasMatch():
+                self.setCurrentBlockState(state)
+                self.setFormat(start, len(text) - start, text_format)
+                return
+            length = (
+                end_match.capturedStart()
+                - start
+                + end_match.capturedLength()
+            )
+            self.setFormat(start, length, text_format)
+            next_match = start_delim.match(text, start + length)
+            start = next_match.capturedStart() if next_match.hasMatch() else -1
+            start_len = next_match.capturedLength() if next_match.hasMatch() else 0
+            continuing = False
+
     def highlightBlock(self, text):  # noqa: N802 - Qt virtual method
         if self.currentBlock().blockNumber() == 0:
             if self._code_blocks_only:
@@ -195,36 +339,81 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
                     )
                     block = block.next()
                 source = "\n".join(lines)
+                self._detected_language = "python"
+                self._module_names = _imported_display_names(source)
             else:
                 source = self.document().toPlainText()
-            self._module_names = _imported_display_names(source)
+                self._detected_language = _detect_source_language(
+                    source, self._colors.get("syntax", "auto")
+                )
+                self._module_names = (
+                    _imported_display_names(source)
+                    if self._detected_language == "python"
+                    else ()
+                )
+        block_lang = self._detected_language
         if self._code_blocks_only:
             formatting = self.currentBlock().blockFormat()
             language = str(formatting.property(
                 QTextFormat.Property.BlockCodeLanguage
             ) or "").casefold()
-            if (
-                not formatting.hasProperty(
-                    QTextFormat.Property.BlockCodeFence
-                )
-                or language not in {"", "py", "python", "python3"}
-            ):
+            if not formatting.hasProperty(QTextFormat.Property.BlockCodeFence):
                 self.setCurrentBlockState(0)
                 return
-        if self._module_names:
-            modules = QRegularExpression(
-                r"\b(?:" + "|".join(
-                    re.escape(name) for name in self._module_names
-                ) + r")\b"
-            )
-            for start, length in self._matches(modules, text):
-                self.setFormat(start, length, self._module_format)
-        for pattern, text_format in self._rules:
-            for start, length in self._matches(pattern, text):
-                self.setFormat(start, length, text_format)
+            if language in {"xml", "html"}:
+                block_lang = "xml"
+            elif language in {"js", "javascript", "json", "ts", "typescript"}:
+                block_lang = "javascript"
+            elif language in {"", "py", "python", "python3"}:
+                block_lang = "python"
+            else:
+                self.setCurrentBlockState(0)
+                return
+
         self.setCurrentBlockState(0)
-        self._highlight_multiline(text, self._triple_single, 1)
-        self._highlight_multiline(text, self._triple_double, 2)
+        if block_lang == "xml":
+            for pattern, text_format in self._xml_rules:
+                for start, length in self._matches(pattern, text):
+                    self.setFormat(start, length, text_format)
+            self._highlight_span(
+                text,
+                self._xml_cdata_start,
+                self._xml_cdata_end,
+                4,
+                self._decorator_format,
+            )
+            self._highlight_span(
+                text,
+                self._xml_comment_start,
+                self._xml_comment_end,
+                3,
+                self._comment_format,
+            )
+        elif block_lang == "javascript":
+            for pattern, text_format in self._js_rules:
+                for start, length in self._matches(pattern, text):
+                    self.setFormat(start, length, text_format)
+            self._highlight_span(
+                text,
+                self._js_comment_start,
+                self._js_comment_end,
+                5,
+                self._comment_format,
+            )
+        else:
+            if self._module_names:
+                modules = QRegularExpression(
+                    r"\b(?:" + "|".join(
+                        re.escape(name) for name in self._module_names
+                    ) + r")\b"
+                )
+                for start, length in self._matches(modules, text):
+                    self.setFormat(start, length, self._module_format)
+            for pattern, text_format in self._rules:
+                for start, length in self._matches(pattern, text):
+                    self.setFormat(start, length, text_format)
+            self._highlight_multiline(text, self._triple_single, 1)
+            self._highlight_multiline(text, self._triple_double, 2)
 
         if self._selected_word:
             occurrence = QRegularExpression(
@@ -558,7 +747,50 @@ def _completion_record(name, kind, signature, doc, start, end):
 
 
 def document_symbols(source):
-    tree = _safe_tree(str(source or ""))
+    text = str(source or "")
+    lang = _detect_source_language(text)
+    if lang == "xml":
+        result = []
+        pattern = re.compile(
+            r"^[ \t]*<([A-Za-z_][\w:.-]*)"
+            r"(?:[^>]*?\b(?:name|title|id|key|view)=[\"']([^\"']+)[\"'])?",
+            re.MULTILINE,
+        )
+        for match in pattern.finditer(text):
+            tag = match.group(1)
+            attr = match.group(2)
+            line = text[:match.start()].count("\n") + 1
+            label = f"{tag} ({attr})" if attr else tag
+            result.append({
+                "name": label,
+                "qualifiedName": label,
+                "kind": "class" if tag in {"config", "view", "edit", "definition"} else "function",
+                "detail": f"<{tag}>",
+                "line": line,
+                "endLine": line,
+                "depth": 0 if tag == "config" else 1,
+            })
+        return result
+    if lang == "javascript":
+        result = []
+        pattern = re.compile(
+            r"^[ \t]*(?:(?:export|async)[ \t]+)*(function|class)[ \t]+([A-Za-z_$][\w$]*)",
+            re.MULTILINE,
+        )
+        for match in pattern.finditer(text):
+            kind, name = match.group(1), match.group(2)
+            line = text[:match.start()].count("\n") + 1
+            result.append({
+                "name": name,
+                "qualifiedName": name,
+                "kind": kind,
+                "detail": kind,
+                "line": line,
+                "endLine": line,
+                "depth": 0,
+            })
+        return result
+    tree = _safe_tree(text)
     if not tree:
         return []
     result = []
@@ -594,6 +826,50 @@ def completion_items(source, cursor_position, manual=False):
     source = str(source or "")
     cursor_position = max(0, min(int(cursor_position), len(source)))
     before = source[:cursor_position]
+    lang = _detect_source_language(source)
+    if lang in {"xml", "javascript"}:
+        match = re.search(r"(?P<prefix>[A-Za-z_$][\w$:-]*)?\Z", before)
+        prefix = (match.group("prefix") or "") if match else ""
+        if not manual and len(prefix) < 2:
+            return []
+        start = match.start("prefix") if match and match.start("prefix") >= 0 else cursor_position
+        base_words = (
+            (
+                "config element display action rule view edit definition "
+                "name title width class access project key search_type "
+                "process icon label expr path true false allow deny"
+            ).split()
+            if lang == "xml"
+            else (
+                "async await const let function return if else for while "
+                "class import export new try catch throw Promise JSON "
+                "console context project searchType searchKeys rpc refresh "
+                "spt ServerStub true false null"
+            ).split()
+        )
+        doc_words = re.findall(r"\b[A-Za-z_][\w$:-]*\b", source)
+        seen = set()
+        values = []
+        for word in [*base_words, *doc_words]:
+            if word in seen or word == prefix:
+                continue
+            if prefix and not word.casefold().startswith(prefix.casefold()):
+                continue
+            seen.add(word)
+            values.append({
+                "label": word,
+                "insertText": word,
+                "cursorOffset": 0,
+                "kind": "keyword" if word in base_words else "variable",
+                "detail": "XML" if lang == "xml" else "JavaScript",
+                "start": start,
+                "end": cursor_position,
+            })
+        values.sort(key=lambda item: (
+            not item["label"].casefold().startswith(prefix.casefold()),
+            item["label"].casefold(),
+        ))
+        return values[:200]
     match = re.search(
         r"(?P<base>[A-Za-z_]\w*(?:\([^()\n]*\))?"
         r"(?:\.[A-Za-z_]\w*(?:\([^()\n]*\))?)*)\."
@@ -703,25 +979,56 @@ def edit_command(action, text, start, end):
         line_end = len(text)
     block = text[line_start:line_end]
     lines = block.split("\n")
+    lang = _detect_source_language(text)
 
     if action == "toggle_comment":
         nonempty = [line for line in lines if line.strip()]
-        remove = bool(nonempty) and all(
-            line.lstrip().startswith("#") for line in nonempty
-        )
-        changed = []
-        for line in lines:
-            indent = len(line) - len(line.lstrip(" \t"))
-            if not line.strip():
-                changed.append(line)
-            elif remove:
-                offset = indent + (1 if line[indent:].startswith("#") else 0)
-                if offset < len(line) and line[offset] == " ":
-                    offset += 1
-                changed.append(line[:indent] + line[offset:])
-            else:
-                changed.append(line[:indent] + "# " + line[indent:])
-        replacement = "\n".join(changed)
+        if lang == "xml":
+            remove = bool(nonempty) and all(
+                line.strip().startswith("<!--") and line.strip().endswith("-->")
+                for line in nonempty
+            )
+            changed = []
+            for line in lines:
+                if not line.strip():
+                    changed.append(line)
+                elif remove:
+                    changed.append(
+                        re.sub(
+                            r"^(\s*)<!--\s?(.*?)\s?-->(\s*)$",
+                            r"\1\2\3",
+                            line,
+                        )
+                    )
+                else:
+                    changed.append(
+                        re.sub(
+                            r"^(\s*)(.*?)(\s*)$",
+                            r"\1<!-- \2 -->\3",
+                            line,
+                        )
+                    )
+            replacement = "\n".join(changed)
+        else:
+            marker = "//" if lang == "javascript" else "#"
+            remove = bool(nonempty) and all(
+                line.lstrip().startswith(marker) for line in nonempty
+            )
+            changed = []
+            for line in lines:
+                indent = len(line) - len(line.lstrip(" \t"))
+                if not line.strip():
+                    changed.append(line)
+                elif remove:
+                    offset = indent + (
+                        len(marker) if line[indent:].startswith(marker) else 0
+                    )
+                    if offset < len(line) and line[offset] == " ":
+                        offset += 1
+                    changed.append(line[:indent] + line[offset:])
+                else:
+                    changed.append(line[:indent] + marker + " " + line[indent:])
+            replacement = "\n".join(changed)
     elif action in {"indent", "unindent"}:
         if action == "indent":
             replacement = "\n".join("    " + line for line in lines)

@@ -42,6 +42,22 @@ export const controlKinds = Object.freeze([
     'FileField'
 ]);
 
+const controlKindSet = new Set(controlKinds);
+const BOUNDS_KEYS = ['x', 'y', 'width', 'height'];
+const RESERVED_KEYS = ['kind', 'id', 'x', 'y', 'width', 'height', 'fontSize'];
+const ACTION_KEYS = [
+    'action',
+    'pressAction',
+    'doubleAction',
+    'contextAction',
+    'activateAction',
+    'commitAction',
+    'cancelAction',
+    'dropAction',
+    'dragStartAction',
+    'acceptAction'
+];
+
 export function rect(x, y, width, height) {
     return {
         x,
@@ -85,12 +101,7 @@ export function label(id, bounds, text, extra) {
         'Label',
         id,
         bounds,
-        Object.assign(
-            {
-                text
-            },
-            extra || {}
-        )
+        extra ? Object.assign({ text }, extra) : { text }
     );
 }
 
@@ -104,7 +115,9 @@ export function button(id, bounds, text, icon, action, enabled, extra) {
         'Button',
         id,
         bounds,
-        Object.assign({ text, icon, action, enabled }, extra || {})
+        extra
+            ? Object.assign({ text, icon, action, enabled }, extra)
+            : { text, icon, action, enabled }
     );
 }
 
@@ -117,74 +130,83 @@ export function button(id, bounds, text, icon, action, enabled, extra) {
  * @returns {FrameNode}
  */
 export function node(kind, id, rect, properties) {
-    if (controlKinds.indexOf(kind) < 0)
+    if (!controlKindSet.has(kind))
         throw Error('Unsupported Tactic Frame control: ' + kind);
     if (typeof id !== 'string' || !id.trim())
         throw Error('Missing Frame control id');
-    for (const key of ['x', 'y', 'width', 'height']) {
-        if (typeof rect[key] !== 'number' || !isFinite(rect[key]))
-            throw Error('Invalid frame: ' + id + '..' + key);
+    if (
+        !rect ||
+        typeof rect.x !== 'number' ||
+        !isFinite(rect.x) ||
+        typeof rect.y !== 'number' ||
+        !isFinite(rect.y) ||
+        typeof rect.width !== 'number' ||
+        !isFinite(rect.width) ||
+        typeof rect.height !== 'number' ||
+        !isFinite(rect.height)
+    ) {
+        for (let i = 0; i < BOUNDS_KEYS.length; i++) {
+            const key = BOUNDS_KEYS[i];
+            if (!rect || typeof rect[key] !== 'number' || !isFinite(rect[key]))
+                throw Error('Invalid frame: ' + id + '..' + key);
+        }
     }
     if (rect.width < 0 || rect.height < 0) throw Error('Negative frame: ' + id);
-    const options = Object.assign(
-        kind === 'List'
-            ? {
-                  fields: []
-              }
-            : {},
-        properties || {}
-    );
-    for (const key of ['kind', 'id', 'x', 'y', 'width', 'height', 'fontSize'])
+    const options = properties || {};
+    for (let i = 0; i < RESERVED_KEYS.length; i++) {
+        const key = RESERVED_KEYS[i];
         if (Object.prototype.hasOwnProperty.call(options, key))
             throw Error('Reserved Frame property: ' + id + '.' + key);
-    if (options.titlebar && options.children)
-        options.children = options.children.map((child) =>
+    }
+    const fontRole = options.fontRole === undefined ? 'body' : options.fontRole;
+    if (!Object.prototype.hasOwnProperty.call(textStyles, fontRole))
+        throw Error('Unknown Frame font role: ' + id + '.' + fontRole);
+    const isButton = kind === 'Button';
+    const color =
+        options.enabled === false &&
+        (isButton || kind === 'Field' || kind === 'Area' || kind === 'Choice')
+            ? 'disabledText'
+            : isButton && options.destructive && !options.highlighted
+              ? 'error'
+              : isButton &&
+                  (options.highlighted || (options.radio && options.selected))
+                ? 'selectedText'
+                : isButton && options.radio
+                  ? 'secondaryText'
+                  : 'primaryText';
+    const result = {
+        kind,
+        id,
+        text: '',
+        color,
+        fontRole,
+        fontSize: textStyles[fontRole],
+        weight: isButton
+            ? options.radio && !options.selected
+                ? 500
+                : 600
+            : 400,
+        enabled: true,
+        opacity: 1,
+        children: [],
+        action: null,
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height
+    };
+    if (kind === 'List') result.fields = [];
+    if (properties) Object.assign(result, properties);
+    if (result.titlebar && result.children)
+        result.children = result.children.map((child) =>
             child.kind === 'Button'
                 ? Object.assign({}, child, { round: true })
                 : child
         );
-    const fontRole = options.fontRole === undefined ? 'body' : options.fontRole;
-    if (!Object.prototype.hasOwnProperty.call(textStyles, fontRole))
-        throw Error('Unknown Frame font role: ' + id + '.' + fontRole);
-    const button = kind === 'Button';
-    const color =
-        options.enabled === false &&
-        ['Button', 'Field', 'Area', 'Choice'].indexOf(kind) >= 0
-            ? 'disabledText'
-            : button && options.destructive && !options.highlighted
-              ? 'error'
-              : button &&
-                  (options.highlighted || (options.radio && options.selected))
-                ? 'selectedText'
-                : button && options.radio
-                  ? 'secondaryText'
-                  : 'primaryText';
-    return Object.assign(
-        {
-            kind,
-            id,
-            text: '',
-            color,
-            fontRole,
-            fontSize: textStyles[fontRole],
-            weight: button
-                ? options.radio && !options.selected
-                    ? 500
-                    : 600
-                : 400,
-            enabled: true,
-            opacity: 1,
-            children: [],
-            action: null
-        },
-        rect,
-        options,
-        {
-            fontRole,
-            fontSize: textStyles[fontRole],
-            text: options.text == null ? '' : String(options.text)
-        }
-    );
+    result.fontRole = fontRole;
+    result.fontSize = textStyles[fontRole];
+    result.text = options.text == null ? '' : String(options.text);
+    return result;
 }
 
 /**
@@ -199,7 +221,7 @@ export function validateScene(scene, models, views) {
     const ids = new Set();
     for (let index = 0; index < scene.nodes.length; index++) {
         const value = scene.nodes[index];
-        if (!value || controlKinds.indexOf(value.kind) < 0)
+        if (!value || !controlKindSet.has(value.kind))
             throw Error('Unsupported Frame scene control');
         if (!value.id || ids.has(value.id))
             throw Error('Duplicate/missing Frame id: ' + value.id);
@@ -214,30 +236,38 @@ export function validateScene(scene, models, views) {
             value.fontSize !== textStyles[value.fontRole]
         )
             throw Error('Invalid Frame typography: ' + value.id);
-        for (const key of ['x', 'y', 'width', 'height'])
-            if (
-                typeof value[key] !== 'number' ||
-                !isFinite(value[key]) ||
-                ((key === 'width' || key === 'height') && value[key] < 0)
-            )
-                throw Error('Invalid Frame bounds: ' + value.id + '.' + key);
-        for (const key of [
-            'action',
-            'pressAction',
-            'doubleAction',
-            'contextAction',
-            'activateAction',
-            'commitAction',
-            'cancelAction',
-            'dropAction',
-            'dragStartAction',
-            'acceptAction'
-        ])
+        if (
+            typeof value.x !== 'number' ||
+            !isFinite(value.x) ||
+            typeof value.y !== 'number' ||
+            !isFinite(value.y) ||
+            typeof value.width !== 'number' ||
+            !isFinite(value.width) ||
+            value.width < 0 ||
+            typeof value.height !== 'number' ||
+            !isFinite(value.height) ||
+            value.height < 0
+        ) {
+            for (let i = 0; i < BOUNDS_KEYS.length; i++) {
+                const key = BOUNDS_KEYS[i];
+                if (
+                    typeof value[key] !== 'number' ||
+                    !isFinite(value[key]) ||
+                    ((key === 'width' || key === 'height') && value[key] < 0)
+                )
+                    throw Error(
+                        'Invalid Frame bounds: ' + value.id + '.' + key
+                    );
+            }
+        }
+        for (let i = 0; i < ACTION_KEYS.length; i++) {
+            const key = ACTION_KEYS[i];
             if (
                 value[key] != null &&
                 (typeof value[key].type !== 'string' || !value[key].type)
             )
                 throw Error('Invalid Frame action: ' + value.id + '.' + key);
+        }
         if (value.kind === 'List' || value.kind === 'Grid') {
             if (
                 typeof value.source !== 'string' ||
@@ -455,4 +485,39 @@ export function virtualRange(count, rowHeight, viewport, scroll, overscan) {
         last,
         height: count * rowHeight
     };
+}
+
+let nextCacheId = 1;
+const viewCaches = new Map();
+
+export function allocCache() {
+    const id = nextCacheId++;
+    viewCaches.set(id, {});
+    return id;
+}
+
+export function freeCache(id) {
+    viewCaches.delete(id);
+}
+
+export function getCache(id) {
+    return viewCaches.get(id) || {};
+}
+
+export function setCache(id, cache) {
+    viewCaches.set(id, cache);
+}
+
+export function setCachedNode(id, key, value) {
+    let cache = viewCaches.get(id);
+    if (!cache) {
+        cache = {};
+        viewCaches.set(id, cache);
+    }
+    cache[key] = value;
+}
+
+export function getCachedNode(id, key) {
+    const cache = viewCaches.get(id);
+    return cache ? cache[key] : undefined;
 }

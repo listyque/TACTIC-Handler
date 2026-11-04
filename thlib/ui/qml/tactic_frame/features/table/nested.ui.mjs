@@ -12,7 +12,6 @@ function tableRowHeight(model) {
 // Use the owner's viewport budget without tying row geometry to scroll position.
 export function extent(state = {}, width = 0, availableHeight = height) {
     const model = Object.assign({}, state.scope, state);
-    if (model.busy && !model.loaded && !model.rows?.length) return height;
     const inner = Math.max(0, width);
     const chrome =
         toolbarHeight(model) +
@@ -20,11 +19,30 @@ export function extent(state = {}, width = 0, availableHeight = height) {
         40 +
         (model.gallery
             ? 0
-            : metrics.header + (model.selected?.length ? 36 : 0));
-    const content = rows(model, inner, availableHeight).reduce(
-        (sum, row) => sum + row.extent,
-        0
-    );
+            : metrics.header +
+              (model.selected?.length ? 36 : 0) +
+              (model.dirtyTaskCount ? 44 : 0));
+    const expected =
+        !model.loaded && !model.rows?.length
+            ? Math.max(
+                  1,
+                  Math.min(
+                      50,
+                      Number(
+                          String(model.expectedRows ?? model.text ?? '').match(
+                              /\d+/
+                          )?.[0]
+                      ) || 1
+                  )
+              )
+            : 0;
+    const content = expected
+        ? expected *
+          (model.gallery ? model.gallery.scale + 64 : tableRowHeight(model))
+        : rows(model, inner, availableHeight).reduce(
+              (sum, row) => sum + row.extent,
+              0
+          );
     return Math.max(
         chrome + tableRowHeight(model),
         Math.min(availableHeight, chrome + content)

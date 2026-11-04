@@ -149,7 +149,11 @@ class ViewStateMixin:
         )
         layout = []
         for group in groups:
-            record = {"key": group["key"], "enabled": group["enabled"]}
+            record = {
+                "key": group["key"],
+                "enabled": group["enabled"],
+                **({"icon": group["icon"]} if "icon" in group else {}),
+            }
             options = group["options"]
             enabled = [option["key"] for option in options
                        if option.get("enabled", True)]

@@ -398,18 +398,20 @@ class Inst(object):
 
     def __getattr__(self, name):
         # Legacy UI pools are constructed only when a UI consumer asks for one.
-        counts = configured_thread_counts()
-        sizes = {
-            'server_pool': counts['server'],
-            'commit_pool': counts['server'],
-            'local_pool': counts['local'],
-        }
-        if name not in sizes:
+        if name not in ('server_pool', 'commit_pool', 'local_pool'):
             raise AttributeError(name)
         with self._pool_lock:
             if name not in self.__dict__:
                 from thlib.pool import ThreadsPool
-                self.__dict__[name] = ThreadsPool(max_threads=sizes[name])
+                counts = configured_thread_counts()
+                sizes = {
+                    'server_pool': counts['server'],
+                    'commit_pool': counts['server'],
+                    'local_pool': counts['local'],
+                }
+                for pool_name, pool_size in sizes.items():
+                    if pool_name not in self.__dict__:
+                        self.__dict__[pool_name] = ThreadsPool(max_threads=pool_size)
             return self.__dict__[name]
 
     def set_thread_counts(self, server, local):
@@ -827,7 +829,6 @@ class Env(object):
         if not self.defaults:
             # if default is not exists, so generate new empty config
             self.defaults = self.get_default_preset()
-            self.save_defaults(True)
 
     def load_current_preset(self, preserve_values=False):
         preserved = None
@@ -1327,16 +1328,23 @@ env_tactic = Tactic()
 
 class Controls(object):
     def __init__(self):
+        self._path = None
         self.server = None
         self.project = None
         self.checkin = None
         self.checkout = None
         self.checkin_out = None
         self.checkin_out_projects = None
-        self.checkin = None
         self.maya_scene = None
 
+    def _ensure_path(self):
+        current = env_mode.get_current_path()
+        if self._path != current:
+            self.reset()
+            self._path = current
+
     def reset(self):
+        self._path = None
         self.server = None
         self.project = None
         self.checkin = None
@@ -1346,30 +1354,31 @@ class Controls(object):
         self.maya_scene = None
 
     def get_server(self):
-        if self.server:
-            return self.server
-        else:
-            self.server = env_read_config(filename='server', unique_id='ui_conf', long_abs_path=True)
-            return self.server
+        self._ensure_path()
+        if self.server is None:
+            self.server = env_read_config(filename='server', unique_id='ui_conf', long_abs_path=True) or {}
+        return self.server
 
     def set_server(self, server):
+        self._path = env_mode.get_current_path()
         self.server = server
         env_write_config(server, 'server', unique_id='ui_conf', long_abs_path=True)
 
     def get_project(self):
-        if self.project:
-            return self.project
-        else:
-            self.project = env_read_config(filename='project', unique_id='ui_conf', long_abs_path=True)
-            return self.project
+        self._ensure_path()
+        if self.project is None:
+            self.project = env_read_config(filename='project', unique_id='ui_conf', long_abs_path=True) or {}
+        return self.project
 
     def set_project(self, project):
+        self._path = env_mode.get_current_path()
         self.project = project
         env_write_config(project, 'project', unique_id='ui_conf', long_abs_path=True)
 
     def get_checkin(self):
-        if not self.checkin:
-            self.checkin = env_read_config(filename='checkin', unique_id='ui_conf', long_abs_path=True)
+        self._ensure_path()
+        if self.checkin is None:
+            self.checkin = env_read_config(filename='checkin', unique_id='ui_conf', long_abs_path=True) or {}
         if not env_server.is_team_local_repository():
             return self.checkin
 
@@ -1397,29 +1406,29 @@ class Controls(object):
         return config
 
     def set_checkin(self, checkin):
-
+        self._path = env_mode.get_current_path()
         self.checkin = checkin
         env_write_config(filename='checkin', unique_id='ui_conf', obj=checkin, long_abs_path=True)
 
     def get_checkin_out(self):
-        if self.checkin_out:
-            return self.checkin_out
-        else:
-            self.checkin_out = env_read_config(filename='checkin_out', unique_id='ui_conf', long_abs_path=True)
-            return self.checkin_out
+        self._ensure_path()
+        if self.checkin_out is None:
+            self.checkin_out = env_read_config(filename='checkin_out', unique_id='ui_conf', long_abs_path=True) or {}
+        return self.checkin_out
 
     def set_checkin_out(self, checkin_out):
+        self._path = env_mode.get_current_path()
         self.checkin_out = checkin_out
         env_write_config(filename='checkin_out', unique_id='ui_conf', obj=checkin_out, long_abs_path=True)
 
     def get_checkin_out_projects(self):
-        if self.checkin_out_projects:
-            return self.checkin_out_projects
-        else:
-            self.checkin_out_projects = env_read_config(filename='checkin_out_projects', unique_id='ui_conf', long_abs_path=True)
-            return self.checkin_out_projects
+        self._ensure_path()
+        if self.checkin_out_projects is None:
+            self.checkin_out_projects = env_read_config(filename='checkin_out_projects', unique_id='ui_conf', long_abs_path=True) or {}
+        return self.checkin_out_projects
 
     def set_checkin_out_projects(self, checkin_out_projects, persist=True):
+        self._path = env_mode.get_current_path()
         self.checkin_out_projects = checkin_out_projects
         if persist:
             env_write_config(filename='checkin_out_projects', unique_id='ui_conf', obj=checkin_out_projects, long_abs_path=True)

@@ -321,95 +321,97 @@ export function describe(model, ui, width, height, language) {
     const btn = (id, r, text, icon, action, enabled = clean, extra = {}) =>
         button(id, r, tr(text), icon, action, enabled, extra);
     if (nav) {
-        if (!ui.collapsed)
-            nodes.push(
+        const catalogueChildren = [];
+        if (!ui.collapsed) {
+            catalogueChildren.push(
                 label(
                     'pluginCatalogueCaption',
-                    rect(0, 0, nav - 42, 34),
+                    rect(12, 10, Math.max(0, nav - 62), 34),
                     tr('Plugin catalogue'),
                     { weight: 600 }
+                ),
+                btn('pluginNew', rect(12, 52, nav - 24, 36), 'New', 'add', {
+                    type: 'new'
+                }),
+                btn(
+                    'pluginInstall',
+                    rect(12, 96, nav - 24, 36),
+                    'Install a package',
+                    'upload',
+                    { type: 'install' },
+                    clean,
+                    { iconOnly: false }
+                ),
+                node('Field', 'pluginSearch', rect(12, 144, nav - 24, 36), {
+                    text: ui.query,
+                    placeholder: tr('Search plugins'),
+                    action: { type: 'query' },
+                    clearable: true
+                }),
+                node(
+                    'CheckBox',
+                    'pluginActiveOnly',
+                    rect(12, 188, nav - 24, 36),
+                    {
+                        text: tr('Active in this project'),
+                        checked: ui.activeOnly,
+                        action: { type: 'activeOnly' }
+                    }
+                ),
+                node(
+                    'List',
+                    'pluginCatalogue',
+                    rect(12, 232, nav - 24, Math.max(0, height - 244)),
+                    {
+                        source: 'plugins',
+                        keyField: 'identity',
+                        fields: [
+                            'identity',
+                            'title',
+                            'code',
+                            'version',
+                            'builtin',
+                            'active',
+                            'path'
+                        ],
+                        rowHeight: 76,
+                        rowGap: 0,
+                        scrollbarId: 'pluginCatalogueScrollBar',
+                        scrollbarReserved: 16
+                    }
                 )
             );
-        nodes.push(
+            if (!catalog(model, ui).length)
+                catalogueChildren.push(
+                    label(
+                        'pluginNoMatches',
+                        rect(16, 240, nav - 32, 80),
+                        tr(
+                            'No matching plugins. Change the search or the project filter.'
+                        ),
+                        { wrap: true, color: 'secondaryText' }
+                    )
+                );
+        }
+        catalogueChildren.push(
             btn(
                 'pluginCollapse',
-                rect(ui.collapsed ? 0 : nav - 34, 0, 34, 34),
+                rect(ui.collapsed ? (nav - 34) / 2 : nav - 46, 10, 34, 34),
                 'Plugin catalogue',
-                ui.collapsed ? 'next' : 'previous',
+                ui.collapsed ? 'chevron-right' : 'chevron-left',
                 { type: 'collapse' },
                 true,
                 { iconOnly: true, iconAction: true, round: false }
             )
         );
-    }
-    if (nav && !ui.collapsed) {
         nodes.push(
-            btn('pluginNew', rect(0, 42, nav, 36), 'New', 'add', {
-                type: 'new'
+            node('Box', 'pluginCataloguePanel', rect(0, 0, nav, height), {
+                background: 'surfaceContainerLow',
+                border: 'outlineVariant',
+                children: catalogueChildren
             })
-        );
-        nodes.push(
-            btn(
-                'pluginInstall',
-                rect(0, 86, nav, 36),
-                'Install a package',
-                'upload',
-                { type: 'install' },
-                clean,
-                { iconOnly: false }
-            )
-        );
-        nodes.push(
-            node('Field', 'pluginSearch', rect(0, 134, nav, 36), {
-                text: ui.query,
-                placeholder: tr('Search plugins'),
-                action: { type: 'query' },
-                clearable: true
-            })
-        );
-        nodes.push(
-            node('CheckBox', 'pluginActiveOnly', rect(0, 178, nav, 36), {
-                text: tr('Active in this project'),
-                checked: ui.activeOnly,
-                action: { type: 'activeOnly' }
-            })
-        );
-        nodes.push(
-            node(
-                'List',
-                'pluginCatalogue',
-                rect(0, 222, nav, Math.max(0, height - 222)),
-                {
-                    source: 'plugins',
-                    keyField: 'identity',
-                    fields: [
-                        'identity',
-                        'title',
-                        'code',
-                        'version',
-                        'builtin',
-                        'active',
-                        'path'
-                    ],
-                    rowHeight: 76,
-                    rowGap: 0,
-                    scrollbarId: 'pluginCatalogueScrollBar',
-                    scrollbarReserved: 16
-                }
-            )
         );
     }
-    if (nav > 44 && !catalog(model, ui).length)
-        nodes.push(
-            label(
-                'pluginNoMatches',
-                rect(8, 230, nav - 24, 80),
-                tr(
-                    'No matching plugins. Change the search or the project filter.'
-                ),
-                { wrap: true, color: 'secondaryText' }
-            )
-        );
     let y = 0;
     if (model.error || model.uncertain) {
         const message =
@@ -450,6 +452,7 @@ export function describe(model, ui, width, height, language) {
             replace_file: 'Replace file',
             delete_file: 'Delete',
             reload_catalog: 'Refresh',
+            discard_changes: 'Discard changes',
             new_file: 'New file',
             new_folder: 'New folder',
             rename: 'Rename or move',
@@ -537,7 +540,10 @@ export function describe(model, ui, width, height, language) {
                             'rename'
                         ].includes(ui.operation) ||
                             !!ui.value.trim())) ||
-                        (ui.operation === 'reload_catalog' && !model.busy)
+                        (['reload_catalog', 'discard_changes'].includes(
+                            ui.operation
+                        ) &&
+                            !model.busy)
                 )
             );
         content.push(

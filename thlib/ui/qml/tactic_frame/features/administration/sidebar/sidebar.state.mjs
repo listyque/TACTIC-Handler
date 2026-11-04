@@ -5,6 +5,7 @@ export const initial = () => ({
     page: 'item',
     mode: 'simple',
     editing: false,
+    treeVisible: true,
     treeWidth: 350,
     confirmation: '',
     text: {},
@@ -16,6 +17,7 @@ export function completed(ui, command) {
     if (command.type === 'help') return Object.assign({}, ui);
     if (['reload', 'discard'].indexOf(command.type) >= 0)
         return Object.assign(initial(), {
+            treeVisible: ui.treeVisible !== false,
             treeWidth: ui.treeWidth
         });
     const next = Object.assign({}, ui, {
@@ -70,6 +72,7 @@ export function transition(ui, model, event) {
     if (event.type === 'reset')
         return {
             ui: Object.assign(initial(), {
+                treeVisible: ui.treeVisible !== false,
                 treeWidth: ui.treeWidth
             }),
             commands
@@ -82,6 +85,9 @@ export function transition(ui, model, event) {
     switch (event.type) {
         case 'split':
             next.treeWidth = Math.max(280, event.value);
+            break;
+        case 'treeVisible':
+            next.treeVisible = next.treeVisible === false;
             break;
         case 'text':
             if (allow.editable) {

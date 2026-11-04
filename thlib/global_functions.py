@@ -13,6 +13,7 @@ import zlib
 import zipfile
 import binascii
 import collections
+import functools
 import re
 import traceback
 import datetime
@@ -173,6 +174,20 @@ def catch_error_type(exception):
     return error
 
 
+@functools.lru_cache(maxsize=1024)
+def _parse_timestamp_str(text: str):
+    normalized = text[:-1] + '+00:00' if text.endswith(('Z', 'z')) else text
+    try:
+        parsed = datetime.datetime.fromisoformat(normalized)
+    except ValueError as error:
+        raise ValueError(
+            'Unsupported timestamp format: {!r}'.format(text)
+        ) from error
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed.astimezone()
+
+
 def parce_timestamp(timestamp):
     """Parse TACTIC's UTC-naive timestamps into local aware datetimes."""
     if isinstance(timestamp, datetime.datetime):
@@ -182,7 +197,7 @@ def parce_timestamp(timestamp):
         if not text:
             return None
 
-        # TACTIC normalizes database timestamps to UTC but serializes them
+        return _parse_timestamp_str(text)
         # without a timezone; newer procedures include the UTC suffix.
         normalized = text[:-1] + '+00:00' if text.endswith(('Z', 'z')) else text
         try:

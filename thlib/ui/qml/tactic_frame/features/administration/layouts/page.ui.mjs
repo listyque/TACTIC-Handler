@@ -495,7 +495,7 @@ export function describe(model, ui, width, height, language) {
                                       node(
                                           'Scroll',
                                           'pageProperties',
-                                          rect(8, 36, right - 16, h - 44),
+                                          rect(12, 52, right - 24, h - 60),
                                           {
                                               contentHeight: body.height,
                                               scrollbarId: 'pagePropertiesBar',
@@ -520,15 +520,26 @@ export function describe(model, ui, width, height, language) {
                               'pageXmlSource',
                               rect(8, 8, canvasWidth - 16, Math.max(1, h - 16)),
                               {
-                                  text: model.checked
-                                      ? model.sourceXml || ''
-                                      : '',
+                                  text: Object.prototype.hasOwnProperty.call(
+                                      ui.text,
+                                      'xml'
+                                  )
+                                      ? ui.text.xml
+                                      : ui.xmlDraft ||
+                                        (model.checked &&
+                                        model.sourceXml &&
+                                        !model.sourceXml.includes(
+                                            '<dashboard>{'
+                                        )
+                                            ? model.sourceXml
+                                            : Document.toXml(model.document)),
                                   syntax: 'xml',
                                   language,
-                                  readOnly: true,
+                                  readOnly: !canEdit,
                                   service: 'sourceEditor',
                                   label: tr('Source XML'),
-                                  bufferKey: 'page:' + model.document.name
+                                  bufferKey: 'page:' + model.document.name,
+                                  action: { type: 'xmlEdit' }
                               }
                           )
                         : node(

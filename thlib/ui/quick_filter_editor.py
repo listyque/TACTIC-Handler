@@ -107,15 +107,37 @@ class QuickFilterEditorController(QObject):
             if group["key"] in QuickFilterCatalog._TASK_KEYS:
                 group["title"] = self.tr(group["title"])
             selected = set(self._standard_selections.get(group["key"], ()))
+            if group.get("userPicker") or group["key"] == "assigned":
+                group["userPicker"] = True
+                group["myTasksSelected"] = CURRENT_LOGIN_FILTER in selected
+                group["selectedUserCount"] = len(
+                    selected - {CURRENT_LOGIN_FILTER}
+                )
             for option in group.get("options", ()):
                 option["selected"] = option["key"] in selected
         return groups
+
+    @Property("QVariantList", notify=stateChanged)
+    def quick_filter_assignee_logins(self) -> list[str]:
+        return [
+            value
+            for value in self._standard_selections.get("assigned", ())
+            if value != CURRENT_LOGIN_FILTER
+        ]
+
+    @Property(bool, notify=stateChanged)
+    def quick_filter_my_tasks(self) -> bool:
+        return CURRENT_LOGIN_FILTER in self._standard_selections.get(
+            "assigned", ()
+        )
 
     @Property("QVariantList", notify=stateChanged)
     def standardSelections(self) -> list[dict]:
         groups = {
             str(group.get("key") or ""): group for group in self._groups
         }
+        user_model = getattr(self._users, "users", None)
+        lookup = getattr(user_model, "lookup", None)
         result = []
         for key, values in self._standard_selections.items():
             group = groups.get(key, {})
@@ -128,7 +150,12 @@ class QuickFilterEditorController(QObject):
             titles = [
                 self.tr("MY TASKS")
                 if value == CURRENT_LOGIN_FILTER
-                else option_titles.get(value, value)
+                else (
+                    str((lookup("login", value) or {}).get("displayName") or "")
+                    or option_titles.get(value, value)
+                    if key == "assigned" and callable(lookup)
+                    else option_titles.get(value, value)
+                )
                 for value in values
             ]
             if titles:
@@ -345,6 +372,19 @@ class QuickFilterEditorController(QObject):
         return dict(records[0]) if records else {}
 
     @Slot()
+    def reload_current(self) -> None:
+        context = self._context(include_groups=False)
+        key = self._key(context)
+        if not all(key):
+            return
+        if key in self._loading_keys:
+            self._reload_pending.add(key)
+            return
+        self._loaded.pop(key, None)
+        self._record_codes.pop(key, None)
+        self.ensure_current()
+
+    @Slot()
     def ensure_current(self) -> None:
         # The sidebar entry is stable across users, unlike a runtime tab id.
         # Building editor groups scans every loaded sObject and is only needed
@@ -431,13 +471,16 @@ class QuickFilterEditorController(QObject):
             (option for option in group.get("options", ())
              if option["key"] == value), None,
         )
-        if option is None:
+        if option is None and not (
+            group.get("userPicker") or group_key == "assigned"
+        ):
             return
         values = set(self._standard_selections.get(group_key, ()))
         if selected:
             # The model already excludes values outside this user's authority.
             # Selecting an available value restores it, never hides its chip.
-            option["enabled"] = True
+            if option is not None:
+                option["enabled"] = True
             values.add(value)
         else:
             values.discard(value)
@@ -446,6 +489,46 @@ class QuickFilterEditorController(QObject):
         else:
             self._standard_selections.pop(group_key, None)
         self.stateChanged.emit()
+
+    @Slot()
+    def toggle_my_tasks_filter(self) -> None:
+        self.set_option_selected(
+            "assigned", CURRENT_LOGIN_FILTER, not self.quick_filter_my_tasks
+        )
+
+    @Slot("QVariantList")
+    def set_quick_filter_assignees(self, logins) -> None:
+        if not self.canEdit or self.busy:
+            return
+        group = next(
+            (group for group in self._groups if group["key"] == "assigned"),
+            None,
+        )
+        if group is None or not group.get("enabled", True):
+            return
+        values = {
+            str(login)
+            for login in (logins or ())
+            if str(login or "") and str(login) != CURRENT_LOGIN_FILTER
+        }
+        if self.quick_filter_my_tasks:
+            values.add(CURRENT_LOGIN_FILTER)
+        if values:
+            self._standard_selections["assigned"] = sorted(values)
+        else:
+            self._standard_selections.pop("assigned", None)
+        self.stateChanged.emit()
+
+    @Slot(str, str)
+    def toggle_quick_filter(self, group_key: str, value: str) -> None:
+        if not self.canEdit or self.busy:
+            return
+        if not value:
+            if self._standard_selections.pop(group_key, None) is not None:
+                self.stateChanged.emit()
+            return
+        selected = value in self._standard_selections.get(group_key, ())
+        self.set_option_selected(group_key, value, not selected)
 
     @Slot(int, int)
     def move_group(self, row: int, offset: int) -> None:

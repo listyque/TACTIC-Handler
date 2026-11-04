@@ -322,6 +322,7 @@ class TableServicesController(QObject):
             scope = None
         if scope is None:
             scope = NestedTableController(self, node_id, descriptor, key[2])
+            scope._model['text'] = str(cell.get('text') or '')
             scope.open = False
             self._nested_scopes[key] = scope
         opening = not scope.open

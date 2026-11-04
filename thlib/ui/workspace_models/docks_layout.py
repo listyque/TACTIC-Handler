@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import time
 
 from PySide6.QtCore import Slot
 
@@ -25,7 +26,7 @@ class LayoutMixin:
         available = {
             panel.panel_id for panel in self._panels
             if panel.visible and not panel.detached
-            and panel.dock_area != "floating"
+            and not self._is_overlay_area(panel.dock_area)
         }
         missing = available - set(panel_ids(self._layout_root))
         for panel_id in sorted(missing):
@@ -88,10 +89,12 @@ class LayoutMixin:
         row = self._index_for(panel_id)
         if self._maximized_panel == panel_id:
             self.maximize_panel(panel_id)
+        if self._slide_open_panel == panel_id:
+            self._slide_open_panel = ""
         if row is not None and self._panels[row].closable:
             was_docked = (
                 not self._panels[row].detached
-                and self._panels[row].dock_area != "floating"
+                and not self._is_overlay_area(self._panels[row].dock_area)
             )
             self._replace(panel_id, visible=False, detached=False)
             self.panelVisibilityChanged.emit(panel_id, False)
@@ -118,12 +121,23 @@ class LayoutMixin:
 
     @Slot(str)
     def show_panel(self, panel_id: str) -> None:
+        self._last_show_monotonic = time.monotonic()
         if self._maximized_panel and self._maximized_panel != panel_id:
             self.maximize_panel(self._maximized_panel)
         row = self._index_for(panel_id)
         if row is None:
             return
         panel = self._panels[row]
+        if panel.dock_area in {"slide_left", "slide_right"}:
+            self._z_counter += 1
+            was_visible = panel.visible
+            self._replace(panel_id, visible=True, z=self._z_counter)
+            if not was_visible:
+                self.panelVisibilityChanged.emit(panel_id, True)
+            if self._slide_open_panel != panel_id:
+                self._slide_open_panel = panel_id
+                self._notify_layout_structure_changed()
+            return
         if self.is_panel_presented(panel_id):
             if panel.detached or panel.dock_area == "floating":
                 self.raise_panel(panel_id)
@@ -131,7 +145,7 @@ class LayoutMixin:
         self._z_counter += 1
         self._replace(panel_id, visible=True, z=self._z_counter)
         self.panelVisibilityChanged.emit(panel_id, True)
-        if self._panels[row].dock_area != "floating":
+        if not self._is_overlay_area(self._panels[row].dock_area):
             self._layout_root = set_active_panel(
                 self._layout_root, panel_id
             )

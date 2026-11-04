@@ -229,8 +229,11 @@ Item {
             required property bool loading
             required property string error
             required property bool conflict
+            property bool viewPooled: false
+            ListView.onPooled: viewPooled = true
+            ListView.onReused: viewPooled = false
             readonly property bool detailsExpanded: root.taskDetailsExpanded(taskCode)
-            readonly property bool editorsActive: taskList.hoverEditorsEnabled && taskRow.hovered
+            readonly property bool editorsActive: !viewPooled && taskList.hoverEditorsEnabled && taskRow.hovered
 
             Component {
                 id: taskBusyActionComponent
@@ -277,16 +280,25 @@ Item {
                 id: groupHeader
                 width: parent.width
                 height: taskDelegate.groupFirst ? 28 : 0
-                active: taskDelegate.groupFirst
+                active: !taskDelegate.viewPooled && taskDelegate.groupFirst
                 sourceComponent: Frame.FrameView {
                     theme: root.theme
-                    scene: TaskTable.group({
-                        key: taskDelegate.groupKey,
-                        label: taskDelegate.group,
-                        color: taskDelegate.groupColor,
-                        count: taskDelegate.groupCount,
-                        collapsed: taskDelegate.groupCollapsed
-                    }, width)
+                    property var lastGroupScene: ({
+                            nodes: []
+                        })
+                    scene: {
+                        if (taskDelegate.viewPooled || !taskDelegate.groupFirst)
+                            return lastGroupScene;
+                        const next = TaskTable.group({
+                            key: taskDelegate.groupKey,
+                            label: taskDelegate.group,
+                            color: taskDelegate.groupColor,
+                            count: taskDelegate.groupCount,
+                            collapsed: taskDelegate.groupCollapsed
+                        }, width);
+                        lastGroupScene = next;
+                        return next;
+                    }
                     onEvent: action => tasksController.toggle_group_collapsed(action.value)
                 }
             }

@@ -451,10 +451,8 @@ class LoginConfigurationTests(unittest.TestCase):
             controller._sessions[entry.key].tabs[0].workspace_layout,
             controller.live_layout,
         )
-        self.assertLess(
-            controller.lifecycle.index("capture"),
-            controller.lifecycle.index("dispose"),
-        )
+        self.assertIn("capture", controller.lifecycle)
+        self.assertNotIn("dispose", controller.lifecycle)
         controller._section_state_save_timer.stop.assert_called_once_with()
         controller._search_cache_save_timer.stop.assert_called_once_with()
 

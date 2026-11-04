@@ -7,6 +7,7 @@ import "../controls/charts" as Charts
 import "../controls/display" as Display
 import "frame.mjs" as Contract
 import QtQuick.Controls
+import TacticHandler.Code 1.0
 import "../../controls" as Controls
 import "../.." as TH
 
@@ -92,26 +93,75 @@ Item {
             root.send(definition.keys[key]);
         return true;
     }
+    readonly property int cacheId: Contract.allocCache()
+    property bool syncing: false
+    property bool syncPending: false
+    property bool inSceneChange: false
+    Component.onDestruction: Contract.freeCache(cacheId)
+    function sameValue(a, b) {
+        if (a === b)
+            return true;
+        if (a === null || b === null || typeof a !== "object" || typeof b !== "object")
+            return false;
+        if (Array.isArray(a) || Array.isArray(b)) {
+            if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length)
+                return false;
+            for (let i = 0; i < a.length; i++)
+                if (!sameValue(a[i], b[i]))
+                    return false;
+            return true;
+        }
+        const keysA = Object.keys(a), keysB = Object.keys(b);
+        if (keysA.length !== keysB.length)
+            return false;
+        for (let i = 0; i < keysA.length; i++) {
+            const key = keysA[i];
+            if (!Object.prototype.hasOwnProperty.call(b, key) || !sameValue(a[key], b[key]))
+                return false;
+        }
+        return true;
+    }
     function sync() {
         if (!ready)
             return;
-        const nodes = Contract.validateScene(scene, models, views);
-        for (let index = 0; index < nodes.length; index++) {
-            const definition = nodes[index];
-            let existing = index;
-            while (existing < items.count && items.get(existing).key !== definition.id)
-                existing++;
-            if (existing === items.count)
-                items.insert(index, {
-                    key: definition.id,
-                    definition: definition
-                });
-            else if (existing !== index)
-                items.move(existing, index, 1);
-            items.setProperty(index, "definition", definition);
+        if (syncing) {
+            syncPending = true;
+            return;
         }
-        if (items.count > nodes.length)
-            items.remove(nodes.length, items.count - nodes.length);
+        syncing = true;
+        try {
+            do {
+                syncPending = false;
+                const nodes = Contract.validateScene(scene, models, views);
+                const prevCache = Object.assign({}, Contract.getCache(cacheId));
+                const nextCache = {};
+                for (let index = 0; index < nodes.length; index++) {
+                    const definition = nodes[index];
+                    const id = definition.id;
+                    nextCache[id] = definition;
+                    Contract.setCachedNode(cacheId, id, definition);
+                    let existing = index;
+                    while (existing < items.count && items.get(existing).key !== id)
+                        existing++;
+                    if (existing === items.count) {
+                        items.insert(index, {
+                            key: id,
+                            rev: 0
+                        });
+                    } else {
+                        if (existing !== index)
+                            items.move(existing, index, 1);
+                        if (!sameValue(prevCache[id], definition))
+                            items.setProperty(index, "rev", items.get(index).rev + 1);
+                    }
+                }
+                if (items.count > nodes.length)
+                    items.remove(nodes.length, items.count - nodes.length);
+                Contract.setCache(cacheId, nextCache);
+            } while (syncPending)
+        } finally {
+            syncing = false;
+        }
     }
     function dragValue(source): var {
         return source ? source.frameDragValue : undefined;
@@ -161,7 +211,14 @@ Item {
         }
         return null;
     }
-    onSceneChanged: sync()
+    onSceneChanged: {
+        inSceneChange = true;
+        try {
+            sync();
+        } finally {
+            inSceneChange = false;
+        }
+    }
     Component.onCompleted: {
         ready = true;
         sync();
@@ -172,14 +229,15 @@ Item {
         Contract.validateScene(scene, models, views)
     ListModel {
         id: items
-        dynamicRoles: true
     }
     Repeater {
         id: repeater
         model: items
         delegate: Item {
             id: wrapper
-            required property var definition
+            required property string key
+            required property int rev
+            readonly property var definition: (rev, Contract.getCachedNode(root.cacheId, key))
             readonly property var node: definition
             z: node.layer || 0
             readonly property var frameRecordKey: node.recordKey
@@ -219,7 +277,7 @@ Item {
             transformOrigin: Item.TopLeft
             x: node.x
             y: node.y
-            width: node.width
+            width: node.kind === "View" && !node.width ? root.width : node.width
             height: node.height
             visible: node.visible !== false
             function activeBrick(): var {
@@ -238,12 +296,32 @@ Item {
                 }
                 return control.focusControl ? control.focusControl(name) : false;
             }
-            Loader {
-                anchors.fill: parent
-                z: 4
-                active: !!wrapper.node.dropAction && root.interactive
-                enabled: !!wrapper.node.enabled
-                sourceComponent: DropArea {
+            readonly property bool dropActive: !!wrapper.node.dropAction && root.interactive
+            readonly property bool dragActive: root.interactive && !!wrapper.node.enabled && wrapper.node.dragValue !== undefined && wrapper.node.dragValue !== null
+            property var dropTarget: null
+            property var dragTarget: null
+            onDropActiveChanged: {
+                if (dropActive && !dropTarget)
+                    dropTarget = dropComponent.createObject(wrapper);
+                else if (!dropActive && dropTarget) {
+                    dropTarget.destroy();
+                    dropTarget = null;
+                }
+            }
+            onDragActiveChanged: {
+                if (dragActive && !dragTarget)
+                    dragTarget = dragComponent.createObject(wrapper);
+                else if (!dragActive && dragTarget) {
+                    dragTarget.destroy();
+                    dragTarget = null;
+                }
+            }
+            Component {
+                id: dropComponent
+                DropArea {
+                    anchors.fill: parent
+                    z: 4
+                    enabled: !!wrapper.node.enabled
                     keys: wrapper.node.dropAction && wrapper.node.dropAction.name === "file-ingest" ? [] : ["application/x-tactic-frame"]
                     onDropped: drop => {
                         if (wrapper.node.dropAction && wrapper.node.dropAction.name === "file-ingest" && drop.hasUrls) {
@@ -256,11 +334,11 @@ Item {
                     }
                 }
             }
-            Loader {
-                anchors.fill: parent
-                z: 5
-                active: root.interactive && !!wrapper.node.enabled && wrapper.node.dragValue !== undefined && wrapper.node.dragValue !== null
-                sourceComponent: FrameDragScope {
+            Component {
+                id: dragComponent
+                FrameDragScope {
+                    anchors.fill: parent
+                    z: 5
                     value: wrapper.node.dragValue
                     onTapped: {
                         if (loader.item)
@@ -408,6 +486,7 @@ Item {
                         id: boxSurface
                         // Virtual row wrappers are private and may repeat across lists.
                         objectName: wrapper.node.recordKey === undefined ? wrapper.node.id : ""
+                        readonly property string text: wrapper.node.text || ""
                         color: root.color(wrapper.node.background)
                         border.width: wrapper.node.border ? wrapper.node.borderWidth || 1 : 0
                         border.color: root.color(wrapper.node.border)
@@ -415,15 +494,24 @@ Item {
                         bottomLeftRadius: wrapper.node.bottomLeftRadius === undefined ? radius : wrapper.node.bottomLeftRadius
                         bottomRightRadius: wrapper.node.bottomRightRadius === undefined ? radius : wrapper.node.bottomRightRadius
                         clip: wrapper.node.clip !== false
-                        Loader {
-                            parent: wrapper
-                            x: -16
-                            y: -16
-                            width: parent.width + 32
-                            height: parent.height + 32
-                            z: -1
-                            active: !!wrapper.node.shadow
-                            sourceComponent: Display.FrameShadow {
+                        readonly property bool hasShadow: !!wrapper.node.shadow
+                        property var shadowItem: null
+                        onHasShadowChanged: {
+                            if (hasShadow && !shadowItem)
+                                shadowItem = boxShadowComponent.createObject(wrapper);
+                            else if (!hasShadow && shadowItem) {
+                                shadowItem.destroy();
+                                shadowItem = null;
+                            }
+                        }
+                        Component {
+                            id: boxShadowComponent
+                            Display.FrameShadow {
+                                x: -16
+                                y: -16
+                                width: wrapper.width + 32
+                                height: wrapper.height + 32
+                                z: -1
                                 theme: root.effectiveTheme
                                 shadow: wrapper.node.shadow
                                 surfaceRadius: boxSurface.radius
@@ -442,12 +530,14 @@ Item {
                                 }, parent)
                         }
                         FrameBranch {
-                            id: boxContent
+                            id: branch
                             anchors.fill: parent
                             theme: root.effectiveTheme
                             rowInteraction: wrapper.node.recordKey !== undefined ? rowHover.hovered || root.containsFocus(boxSurface) : root.rowInteraction
-                            scene: ({
+                            scene: wrapper.node.children && wrapper.node.children.length > 0 ? ({
                                     nodes: wrapper.node.children
+                                }) : ({
+                                    nodes: []
                                 })
                             models: root.models
                             views: root.views
@@ -457,16 +547,16 @@ Item {
                             onEvent: (action, source) => root.event(action, source)
                         }
                         function focusControl(name) {
-                            return boxContent.focusControl(name);
+                            return branch.focusControl(name);
                         }
                         function focusListRow(id, row, controlId) {
-                            return boxContent.focusListRow(id, row, controlId);
+                            return branch.focusListRow(id, row, controlId);
                         }
                         function focusGrid(id, row, column, name) {
-                            return boxContent.focusGrid(id, row, column, name);
+                            return branch.focusGrid(id, row, column, name);
                         }
                         function graphCommand(id, command) {
-                            return boxContent.graphCommand(id, command);
+                            return branch.graphCommand(id, command);
                         }
                     }
                 }
@@ -496,7 +586,7 @@ Item {
 
                         onActiveFocusChanged: tipDismissed = false
                         Keys.onEscapePressed: event => {
-                            if (infoTip.item && infoTip.item.visible) {
+                            if (tipItem && tipItem.visible) {
                                 tipDismissed = true;
                                 event.accepted = true;
                             } else
@@ -508,10 +598,19 @@ Item {
                             onHoveredChanged: if (hovered)
                                 labelControl.tipDismissed = false
                         }
-                        Loader {
-                            id: infoTip
-                            active: !!(wrapper.node.toolTip) && (infoHover.hovered || labelControl.activeFocus) && !labelControl.tipDismissed
-                            sourceComponent: Controls.ToolTip {
+                        readonly property bool showTip: !!(wrapper.node.toolTip) && (infoHover.hovered || labelControl.activeFocus) && !labelControl.tipDismissed
+                        property var tipItem: null
+                        onShowTipChanged: {
+                            if (showTip && !tipItem)
+                                tipItem = labelTipComponent.createObject(labelControl);
+                            else if (!showTip && tipItem) {
+                                tipItem.destroy();
+                                tipItem = null;
+                            }
+                        }
+                        Component {
+                            id: labelTipComponent
+                            Controls.ToolTip {
                                 theme: root.effectiveTheme
                                 parent: labelControl
                                 text: wrapper.node.toolTip || ""
@@ -579,7 +678,7 @@ Item {
 
                         onActiveFocusChanged: tipDismissed = false
                         Keys.onEscapePressed: event => {
-                            if (infoTip.item && infoTip.item.visible) {
+                            if (tipItem && tipItem.visible) {
                                 tipDismissed = true;
                                 event.accepted = true;
                             } else
@@ -591,10 +690,19 @@ Item {
                             onHoveredChanged: if (hovered)
                                 iconControl.tipDismissed = false
                         }
-                        Loader {
-                            id: infoTip
-                            active: !!(wrapper.node.toolTip || wrapper.node.text) && (infoHover.hovered || iconControl.activeFocus) && !iconControl.tipDismissed
-                            sourceComponent: Controls.ToolTip {
+                        readonly property bool showTip: !!(wrapper.node.toolTip || wrapper.node.text) && (infoHover.hovered || iconControl.activeFocus) && !iconControl.tipDismissed
+                        property var tipItem: null
+                        onShowTipChanged: {
+                            if (showTip && !tipItem)
+                                tipItem = iconTipComponent.createObject(iconControl);
+                            else if (!showTip && tipItem) {
+                                tipItem.destroy();
+                                tipItem = null;
+                            }
+                        }
+                        Component {
+                            id: iconTipComponent
+                            Controls.ToolTip {
                                 theme: root.effectiveTheme
                                 parent: iconControl
                                 text: wrapper.node.toolTip || wrapper.node.text || ""
@@ -734,6 +842,8 @@ Item {
                             hovered: actionControl.hovered || actionControl.visualFocus
                             pressed: actionControl.down
                             normalColor: root.color(wrapper.node.normalColor)
+                            hoverColor: wrapper.node.hoverColor ? root.color(wrapper.node.hoverColor) : undefined
+                            pressedColor: wrapper.node.pressedColor ? root.color(wrapper.node.pressedColor) : undefined
                             selectedColor: root.color(wrapper.node.selectedColor)
                             railVisible: !!wrapper.node.rail
                             separatorVisible: false
@@ -751,6 +861,14 @@ Item {
                             describeRow: root.describeRow
                             describeCell: root.describeCell
                             enabled: false
+                            transformOrigin: Item.Center
+                            scale: (actionControl.hovered || actionControl.visualFocus) ? ((String(wrapper.node.id || "").indexOf("graphInput_") === 0 || String(wrapper.node.id || "").indexOf("graphOutput_") === 0) ? 1.42 : String(wrapper.node.id || "").indexOf("graphNode_") === 0 ? 1.02 : 1.0) : 1.0
+                            Behavior on scale {
+                                NumberAnimation {
+                                    duration: 130
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
                         }
                         onPressed: root.send(wrapper.node.pressAction, undefined, actionControl)
                         onClicked: root.send(wrapper.node.action, undefined, actionControl)
@@ -770,7 +888,7 @@ Item {
                                 root.reveal(this);
                         }
                         Keys.onEscapePressed: event => {
-                            if (infoTip.item && infoTip.item.visible) {
+                            if (tipItem && tipItem.visible) {
                                 tipDismissed = true;
                                 event.accepted = true;
                             } else
@@ -782,10 +900,19 @@ Item {
                             onHoveredChanged: if (hovered)
                                 actionControl.tipDismissed = false
                         }
-                        Loader {
-                            id: infoTip
-                            active: !!(wrapper.node.toolTip) && (infoHover.hovered || actionControl.activeFocus) && !actionControl.tipDismissed
-                            sourceComponent: Controls.ToolTip {
+                        readonly property bool showTip: !!(wrapper.node.toolTip) && (infoHover.hovered || actionControl.activeFocus) && !actionControl.tipDismissed
+                        property var tipItem: null
+                        onShowTipChanged: {
+                            if (showTip && !tipItem)
+                                tipItem = actionTipComponent.createObject(actionControl);
+                            else if (!showTip && tipItem) {
+                                tipItem.destroy();
+                                tipItem = null;
+                            }
+                        }
+                        Component {
+                            id: actionTipComponent
+                            Controls.ToolTip {
                                 theme: root.effectiveTheme
                                 parent: actionControl
                                 text: wrapper.node.toolTip || ""
@@ -834,6 +961,8 @@ Item {
                             hovered: checkControl.hovered
                             pressed: checkControl.down
                             normalColor: root.color(wrapper.node.normalColor)
+                            hoverColor: wrapper.node.hoverColor ? root.color(wrapper.node.hoverColor) : undefined
+                            pressedColor: wrapper.node.pressedColor ? root.color(wrapper.node.pressedColor) : undefined
                             selectedColor: root.color(wrapper.node.selectedColor)
                             railVisible: false
                             separatorVisible: false
@@ -919,11 +1048,47 @@ Item {
                         enabled: !!wrapper.node.enabled
                         padding: 0
                         font: root.controlFont(wrapper.node)
+                        readonly property bool isCodeArea: !!wrapper.node.monospace && !wrapper.node.notice
+                        readonly property real gutterWidth: isCodeArea ? 38 : 0
                         contentWidth: wrapper.node.wrap === false ? Math.max(availableWidth - 12, editor.contentWidth + editor.leftPadding + editor.rightPadding) : availableWidth - 12
                         contentHeight: editor.height
                         property alias text: editor.text
                         property alias readOnly: editor.readOnly
                         property alias color: editor.color
+                        SourceEditorService {
+                            id: areaCodeService
+                        }
+                        function syntaxColors() {
+                            return {
+                                "syntax": String(wrapper.node.syntax || "auto"),
+                                "keyword": String(root.effectiveTheme.syntaxKeyword),
+                                "string": String(root.effectiveTheme.syntaxString),
+                                "comment": String(root.effectiveTheme.syntaxComment),
+                                "number": String(root.effectiveTheme.syntaxNumber),
+                                "type": String(root.effectiveTheme.syntaxType),
+                                "function": String(root.effectiveTheme.syntaxFunction),
+                                "definition": String(root.effectiveTheme.syntaxDefinition),
+                                "decorator": String(root.effectiveTheme.syntaxDefinition),
+                                "self": String(root.effectiveTheme.syntaxSelf),
+                                "module": String(root.effectiveTheme.syntaxSelf),
+                                "occurrence": String(root.effectiveTheme.syntaxOccurrence),
+                                "search": String(root.effectiveTheme.syntaxSearch)
+                            };
+                        }
+                        function lineNumbers(count) {
+                            const values = [];
+                            for (let n = 1; n <= count; ++n)
+                                values.push(String(n));
+                            return values.join("\n");
+                        }
+                        function applyCodeCommand(cmd) {
+                            if (editor.readOnly)
+                                return;
+                            const result = areaCodeService.apply_editor_command(
+                                cmd, editor.text, editor.selectionStart, editor.selectionEnd);
+                            editor.text = result.text;
+                            editor.select(result.start, result.end);
+                        }
                         function focusEditor() {
                             editor.forceActiveFocus();
                         }
@@ -941,13 +1106,18 @@ Item {
                                 width: parent.width
                                 height: Math.max(area.height, implicitHeight)
                                 theme: root.effectiveTheme
+                                leftPadding: area.isCodeArea ? area.gutterWidth + 10 : 12
                                 readOnly: !!wrapper.node.readOnly
                                 wrapMode: wrapper.node.wrap === false ? TextEdit.NoWrap : TextEdit.Wrap
                                 textFormat: TextEdit.PlainText
                                 property string modelText: wrapper.node.text
                                 onModelTextChanged: if (text !== modelText)
                                     text = modelText
-                                Component.onCompleted: text = modelText
+                                Component.onCompleted: {
+                                    text = modelText;
+                                    if (area.isCodeArea)
+                                        areaCodeService.attach_editor_document(editor.textDocument, area.syntaxColors());
+                                }
                                 placeholderText: wrapper.node.placeholder || ""
                                 errorState: !!wrapper.node.error
                                 color: root.color(wrapper.node.color)
@@ -956,6 +1126,8 @@ Item {
                                 background: null
                                 onActiveFocusChanged: if (activeFocus)
                                     root.reveal(area)
+                                onSelectedTextChanged: if (area.isCodeArea)
+                                    areaCodeService.update_editor_highlights(editor.selectedText, "", {})
                                 onTextChanged: if (activeFocus && !readOnly && text !== wrapper.node.text) {
                                     if (wrapper.node.maxLength && text.length > wrapper.node.maxLength)
                                         text = text.slice(0, wrapper.node.maxLength);
@@ -967,7 +1139,61 @@ Item {
                                         root.send(wrapper.node.action, text);
                                         root.send(wrapper.node.sendAction);
                                         event.accepted = true;
+                                        return;
                                     }
+                                    if (area.isCodeArea && !editor.readOnly) {
+                                        const ctrl = (event.modifiers & Qt.ControlModifier) !== 0;
+                                        const shift = (event.modifiers & Qt.ShiftModifier) !== 0;
+                                        if (ctrl && shift && event.key === Qt.Key_K) {
+                                            area.applyCodeCommand("delete_line");
+                                            event.accepted = true;
+                                        } else if (ctrl && event.key === Qt.Key_Slash) {
+                                            area.applyCodeCommand("toggle_comment");
+                                            event.accepted = true;
+                                        } else if (ctrl && event.key === Qt.Key_D) {
+                                            area.applyCodeCommand("duplicate");
+                                            event.accepted = true;
+                                        } else if (event.key === Qt.Key_Backtab) {
+                                            area.applyCodeCommand("unindent");
+                                            event.accepted = true;
+                                        } else if (event.key === Qt.Key_Tab && !ctrl) {
+                                            if (editor.selectionStart !== editor.selectionEnd) {
+                                                area.applyCodeCommand("indent");
+                                            } else {
+                                                const lineStart = editor.text.lastIndexOf("\n", Math.max(0, editor.cursorPosition - 1)) + 1;
+                                                const count = 4 - ((editor.cursorPosition - lineStart) % 4);
+                                                const pos = editor.cursorPosition;
+                                                editor.insert(pos, "    ".slice(0, count));
+                                                editor.cursorPosition = pos + count;
+                                            }
+                                            event.accepted = true;
+                                        }
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                visible: area.isCodeArea
+                                x: area.contentItem ? Number(area.contentItem.contentX || 0) : 0
+                                y: 1
+                                width: area.gutterWidth
+                                height: Math.max(0, editor.height - 2)
+                                color: root.effectiveTheme.surfaceContainerLow
+                                clip: true
+                                Text {
+                                    y: editor.topPadding
+                                    width: parent.width - 8
+                                    text: area.isCodeArea ? area.lineNumbers(Math.max(1, editor.lineCount)) : ""
+                                    color: root.effectiveTheme.secondaryText
+                                    font: editor.font
+                                    lineHeight: editor.cursorRectangle.height > 0 ? editor.cursorRectangle.height : 18
+                                    lineHeightMode: Text.FixedHeight
+                                    horizontalAlignment: Text.AlignRight
+                                }
+                                Rectangle {
+                                    anchors.right: parent.right
+                                    width: 1
+                                    height: parent.height
+                                    color: root.effectiveTheme.outlineVariant
                                 }
                             }
                         }

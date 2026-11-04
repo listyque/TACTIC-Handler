@@ -23,14 +23,20 @@ Item {
     property real shadowVerticalOffset: 3
     property bool separatorVisible: true
     property bool animateStateChanges: true
+    property var hoverColor: undefined
+    property var pressedColor: undefined
     readonly property color baseColor:
         selected ? selectedColor : normalColor
     readonly property color interactionColor: pressed
-        ? theme.overlay(
-            baseColor, selected ? theme.action : theme.primaryText, 0.12)
+        ? (pressedColor !== undefined
+            ? pressedColor
+            : theme.overlay(
+                baseColor, selected ? theme.action : theme.primaryText, 0.12))
         : hovered
-            ? theme.overlay(
-                baseColor, selected ? theme.action : theme.primaryText, 0.08)
+            ? (hoverColor !== undefined
+                ? hoverColor
+                : theme.overlay(
+                    baseColor, selected ? theme.action : theme.primaryText, 0.08))
             : baseColor
 
     Rectangle {

@@ -53,35 +53,44 @@ Item {
         id: rowHover
     }
 
+    property var lastRowScene: ({
+            nodes: []
+        })
     Frame.FrameView {
         anchors.fill: parent
         theme: table.theme
-        scene: UI.row({
-            code: record.taskCode,
-            title: record.parentTitle,
-            process: record.process,
-            processLabel: record.processLabel,
-            context: record.context,
-            processColor: record.processColor,
-            active: record.selected,
-            checked: record.checked,
-            creating: record.isNew,
-            expanded: record.detailsExpanded,
-            hovered: taskRow.hovered,
-            dirty: record.dirty,
-            actionAlert: record.conflict || record.error.length > 0,
-            busy: record.loading,
-            start: record.start,
-            end: record.end,
-            overdue: record.dueState === "overdue",
-            progress: record.progress,
-            hoursLabel: record.hoursLabel,
-            overPlan: record.overPlanHours > 0,
-            pendingHours: record.pendingHours > 0,
-            notes: record.notes,
-            hasTask: !record.isNew,
-            editableCells: true
-        }, table.tableGeometry, taskRow.language)
+        scene: {
+            if (record.viewPooled || record.groupCollapsed)
+                return taskRow.lastRowScene;
+            const next = UI.row({
+                code: record.taskCode,
+                title: record.parentTitle,
+                process: record.process,
+                processLabel: record.processLabel,
+                context: record.context,
+                processColor: record.processColor,
+                active: record.selected,
+                checked: record.checked,
+                creating: record.isNew,
+                expanded: record.detailsExpanded,
+                hovered: taskRow.hovered,
+                dirty: record.dirty,
+                actionAlert: record.conflict || record.error.length > 0,
+                busy: record.loading,
+                start: record.start,
+                end: record.end,
+                overdue: record.dueState === "overdue",
+                progress: record.progress,
+                hoursLabel: record.hoursLabel,
+                overPlan: record.overPlanHours > 0,
+                pendingHours: record.pendingHours > 0,
+                notes: record.notes,
+                hasTask: !record.isNew,
+                editableCells: true
+            }, table.tableGeometry, taskRow.language);
+            taskRow.lastRowScene = next;
+            return next;
+        }
         views: ({
                 dates: {
                     component: inlineInput,

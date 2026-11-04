@@ -65,9 +65,22 @@ Item {
     readonly property var fields: {
         const fields = Configuration.pages.some(entry => entry.id === canonicalPage) ? UI.fieldsFor(canonicalPage, formModel) : UI.dccFields(configurationController.page_schema(pageId));
         if (integrationSchema && integrationController)
-            return [{ kind: "Heading", id: "dccIntegrationHeading", title: integrationSchema.title },
-                    { kind: "View", field: "dccIntegration", fullWidth: true, height: integrationSchema.height,
-                      props: { view: "dccIntegration" } }].concat(fields);
+            return [
+                {
+                    kind: "Heading",
+                    id: "dccIntegrationHeading",
+                    title: integrationSchema.title
+                },
+                {
+                    kind: "View",
+                    field: "dccIntegration",
+                    fullWidth: true,
+                    height: integrationSchema.height,
+                    props: {
+                        view: "dccIntegration"
+                    }
+                }
+            ].concat(fields);
         return fields;
     }
     function syncValues() {

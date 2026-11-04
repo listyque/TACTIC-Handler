@@ -82,9 +82,7 @@ Item {
             Layout.fillWidth: true
             Layout.maximumHeight: root.height / 4
             theme: root.theme
-            text: root.controller.error ? qsTr(root.controller.error) : (root.controller.selected.pids || []).length
-                  ? qsTr("Close Maya before removing its integration. Installation applies on the next Maya start.")
-                  : root.controller.message ? qsTr(root.controller.message) : qsTr("Changes apply on the next Maya start. Existing shelves are preserved.")
+            text: root.controller.error ? qsTr(root.controller.error) : (root.controller.selected.pids || []).length ? qsTr("Close Maya before removing its integration. Installation applies on the next Maya start.") : root.controller.message ? qsTr(root.controller.message) : qsTr("Changes apply on the next Maya start. Existing shelves are preserved.")
         }
     }
 }

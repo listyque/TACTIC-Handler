@@ -25,6 +25,7 @@ export const flags = [
 export function initial() {
     return {
         editing: true,
+        catalogVisible: true,
         catalogWidth: 270,
         page: 'rule',
         confirmation: '',
@@ -92,6 +93,42 @@ export function transition(ui, model, event) {
                     value: event.value
                 });
             break;
+        case 'preset':
+            if (edit && !next.confirmation && event.field) {
+                const updatedText = Object.assign({}, next.text);
+                delete updatedText[event.field];
+                next.text = updatedText;
+                commands.push({
+                    type: 'field',
+                    field: event.field,
+                    value: String(event.value ?? '')
+                });
+            }
+            break;
+        case 'insertToken':
+            if (edit && !next.confirmation && event.field && event.token) {
+                const current = Object.prototype.hasOwnProperty.call(
+                        next.text,
+                        event.field
+                    )
+                        ? String(next.text[event.field] || '')
+                        : String((model.document || {})[event.field] || ''),
+                    sep =
+                        event.separator &&
+                        current &&
+                        !current.endsWith(event.separator)
+                            ? event.separator
+                            : '',
+                    updatedText = Object.assign({}, next.text);
+                delete updatedText[event.field];
+                next.text = updatedText;
+                commands.push({
+                    type: 'field',
+                    field: event.field,
+                    value: current + sep + String(event.token)
+                });
+            }
+            break;
         case 'sample':
             if (edit && !next.confirmation)
                 commands.push({
@@ -131,6 +168,9 @@ export function transition(ui, model, event) {
                 180,
                 Math.min(420, Number(event.value))
             );
+            break;
+        case 'catalogVisible':
+            next.catalogVisible = next.catalogVisible === false;
             break;
         case 'back':
             if (model.identity) next.editing = false;

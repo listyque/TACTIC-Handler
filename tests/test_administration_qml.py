@@ -24,6 +24,7 @@ class AdministrationQmlTests(unittest.TestCase):
         self.fixture = windows_fixture.EditorWindowQmlTests()
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
+        self.enterContext(patch('thlib.environment.get_server_api', return_value='stream'))
         self.admin = self.fixture.admin
         self.admin._project = 'demo'
         self.fixture.columns._definition_catalog_loaded = True
@@ -32,8 +33,6 @@ class AdministrationQmlTests(unittest.TestCase):
             editor._project = 'demo'
             editor._loaded = editor._can_write = True
         self.admin.usersEditor._project = 'sthpw'
-        self.seed(self.admin.serverEditor, 'server', {'workers': '3'}, {
-            'runtime': {'available': True, 'state': 'running', 'web_workers': 3}})
         self.seed(self.admin.schemaEditor, 'demo', {'xml': SCHEMA}, {
             'searchTypes': [{'identity': 'demo/asset', 'label': 'Assets'},
                             {'identity': 'demo/shot', 'label': 'Shots'}]})
@@ -169,7 +168,7 @@ class AdministrationQmlTests(unittest.TestCase):
     def test_sections_create_real_views_without_warnings_at_narrow_and_wide_sizes(self):
         for width,height in ((900,620),(1400,940)):
          self.window.resize(width,height);frame(self.window)
-         for section in ('server','types','schema','workflow','rules','groups','raw','sidebar','columns','users','layouts'):
+         for section in ('types','schema','workflow','rules','groups','raw','sidebar','columns','users','layouts'):
           self.click('adminSection_'+section)
           self.assertEqual(self.admin.section,section)
           content=self.item('administrationContent')
@@ -892,6 +891,8 @@ class AdministrationQmlTests(unittest.TestCase):
         self.assertTrue(self.window.isVisible());self.assertEqual(self.admin.section,'types')
         self.assertTrue(self.admin.typesEditor.dirty)
         self.assertEqual(self.admin.typesEditor.document['title'],'A hidden draft')
+        self.assertTrue(self.item('adminDocumentConfirmation').isVisible())
+        self.assertNotIn('Save or discard', self.item('administrationSectionDescription').property('text'))
 
     def test_clean_child_editor_locks_project_until_its_window_closes(self):
         windows=self.fixture.application.window_model

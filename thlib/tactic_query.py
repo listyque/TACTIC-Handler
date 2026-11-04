@@ -87,8 +87,6 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
     func_lines = _function_source_lines(func)
     if func is query_sobjects and kwargs.get('include_details'):
         func_lines = _function_source_lines(get_tasks_and_notes) + func_lines
-    if func is query_sobjects and kwargs.get('include_details'):
-        func_lines = _function_source_lines(get_tasks_and_notes) + func_lines
     if func is get_virtual_snapshots_extended:
         func_lines = _function_source_lines(get_virtual_snapshot_extended) + func_lines
 
@@ -1853,26 +1851,64 @@ def get_tasks_and_notes(search_code, project_code, process=None,
                 else task_note_count_by_code.get(task.get('code'), 0)
             )
 
-    for note, note_sobject in zip(notes, notes_sobjects):
+    import pyasm.biz as _biz
+    SObjectConnection = getattr(_biz, 'SObjectConnection', None)
+    direct_by_note = {}
+    if notes_sobjects:
+        for snap in (Snapshot.get_by_sobjects(notes_sobjects) or []):
+            if snap:
+                direct_by_note.setdefault(
+                    str(snap.get_value('search_code') or ''), []
+                ).append(snap)
+    connected_by_note_id = {}
+    use_batched_conn = bool(
+        SObjectConnection is not None
+        and notes_sobjects
+        and hasattr(notes_sobjects[0], 'get_id')
+    )
+    if use_batched_conn:
+        connections, connected_pool = SObjectConnection.get_connected_sobjects(
+            notes_sobjects, context='attachment'
+        )
+        connected_by_id = dict(
+            (str(s.get_id()), s) for s in (connected_pool or []) if s
+        )
+        for conn in (connections or []):
+            dst_id = str(conn.get_value('dst_search_id') or '')
+            snap = connected_by_id.get(str(conn.get_value('src_search_id') or ''))
+            if dst_id and snap:
+                connected_by_note_id.setdefault(dst_id, []).append(snap)
 
-        # Getting snapshots for notes previews
-        snapshots_sobjects = Snapshot.get_by_sobjects([note_sobject])
-        connected_snapshots = note_sobject.get_connections(context='attachment')
-
+    snapshots_by_note = []
+    all_snapshots = []
+    for note_sobject in notes_sobjects:
+        note_code = str(note_sobject.get_value('code') or '')
+        snapshots_sobjects = list(direct_by_note.get(note_code) or [])
+        connected_snapshots = (
+            connected_by_note_id.get(str(note_sobject.get_id()))
+            if use_batched_conn
+            else note_sobject.get_connections(context='attachment')
+        )
         if connected_snapshots:
             for connected_snapshot in connected_snapshots:
                 if connected_snapshot:
                     snapshots_sobjects.append(connected_snapshot)
+        snapshots_by_note.append(snapshots_sobjects)
+        all_snapshots.extend(snapshots_sobjects)
 
-        if snapshots_sobjects:
-            snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
-
+    snapshots_files_sobjects = (
+        Snapshot.get_files_dict_by_snapshots(all_snapshots)
+        if all_snapshots else {}
+    )
+    all_snapshot_dicts = get_sobjects_dict(all_snapshots)
+    snap_offset = 0
+    for note, snapshots_sobjects in zip(notes, snapshots_by_note):
         snapshots_list = []
         for snapshot in snapshots_sobjects:
-
-            snapshot_dict = get_sobject_dict(snapshot)
+            snapshot_dict = dict(all_snapshot_dicts[snap_offset])
+            snap_offset += 1
             files_list = []
-            snapshots_files = snapshots_files_sobjects.get(snapshot_dict['code'])
+            snapshots_files = snapshots_files_sobjects.get(snapshot_dict.get('code'))
             if snapshots_files:
                 for fl in snapshots_files:
                     files_list.append(server.server._get_sobject_dict(fl))
@@ -1969,35 +2005,92 @@ def get_notes_with_attachments(note_codes, project_code):
     search = Search('sthpw/note')
     search.add_filters('code', codes)
     notes = search.get_sobjects()
-    result = []
+    import pyasm.biz as _biz
+    SObjectConnection = getattr(_biz, 'SObjectConnection', None)
+    note_keys = (
+        SearchKey.get_by_sobjects(notes, use_id=False)
+        if notes and hasattr(SearchKey, 'get_by_sobjects')
+        else [SearchKey.get_by_sobject(n, use_id=False) for n in notes]
+    )
+    direct_by_note = {}
+    if notes:
+        for snap in (Snapshot.get_by_sobjects(notes) or []):
+            if snap:
+                direct_by_note.setdefault(
+                    str(snap.get_value('search_code') or ''), []
+                ).append(snap)
+    connected_by_note_id = {}
+    use_batched_conn = bool(
+        SObjectConnection is not None
+        and notes
+        and hasattr(notes[0], 'get_id')
+    )
+    if use_batched_conn:
+        connections, connected_pool = SObjectConnection.get_connected_sobjects(
+            notes, context='attachment'
+        )
+        connected_by_id = dict(
+            (str(s.get_id()), s) for s in (connected_pool or []) if s
+        )
+        for conn in (connections or []):
+            dst_id = str(conn.get_value('dst_search_id') or '')
+            snap = connected_by_id.get(str(conn.get_value('src_search_id') or ''))
+            if dst_id and snap:
+                connected_by_note_id.setdefault(dst_id, []).append(snap)
+
+    snapshots_by_note = []
+    all_snapshots = []
     for note in notes:
-        data = note.get_data()
-        data['__search_key__'] = SearchKey.get_by_sobject(
-            note, use_id=False
+        note_code = str(
+            (note.get_code() if hasattr(note, 'get_code') else note.get_value('code')) or ''
         )
-        snapshots = list(Snapshot.get_by_sobjects([note]) or [])
+        snapshots = list(direct_by_note.get(note_code) or [])
         known = set(
-            str(snapshot.get_code() or '') for snapshot in snapshots
+            str((s.get_code() if hasattr(s, 'get_code') else s.get_value('code')) or '')
+            for s in snapshots
         )
-        for snapshot in note.get_connections(context='attachment') or []:
-            code = str(snapshot.get_code() or '')
+        connected = (
+            connected_by_note_id.get(str(note.get_id()))
+            if use_batched_conn
+            else note.get_connections(context='attachment')
+        )
+        for snapshot in connected or []:
+            code = str(
+                (snapshot.get_code() if hasattr(snapshot, 'get_code') else snapshot.get_value('code')) or ''
+            )
             if snapshot and code not in known:
                 snapshots.append(snapshot)
                 known.add(code)
-        files_by_snapshot = (
-            Snapshot.get_files_dict_by_snapshots(snapshots)
-            if snapshots else {}
-        )
+        snapshots_by_note.append(snapshots)
+        all_snapshots.extend(snapshots)
+
+    files_by_snapshot = (
+        Snapshot.get_files_dict_by_snapshots(all_snapshots)
+        if all_snapshots else {}
+    )
+    snap_keys = (
+        SearchKey.get_by_sobjects(all_snapshots, use_id=False)
+        if all_snapshots and hasattr(SearchKey, 'get_by_sobjects')
+        else [SearchKey.get_by_sobject(s, use_id=False) for s in all_snapshots]
+    )
+    snap_offset = 0
+    result = []
+    for note, note_key, snapshots in zip(notes, note_keys, snapshots_by_note):
+        data = note.get_data()
+        data['__search_key__'] = note_key
         decorated = []
         for snapshot in snapshots:
             snapshot_data = snapshot.get_data()
-            snapshot_data['__search_key__'] = SearchKey.get_by_sobject(
-                snapshot, use_id=False
+            snapshot_data['__search_key__'] = snap_keys[snap_offset]
+            snap_offset += 1
+            snap_code = (
+                snapshot.get_code() if hasattr(snapshot, 'get_code')
+                else snapshot.get_value('code')
             )
             snapshot_data['__files__'] = [
                 server.server._get_sobject_dict(file_object)
                 for file_object in (
-                    files_by_snapshot.get(snapshot.get_code()) or []
+                    files_by_snapshot.get(snap_code) or []
                 )
             ]
             decorated.append(snapshot_data)
@@ -2533,7 +2626,7 @@ def mutate_user_profile(login, values=None, password=None, groups=None,
     }
     supervisor_fields = {
         'upn', 'namespace', 's_status', 'project_code',
-        'license_type', 'hourly_wage',
+        'hourly_wage',
     }
     allowed = self_fields | (supervisor_fields if privileged else set())
     changed = False
@@ -2777,7 +2870,7 @@ def create_user_profile(login, values=None, password=None, groups=None, require_
     allowed = {
         'first_name', 'last_name', 'display_name', 'email',
         'phone_number', 'address', 'department', 'upn', 'namespace', 's_status',
-        'project_code', 'license_type', 'hourly_wage',
+        'project_code', 'hourly_wage',
     }
     desired_groups = sorted(set(str(value) for value in (groups or []) if value))
     payload = {str(key): value for key, value in dict(values or {}).items()
@@ -3367,18 +3460,6 @@ def query_chat_conversations():
 
     unread_by_code = {}
     mentions_by_code = {}
-    cleared_values = [
-        str(own_by_code[code].get_value(
-            'last_cleared', no_exception=True
-        ) or '')[:19]
-        for code in active_codes if own_by_code.get(code)
-    ]
-    unread_search = Search('sthpw/message_log')
-    unread_search.add_filters('message_code', active_codes)
-    unread_search.add_filter('status', 'deleted', op='!=')
-    if cleared_values and all(cleared_values):
-        unread_search.add_filter('timestamp', min(cleared_values), op='>')
-    unread_logs = unread_search.get_sobjects()
     members_count = dict(
         (code, len(members_by_code.get(code, []))) for code in active_codes
     )
@@ -3387,6 +3468,36 @@ def query_chat_conversations():
             re.escape(str(current_login or ''))
         ), re.IGNORECASE,
     )
+    unread_candidate_codes = []
+    candidate_cleared = []
+    unread_logs = []
+    for code in active_codes:
+        own = own_by_code.get(code)
+        if not own or members_count.get(code, 0) <= 1:
+            continue
+        summary = summaries_by_code.get(code) or {}
+        if int(summary.get('messageCount') or 0) <= 0:
+            continue
+        cleared = str(own.get_value(
+            'last_cleared', no_exception=True
+        ) or '')[:19]
+        latest_ts = str(summary.get('latestTimestamp') or '')[:19]
+        if cleared and latest_ts and latest_ts <= cleared:
+            continue
+        if code in missing_logs_by_code:
+            unread_logs.extend(missing_logs_by_code[code])
+        else:
+            unread_candidate_codes.append(code)
+            candidate_cleared.append(cleared)
+
+    if unread_candidate_codes:
+        unread_search = Search('sthpw/message_log')
+        unread_search.add_filters('message_code', unread_candidate_codes)
+        unread_search.add_filter('status', 'deleted', op='!=')
+        if candidate_cleared and all(candidate_cleared):
+            unread_search.add_filter('timestamp', min(candidate_cleared), op='>')
+        unread_logs.extend(unread_search.get_sobjects())
+
     for message_log in unread_logs:
         code = message_log.get_value('message_code')
         own = own_by_code.get(code)
@@ -4316,7 +4427,7 @@ def pin_chat_message(message_log_code, unpin=False):
 
 def query_chat_history(message_code, limit=31, offset=0, search_text=''):
     import json
-    from datetime import datetime
+    from datetime import datetime, timezone
     from pyasm.biz import Snapshot
     from pyasm.search import Search, SearchKey
 
@@ -4379,7 +4490,7 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
         message_log.set_value('code', code)
     metadata_by_log = {}
     delivery_updates = {}
-    delivered_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    delivered_at = datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
     target_refs = set()
     for message_log in history:
         raw_metadata = message_log.get_value('metadata') or {}
@@ -4463,11 +4574,14 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
             snapshot_search.add_filters('id', list(set(snapshot_ids)))
             snapshots = snapshot_search.get_sobjects()
             files = Snapshot.get_files_dict_by_snapshots(snapshots)
-            for snapshot in snapshots:
+            snapshot_keys = (
+                SearchKey.get_by_sobjects(snapshots, use_id=False)
+                if hasattr(SearchKey, 'get_by_sobjects') and snapshots
+                else [SearchKey.get_by_sobject(s, use_id=False) for s in snapshots]
+            )
+            for snapshot, snap_key in zip(snapshots, snapshot_keys):
                 snapshot_data = snapshot.get_data()
-                snapshot_data['__search_key__'] = SearchKey.get_by_sobject(
-                    snapshot, use_id=False
-                )
+                snapshot_data['__search_key__'] = snap_key
                 snapshot_data['__files__'] = [
                     file_object.get_data()
                     for file_object in (files.get(snapshot.get_code()) or [])
@@ -4586,7 +4700,7 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
 
 def mark_chat_read(message_code, timestamp):
     import json
-    from datetime import datetime
+    from datetime import datetime, timezone
     from pyasm.search import Search, SearchKey
 
     def aggregate_delivery(delivery):
@@ -4622,8 +4736,9 @@ def mark_chat_read(message_code, timestamp):
         log_search.add_filter('message_code', message_code)
         log_search.add_filter('login', current_login, op='!=')
         log_search.add_filter('status', 'deleted', op='!=')
+        log_search.add_filter('status', 'read', op='!=')
         log_search.add_filter('timestamp', timestamp_second, op='<=')
-        read_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        read_at = datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
         for message_log in log_search.get_sobjects():
             raw_metadata = message_log.get_value('metadata') or {}
             if isinstance(raw_metadata, dict):

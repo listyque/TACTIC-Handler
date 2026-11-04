@@ -248,7 +248,16 @@ export function models(model, ui, language) {
                     ui.query
                 )
         ),
-        allRules: model.records,
+        allRules: model.records.filter((record) =>
+            contains(
+                title(record, model, language) +
+                    ' ' +
+                    detail(record) +
+                    ' ' +
+                    JSON.stringify(record),
+                ui.query
+            )
+        ),
         inheritance: inheritanceChoices(model),
         targets: targets(model, editorScope)
             .map((target, index) =>
@@ -283,7 +292,14 @@ export function describe(model, ui, width, height, language) {
         ),
         nodes = notice.nodes,
         rail = width >= 900,
-        railWidth = rail ? (language === 'ru' ? 232 : 212) : 0,
+        railVisible = ui.railVisible !== false,
+        railWidth = rail
+            ? railVisible
+                ? language === 'ru'
+                    ? 232
+                    : 212
+                : 56
+            : 0,
         offset = rail ? railWidth + 8 : 0,
         contentWidth = width - offset,
         details = scopeDetails[ui.scope] || scopeDetails.project,
@@ -388,6 +404,45 @@ export function describe(model, ui, width, height, language) {
             });
             y += 6;
         });
+        const navChildren = [
+            button(
+                'adminToggleSecurityNavigation',
+                rect(
+                    railVisible ? railWidth - 46 : (railWidth - 34) / 2,
+                    10,
+                    34,
+                    34
+                ),
+                tr('Access rules'),
+                railVisible ? 'chevron-left' : 'chevron-right',
+                { type: 'railVisible' },
+                true,
+                {
+                    iconOnly: true,
+                    iconAction: true,
+                    round: false
+                }
+            )
+        ];
+        if (railVisible)
+            navChildren.push(
+                label(
+                    'adminSecurityNavigationTitle',
+                    rect(12, 10, Math.max(0, railWidth - 62), 34),
+                    tr('Access rules'),
+                    { weight: 600 }
+                ),
+                node(
+                    'Scroll',
+                    'adminSecurityNavigation',
+                    rect(0, 52, railWidth, Math.max(0, height - top - 52)),
+                    {
+                        children: entries,
+                        contentHeight: y,
+                        scrollbarId: 'adminSecurityNavigationScrollBar'
+                    }
+                )
+            );
         nodes.push(
             node(
                 'Box',
@@ -397,18 +452,7 @@ export function describe(model, ui, width, height, language) {
                     background: 'surfaceContainerLow',
                     border: 'outlineVariant',
                     radius: 8,
-                    children: [
-                        node(
-                            'Scroll',
-                            'adminSecurityNavigation',
-                            rect(0, 0, railWidth, height - top),
-                            {
-                                children: entries,
-                                contentHeight: y,
-                                scrollbarId: 'adminSecurityNavigationScrollBar'
-                            }
-                        )
-                    ]
+                    children: navChildren
                 }
             )
         );
@@ -807,7 +851,10 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
         );
     } else {
         const attrs = model.attributes,
-            scope = attrs.group || attrs.category || ui.scope,
+            scope =
+                attrs.group ||
+                attrs.category ||
+                (ui.scope === 'technical' ? 'project' : ui.scope),
             fields = (names[scope] || []).slice();
         if (Object.prototype.hasOwnProperty.call(attrs, 'project'))
             fields.push('project');
@@ -824,6 +871,45 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
             )
         );
         y += 36;
+        if (ui.scope === 'technical') {
+            const categoryChoices = [
+                ['project', 'Projects'],
+                ['search_type', 'Search Types'],
+                ['process', 'Processes'],
+                ['link', 'Sidebar links'],
+                ['gear_menu', 'Menu actions'],
+                ['builtin', 'Application features'],
+                ['script_runner', 'Custom scripts'],
+                ['sobject', 'Search Objects'],
+                ['sobject_column', 'Field access'],
+                ['search_filter', 'Search restrictions']
+            ].map(([value, text]) => ({
+                value,
+                label: tr(text)
+            }));
+            if (!categoryChoices.some((item) => item.value === scope))
+                categoryChoices.push({ value: scope, label: scope });
+            children.push(
+                label(
+                    'adminAccessRuleCategoryLabel',
+                    rect(12, y, inner, 22),
+                    tr('Rule type')
+                ),
+                node(
+                    'Choice',
+                    'adminAccessRuleCategory',
+                    rect(12, y + 26, inner, 38),
+                    {
+                        value: scope,
+                        options: categoryChoices,
+                        label: tr('Rule type'),
+                        enabled: edit,
+                        action: { type: 'ruleCategory' }
+                    }
+                )
+            );
+            y += 72;
+        }
         if (scope === 'builtin') {
             const feature = builtinFeature(model, attrs.key),
                 helpHeight = width < 380 ? 112 : 80,
@@ -1065,7 +1151,7 @@ function technical(nodes, model, ui, bounds, language, edit, navigate) {
             )
         );
     const options = [
-        ['group', 'Group defaults', 'groups'],
+        ['group', 'Access rules', 'shield'],
         ['xml', 'XML', 'code'],
         ['rule', 'Selected rule JSON', 'code'],
         ['inherited', 'Inherited rules', 'account-tree']
@@ -1176,9 +1262,18 @@ function technical(nodes, model, ui, bounds, language, edit, navigate) {
 function groupSettings(nodes, model, ui, bounds, language, edit) {
     const tr = (text) => translate(text, language),
         width = bounds.width,
+        navigate = !model.busy && !pending(ui),
         formWidth = Math.max(1, width - 16),
         columns = width >= 600 ? 2 : 1,
         fieldWidth = (formWidth - (columns - 1) * 12) / columns;
+    const accessLevelLabels = {
+        none: 'none — No default access',
+        min: 'min — Minimal access',
+        low: 'low — Basic artist access',
+        medium: 'medium — Standard production access',
+        high: 'high — Extended project access',
+        admin: 'admin — Full administrator access'
+    };
     const fields = [
             ['accessLevel', 'Access level'],
             ['project', 'Project']
@@ -1217,7 +1312,9 @@ function groupSettings(nodes, model, ui, bounds, language, edit) {
                             : (model.metadata.accessLevels || []).map(
                                   (value) => ({
                                       value,
-                                      label: value
+                                      label: tr(
+                                          accessLevelLabels[value] || value
+                                      )
                                   })
                               ),
                     enabled: edit,
@@ -1230,13 +1327,24 @@ function groupSettings(nodes, model, ui, bounds, language, edit) {
         );
     });
     const formHeight = Math.ceil(fields.length / columns) * 76,
-        helpHeight = width >= 900 ? 48 : width >= 600 ? 64 : 112;
+        helpHeight =
+            ui.scope === 'technical'
+                ? width >= 600
+                    ? 28
+                    : 48
+                : width >= 900
+                  ? 48
+                  : width >= 600
+                    ? 64
+                    : 112;
     form.push(
         label(
             'adminSecurityInheritanceHelp',
-            rect(0, formHeight + 4, formWidth, helpHeight),
+            rect(0, formHeight + 2, formWidth, helpHeight),
             tr(
-                'This group inherits permissions from the selected groups. For the same rule key, the highest access wins; a deny does not cancel another grant.'
+                ui.scope === 'technical'
+                    ? 'Default access level and project restriction for this group. Select any rule below to edit its permissions and targets visually.'
+                    : 'This group inherits permissions from the selected groups. For the same rule key, the highest access wins; a deny does not cancel another grant.'
             ),
             Object.assign({ wrap: true }, muted)
         )
@@ -1245,7 +1353,7 @@ function groupSettings(nodes, model, ui, bounds, language, edit) {
         other = (model.groupDocument.subGroups || '')
             .split('|')
             .filter((name) => name && !known.has(name));
-    let contentHeight = formHeight + helpHeight + 12;
+    let contentHeight = formHeight + helpHeight + 8;
     if (other.length) {
         form.push(
             label(
@@ -1260,7 +1368,10 @@ function groupSettings(nodes, model, ui, bounds, language, edit) {
         );
         contentHeight += 56;
     }
-    const headerHeight = Math.min(contentHeight, bounds.height * 0.58);
+    const headerHeight = Math.min(
+        contentHeight,
+        ui.scope === 'technical' ? Math.max(96, bounds.height * 0.28) : bounds.height * 0.58
+    );
     nodes.push(
         node(
             'Scroll',
@@ -1273,32 +1384,103 @@ function groupSettings(nodes, model, ui, bounds, language, edit) {
             }
         )
     );
-    const listY = bounds.y + headerHeight + 8;
+    const listY = bounds.y + headerHeight + 8,
+        rulesHeight = Math.max(1, bounds.y + bounds.height - listY);
+    if (ui.scope === 'technical') {
+        const split = width >= 780,
+            editorWidth = split ? Math.max(320, Math.round(width * 0.42)) : width,
+            listWidth = split ? width - editorWidth - 12 : width;
+        if (split || !ui.editing) {
+            nodes.push(
+                node(
+                    'Field',
+                    'adminAccessSearch',
+                    rect(0, listY, listWidth - 46, 38),
+                    {
+                        text: ui.query,
+                        label: tr('Find a permission'),
+                        placeholder: tr('Find a permission'),
+                        enabled: navigate,
+                        action: {
+                            type: 'query'
+                        }
+                    }
+                ),
+                button(
+                    'adminAddAccessRule',
+                    rect(listWidth - 38, listY, 38, 38),
+                    tr('Add rule'),
+                    'add',
+                    {
+                        type: 'addRule'
+                    },
+                    edit,
+                    {
+                        iconOnly: true
+                    }
+                ),
+                list(
+                    'adminSecurityAllRules',
+                    rect(
+                        0,
+                        listY + 46,
+                        listWidth,
+                        Math.max(1, rulesHeight - 46)
+                    ),
+                    'allRules',
+                    64,
+                    'ruleIndex'
+                )
+            );
+            if (!models(model, ui, language).allRules.length)
+                nodes.push(
+                    label(
+                        'adminAccessRulesEmpty',
+                        rect(12, listY + 58, listWidth - 40, 60),
+                        tr('No rules match the search'),
+                        {
+                            wrap: true,
+                            color: 'secondaryText'
+                        }
+                    )
+                );
+        }
+        if (split || ui.editing)
+            editor(
+                nodes,
+                model,
+                ui,
+                rect(
+                    split ? listWidth + 12 : 0,
+                    listY,
+                    editorWidth,
+                    rulesHeight
+                ),
+                language,
+                edit,
+                !split
+            );
+        return;
+    }
     nodes.push(
         label(
             'adminSecurityInheritanceCaption',
             rect(0, listY, width, 24),
-            tr(
-                ui.scope === 'technical'
-                    ? 'Access rules'
-                    : 'Inherit permissions from'
-            )
+            tr('Inherit permissions from')
         )
     );
     nodes.push(
         list(
-            ui.scope === 'technical'
-                ? 'adminSecurityAllRules'
-                : 'adminSecurityInheritanceList',
+            'adminSecurityInheritanceList',
             rect(
                 0,
                 listY + 32,
                 width,
                 Math.max(1, bounds.y + bounds.height - listY - 32)
             ),
-            ui.scope === 'technical' ? 'allRules' : 'inheritance',
-            ui.scope === 'technical' ? 62 : 42,
-            ui.scope === 'technical' ? 'ruleIndex' : 'identity'
+            'inheritance',
+            42,
+            'identity'
         )
     );
 }
@@ -1376,11 +1558,35 @@ export function row(listNode, record, model, ui, language) {
         };
     const index = record.ruleIndex,
         all = listNode.source === 'allRules',
-        quick = !all && !['search_filter', 'builtin'].includes(ui.scope),
+        ruleGroup = record.group || record.category || '',
         small = width < 540,
+        quick = all
+            ? !small && ruleGroup !== 'search_filter'
+            : !['search_filter', 'builtin'].includes(ui.scope),
         levelWidth = 36;
     const textWidth =
         quick && !small ? width - levelWidth * 4 - 42 : width - 44;
+    const scopeEntry = scopes.find((entry) => entry[0] === ruleGroup);
+    const scopeLabel = scopeEntry ? tr(scopeEntry[1]) : ruleGroup;
+    const levelEntry = levels.find((entry) => entry[0] === record.access);
+    const levelLabel = levelEntry ? tr(levelEntry[1]) : record.access || '';
+    const rawDetail =
+        ruleGroup === 'builtin'
+            ? tr(
+                  record.access === 'allow'
+                      ? 'Allowed by this group'
+                      : record.access === 'deny'
+                        ? 'Denied by this group'
+                        : 'Existing access: {access}'
+              ).replace('{access}', record.access || '')
+            : detail(record);
+    const subtitle = [
+        all ? scopeLabel : '',
+        rawDetail,
+        all && levelLabel && ruleGroup !== 'builtin' ? levelLabel : ''
+    ]
+        .filter(Boolean)
+        .join(' · ');
     nodes.push(
         node('Action', 'adminAccessRule_' + index, rect(0, 0, width, height), {
             text: title(record, model, language),
@@ -1405,18 +1611,7 @@ export function row(listNode, record, model, ui, language) {
                 label(
                     'adminAccessRuleDetail_' + index,
                     rect(12, 28, textWidth - 20, 20),
-                    (all
-                        ? (record.group || record.category || '') + ' · '
-                        : '') +
-                        ((record.group || record.category) === 'builtin'
-                            ? tr(
-                                  record.access === 'allow'
-                                      ? 'Allowed by this group'
-                                      : record.access === 'deny'
-                                        ? 'Denied by this group'
-                                        : 'Existing access: {access}'
-                              ).replace('{access}', record.access || '')
-                            : detail(record)),
+                    subtitle,
                     muted
                 )
             ]

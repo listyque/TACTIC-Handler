@@ -207,7 +207,7 @@ Flickable {
     onMovementStarted: followBottom = false
     onMovementEnded: followBottom = atYEnd
     onContentYChanged: {
-        if (contentY < maximumContentY - 0.5)
+        if (contentY < Math.max(minimumContentY, contentHeight - height) - 0.5)
             followBottom = false
         captureViewportAnchor()
     }

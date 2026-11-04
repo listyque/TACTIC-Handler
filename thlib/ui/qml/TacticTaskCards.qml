@@ -71,7 +71,7 @@ Item {
 
                 required property int index
                 readonly property var modelData: root.records[index] || ({})
-                readonly property string taskIdentity: JSON.stringify([root.nodeId, modelData.taskSearchKey || modelData.taskCode || "", modelData.context || modelData.process || ""])
+                readonly property string taskIdentity: root.nodeId + ":" + (modelData.taskSearchKey || modelData.taskCode || "") + ":" + (modelData.context || modelData.process || "")
                 readonly property color taskColor: String(modelData.statusColor || "").length > 0 ? modelData.statusColor : String(modelData.processColor || "").length > 0 ? modelData.processColor : root.theme.action
                 readonly property string processLabel: String(modelData.processLabel || modelData.process || modelData.context || qsTr("Task"))
                 readonly property var cardLayout: root.cardLayout
@@ -113,31 +113,32 @@ Item {
                         Accessible.role: Accessible.Button
                         Accessible.name: qsTr("Open task") + ": " + taskCard.processLabel
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: Fields.cardMetrics.inset
+                        Controls.MaterialIcon {
+                            id: progressIcon
+                            visible: taskCard.modelData.processType === "progress"
+                            x: Fields.cardMetrics.inset
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Fields.cardMetrics.avatar
+                            height: Fields.cardMetrics.avatar
+                            name: visible ? "MDI_CHART_DONUT" : ""
+                            size: Fields.cardMetrics.avatar
+                            color: root.theme.primaryText
+                            Accessible.ignored: true
+                        }
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Fields.cardMetrics.inset + (progressIcon.visible ? Fields.cardMetrics.avatar + Fields.cardMetrics.gap : 0)
+                            anchors.right: parent.right
                             anchors.rightMargin: Fields.cardMetrics.inset
-                            spacing: Fields.cardMetrics.gap
-                            Controls.MaterialIcon {
-                                visible: taskCard.modelData.processType === "progress"
-                                Layout.preferredWidth: Fields.cardMetrics.avatar
-                                Layout.preferredHeight: Fields.cardMetrics.avatar
-                                name: "MDI_CHART_DONUT"
-                                size: Fields.cardMetrics.avatar
-                                color: root.theme.primaryText
-                                Accessible.ignored: true
-                            }
-                            Text {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                verticalAlignment: Text.AlignVCenter
-                                text: taskCard.processLabel
-                                elide: Text.ElideRight
-                                color: root.theme.primaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.caption
-                                font.weight: Font.DemiBold
-                            }
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            verticalAlignment: Text.AlignVCenter
+                            text: taskCard.processLabel
+                            elide: Text.ElideRight
+                            color: root.theme.primaryText
+                            font.family: root.theme.fontFamily
+                            font.pointSize: Controls.Typography.caption
+                            font.weight: Font.DemiBold
                         }
                         HoverHandler {
                             cursorShape: Qt.PointingHandCursor
@@ -232,29 +233,29 @@ Item {
 
                         sourceComponent: Item {
                             objectName: "tableTaskDatesContent_" + taskCard.index
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: Fields.cardMetrics.inset
+                            Controls.MaterialIcon {
+                                x: Fields.cardMetrics.inset
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Fields.cardMetrics.avatar
+                                height: Fields.cardMetrics.avatar
+                                name: "calendar"
+                                size: Fields.cardMetrics.avatar
+                                color: root.theme.secondaryText
+                                Accessible.ignored: true
+                            }
+                            Text {
+                                anchors.left: parent.left
+                                anchors.leftMargin: Fields.cardMetrics.inset + Fields.cardMetrics.avatar + Fields.cardMetrics.gap
+                                anchors.right: parent.right
                                 anchors.rightMargin: Fields.cardMetrics.inset
-                                spacing: Fields.cardMetrics.gap
-
-                                Controls.MaterialIcon {
-                                    Layout.preferredWidth: Fields.cardMetrics.avatar
-                                    Layout.preferredHeight: Fields.cardMetrics.avatar
-                                    name: "calendar"
-                                    size: Fields.cardMetrics.avatar
-                                    color: root.theme.secondaryText
-                                    Accessible.ignored: true
-                                }
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: Cells.taskDateRange(taskCard.modelData, root.language)
-                                    color: root.theme.secondaryText
-                                    font.family: root.theme.fontFamily
-                                    font.pointSize: Controls.Typography.caption
-                                    elide: Text.ElideRight
-                                    verticalAlignment: Text.AlignVCenter
-                                }
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                text: Cells.taskDateRange(taskCard.modelData, root.language)
+                                color: root.theme.secondaryText
+                                font.family: root.theme.fontFamily
+                                font.pointSize: Controls.Typography.caption
+                                elide: Text.ElideRight
+                                verticalAlignment: Text.AlignVCenter
                             }
 
                             HoverHandler {

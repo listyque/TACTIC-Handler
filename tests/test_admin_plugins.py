@@ -285,7 +285,7 @@ class AdminPluginsTests(unittest.TestCase):
         administration_fixture.AdministrationQmlTests.setUpClass()
         fixture = administration_fixture.AdministrationQmlTests()
         self.addCleanup(fixture.doCleanups); fixture.setUp()
-        self.enterContext(patch.object(type(fixture.application), 'is_stream_server',
+        self.enterContext(patch.object(type(fixture.fixture.application), 'is_stream_server',
                                       new_callable=PropertyMock, return_value=True))
         fixture.admin.stateChanged.emit()
         server = Server()

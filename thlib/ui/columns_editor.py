@@ -197,6 +197,19 @@ class ColumnsEditorController(QObject):
             for value, label in tactic_definition.DISPLAY_WIDGETS
         ]
 
+    @Slot(str, result="QVariantList")
+    @Slot(str, bool, result="QVariantList")
+    def widget_options_for(self, widget: str, show_all: bool = False):
+        return [
+            {
+                "value": value,
+                "label": self.tr(label) if translate else label,
+            }
+            for value, label, translate in tactic_definition.widget_options(
+                widget, show_all
+            )
+        ]
+
     @Property("QVariantList", notify=stateChanged)
     def visibleColumns(self):
         return [
@@ -645,23 +658,35 @@ class ColumnsEditorController(QObject):
         ))
         return ElementTree.fromstring(source, parser=parser)
 
-    @Slot(str, result="QVariantMap")
-    @Slot(str, str, result="QVariantMap")
-    def catalog_wizard(self, xml, view_name=""):
-        """Project a native TACTIC table view without replacing its XML."""
-        try:
-            source = str(xml or "").strip()
-            root = self._catalog_xml_root(source)
-        except ElementTree.ParseError as error:
-            self._error = "Invalid configuration XML"
-            self.stateChanged.emit()
-            return {"supported": False, "elements": [], "error": "Invalid configuration XML"}
+    @staticmethod
+    def _element_xml(element):
+        from xml.dom import minidom
+        clone = deepcopy(element)
+        clone.tail = None
+        ElementTree.indent(clone, space="  ")
+        return minidom.parseString(
+            ElementTree.tostring(clone)
+        ).documentElement.toxml()
 
+    @staticmethod
+    def _child_map(node):
+        if node is None:
+            return {}
+        return {
+            child.tag: str(child.text or "").strip()
+            for child in node
+            if isinstance(child.tag, str)
+        }
+
+    @classmethod
+    def _find_catalog_view(cls, root, view_name=""):
         view = None
         view_path = ""
 
         def find_view(node, path=""):
             nonlocal view, view_path
+            if not isinstance(node.tag, str):
+                return
             if (
                 (node.tag == view_name or node.tag == "view" and node.get("name") == view_name)
                 if view_name else
@@ -676,58 +701,416 @@ class ColumnsEditorController(QObject):
                     return
 
         find_view(root)
-        elements = []
+        return view, view_path
+
+    def _parse_catalog_element(self, element, path):
+        display = element.find("display")
+        edit_node = element.find("edit")
+        action_node = element.find("action")
+        display_class = str(display.get("class") or "") if display is not None else ""
+        widget_key = str(display.get("widget") or "") if display is not None else ""
+        widget = display_class or widget_key
+        edit_class = str(edit_node.get("class") or "") if edit_node is not None else ""
+        edit_widget_key = str(edit_node.get("widget") or "") if edit_node is not None else ""
+        edit_widget = edit_class or edit_widget_key
+        action_class = str(action_node.get("class") or "") if action_node is not None else ""
+        name = str(element.get("name") or "")
+        raw_title = str(element.get("title") or "")
+        raw_width = str(element.get("width") or "")
+        return {
+            "path": path,
+            "name": name,
+            "rawTitle": raw_title,
+            "title": raw_title or name,
+            "visible": not tactic_definition.flag(element.get("hidden")),
+            "rawWidth": raw_width,
+            "width": tactic_definition.width(raw_width),
+            "color": str(element.get("color") or "").strip().lower() != "false",
+            "editable": str(element.get("edit") or "").strip().lower() != "false",
+            "widget": str(widget),
+            "widgetKey": widget_key,
+            "displayClass": display_class,
+            "displayOptions": self._child_map(display),
+            "editWidget": edit_widget,
+            "editWidgetKey": edit_widget_key,
+            "editClass": edit_class,
+            "editOptions": self._child_map(edit_node),
+            "actionClass": action_class,
+            "actionOptions": self._child_map(action_node),
+            "xml": self._element_xml(element),
+            **({"valueIcon": element.get("value_icon")} if "value_icon" in element.attrib else
+               {"valueIcon": display.findtext("icon")} if display is not None and display.find("icon") is not None else {}),
+            **({"valueStyle": element.get("value_style")} if "value_style" in element.attrib else {}),
+            **({"valueTextStyle": element.get("value_text_style")} if "value_text_style" in element.attrib else {}),
+            **({"valueAlign": element.get("value_align")} if "value_align" in element.attrib else {}),
+        }
+
+    def _parse_record_elements(self, xml_text, view_name=""):
+        result = {}
+        if not xml_text or not str(xml_text).strip():
+            return result
+        try:
+            root = self._catalog_xml_root(str(xml_text).strip())
+            view, view_path = self._find_catalog_view(root, view_name)
+            if view is None:
+                return result
+            for index, element in enumerate(view):
+                if element.tag != "element":
+                    continue
+                path = f"{view_path}/{index}" if view_path else str(index)
+                parsed = self._parse_catalog_element(element, path)
+                if parsed["name"]:
+                    result[parsed["name"]] = parsed
+        except ElementTree.ParseError:
+            pass
+        return result
+
+    def _parse_color_record(self, xml_text):
+        result = {}
+        if not xml_text or not str(xml_text).strip():
+            return result
+        try:
+            root = self._catalog_xml_root(str(xml_text).strip())
+            view, _ = self._find_catalog_view(root, "color")
+            container = view if view is not None else root
+            for el in container:
+                if el.tag != "element":
+                    continue
+                name = str(el.get("name") or "")
+                if not name:
+                    continue
+                colors_node = el.find("colors")
+                if colors_node is None:
+                    colors_node = el.find("display")
+                if colors_node is None:
+                    colors_node = el
+                entries = []
+                for child in colors_node:
+                    if not isinstance(child.tag, str):
+                        continue
+                    if child.tag == "color":
+                        entries.append({
+                            "label": str(child.get("name") or child.get("value") or (child.text or "").strip()),
+                            "color": str(child.get("color") or child.get("bg") or (child.text or "").strip()),
+                        })
+                    else:
+                        entries.append({
+                            "label": child.tag,
+                            "color": str(child.text or "").strip(),
+                        })
+                if entries:
+                    result[name] = entries
+        except ElementTree.ParseError:
+            pass
+        return result
+
+    @Slot(str, result="QVariantMap")
+    @Slot(str, str, result="QVariantMap")
+    @Slot(str, str, str, result="QVariantMap")
+    def catalog_wizard(self, xml, view_name="", search_type=""):
+        """Project a native TACTIC table view without replacing its XML."""
+        try:
+            source = str(xml or "").strip()
+            root = self._catalog_xml_root(source)
+        except ElementTree.ParseError:
+            self._error = "Invalid configuration XML"
+            self.stateChanged.emit()
+            return {"supported": False, "elements": [], "definitionElements": [], "error": "Invalid configuration XML"}
+
+        view, view_path = self._find_catalog_view(root, view_name)
+        raw_elements = []
         if view is not None:
             for index, element in enumerate(view):
                 if element.tag != "element":
                     continue
                 path = f"{view_path}/{index}" if view_path else str(index)
-                display = element.find("display")
-                widget = ""
-                if display is not None:
-                    widget = display.get("class") or display.get("widget") or ""
-                name = str(element.get("name") or "")
-                elements.append({
-                    "path": path,
-                    "name": name,
-                    "title": str(element.get("title") or name),
-                    "visible": not tactic_definition.flag(
-                        element.get("hidden")
-                    ),
-                    "width": tactic_definition.width(element.get("width")),
-                    "widget": str(widget),
-                    **({"valueIcon": element.get("value_icon")} if "value_icon" in element.attrib else
-                       {"valueIcon": display.findtext("icon")} if display is not None and display.find("icon") is not None else {}),
-                    **({"valueStyle": element.get("value_style")} if "value_style" in element.attrib else {}),
-                    **({"valueTextStyle": element.get("value_text_style")} if "value_text_style" in element.attrib else {}),
-                    **({"valueAlign": element.get("value_align")} if "value_align" in element.attrib else {}),
-                })
+                raw_elements.append(self._parse_catalog_element(element, path))
+
         had_error = bool(self._error)
         self._error = ""
         if had_error:
             self.stateChanged.emit()
+
+        if not search_type or not self._definition_catalog:
+            return {
+                "supported": view is not None,
+                "view": str(view.tag if view is not None else ""),
+                "layout": str(view.get("layout") or "") if view is not None else "",
+                "elements": raw_elements,
+                "definitionElements": [],
+            }
+
+        base_stype = str(search_type).split("?", 1)[0]
+        stype_records = [
+            row for row in self._definition_catalog
+            if str(row.get("searchType") or "").split("?", 1)[0] == base_stype
+        ]
+
+        def find_config(target_view):
+            return next(
+                (row for row in stype_records if row.get("view") == target_view and not row.get("login")),
+                next((row for row in stype_records if row.get("view") == target_view), None),
+            )
+
+        is_edit_view = view_name in {"edit", "edit_definition"}
+        def_rec = find_config("definition")
+        def_default_rec = find_config("default_definition")
+        edit_def_rec = find_config("edit_definition")
+        edit_rec = find_config("edit")
+        color_rec = find_config("color")
+
+        def_map = (
+            {el["name"]: el for el in raw_elements if el["name"]}
+            if view_name == "definition"
+            else self._parse_record_elements(def_rec.get("config") if def_rec else "", "definition")
+        )
+        default_def_map = self._parse_record_elements(
+            def_default_rec.get("config") if def_default_rec else "", "default_definition"
+        )
+        edit_def_map = (
+            {el["name"]: el for el in raw_elements if el["name"]}
+            if view_name == "edit_definition"
+            else self._parse_record_elements(edit_def_rec.get("config") if edit_def_rec else "", "edit_definition")
+        )
+        edit_map = (
+            {el["name"]: el for el in raw_elements if el["name"]}
+            if view_name == "edit"
+            else self._parse_record_elements(edit_rec.get("config") if edit_rec else "", "edit")
+        )
+        color_maps = self._parse_color_record(color_rec.get("config") if color_rec else "")
+        active_view_name = view_name or (str(view.tag) if view is not None else "table")
+
+        def enrich_element(base, in_view):
+            name = base["name"]
+            def_el = def_map.get(name) or {}
+            def_default_el = default_def_map.get(name) or {}
+            edit_def_el = edit_def_map.get(name) or {}
+            edit_view_el = edit_map.get(name) or {}
+            inherited_def = def_el or def_default_el
+
+            widget = (
+                (def_el.get("widget") or def_default_el.get("widget") or "")
+                if is_edit_view
+                else (base.get("widget") or inherited_def.get("widget") or "")
+            )
+            display_class = (
+                (def_el.get("displayClass") or def_default_el.get("displayClass") or "")
+                if is_edit_view
+                else (base.get("displayClass") or inherited_def.get("displayClass") or "")
+            )
+            widget_key = (
+                (def_el.get("widgetKey") or def_default_el.get("widgetKey") or "")
+                if is_edit_view
+                else (base.get("widgetKey") or inherited_def.get("widgetKey") or "")
+            )
+            display_options = {
+                **(def_default_el.get("displayOptions") or {}),
+                **(def_el.get("displayOptions") or {}),
+                **({} if is_edit_view else (base.get("displayOptions") or {})),
+            }
+
+            if is_edit_view:
+                edit_widget = (
+                    base.get("editWidget") or base.get("widget")
+                    or edit_view_el.get("editWidget") or edit_view_el.get("widget")
+                    or edit_def_el.get("editWidget") or edit_def_el.get("widget") or ""
+                )
+                edit_class = (
+                    base.get("editClass") or base.get("displayClass")
+                    or edit_view_el.get("editClass") or edit_view_el.get("displayClass")
+                    or edit_def_el.get("editClass") or edit_def_el.get("displayClass") or ""
+                )
+            else:
+                edit_widget = (
+                    base.get("editWidget") or def_el.get("editWidget")
+                    or edit_view_el.get("editWidget") or edit_view_el.get("widget")
+                    or edit_def_el.get("editWidget") or edit_def_el.get("widget") or ""
+                )
+                edit_class = (
+                    base.get("editClass") or def_el.get("editClass")
+                    or edit_view_el.get("editClass") or edit_view_el.get("displayClass")
+                    or edit_def_el.get("editClass") or edit_def_el.get("displayClass") or ""
+                )
+            edit_options = {
+                **(edit_def_el.get("displayOptions") or {}),
+                **(edit_def_el.get("editOptions") or {}),
+                **(edit_view_el.get("displayOptions") or {}),
+                **(edit_view_el.get("editOptions") or {}),
+                **(def_el.get("editOptions") or {}),
+                **((base.get("displayOptions") or {}) if is_edit_view else {}),
+                **(base.get("editOptions") or {}),
+            }
+            action_class = (
+                base.get("actionClass") or def_el.get("actionClass")
+                or edit_view_el.get("actionClass") or edit_def_el.get("actionClass") or ""
+            )
+            action_options = {
+                **(edit_def_el.get("actionOptions") or {}),
+                **(edit_view_el.get("actionOptions") or {}),
+                **(def_el.get("actionOptions") or {}),
+                **(base.get("actionOptions") or {}),
+            }
+
+            config_layers = []
+            if active_view_name not in {"definition", "default_definition"}:
+                config_layers.append({
+                    "key": "view_db",
+                    "label": f"{active_view_name} - [database]",
+                    "defined": bool(in_view),
+                    "xml": base["xml"] if in_view else "",
+                })
+            config_layers.append({
+                "key": "def_db",
+                "label": "definition - [database]",
+                "defined": bool(def_el),
+                "xml": def_el.get("xml") or "",
+            })
+            if active_view_name not in {"definition", "default_definition"}:
+                config_layers.append({
+                    "key": "view_gen",
+                    "label": f"{active_view_name} - [generated]",
+                    "defined": False,
+                    "xml": "",
+                })
+            config_layers.append({
+                "key": "def_default",
+                "label": "default_definition - [predefined]",
+                "defined": bool(def_default_el),
+                "xml": def_default_el.get("xml") or "",
+            })
+
+            edit_config_layers = [
+                {
+                    "key": "edit_db",
+                    "label": "edit - [database]",
+                    "defined": bool(edit_view_el),
+                    "xml": edit_view_el.get("xml") or "",
+                },
+                {
+                    "key": "edit_def_db",
+                    "label": "edit_definition - [database]",
+                    "defined": bool(edit_def_el),
+                    "xml": edit_def_el.get("xml") or "",
+                },
+            ]
+
+            raw_title = base.get("rawTitle") or inherited_def.get("rawTitle") or ""
+            return {
+                **base,
+                "inView": bool(in_view),
+                "rawTitle": raw_title,
+                "title": raw_title or name,
+                "width": (
+                    base["width"]
+                    if base.get("rawWidth")
+                    else (inherited_def["width"] if inherited_def.get("rawWidth") else base["width"])
+                ),
+                "widget": widget,
+                "widgetKey": widget_key,
+                "displayClass": display_class,
+                "displayOptions": display_options,
+                "editWidget": edit_widget,
+                "editClass": edit_class,
+                "editOptions": edit_options,
+                "actionClass": action_class,
+                "actionOptions": action_options,
+                "colorMap": color_maps.get(name) or [],
+                "configLayers": config_layers,
+                "editConfigLayers": edit_config_layers,
+            }
+
+        elements = [enrich_element(el, True) for el in raw_elements]
+        view_by_name = {el["name"]: el for el in elements if el["name"]}
+        all_names = []
+        seen = set()
+        for source_map in (
+            def_map,
+            default_def_map,
+            edit_def_map,
+            edit_map,
+            {el["name"]: el for el in raw_elements if el["name"]},
+        ):
+            for key in source_map:
+                if key and key not in seen:
+                    seen.add(key)
+                    all_names.append(key)
+
+        definition_elements = []
+        for name in all_names:
+            if name in view_by_name:
+                definition_elements.append(view_by_name[name])
+                continue
+            base = (
+                def_map.get(name)
+                or default_def_map.get(name)
+                or edit_def_map.get(name)
+                or edit_map.get(name)
+            )
+            enriched = enrich_element(base, False)
+            enriched["path"] = f"def:{name}"
+            definition_elements.append(enriched)
+
         return {
             "supported": view is not None,
             "view": str(view.tag if view is not None else ""),
             "layout": str(view.get("layout") or "") if view is not None else "",
             "elements": elements,
+            "definitionElements": definition_elements,
         }
+
+    @staticmethod
+    def _ensure_child_option(container, key, val):
+        child = container.find(key)
+        text = str(val or "").strip()
+        if not text:
+            if child is not None:
+                container.remove(child)
+            return
+        if child is None:
+            child = ElementTree.SubElement(container, key)
+        child.text = text
 
     @Slot(str, str, str, str, result=str)
     def update_catalog_wizard(self, xml, path, field, value):
         try:
             source = str(xml or "").strip()
             root = self._catalog_xml_root(source)
-            node = self._catalog_xml_node(root, path)
+            path_str = str(path or "")
+            if path_str.startswith("def:") or field == "addElement":
+                col_name = path_str[4:] if path_str.startswith("def:") else str(value or "").strip()
+                if not col_name:
+                    raise ValueError(self.tr("Column name is required."))
+                view, _ = self._find_catalog_view(root)
+                if view is None:
+                    raise ValueError(self.tr("The current table view is missing."))
+                parent = view
+                node = next(
+                    (child for child in view if child.tag == "element" and child.get("name") == col_name),
+                    None,
+                )
+                if node is None:
+                    node = ElementTree.SubElement(view, "element", {"name": col_name})
+                if field == "addElement":
+                    from xml.dom import minidom
+                    return minidom.parseString(ElementTree.tostring(root)).documentElement.toxml()
+            else:
+                node = self._catalog_xml_node(root, path_str)
+                parent_path = "/".join(path_str.split("/")[:-1])
+                parent = self._catalog_xml_node(root, parent_path) if parent_path or path_str else None
             if node.tag != "element":
                 raise ValueError(self.tr(
                     "Definition XML path no longer points to a column."
                 ))
-            if field == "move":
-                if str(value) not in {"-1", "1"}:
+            if field == "removeElement":
+                if parent is None:
+                    raise ValueError("Invalid column removal")
+                elements = [child for child in parent if child.tag == "element"]
+                if len(elements) <= 1:
+                    raise ValueError(self.tr("At least one column must remain in the view"))
+                parent.remove(node)
+            elif field == "move":
+                if str(value) not in {"-1", "1"} or parent is None:
                     raise ValueError("Invalid column move")
-                parent_path = "/".join(str(path).split("/")[:-1])
-                parent = self._catalog_xml_node(root, parent_path)
                 elements = [child for child in parent if child.tag == "element"]
                 target_index = elements.index(node) + int(value)
                 if target_index < 0 or target_index >= len(elements):
@@ -738,12 +1121,23 @@ class ColumnsEditorController(QObject):
             elif field == "title":
                 title = str(value or "").strip()
                 if not title:
-                    raise ValueError(self.tr("Column label cannot be empty."))
-                node.set("title", title)
+                    node.attrib.pop("title", None)
+                else:
+                    node.set("title", title)
             elif field == "visible":
                 node.set(
                     "hidden",
                     "false" if tactic_definition.flag(value) else "true",
+                )
+            elif field == "color":
+                if tactic_definition.flag(value):
+                    node.attrib.pop("color", None)
+                else:
+                    node.set("color", "false")
+            elif field == "editable":
+                node.set(
+                    "edit",
+                    "true" if tactic_definition.flag(value) else "false",
                 )
             elif field == "width":
                 node.set("width", str(tactic_definition.width(value)))
@@ -764,11 +1158,96 @@ class ColumnsEditorController(QObject):
                 if value not in {"", "left", "center", "right"}:
                     raise ValueError(self.tr("Invalid cell alignment"))
                 node.set("value_align", value)
-            elif field == "widget":
+            elif field in {"widget", "displayClass"}:
                 display = node.find("display")
                 if display is None:
                     display = ElementTree.SubElement(node, "display")
-                tactic_definition.set_widget(display, value)
+                if field == "displayClass":
+                    display.attrib.pop("widget", None)
+                    cls_val = str(value or "").strip()
+                    if cls_val:
+                        display.set("class", cls_val)
+                    else:
+                        display.attrib.pop("class", None)
+                else:
+                    tactic_definition.set_widget(display, value)
+            elif field.startswith("option:"):
+                opt_key = field[7:].strip()
+                if not opt_key or not re.fullmatch(r"[\w:.-]+", opt_key, flags=re.ASCII):
+                    raise ValueError(self.tr("Invalid option name"))
+                display = node.find("display")
+                if display is None:
+                    display = ElementTree.SubElement(node, "display")
+                self._ensure_child_option(display, opt_key, value)
+            elif field == "extraOptionAdd":
+                raw = str(value or "").strip()
+                if raw:
+                    if "=" in raw:
+                        opt_key, opt_val = raw.split("=", 1)
+                        opt_key, opt_val = opt_key.strip(), opt_val.strip()
+                    else:
+                        opt_key, opt_val = raw, "true"
+                    if not opt_key or not re.fullmatch(r"[A-Za-z_][\w.-]*", opt_key, flags=re.ASCII):
+                        raise ValueError(self.tr("Option name must be a valid XML tag (e.g. my_option=value)"))
+                    display = node.find("display")
+                    if display is None:
+                        display = ElementTree.SubElement(node, "display")
+                    self._ensure_child_option(display, opt_key, opt_val)
+            elif field in {"editWidget", "editClass"}:
+                is_edit_cfg = parent is not None and parent.tag in {"edit", "edit_definition"}
+                tag_name = "display" if is_edit_cfg else "edit"
+                edit_node = node.find(tag_name)
+                if edit_node is None:
+                    edit_node = ElementTree.SubElement(node, tag_name)
+                edit_node.attrib.pop("widget", None)
+                edit_node.attrib.pop("class", None)
+                w_val = str(value or "").strip()
+                if w_val:
+                    attr = "class" if (field == "editClass" or "." in w_val or w_val.endswith("Wdg")) else "widget"
+                    edit_node.set(attr, w_val)
+            elif field.startswith("editOption:"):
+                opt_key = field[11:].strip()
+                if not opt_key or not re.fullmatch(r"[\w:.-]+", opt_key, flags=re.ASCII):
+                    raise ValueError(self.tr("Invalid edit option name"))
+                is_edit_cfg = parent is not None and parent.tag in {"edit", "edit_definition"}
+                tag_name = "display" if is_edit_cfg else "edit"
+                edit_node = node.find(tag_name)
+                if edit_node is None:
+                    edit_node = ElementTree.SubElement(node, tag_name)
+                self._ensure_child_option(edit_node, opt_key, value)
+            elif field == "actionClass":
+                action_node = node.find("action")
+                cls_val = str(value or "").strip()
+                if not cls_val:
+                    if action_node is not None and not list(action_node):
+                        node.remove(action_node)
+                    elif action_node is not None:
+                        action_node.attrib.pop("class", None)
+                else:
+                    if action_node is None:
+                        action_node = ElementTree.SubElement(node, "action")
+                    action_node.set("class", cls_val)
+            elif field.startswith("actionOption:"):
+                opt_key = field[13:].strip()
+                if not opt_key or not re.fullmatch(r"[\w:.-]+", opt_key, flags=re.ASCII):
+                    raise ValueError(self.tr("Invalid action option name"))
+                action_node = node.find("action")
+                if action_node is None:
+                    action_node = ElementTree.SubElement(node, "action")
+                self._ensure_child_option(action_node, opt_key, value)
+            elif field == "xml":
+                snippet = str(value or "").strip()
+                if not snippet or re.search(r"<!DOCTYPE|<!ENTITY", snippet, flags=re.IGNORECASE):
+                    raise ValueError(self.tr("Invalid configuration XML"))
+                replacement = self._catalog_xml_root(snippet)
+                if (
+                    parent is None
+                    or replacement.tag != "element"
+                    or not str(replacement.get("name") or "").strip()
+                ):
+                    raise ValueError(self.tr("Invalid configuration XML"))
+                replacement.tail = node.tail
+                parent[list(parent).index(node)] = replacement
             else:
                 raise ValueError(self.tr(
                     "This column setting is only available in XML mode."

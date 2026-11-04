@@ -540,6 +540,61 @@ class NotesQmlTests(unittest.TestCase):
         self.assertEqual(controller._selected_detail_process, "rig")
         self.assertEqual(opened, ["notes"])
 
+    def test_open_process_details_loads_nested_hidden_row_sobject(self):
+        nested_node = SimpleNamespace(
+            node_id="nested:1:cg/assets?code=ASSETS00001",
+            node_type="sobject",
+            parent_id="",
+            search_key="cg/assets?project=cg_test&code=ASSETS00001",
+            process="",
+            context="",
+        )
+        opened = []
+        loaded = []
+        scope_selected = []
+        scope = SimpleNamespace(
+            select_result_node=lambda *args: scope_selected.append(args)
+        )
+        controller = SimpleNamespace(
+            workspace_model=SimpleNamespace(node_for=lambda _id: None),
+            _node_for_any=lambda node_id: (
+                nested_node if node_id == nested_node.node_id else None
+            ),
+            _table_services=SimpleNamespace(scope_for=lambda _id: scope),
+            workspace_state=SimpleNamespace(
+                _selected_sobject=SimpleNamespace(
+                    get_search_key=lambda: "cg/scenes?project=cg_test&code=SCENES00003"
+                ),
+                selection_changed=SimpleNamespace(emit=lambda: None),
+            ),
+            dock_model=SimpleNamespace(show_panel=opened.append),
+            _registry=SimpleNamespace(invoke=lambda _command: False),
+            _selected_detail_process="publish",
+            _current_tab=lambda: SimpleNamespace(
+                selected_node_id="scene", detail_process_override=""
+            ),
+            _load_sobject_details=lambda *args: loaded.append(args),
+        )
+        controller._show_process_details = lambda *args, **kwargs: (
+            ItemOperationsMixin._show_process_details(
+                controller, *args, **kwargs
+            )
+        )
+
+        ItemOperationsMixin.open_process_details(
+            controller, nested_node.node_id, "notes", "publish"
+        )
+
+        self.assertEqual(
+            scope_selected,
+            [(nested_node.node_id, nested_node.search_key, "sobject", 0, False)],
+        )
+        self.assertEqual(
+            loaded,
+            [(nested_node.search_key, "publish", None)],
+        )
+        self.assertEqual(opened, ["notes"])
+
     def test_closed_task_inspector_keeps_picked_process_during_delayed_load(self):
         node = SimpleNamespace(
             node_id="asset", node_type="sobject", parent_id="",

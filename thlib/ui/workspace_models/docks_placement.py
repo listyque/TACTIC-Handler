@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import time
 
 from PySide6.QtCore import Slot
 
@@ -31,12 +32,14 @@ class PlacementMixin:
         if (
             not panel.visible
             or panel.detached
-            or panel.dock_area == "floating"
+            or self._is_overlay_area(panel.dock_area)
         ):
             return
         updated_root = set_active_panel(self._layout_root, panel_id)
         if updated_root == self._layout_root:
             return
+        if self._slide_open_panel == panel_id:
+            self._slide_open_panel = ""
         self._layout_root = updated_root
         self._z_counter += 1
         self._panels[row] = replace(panel, z=self._z_counter)
@@ -59,6 +62,8 @@ class PlacementMixin:
         ))
         if updated_root == self._layout_root:
             return
+        if self._slide_open_panel == panel_id:
+            self._slide_open_panel = ""
         self._layout_root = updated_root
         self._notify_layout_structure_changed()
         self._save()
@@ -78,7 +83,7 @@ class PlacementMixin:
         if (
             not target.visible
             or target.detached
-            or target.dock_area == "floating"
+            or self._is_overlay_area(target.dock_area)
         ):
             return
         source_in_layout = panel_id in panel_ids(self._layout_root)
@@ -100,6 +105,8 @@ class PlacementMixin:
             )
         if updated_root is None or updated_root == self._layout_root:
             return
+        if self._slide_open_panel == panel_id:
+            self._slide_open_panel = ""
         self._layout_root = updated_root
         self._z_counter += 1
         self._panels[row] = replace(
@@ -135,6 +142,8 @@ class PlacementMixin:
         )
         index = self.index(row, 0)
         self.dataChanged.emit(index, index)
+        if self._slide_open_panel == panel_id:
+            self._slide_open_panel = ""
         self._layout_root = insert_at_root(
             self._layout_root, panel_id, dock_area
         )
@@ -148,7 +157,9 @@ class PlacementMixin:
         row = self._index_for(panel_id)
         if row is None:
             return
-        was_docked = self._panels[row].dock_area != "floating"
+        if self._slide_open_panel == panel_id:
+            self._slide_open_panel = ""
+        was_docked = not self._is_overlay_area(self._panels[row].dock_area)
         x = max(0.0, min(0.96, x))
         y = max(0.0, min(0.96, y))
         width = max(0.20, min(1.0 - x, width))
@@ -206,6 +217,8 @@ class PlacementMixin:
         panel = self._panels[row]
         if panel.detached:
             return
+        if self._slide_open_panel == panel_id:
+            self._slide_open_panel = ""
         previous_area = panel.dock_area
         self._z_counter += 1
         self._panels[row] = replace(
@@ -219,7 +232,7 @@ class PlacementMixin:
         self.dataChanged.emit(index, index)
         self.minimumHostSizeChanged.emit()
         self._save()
-        if previous_area != "floating":
+        if not self._is_overlay_area(previous_area):
             self._reflow_workspace()
             self._notify_layout_structure_changed()
 
@@ -236,7 +249,7 @@ class PlacementMixin:
         if panel.panel_id == "results":
             return
         target_area = panel.previous_dock_area
-        if not target_area or target_area == "floating":
+        if not target_area or self._is_overlay_area(target_area):
             target_area = self._default_dock_area(panel_id)
         self._panels[row] = replace(
             panel,
@@ -246,6 +259,8 @@ class PlacementMixin:
         )
         index = self.index(row, 0)
         self.dataChanged.emit(index, index)
+        if self._slide_open_panel == panel_id:
+            self._slide_open_panel = ""
         if panel_id not in panel_ids(self._layout_root):
             self._layout_root = insert_at_root(
                 self._layout_root, panel_id, target_area
@@ -292,6 +307,50 @@ class PlacementMixin:
         self._maximized_panel = '' if self._maximized_panel == panel_id else panel_id
         self._notify_layout_structure_changed()
 
+    @Slot(str, str)
+    def slide_panel(self, panel_id: str, side: str) -> None:
+        if panel_id == "results" or side not in {"left", "right"}:
+            return
+        row = self._index_for(panel_id)
+        if row is None:
+            return
+        panel = self._panels[row]
+        dock_area = f"slide_{side}"
+        was_docked = not panel.detached and not self._is_overlay_area(panel.dock_area)
+        width = max(0.24, min(0.75, panel.width if panel.width < 0.78 else 0.34))
+        x = 0.0 if side == "left" else max(0.0, 1.0 - width)
+        self._z_counter += 1
+        self._panels[row] = replace(
+            panel,
+            x=x,
+            y=0.0,
+            width=width,
+            height=1.0,
+            visible=True,
+            dock_area=dock_area,
+            detached=False,
+            previous_dock_area=(
+                panel.dock_area if was_docked else panel.previous_dock_area
+            ),
+            z=self._z_counter,
+        )
+        self._slide_open_panel = panel_id
+        index = self.index(row, 0)
+        self.dataChanged.emit(index, index)
+        if was_docked:
+            self._reflow_workspace(save=False)
+        self._notify_layout_structure_changed()
+        self._save()
+
+    @Slot()
+    def collapse_slide_panels(self) -> None:
+        if time.monotonic() - getattr(self, "_last_show_monotonic", 0.0) < 0.18:
+            return
+        if not self._slide_open_panel:
+            return
+        self._slide_open_panel = ""
+        self._notify_layout_structure_changed()
+
     @Slot()
     def reset_layout(self) -> None:
         previous_visibility = {
@@ -300,6 +359,7 @@ class PlacementMixin:
         self.beginResetModel()
         self._panels = self._defaults()
         self._maximized_panel = ""
+        self._slide_open_panel = ""
         self._layout_root = default_layout()
         self._z_counter = max(panel.z for panel in self._panels)
         self.endResetModel()

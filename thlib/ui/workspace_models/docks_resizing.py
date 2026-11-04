@@ -62,7 +62,7 @@ class ResizingMixin:
         ]
         docked = {
             panel.panel_id for panel in visible
-            if panel.dock_area != "floating"
+            if not self._is_overlay_area(panel.dock_area)
         }
         minimum_sizes = {
             panel.panel_id: self._minimum_panel_pixel_size(panel)
@@ -88,7 +88,7 @@ class ResizingMixin:
         return [
             panel for panel in self._panels
             if panel.visible and not panel.detached
-            and panel.dock_area != "floating"
+            and not self._is_overlay_area(panel.dock_area)
         ]
 
     def _tree_minimum_sizes(
@@ -118,6 +118,12 @@ class ResizingMixin:
         self._resize_restore = None
         row = self._index_for(panel_id)
         if row is None:
+            return
+        if self._panels[row].dock_area in {"slide_left", "slide_right"}:
+            next_width = max(0.20, min(0.85, width))
+            next_x = 0.0 if self._panels[row].dock_area == "slide_left" else max(0.0, 1.0 - next_width)
+            self.set_geometry(panel_id, next_x, 0.0, next_width, 1.0)
+            self._save()
             return
         if self._panels[row].dock_area == "floating":
             self.set_geometry(panel_id, x, y, width, height)
@@ -149,6 +155,11 @@ class ResizingMixin:
     ) -> None:
         """Preview one ratio without writing config during pointer motion."""
         row = self._index_for(panel_id)
+        if row is not None and self._panels[row].dock_area in {"slide_left", "slide_right"}:
+            next_width = max(0.20, min(0.85, width))
+            next_x = 0.0 if self._panels[row].dock_area == "slide_left" else max(0.0, 1.0 - next_width)
+            self.set_geometry(panel_id, next_x, 0.0, next_width, 1.0)
+            return
         if row is None or self._panels[row].dock_area == "floating":
             return
         self._resize_tree_boundary(

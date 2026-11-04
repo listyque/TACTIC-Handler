@@ -32,16 +32,26 @@ Loader {
     function graphCommand(id, command) {
         return loadedView() ? loadedView().graphCommand(id, command) : null;
     }
-    Component.onCompleted: setSource(Qt.resolvedUrl("FrameView.qml"), {
-        theme: Qt.binding(() => root.theme),
-        scene: Qt.binding(() => root.scene),
-        views: Qt.binding(() => root.views),
-        models: Qt.binding(() => root.models),
-        describeRow: Qt.binding(() => root.describeRow),
-        describeCell: Qt.binding(() => root.describeCell),
-        interactive: Qt.binding(() => root.interactive),
-        rowInteraction: Qt.binding(() => root.rowInteraction)
-    })
+    property bool completed: false
+    function loadBranch() {
+        if (!completed || !active || item)
+            return;
+        setSource(Qt.resolvedUrl("FrameView.qml"), {
+            theme: Qt.binding(() => root.theme),
+            scene: Qt.binding(() => root.scene),
+            views: Qt.binding(() => root.views),
+            models: Qt.binding(() => root.models),
+            describeRow: Qt.binding(() => root.describeRow),
+            describeCell: Qt.binding(() => root.describeCell),
+            interactive: Qt.binding(() => root.interactive),
+            rowInteraction: Qt.binding(() => root.rowInteraction)
+        });
+    }
+    onActiveChanged: loadBranch()
+    Component.onCompleted: {
+        completed = true;
+        loadBranch();
+    }
     Connections {
         target: root.item
         function onEvent(action, source) {

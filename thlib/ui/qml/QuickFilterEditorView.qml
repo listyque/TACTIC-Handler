@@ -72,6 +72,12 @@ Item {
         color: root.theme.panelDeep
     }
 
+    SearchAssigneeFilterPopup {
+        id: editorAssigneePopup
+        theme: root.theme
+        controller: root.controller
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: UI.editor.inset
@@ -123,15 +129,26 @@ Item {
                     font.pointSize: Controls.Typography.body
                     wrapMode: Text.Wrap
                 }
-                Frame.FrameView {
+                Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: scene.contentHeight
-                    theme: root.theme
-                    scene: UI.selection(root.frameModel, width, root.language)
-                    views: ({
-                            chips: selectionComponent
-                        })
-                    onEvent: action => root.command(action)
+                    implicitHeight: selectionFrameView.implicitHeight + 24
+                    color: root.theme.surfaceContainerLow
+                    border.color: root.theme.outlineVariant
+                    border.width: 1
+                    radius: root.theme.surfaceRadius
+
+                    Frame.FrameView {
+                        id: selectionFrameView
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        implicitHeight: scene.contentHeight
+                        theme: root.theme
+                        scene: UI.selection(root.frameModel, width, root.language)
+                        views: ({
+                                chips: selectionComponent
+                            })
+                        onEvent: action => root.command(action)
+                    }
                 }
 
                 Rectangle {
@@ -160,48 +177,94 @@ Item {
                 Repeater {
                     model: root.controller.groups
 
-                    delegate: ColumnLayout {
+                    delegate: Rectangle {
                         id: groupSection
                         required property int index
                         required property var modelData
                         objectName: "quickFilterGroup:" + modelData.key
                         Layout.fillWidth: true
-                        spacing: 6
+                        implicitHeight: groupSectionLayout.implicitHeight + 24
                         visible: Boolean(modelData.enabled) || root.showHidden
+                        color: root.theme.surfaceContainerLow
+                        border.color: root.theme.outlineVariant
+                        border.width: 1
+                        radius: root.theme.surfaceRadius
 
-                        Frame.FrameView {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: scene.contentHeight
-                            theme: root.theme
-                            scene: UI.group(Object.assign({}, groupSection.modelData, {
-                                index: groupSection.index,
-                                total: root.controller.groups.length,
-                                busy: root.controller.busy,
-                                canEdit: root.controller.canEdit
-                            }), width, root.language)
-                            onEvent: action => root.command(action)
-                        }
-                        Flow {
-                            id: optionFlow
-                            Layout.fillWidth: true
-                            spacing: 7
-                            visible: Boolean(groupSection.modelData.enabled)
+                        ColumnLayout {
+                            id: groupSectionLayout
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
 
-                            Repeater {
-                                model: groupSection.modelData.options
+                            Frame.FrameView {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: scene.contentHeight
+                                theme: root.theme
+                                scene: UI.group(Object.assign({}, groupSection.modelData, {
+                                    index: groupSection.index,
+                                    total: root.controller.groups.length,
+                                    busy: root.controller.busy,
+                                    canEdit: root.controller.canEdit
+                                }), width, root.language)
+                                onEvent: action => root.command(action)
+                            }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                implicitHeight: 1
+                                visible: Boolean(groupSection.modelData.enabled)
+                                color: root.theme.outlineVariant
+                            }
+                            Flow {
+                                id: optionFlow
+                                Layout.fillWidth: true
+                                spacing: 7
+                                visible: Boolean(groupSection.modelData.enabled)
 
-                                delegate: QuickFilterChip {
-                                    required property var modelData
-                                    objectName: "quickFilterOption:" + groupSection.modelData.key + ":" + modelData.key
+                                QuickFilterChip {
+                                    objectName: "quickFilterOption:assigned:__current_login__"
+                                    visible: Boolean(groupSection.modelData.userPicker || groupSection.modelData.key === "assigned")
                                     theme: root.theme
-                                    text: String(modelData.title || "")
+                                    text: qsTr("MY TASKS")
+                                    iconName: "person"
                                     maximumChipWidth: optionFlow.width
-                                    accent: modelData.accent || root.theme.action
-                                    showAccentMarker: Boolean(modelData.showAccentMarker)
+                                    accent: groupSection.modelData.accent || root.theme.action
                                     subtle: true
-                                    checked: Boolean(modelData.selected)
+                                    checked: Boolean(groupSection.modelData.myTasksSelected)
                                     enabled: root.controller.canEdit && !root.controller.busy
-                                    onClicked: root.controller.set_option_selected(groupSection.modelData.key, modelData.key, !checked)
+                                    onClicked: root.controller.toggle_my_tasks_filter()
+                                }
+
+                                QuickFilterChip {
+                                    id: selectUsersChip
+                                    objectName: "quickFilterOption:assigned:users"
+                                    visible: Boolean(groupSection.modelData.userPicker || groupSection.modelData.key === "assigned")
+                                    theme: root.theme
+                                    text: (groupSection.modelData.selectedUserCount || 0) > 0 ? qsTr("USERS") + " / " + groupSection.modelData.selectedUserCount : qsTr("SELECT USERS")
+                                    iconName: "group"
+                                    maximumChipWidth: optionFlow.width
+                                    accent: groupSection.modelData.accent || root.theme.action
+                                    subtle: true
+                                    checked: (groupSection.modelData.selectedUserCount || 0) > 0
+                                    enabled: root.controller.canEdit && !root.controller.busy
+                                    onClicked: editorAssigneePopup.openBelow(selectUsersChip)
+                                }
+
+                                Repeater {
+                                    model: (groupSection.modelData.userPicker || groupSection.modelData.key === "assigned") ? [] : groupSection.modelData.options
+
+                                    delegate: QuickFilterChip {
+                                        required property var modelData
+                                        objectName: "quickFilterOption:" + groupSection.modelData.key + ":" + modelData.key
+                                        theme: root.theme
+                                        text: String(modelData.title || "")
+                                        maximumChipWidth: optionFlow.width
+                                        accent: modelData.accent || root.theme.action
+                                        showAccentMarker: Boolean(modelData.showAccentMarker)
+                                        subtle: true
+                                        checked: Boolean(modelData.selected)
+                                        enabled: root.controller.canEdit && !root.controller.busy
+                                        onClicked: root.controller.set_option_selected(groupSection.modelData.key, modelData.key, !checked)
+                                    }
                                 }
                             }
                         }

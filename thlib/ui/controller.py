@@ -364,7 +364,7 @@ class ApplicationController(
         self._pending_selection_load = None
         self._selection_load_timer = QTimer(self)
         self._selection_load_timer.setSingleShot(True)
-        self._selection_load_timer.setInterval(100)
+        self._selection_load_timer.setInterval(16)
         self._selection_load_timer.timeout.connect(
             self._flush_selected_loads
         )

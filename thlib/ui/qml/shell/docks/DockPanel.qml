@@ -5,6 +5,7 @@ import "../.."
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../../controls" as Controls
+import "../../tactic_frame/controls/display" as Display
 import "../../tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
 import "../../tactic_frame/shell/dock_chrome.ui.mjs" as DockChrome
 import "../../tactic_frame/shell/dock.placement.mjs" as Placement
@@ -274,7 +275,9 @@ Item {
     property bool dockDragging: resultsDragHandle.dragActive || dockMoveHandle.dragActive
     property bool geometryTransitionsReady: false
     property bool resultsDragHandleVisible: true
-    readonly property real chromeInset: dockArea === "floating" ? DockChrome.dimensions.floatingSurfaceInset : DockChrome.dimensions.surfaceInset
+    readonly property bool slideMode: dockArea === "slide_left" || dockArea === "slide_right"
+    readonly property bool slideExpanded: !slideMode || dockModel.slideOpenPanelId === panelId || dockDragging || resizing
+    readonly property real chromeInset: dockArea === "floating" || slideMode ? DockChrome.dimensions.floatingSurfaceInset : DockChrome.dimensions.surfaceInset
     readonly property var chrome: DockChrome.describe({
         width: panelBody.width,
         kind: root.kind,
@@ -341,16 +344,23 @@ Item {
         windowModel.open_help("dock." + root.kind);
     }
 
-    x: dockDragging ? Math.max(0, Math.min(host.width - width, dragStartX + manualDragX)) : localX
+    x: dockDragging ? Math.max(0, Math.min(host.width - width, dragStartX + manualDragX)) : (slideMode && !slideExpanded ? (dockArea === "slide_left" ? -width - 12 : host.width + 12) : localX)
     y: dockDragging ? Math.max(0, Math.min(host.height - height, dragStartY + manualDragY)) : localY
-    width: dockArea === "floating" ? Math.max(minimumPanelWidth, localWidth) : localWidth
+    width: dockArea === "floating" || slideMode ? Math.max(minimumPanelWidth, localWidth) : localWidth
     height: dockArea === "floating" ? Math.max(minimumPanelHeight, localHeight) : localHeight
+    Behavior on x {
+        enabled: root.slideMode && !root.dockDragging && !root.resizing
+        NumberAnimation {
+            duration: root.theme.motionFast
+            easing.type: Easing.OutCubic
+        }
+    }
     // Keep the item alive for the short exit animation; the model remains the
     // single source of truth for its final visible state.
     opacity: modelVisible ? 1 : 0
     scale: 1
     visible: modelVisible || opacity > 0.01
-    z: dockDragging || resizing ? 20000 : stackOrder
+    z: dockDragging || resizing ? 20000 : (slideMode ? 15000 + stackOrder : stackOrder)
 
     function beginPanelDrag() {
         dragStartX = localX;
@@ -398,11 +408,11 @@ Item {
         const dy = point.y - resizePressHostY;
         const geometry = DockLayout.floatingResize([resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight], resizeEdge, dx, dy, root.kind, host.width, host.height);
         const nextX = geometry[0], nextY = geometry[1], nextWidth = geometry[2], nextHeight = geometry[3];
-        if (dockArea === "floating") {
-            localX = nextX;
-            localY = nextY;
+        if (dockArea === "floating" || slideMode) {
+            localX = dockArea === "slide_left" ? 0 : (dockArea === "slide_right" ? host.width - nextWidth : nextX);
+            localY = slideMode ? 0 : nextY;
             localWidth = nextWidth;
-            localHeight = nextHeight;
+            localHeight = slideMode ? host.height : nextHeight;
         }
         if (typeof host.updateDockResizeBoundary === "function") {
             const vertical = resizeEdge.indexOf("left") >= 0 || resizeEdge.indexOf("right") >= 0;
@@ -467,11 +477,11 @@ Item {
     }
     TapHandler {
         target: null
-        enabled: root.dockArea === "floating"
+        enabled: root.dockArea === "floating" || root.slideMode
         acceptedButtons: Qt.AllButtons
         gesturePolicy: TapHandler.DragThreshold
         onPressedChanged: {
-            if (pressed && root.dockArea === "floating")
+            if (pressed && (root.dockArea === "floating" || root.slideMode))
                 dockModel.raise_panel(root.panelId);
         }
     }
@@ -494,6 +504,40 @@ Item {
         }
     }
 
+    Loader {
+        x: panelSurface.x - 16
+        y: panelSurface.y - 16
+        width: panelSurface.width + 32
+        height: panelSurface.height + 32
+        z: -1
+        active: root.dockArea === "floating" || (root.slideMode && root.slideExpanded)
+        sourceComponent: Display.FrameShadow {
+            theme: root.theme
+            surfaceRadius: panelSurface.radius
+            shadow: ({ blur: 16, y: 6, opacity: 1.4 })
+        }
+    }
+
+    Rectangle {
+        x: root.dockArea === "slide_left" ? panelSurface.x + panelSurface.width : panelSurface.x - width
+        y: panelSurface.y
+        width: 28
+        height: panelSurface.height
+        z: -1
+        visible: root.slideMode && root.slideExpanded
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop {
+                position: 0
+                color: root.dockArea === "slide_left" ? root.theme.dialogShadow : "transparent"
+            }
+            GradientStop {
+                position: 1
+                color: root.dockArea === "slide_left" ? "transparent" : root.theme.dialogShadow
+            }
+        }
+    }
+
     Rectangle {
         id: panelSurface
         anchors.fill: parent
@@ -508,6 +552,14 @@ Item {
                 duration: root.theme.motionFast
                 easing.type: Easing.OutCubic
             }
+        }
+        MouseArea {
+            anchors.fill: parent
+            enabled: root.dockArea === "floating" || root.slideMode
+            acceptedButtons: Qt.AllButtons
+            hoverEnabled: true
+            preventStealing: true
+            onWheel: wheel => wheel.accepted = true
         }
     }
 
@@ -768,7 +820,19 @@ Item {
                 "title": qsTr("Dock to workspace"),
                 "icon": "window-restore",
                 "command": "dock",
-                "visible": root.dockArea === "floating"
+                "visible": root.dockArea === "floating" || root.slideMode
+            },
+            {
+                "title": qsTr("Slide over left"),
+                "icon": "dock-left",
+                "command": "slide_left",
+                "visible": root.kind !== "results" && root.dockArea !== "slide_left"
+            },
+            {
+                "title": qsTr("Slide over right"),
+                "icon": "dock-right",
+                "command": "slide_right",
+                "visible": root.kind !== "results" && root.dockArea !== "slide_right"
             },
             {
                 "title": qsTr("Open in separate window"),
@@ -788,6 +852,10 @@ Item {
                 root.openDockHelp();
             else if (command === "dock")
                 dockModel.dock_panel(root.panelId);
+            else if (command === "slide_left")
+                dockModel.slide_panel(root.panelId, "left");
+            else if (command === "slide_right")
+                dockModel.slide_panel(root.panelId, "right");
             else if (command === "detach")
                 dockModel.detach_panel(root.panelId);
             else if (command === "close")

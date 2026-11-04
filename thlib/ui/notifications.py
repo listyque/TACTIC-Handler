@@ -222,7 +222,9 @@ class NotificationController(QObject):
             record["notificationId"],
             15000 if source_type == "message"
             else 8000 if source_type == "activity"
-            else 5000 if kind in {"error", "warning"} else 3200,
+            else 5000 if kind in {"error", "warning"}
+            else 1200 if message == "Server operation completed"
+            else 1600,
         )
         self.changed.emit()
         return True

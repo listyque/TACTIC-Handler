@@ -2,6 +2,9 @@ import { node, rect, label, button, muted } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 import * as Confirmation from '../../../controls/feedback/confirmation.ui.mjs';
 
+const icon = (id, bounds, name, extra = {}) =>
+    node('Icon', id, bounds, Object.assign({ icon: name }, extra));
+
 export const profileFields = [
     ['first_name', 'First name'],
     ['last_name', 'Last name'],
@@ -16,9 +19,24 @@ export const accountFields = [
     ['namespace', 'Namespace'],
     ['s_status', 'Account status'],
     ['project_code', 'Project code'],
-    ['license_type', 'License type'],
     ['hourly_wage', 'Hourly wage']
 ];
+const FIELD_ICONS = {
+    login: 'at',
+    first_name: 'person',
+    last_name: 'person',
+    display_name: 'id-card',
+    department: 'building',
+    email: 'envelope',
+    phone_number: 'phone',
+    address: 'map-marker',
+    upn: 'account-circle',
+    namespace: 'layers',
+    s_status: 'verified',
+    project_code: 'folder-open',
+    hourly_wage: 'payments',
+    password: 'key'
+};
 export const groupFields = ['code', 'label', 'description', 'accessLevel'];
 export const accessLevels = [
     ['', 'Server default (Low)'],
@@ -225,11 +243,26 @@ export function describe(model, width, viewportHeight, language) {
                 column = 0;
             }
             const x = compact ? 0 : column * (columnWidth + 12),
-                fieldWidth = wide ? inner - 16 : columnWidth;
+                fieldWidth = wide ? inner - 16 : columnWidth,
+                fieldIcon = FIELD_ICONS[key] || '';
+            if (fieldIcon)
+                fields.push(
+                    icon(
+                        'profileFieldIcon_' + key,
+                        rect(x + 2, y + 3, 14, 14),
+                        fieldIcon,
+                        muted
+                    )
+                );
             fields.push(
                 label(
                     'profileLabel_' + key,
-                    rect(x, y, fieldWidth, 20),
+                    rect(
+                        fieldIcon ? x + 20 : x,
+                        y,
+                        Math.max(0, fieldWidth - (fieldIcon ? 20 : 0)),
+                        20
+                    ),
                     text(name),
                     muted
                 )

@@ -6,6 +6,7 @@ Frame.FrameView {
     id: root
     required property var conversations
     required property var targets
+    property bool active: true
     property int selectionCount: 0
     property bool busy: false
     property bool valid: false
@@ -13,11 +14,13 @@ Frame.FrameView {
     signal targetToggled(string key)
     signal cancelled
     signal submitted
-    scene: UI.forwarding({
+    scene: active ? UI.forwarding({
         count: selectionCount,
         busy,
         valid
-    }, width, height, language)
+    }, width, height, language) : ({
+            nodes: []
+        })
     models: ({
             conversations
         })

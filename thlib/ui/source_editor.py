@@ -1,5 +1,6 @@
 """A private document service for the existing house source editor control."""
 from PySide6.QtCore import QObject, Slot
+from PySide6.QtQml import qmlRegisterType
 from .script_editor import ScriptEditorController
 
 
@@ -32,3 +33,6 @@ class SourceEditorService(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._syntax_highlighter = None
+
+
+qmlRegisterType(SourceEditorService, "TacticHandler.Code", 1, 0, "SourceEditorService")

@@ -38,7 +38,7 @@ Item {
     property var actionMessageEditHistory: []
     property var actionMessageAnchor: null
     property string mentionQuery: ""
-    readonly property var mentionRows: (messagesController.conversationMembers || []).filter(row => root.mentionMatches(row))
+    readonly property var mentionRows: mentionPopup.visible || mentionQuery.length > 0 ? (messagesController.conversationMembers || []).filter(row => root.mentionMatches(row)) : []
     property string attachmentMenuToken: ""
     property bool attachmentMenuLocal: false
     property bool attachmentMenuImage: false
@@ -62,9 +62,10 @@ Item {
     }
 
     function finishConversationPresentation() {
-        // Model notifications precede ListView's delegate layout. Position
-        // the new conversation only after that update, while it is concealed.
-        Qt.callLater(root.completeConversationPresentation);
+        if (messages && (messages.count > 0 || !messagesController.busy))
+            root.completeConversationPresentation();
+        else
+            Qt.callLater(root.completeConversationPresentation);
     }
 
     function completeConversationPresentation() {
@@ -270,6 +271,7 @@ Item {
 
         contentItem: MessagesFeature.MessageForm {
             id: newChatTitle
+            active: conversationPopup.visible
             theme: root.theme
             mode: "create"
             availableBodyHeight: conversationPopup.availableHeight
@@ -313,7 +315,7 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 spacing: 6
-                model: messagesController.conversationMembers
+                model: membersPopup.visible ? messagesController.conversationMembers : null
                 ScrollBar.vertical: Controls.ScrollBar {
                     theme: root.theme
                 }
@@ -355,7 +357,7 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 spacing: 6
-                model: messagesController.conversationAttachments
+                model: filesPopup.visible ? messagesController.conversationAttachments : null
                 ScrollBar.vertical: Controls.ScrollBar {
                     id: chatFilesScrollBar
                     theme: root.theme
@@ -418,6 +420,7 @@ Item {
         onOpened: Qt.callLater(messageSearchField.focusEditor)
         contentItem: MessagesFeature.MessageForm {
             id: messageSearchField
+            active: messageSearchPopup.visible
             theme: root.theme
             mode: "search"
             busy: messagesController.busy
@@ -448,6 +451,7 @@ Item {
 
         contentItem: MessagesFeature.MessageForm {
             id: addMemberUsers
+            active: addMembersPopup.visible
             theme: root.theme
             mode: "members"
             availableBodyHeight: addMembersPopup.availableHeight
@@ -469,6 +473,7 @@ Item {
 
         contentItem: MessagesFeature.MessageForm {
             id: chatTitleField
+            active: renameChatPopup.visible
             theme: root.theme
             mode: "rename"
             busy: messagesController.busy
@@ -490,6 +495,7 @@ Item {
         standardButtons: Dialog.NoButton
 
         contentItem: MessagesFeature.MessageForm {
+            active: deleteChatDialog.visible
             theme: root.theme
             mode: "delete"
             busy: messagesController.busy
@@ -510,6 +516,7 @@ Item {
         standardButtons: Dialog.NoButton
 
         contentItem: MessagesFeature.MessageForm {
+            active: clearNotesDialog.visible
             theme: root.theme
             mode: "clear"
             busy: messagesController.busy
@@ -537,6 +544,7 @@ Item {
 
         contentItem: MessagesFeature.MessageForm {
             id: editMessageField
+            active: editMessageDialog.visible
             theme: root.theme
             mode: "edit"
             busy: messagesController.busy
@@ -564,6 +572,7 @@ Item {
         }
 
         contentItem: MessagesFeature.MessageForward {
+            active: forwardDialog.visible
             theme: root.theme
             conversations: messageConversationModel
             targets: root.forwardTargets
@@ -707,6 +716,7 @@ Item {
         onClosed: root.pendingDeleteMessageId = ""
 
         contentItem: MessagesFeature.MessageForm {
+            active: deleteMessageDialog.visible
             theme: root.theme
             mode: "delete-message"
             busy: messagesController.busy

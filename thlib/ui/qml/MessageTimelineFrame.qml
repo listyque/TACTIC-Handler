@@ -23,7 +23,26 @@ Item {
     default property alias contentData: bubbleContent.data
     readonly property alias bubbleItem: messageBubble
     readonly property bool hovered: bubbleHover.hovered
-    readonly property var geometry: State.bubbleGeometry(width, bubbleContent.implicitWidth, bubbleContent.implicitHeight, {
+    readonly property real contentImplicitWidth: {
+        let w = 0;
+        const list = bubbleContent.children;
+        for (let i = 0; i < list.length; ++i)
+            w = Math.max(w, list[i].implicitWidth);
+        return w;
+    }
+    readonly property real contentImplicitHeight: {
+        let h = 0;
+        let count = 0;
+        const list = bubbleContent.children;
+        for (let i = 0; i < list.length; ++i) {
+            const child = list[i];
+            const ch = child.Layout.preferredHeight >= 0 ? child.Layout.preferredHeight : child.implicitHeight;
+            h += ch;
+            count++;
+        }
+        return h + Math.max(0, count - 1) * root.bubbleSpacing;
+    }
+    readonly property var geometry: State.bubbleGeometry(width, contentImplicitWidth, 0, {
         media: mediaAttachments,
         last: groupLast,
         own: outgoing
@@ -33,7 +52,7 @@ Item {
     readonly property real bubblePadding: geometry.padding
     readonly property real bubbleSpacing: geometry.gap
     readonly property real maximumBubbleExtent: geometry.maximum
-    readonly property real naturalBubbleExtent: bubbleContent.implicitWidth + bubblePadding * 2
+    readonly property real naturalBubbleExtent: contentImplicitWidth + bubblePadding * 2
     readonly property real bubbleExtent: geometry.width
     readonly property real bubbleCornerRadius: geometry.corner
 
@@ -88,7 +107,7 @@ Item {
         objectName: "messageTimelineBubble"
         x: root.outgoing ? authorAvatar.x - root.theme.communicationAvatarSpacing - width : authorAvatar.x + authorAvatar.width + root.theme.communicationAvatarSpacing
         width: root.bubbleExtent
-        height: bubbleContent.implicitHeight + root.bubblePadding * 2
+        height: root.contentImplicitHeight + root.bubblePadding * 2
         readonly property color fillColor: root.outgoing ? root.theme.secondaryContainer : root.theme.surfaceContainerHigh
         property real outlineWidth: root.forwardSelected || root.current ? 2 : root.unread ? 1 : 0
         readonly property color outlineColor: root.forwardSelected ? root.theme.tertiary : root.theme.action

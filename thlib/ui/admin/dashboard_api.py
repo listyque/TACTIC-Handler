@@ -50,7 +50,7 @@ def dashboard_editor_request(
             operation_id=operation_id,
         )
         identity = document["name"]
-    state = call("read", **({"name": identity} if identity else {}))
+    state = call("read", **({"name": identity, "include_preview": True} if identity else {}))
     catalog = [
         dict(identity=row["view"][10:], label=row["view"][10:])
         for row in state["dashboards"]
@@ -64,18 +64,15 @@ def dashboard_editor_request(
         ),
     )
     if identity:
-        compiled = call(
-            "preview", document=state["document"], expected_revision=state["revision"]
-        )
         result.update(
             identity=identity,
             revision=state["revision"],
-            document=compiled["document"],
+            document=state["document"],
             metadata=dict(
                 result["metadata"],
-                compiled=compiled["model"],
-                sourceXml=compiled["xml"],
-                checkedDocument=compiled["document"],
+                compiled=state["model"],
+                sourceXml=state["xml"],
+                checkedDocument=state["document"],
             ),
         )
     return json.dumps(result, ensure_ascii=False)

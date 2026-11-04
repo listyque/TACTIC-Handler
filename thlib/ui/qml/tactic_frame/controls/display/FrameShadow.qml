@@ -20,23 +20,33 @@ Canvas {
         c.clearRect(0, 0, width, height);
         if (!w || !h)
             return;
-        c.beginPath();
-        c.moveTo(x + r, y);
-        c.arcTo(x + w, y, x + w, y + h, r);
-        c.arcTo(x + w, y + h, x, y + h, r);
-        c.arcTo(x, y + h, x, y, r);
-        c.arcTo(x, y, x + w, y, r);
-        c.closePath();
-        c.shadowColor = theme.popupShadow;
-        c.shadowBlur = shadow.blur;
-        c.shadowOffsetY = shadow.y;
-        c.globalAlpha = shadow.opacity;
-        c.fillStyle = "black";
-        c.fill();
-        c.shadowBlur = 0;
-        c.shadowOffsetY = 0;
+        function roundedRect(rx, ry, rw, rh, rr) {
+            const rad = Math.max(0, Math.min(rr, rw / 2, rh / 2));
+            c.beginPath();
+            c.moveTo(rx + rad, ry);
+            c.arcTo(rx + rw, ry, rx + rw, ry + rh, rad);
+            c.arcTo(rx + rw, ry + rh, rx, ry + rh, rad);
+            c.arcTo(rx, ry + rh, rx, ry, rad);
+            c.arcTo(rx, ry, rx + rw, ry, rad);
+            c.closePath();
+        }
+        const blur = Math.max(1, Number(shadow && shadow.blur) || 12);
+        const offsetY = Number(shadow && shadow.y) || 0;
+        const baseAlpha = (Number(shadow && shadow.opacity) || 1) * 0.22;
+        const steps = 4;
+        c.strokeStyle = theme.popupShadow;
+        for (let i = steps; i >= 1; i--) {
+            const spread = (blur * i) / steps;
+            const lw = spread * 0.65;
+            c.lineWidth = lw;
+            c.globalAlpha = baseAlpha * ((steps - i + 1) / (steps * 1.5));
+            roundedRect(x - spread * 0.35, y + offsetY * (i / steps) - spread * 0.15, w + spread * 0.7, h + spread * 0.5, r + spread * 0.35);
+            c.stroke();
+        }
         c.globalAlpha = 1;
+        c.fillStyle = "black";
         c.globalCompositeOperation = "destination-out";
+        roundedRect(x, y, w, h, r);
         c.fill();
         c.globalCompositeOperation = "source-over";
     }

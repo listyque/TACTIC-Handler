@@ -71,6 +71,17 @@ FocusScope {
         };
     }
     function pointer(type, mouse) {
+        if (mouse.button === Qt.RightButton) {
+            if (type === "down") {
+                root.forceActiveFocus();
+                dispatch(Object.assign({
+                    type: "context",
+                    x: mouse.x,
+                    y: mouse.y
+                }, modifiers(mouse.modifiers)));
+            }
+            return;
+        }
         if (type === "down")
             root.forceActiveFocus();
         dispatch(Object.assign({
@@ -244,7 +255,7 @@ FocusScope {
             }
             MouseArea {
                 anchors.fill: parent
-                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                 hoverEnabled: true
                 cursorShape: root.ui.pointer && root.ui.pointer.active && (root.ui.pointer.kind === "pan" || root.ui.pointer.kind === "node") ? Qt.ClosedHandCursor : Qt.ArrowCursor
                 onPressed: mouse => root.pointer("down", mouse)

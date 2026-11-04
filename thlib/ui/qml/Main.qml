@@ -48,10 +48,14 @@ ApplicationWindow {
         const safe = appController.clamp_main_window_geometry(window.x, window.y, window.width, window.height);
         if (!safe)
             return;
-        window.width = safe.width;
-        window.height = safe.height;
-        window.x = safe.x;
-        window.y = safe.y;
+        if (window.width !== safe.width)
+            window.width = safe.width;
+        if (window.height !== safe.height)
+            window.height = safe.height;
+        if (window.x !== safe.x)
+            window.x = safe.x;
+        if (window.y !== safe.y)
+            window.y = safe.y;
     }
 
     property bool windowStateReady: false
@@ -95,7 +99,7 @@ ApplicationWindow {
     readonly property bool serverConfigured: appController.server_url.indexOf("http://") === 0 || appController.server_url.indexOf("https://") === 0
     property var menuContext: ({
             platform: "native",
-            canAdminister: true,
+            canAdminister: appController.can_administer,
             unread: messagesController.unreadCount,
             updateMode: serverUpdateService.update_mode,
             pollInterval: serverUpdateService.poll_interval

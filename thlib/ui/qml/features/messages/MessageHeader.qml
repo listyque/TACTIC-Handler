@@ -21,7 +21,10 @@ Frame.FrameView {
         return false;
     }
     implicitHeight: 18
-    implicitWidth: UI.header(presentation, 0, language).naturalWidth
+    implicitWidth: {
+        const sender = (presentation.senderDisplay || presentation.sender || "") + (presentation.sender && presentation.senderDisplay && presentation.senderDisplay !== presentation.sender ? " (" + presentation.sender + ")" : "");
+        return (2 + (presentation.selectionMode ? 1 : 0) + (presentation.pinned ? 1 : 0)) * 28 + (presentation.edited ? 40 : 0) + Math.min(92, Math.max(42, String(presentation.time || "").length * 5.5)) + (presentation.own && presentation.recipientCount ? 17 : 0) + Math.max(42, sender.length * 6) + 10;
+    }
     readonly property var presentation: ({
             sender: model.sender,
             senderDisplay: model.senderDisplay,

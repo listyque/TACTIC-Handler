@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import hashlib
 import html
 import json
@@ -48,6 +49,7 @@ def _worker_error(error):
     return str(payload or "Server request failed"), stacktrace
 
 
+@functools.lru_cache(maxsize=1024)
 def _message_identity(value):
     value = str(value or "").strip()
     if value.startswith("skey://"):
@@ -71,14 +73,19 @@ def _message_skey(value):
     return "skey://sthpw/message_log?code=" + value
 
 
+_MENTION_PATTERN = re.compile(r"(?<![A-Za-z0-9_./@-])@([A-Za-z0-9_.-]+)")
+
+
 def _link_user_mentions(value, logins):
+    text = str(value or "")
+    if "@" not in text or not logins:
+        return text
     lookup = {
         str(login).casefold(): str(login)
-        for login in (logins or []) if str(login or "").strip()
+        for login in logins if str(login or "").strip()
     }
     if not lookup:
-        return str(value or "")
-    pattern = re.compile(r"(?<![A-Za-z0-9_./@-])@([A-Za-z0-9_.-]+)")
+        return text
 
     def replace(match):
         login = lookup.get(match.group(1).casefold())
@@ -89,7 +96,7 @@ def _link_user_mentions(value, logins):
             escaped_login, html.escape(match.group(1))
         )
 
-    return pattern.sub(replace, str(value or ""))
+    return _MENTION_PATTERN.sub(replace, text)
 
 
 def _chat_data(bypass_cache=False):
@@ -965,7 +972,7 @@ class MessagesController(QObject):
             return
         record.update(self._complete_history_counts(cached["model"]._records))
 
-    def _cache_current_history(self):
+    def _cache_current_history(self, sync_surfaces=True):
         conversation_id = self._conversation_id
         if (
             not conversation_id
@@ -987,7 +994,8 @@ class MessagesController(QObject):
         }
         while len(self._conversation_cache) > self._conversation_cache_limit:
             self._conversation_cache.popitem(last=False)
-        self._sync_message_surfaces()
+        if sync_surfaces:
+            self._sync_message_surfaces()
 
     def _sync_message_surfaces(self):
         keep = {value["model"] for value in self._conversation_cache.values()}
@@ -1068,6 +1076,21 @@ class MessagesController(QObject):
         parts = [part for part in str(value or "").split() if part]
         return "".join(part[0] for part in parts[:2]).upper() or "?"
 
+    def _user_records_by_login(self):
+        if not self._users:
+            return {}
+        records = self._users._records
+        cache = getattr(self, "_user_lookup_cache", None)
+        token = (id(records), len(records))
+        if cache is None or cache[0] != token:
+            lookup = {
+                str(record.get("login") or ""): record
+                for record in records
+            }
+            cache = (token, lookup)
+            self._user_lookup_cache = cache
+        return cache[1]
+
     def _conversation_profile(self, record):
         recipients = list(record.get("recipients") or [])
         names = list(record.get("recipientNames") or [])
@@ -1077,12 +1100,10 @@ class MessagesController(QObject):
             and not bool(record.get("isPersonalNotes"))
             else ""
         )
-        profile = {}
-        if direct_peer and self._users:
-            profile = next((
-                user for user in self._users._records
-                if user.get("login") == direct_peer
-            ), {})
+        profile = (
+            self._user_records_by_login().get(direct_peer, {})
+            if direct_peer else {}
+        )
         title = str(record.get("title") or "Chat")
         acronym = self._initials(title)
         preview_url = self._conversation_preview_url(record)
@@ -1179,13 +1200,9 @@ class MessagesController(QObject):
         self.stateChanged.emit()
 
     def _message_profile(self, login):
-        profile = {}
-        if self._users:
-            profile = next((
-                user for user in self._users._records
-                if str(user.get("login") or "") == str(login or "")
-            ), {})
-        display_name = str(profile.get("displayName") or login or "Removed user")
+        login_key = str(login or "")
+        profile = self._user_records_by_login().get(login_key, {})
+        display_name = str(profile.get("displayName") or login_key or "Removed user")
         return {
             "senderDisplay": display_name,
             "avatarUrl": str(profile.get("avatarUrl") or ""),
@@ -1246,23 +1263,26 @@ class MessagesController(QObject):
         }
 
     def _reaction_records(self, value):
+        if not value:
+            return []
         from thlib.environment import env_server
 
         current = str(env_server.get_user() or "")
-        profiles = {
-            str(record.get("login") or ""): str(
-                record.get("displayName") or record.get("login") or ""
-            )
-            for record in (self._users._records if self._users else [])
-        }
+        user_by_login = self._user_records_by_login()
         records = []
-        for emoji, reaction_logins in dict(value or {}).items():
+        for emoji, reaction_logins in dict(value).items():
             logins = list(dict.fromkeys(
                 str(login) for login in (reaction_logins or []) if login
             ))
             if not logins:
                 continue
-            display_names = [profiles.get(login, login) for login in logins]
+            display_names = [
+                str(
+                    (user_by_login.get(login) or {}).get("displayName")
+                    or login
+                )
+                for login in logins
+            ]
             records.append({
                 "emoji": str(emoji),
                 "count": len(logins),
@@ -1362,11 +1382,9 @@ class MessagesController(QObject):
                 return pretty, full
         try:
             import thlib.global_functions as gf
+            from thlib.time_presentation import get_pretty_and_full_datetime
             value = gf.parce_timestamp(str(timestamp or ""))
-            return (
-                str(gf.get_pretty_datetime(value)),
-                str(gf.get_full_datetime(value)),
-            )
+            return get_pretty_and_full_datetime(value)
         except (AttributeError, TypeError, ValueError):
             value = str(timestamp or "")
             return value, value
@@ -1440,7 +1458,7 @@ class MessagesController(QObject):
             )
         ):
             return
-        self._cache_current_history()
+        self._cache_current_history(sync_surfaces=False)
         self._conversation_id = conversation_id
         self._conversation_opened = True
         self._sync_active_polling()
@@ -1487,7 +1505,7 @@ class MessagesController(QObject):
         if row >= 0:
             self.select_conversation(row)
         else:
-            self._cache_current_history()
+            self._cache_current_history(sync_surfaces=False)
             self.conversationChanging.emit(conversation_id)
             self._conversation_id = conversation_id
             self._conversation_opened = True
@@ -2227,12 +2245,11 @@ class MessagesController(QObject):
         return linkify_plain_text(value)
 
     def _message_display_html(self, value):
-        logins = [
-            record.get("login") for record in self._users._records
-        ] if self._users else []
-        return _link_user_mentions(
-            display_html_without_skeys(value), logins
-        )
+        html_text = display_html_without_skeys(value)
+        if "@" not in html_text or not self._users:
+            return html_text
+        logins = [record.get("login") for record in self._users._records]
+        return _link_user_mentions(html_text, logins)
 
     def _preview_records(self, value):
         if not self._skey_previews:
@@ -2404,9 +2421,10 @@ class MessagesController(QObject):
             "editedBy": str(last_edit.get("editedBy") or ""),
             "editedAt": str(last_edit.get("editedAt") or ""),
             "editHistory": edit_history,
-            "pinned": _message_identity(
-                self._pinned_message.get("messageId")
-            ) == _message_identity(message_id),
+            "pinned": bool(
+                self._pinned_message
+                and _message_identity(self._pinned_message.get("messageId")) == pending_key
+            ),
             "replyTo": reply_to,
             "forwardedFrom": forwarded_from,
             "forwardSelected": pending_key in self._forward_selection,

@@ -271,51 +271,87 @@ export function describe(model, ui, width, height, language) {
         top += noticeHeight + 8;
     }
     const stacked = width < 600,
+        catalogVisible = stacked || ui.catalogVisible !== false,
         available = Math.max(1, height - top);
-    const catalogWidth = stacked ? width : width < 780 ? 190 : 250;
+    const catalogWidth = stacked
+        ? width
+        : catalogVisible
+          ? width < 780
+              ? 190
+              : 250
+          : 56;
     const catalogHeight = stacked ? Math.min(146, available * 0.3) : available;
     const docX = stacked ? 0 : catalogWidth + 12,
         docY = stacked ? top + catalogHeight + 12 : top;
     const docWidth = stacked ? width : Math.max(1, width - docX),
         docHeight = Math.max(1, height - docY);
-    const list = node(
-        'List',
-        'securityGroupsList',
-        box(pad, 50, catalogWidth - pad * 2, catalogHeight - 50 - pad),
-        {
-            source: 'groups',
-            keyField: 'code',
-            fields: ['code', 'name', 'description', 'memberCount'],
-            rowHeight: metrics.groupRow,
-            scrollbarId: 'securityGroupsScrollBar',
-            label: tr('Groups')
-        }
-    );
-    const catalog = [
-        node('Icon', 'securityGroupCatalogIcon', box(14, 14, 20, 20), {
-            icon: 'groups',
-            color: 'action'
-        }),
-        label(
-            'securityGroupCatalogTitle',
-            box(44, 12, catalogWidth - 58, 24),
-            tr('Groups'),
+    const catalog = [];
+    if (catalogVisible) {
+        const list = node(
+            'List',
+            'securityGroupsList',
+            box(pad, 52, catalogWidth - pad * 2, catalogHeight - 52 - pad),
             {
-                fontRole: 'section',
-                weight: 600
+                source: 'groups',
+                keyField: 'code',
+                fields: ['code', 'name', 'description', 'memberCount'],
+                rowHeight: metrics.groupRow,
+                scrollbarId: 'securityGroupsScrollBar',
+                label: tr('Groups')
             }
-        ),
-        list
-    ];
-    if (!model.groupCount && !model.busy)
+        );
         catalog.push(
             label(
-                'securityGroupsEmpty',
-                box(pad, 54, catalogWidth - pad * 2, 58),
-                tr('No user groups yet'),
+                'securityGroupCatalogTitle',
+                box(
+                    12,
+                    10,
+                    Math.max(0, catalogWidth - (stacked ? 24 : 62)),
+                    34
+                ),
+                tr('Groups'),
                 {
-                    wrap: true,
-                    color: 'secondaryText'
+                    weight: 600
+                }
+            ),
+            list
+        );
+        if (!model.groupCount && !model.busy)
+            catalog.push(
+                label(
+                    'securityGroupsEmpty',
+                    box(pad, 56, catalogWidth - pad * 2, 58),
+                    tr('No user groups yet'),
+                    {
+                        wrap: true,
+                        color: 'secondaryText'
+                    }
+                )
+            );
+    }
+    if (!stacked)
+        catalog.push(
+            node(
+                'Button',
+                'securityToggleGroupsCatalog',
+                box(
+                    catalogVisible
+                        ? catalogWidth - 46
+                        : (catalogWidth - 34) / 2,
+                    10,
+                    34,
+                    34
+                ),
+                {
+                    text: tr('Groups'),
+                    icon: catalogVisible ? 'chevron-left' : 'chevron-right',
+                    iconOnly: true,
+                    iconAction: true,
+                    round: false,
+                    enabled: true,
+                    action: {
+                        type: 'catalogVisible'
+                    }
                 }
             )
         );

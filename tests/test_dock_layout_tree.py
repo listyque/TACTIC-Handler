@@ -66,6 +66,21 @@ class DockLayoutTreeTests(unittest.TestCase):
         )
         self.assertEqual(fresh._panels[0].width, 1.0)
 
+    def test_slide_over_panel_overlays_full_width_search_and_collapses(self):
+        fresh = DockPanelModel({})
+        fresh.slide_panel("notes", "right")
+        self.assertEqual(fresh.slideOpenPanelId, "notes")
+        notes = next(p for p in fresh._panels if p.panel_id == "notes")
+        results = next(p for p in fresh._panels if p.panel_id == "results")
+        self.assertEqual(notes.dock_area, "slide_right")
+        self.assertTrue(notes.visible)
+        self.assertEqual(results.width, 1.0)
+        fresh._last_show_monotonic = 0.0
+        fresh.collapse_slide_panels()
+        self.assertEqual(fresh.slideOpenPanelId, "")
+        fresh.show_panel("notes")
+        self.assertEqual(fresh.slideOpenPanelId, "notes")
+
     def test_qml_projections_exclude_hidden_and_inactive_native_windows(self):
         visible = VisibleDockPanelModel(self.model)
         detached = DetachedDockPanelModel(self.model)

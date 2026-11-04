@@ -19,7 +19,7 @@ export function componentFields(fields, item, ui, canEdit, language, field) {
             }
         });
     }
-    if (['icon', 'button', 'action'].includes(item.kind))
+    if (['icon', 'button', 'action', 'metric'].includes(item.kind))
         fields.push({
             kind: 'IconChoice',
             id: 'pageProperty_icon',

@@ -534,11 +534,17 @@ class NavigationMixin:
                 request_id,
                 session_token,
             ))
-            worker.result.connect(self._sidebar_presets_ready)
-            worker.error.connect(self._sidebar_presets_failed)
-            worker.finished.connect(
-                lambda key=section.entry_key, target=worker:
-                self._release_sidebar_preset_worker(key, target)
+            worker.result.connect(
+                self._sidebar_presets_ready,
+                Qt.ConnectionType.QueuedConnection,
+            )
+            worker.error.connect(
+                self._sidebar_presets_failed,
+                Qt.ConnectionType.QueuedConnection,
+            )
+            worker.settled.connect(
+                self._sidebar_preset_worker_settled,
+                Qt.ConnectionType.QueuedConnection,
             )
             worker.start()
         except Exception:
@@ -562,6 +568,12 @@ class NavigationMixin:
     def _release_sidebar_preset_worker(self, key: str, worker) -> None:
         if self._sidebar_preset_workers.get(key) is worker:
             self._sidebar_preset_workers.pop(key, None)
+
+    @Slot(object)
+    def _sidebar_preset_worker_settled(self, worker) -> None:
+        metadata = worker.get_result_data() if worker is not None else None
+        if metadata and len(metadata) == 4:
+            self._release_sidebar_preset_worker(metadata[1], worker)
 
     def _cancel_sidebar_preset_request(self, key: str) -> None:
         """Detach one section's request before its session can be replaced."""
@@ -893,7 +905,14 @@ class NavigationMixin:
                     "title": tab.title,
                     "closable": len(section.tabs) > 1,
                     "current": tab.tab_id == section.current_tab_id,
-                    "resultModel": self._ensure_tab_workspace_model(tab),
+                    "resultModel": (
+                        self._ensure_tab_workspace_model(tab)
+                        if (
+                            tab.tab_id == section.current_tab_id
+                            or tab.workspace_model is not None
+                        )
+                        else None
+                    ),
                     "viewMode": tab.view_mode,
                     "splitterRatio": tab.splitter_ratio,
                 }
@@ -920,6 +939,14 @@ class NavigationMixin:
             }
             for candidate_section in self._sessions.values()
             for candidate_tab in candidate_section.tabs
+            if (
+                candidate_tab.workspace_model is not None
+                or (
+                    candidate_section.entry_key == self._current_section_key
+                    and candidate_tab.tab_id
+                    == candidate_section.current_tab_id
+                )
+            )
         ])
         self._search_tab_switch_monitor.record_phase(
             "resultSurfacesMs", (time.perf_counter() - phase_started_at) * 1000,
@@ -973,6 +1000,8 @@ class NavigationMixin:
                 self._sync_search_tabs()
                 tab_id = tab.tab_id
                 self._show_tab_if_current(key, tab_id)
+            elif tab:
+                self._sync_search_tabs()
             return
 
         switch_monitor = self._search_tab_switch_monitor

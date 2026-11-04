@@ -98,6 +98,7 @@ const russian = {
     'Use column icon': 'Использовать иконку колонки',
     'Icon beside text values and related-table counts. Used by quick filters unless overridden.':
         'Иконка рядом со значениями и счётчиками связей. Используется быстрыми фильтрами, если для них не выбрана своя иконка.',
+
     'Cell alignment': 'Выравнивание ячейки',
     'Horizontal position of content in this column.':
         'Горизонтальное положение содержимого в этой колонке.',
@@ -122,6 +123,7 @@ const russian = {
     'Choose a suggestion or enter Field: value':
         'Выберите подсказку или введите Поле: значение',
     'Choose a value': 'Выберите значение',
+    'Web workers': 'Веб-воркеры',
     'Backend server': 'Сервер ТС',
     'Worker processes and server restart': 'Процессы и перезапуск сервера',
     'Server processes': 'Процессы сервера',
@@ -133,15 +135,14 @@ const russian = {
         'Сохраните изменения перед перезапуском.',
     'Saved settings are applied only after restarting the server.':
         'Сохранённые настройки применяются после перезапуска сервера.',
+    'Restart TACTIC Stream? Connections and running operations may be interrupted while saved settings are applied. Unsaved changes will not be applied.':
+        'Перезапустить ТС? Соединения и текущие операции могут прерваться при применении сохранённых настроек. Несохранённые изменения применены не будут.',
     'This server is not managed by TacticMonitor.':
         'Этот сервер запущен без TacticMonitor.',
     'The server monitor is unavailable or outdated.':
         'Монитор сервера недоступен или требует обновления.',
     'The server has not returned yet. Reconnect and check its status.':
         'Сервер ещё не ответил. Подключитесь заново и проверьте его состояние.',
-    'Restart TACTIC Stream? Connections and running operations may be interrupted while saved settings are applied. Unsaved changes will not be applied.':
-        'Перезапустить ТС? Соединения и текущие операции могут прерваться при применении сохранённых настроек. Несохранённые изменения применены не будут.',
-    'Web workers': 'Веб-воркеры',
     'Something went wrong': 'Произошла ошибка',
     'Search suggestions': 'Подсказки поиска',
     Example: 'Пример',
@@ -190,21 +191,6 @@ const russian = {
     'Local demo; project data stays unchanged':
         'Локальный пример без изменений данных проекта',
     'No matching components': 'Компоненты не найдены',
-    'Project chat rules': 'Правила чатов проекта',
-    'Shared by all chats in this project. Changes apply on the next send; the current turn keeps its captured rules.':
-        'Общие для всех чатов проекта. Изменения действуют со следующей отправки; текущий ход сохранит прежние правила.',
-    'Describe naming, preview destinations and comment preferences.':
-        'Опишите нейминг, назначение превью и правила комментариев.',
-    'Save project rules': 'Сохранить правила',
-    'Project chat rules changed. Reopen the editor before saving.':
-        'Правила чатов проекта изменились. Откройте редактор заново перед сохранением.',
-    'Project chat rules must be text of at most 16000 characters':
-        'Правила чатов проекта должны содержать не более 16000 символов',
-    'Select a user project before editing chat rules':
-        'Выберите пользовательский проект для настройки правил чата',
-    'Reconnect the agent to load project chat rules':
-        'Переподключите агента, чтобы загрузить правила чатов проекта',
-
     Plugins: 'Плагины',
     'Packages, versions and project activation':
         'Пакеты, версии и активация в проекте',
@@ -213,23 +199,6 @@ const russian = {
     'ZIP archives (*.zip)': 'Архивы ZIP (*.zip)',
     'All files (*)': 'Все файлы (*)',
 
-    'System Info': 'Информация о системе',
-    'Server and client diagnostics': 'Сведения о сервере и клиенте',
-    'Node Name': 'Имя узла',
-    Release: 'Выпуск ОС',
-    Machine: 'Архитектура',
-    'CPU Count': 'Число процессоров',
-    OS: 'Операционная система',
-    'Server time (UTC)': 'Время сервера (UTC)',
-    'User Agent': 'User Agent',
-    'TACTIC User': 'Пользователь TACTIC',
-    'Mail Server': 'Почтовый сервер',
-    'Asset Folders': 'Каталоги файлов',
-    'Server handoff directory': 'Каталог передачи на сервере',
-    'Writable (access check)': 'Доступен для записи (проверка прав)',
-    'None configured': 'Не настроено',
-    Browser: 'Браузер',
-    'Time zone': 'Часовой пояс',
     'Load Balancing': 'Балансировка нагрузки',
     'Performance Test': 'Тест производительности',
     'Sample server requests to identify responding workers and ports.':
@@ -274,8 +243,41 @@ const russian = {
         'Укажите корректный путь сохранённого скрипта',
     'Choose sender and recipient emails':
         'Укажите отправителя и получателей письма',
+
+    'Reconnect the agent to load project chat rules':
+        'Переподключите агента, чтобы загрузить правила чатов проекта',
+    'Project chat rules': 'Правила чатов проекта',
+    'Shared by all chats in this project. Changes apply on the next send; the current turn keeps its captured rules.':
+        'Общие для всех чатов проекта. Изменения действуют со следующей отправки; текущий ход сохранит прежние правила.',
+    'Describe naming, preview destinations and comment preferences.':
+        'Опишите нейминг, назначение превью и правила комментариев.',
+    'Save project rules': 'Сохранить правила',
+    'Project chat rules changed. Reopen the editor before saving.':
+        'Правила чатов проекта изменились. Откройте редактор заново перед сохранением.',
+    'Project chat rules must be text of at most 16000 characters':
+        'Правила чатов проекта должны содержать не более 16000 символов',
+    'Select a user project before editing chat rules':
+        'Выберите пользовательский проект для настройки правил чата',
+
+    OS: 'Операционная система',
+    Browser: 'Браузер',
     'System Info requires administrator access':
         'Информация о системе доступна только администратору',
+    'System Info': 'Информация о системе',
+    'Server and client diagnostics': 'Сведения о сервере и клиенте',
+    'Node Name': 'Имя узла',
+    Release: 'Выпуск ОС',
+    Machine: 'Архитектура',
+    'CPU Count': 'Число процессоров',
+    'Server time (UTC)': 'Время сервера (UTC)',
+    'User Agent': 'User Agent',
+    'TACTIC User': 'Пользователь TACTIC',
+    'Mail Server': 'Почтовый сервер',
+    'Asset Folders': 'Каталоги файлов',
+    'Server handoff directory': 'Каталог передачи на сервере',
+    'Writable (access check)': 'Доступен для записи (проверка прав)',
+    'None configured': 'Не настроено',
+    'Time zone': 'Часовой пояс',
 
     'Preparing the local agent environment…':
         'Подготовка локального окружения агента…',
@@ -364,6 +366,15 @@ const russian = {
     'Allowed by this group': 'Разрешено этой группой',
     'Denied by this group': 'Запрещено этой группой',
     'Existing access: {access}': 'Сохранённый уровень: {access}',
+    'Rule type': 'Тип правила',
+    'Default access level and project restriction for this group. Select any rule below to edit its permissions and targets visually.':
+        'Базовый уровень доступа и проект группы. Выберите любое правило ниже для наглядного редактирования прав и объектов.',
+    'none — No default access': 'none — Без базового доступа',
+    'min — Minimal access': 'min — Минимальный доступ',
+    'low — Basic artist access': 'low — Базовый доступ артиста',
+    'medium — Standard production access': 'medium — Стандартный рабочий доступ',
+    'high — Extended project access': 'high — Расширенный доступ к проекту',
+    'admin — Full administrator access': 'admin — Полный доступ администратора',
 
     'Select a user': 'Выберите пользователя',
     'Select a user to inspect saved permissions.':
@@ -1972,6 +1983,33 @@ const russian = {
     Latest: 'Последняя',
     Current: 'Текущая',
     'Cell calculation failed': 'Ошибка вычисления ячейки',
+    'Columns: from → to': 'Колонки: from → to',
+    'Parent / Child & M:N': 'Parent / Child и M:N',
+    'Tables & codes': 'Таблицы и коды',
+    Legend: 'Легенда',
+    'Parent & Child': 'Parent и Child',
+    'Child · hierarchy': 'Child · иерархия',
+    'Parent · hierarchy': 'Parent · иерархия',
+    'Child / source (from)': 'Child / источник (from)',
+    'Parent / target (to)': 'Parent / цель (to)',
+    'via {table}': 'через {table}',
+    'Child → Parent · hierarchy': 'Child → Parent · иерархия',
+    'Self M:N · instance': 'M:N на себя · instance',
+    'M:N · instance': 'M:N · instance',
+    'Link → Target · {rel}': 'Таблица связей → Цель · {rel}',
+    'Child → Parent · {rel}': 'Child → Parent · {rel}',
+    'Ports & direction: from → to': 'Порты и направление: from → to',
+    '● Right port (Output / from): source table with foreign key (from_col) or Child in a hierarchy.\n○ Left port (Input / to): target table with key (to_col) or Parent in a hierarchy.':
+        '● Правый порт (Output / from): таблица-источник с внешним ключом (from_col) или Child в иерархии.\n○ Левый порт (Input / to): целевая таблица с ключом (to_col) или Parent в иерархии.',
+    '• Hierarchy (Child → Parent): child links to parent (e.g. Shot.scenes_code → Episode.code).\n• M:N (instance): connects two types via a Link table (instance_type).':
+        '• Иерархия (Child → Parent): дочерний объект ссылается на родительский (Shot.scenes_code → Episode.code).\n• Связь M:N (instance): соединяет два типа через таблицу связей (Link table).',
+    'Columns & colors': 'Колонки и цвета',
+    '• Direct key (code / id): maps source column from_col to target column to_col.\n• Line color matches the source (from) Search Type. Click any badge or line to edit.':
+        '• Прямой ключ (code / id): связывает колонку from_col таблицы-источника с to_col целевой таблицы.\n• Цвет линии соответствует исходному типу (from). Нажмите на плашку для настройки.',
+    'Input (to / parent) — connect here':
+        'Вход (to / parent) — подключить сюда',
+    'Output (from / child) — connect here':
+        'Выход (from / child) — вести связь отсюда',
 
     'A connection to the TACTIC server could not be established. Check the server address, network connection, VPN or proxy, and make sure the server is running. Then try again.':
         'Не удалось установить соединение с сервером TACTIC. Проверьте адрес сервера, подключение к сети, VPN или прокси и убедитесь, что сервер запущен. Затем повторите попытку.',
@@ -2917,6 +2955,11 @@ const russian = {
     'Schema relationships: {count}': 'Связей в схеме: {count}',
     'Schema: %1': 'Схема: %1',
     'Schema: {name}': 'Схема: {name}',
+    'Key fields': 'Ключевые поля',
+    'Relationship in schema': 'Связь в схеме',
+    'Link table': 'Таблица связи',
+    'Hierarchy · child → parent': 'Иерархия · дочерний → родитель',
+    'Schema link': 'Связь схемы',
     Scope: 'Область действия',
     'Script body': 'Код скрипта',
     'Script language': 'Язык скрипта',
@@ -3352,6 +3395,12 @@ const russian = {
     'Check the people who belong to this group':
         'Отметьте участников этой группы',
     'Check-in type': 'Тип Check-in',
+    'Auto: Automatically creates a Latest versionless copy on every check-in (strips _v{version} and places versioned files into /versions) without needing a separate Versionless rule.':
+        'Авто (Auto): При каждом check-in автоматически создаёт бесверсионную копию Latest (убирает _v{version}, а версии кладёт в /versions) без создания второго правила Versionless.',
+    'Strict: Uses the exact Directory and File naming paths as written. Versionless copies are created ONLY if a separate rule has Latest or Current versionless enabled.':
+        'Строгий (Strict): Использует пути папки и файла строго по шаблону. Бесверсионные копии создаются ТОЛЬКО при наличии отдельного правила с включённым Latest или Current versionless.',
+    'Unspecified (default): Behaves like Strict (exact paths; requires an explicit Versionless rule for versionless copies), while remaining compatible with both strict and auto check-in calls.':
+        'Не указан (по умолчанию): Работает как Strict (строго по шаблону; бесверсионные копии требуют отдельного правила Versionless), но совместим с любыми вызовами check-in (и strict, и auto).',
     'Choose image': 'Выбрать изображение',
     'Class name': 'Имя класса',
     'Column names must be unique lowercase SQL identifiers':
@@ -3408,6 +3457,24 @@ const russian = {
     Label: 'Подпись',
     'Last name': 'Фамилия',
     'Latest versionless': 'Последний versionless',
+    'Regular versioned rules (v001, v002…) keep both versionless switches OFF. Enabling Latest or Current versionless makes this rule apply ONLY to versionless copies — create a separate rule for versioned files.':
+        'Для обычных версионных файлов (v001, v002…) оба переключателя versionless должны быть ВЫКЛЮЧЕНЫ. Включение Latest или Current versionless делает правило отдельным правилом только для бесверсионных копий.',
+    'Rule for the auto-updated copy of the newest version (no _v001 in file name). Can be combined with Current versionless.':
+        'Правило для копии самой свежей версии (без _v001 в имени). Можно включать вместе с Current versionless.',
+    'Rule for the copy of the version marked as Current. Can be combined with Latest versionless.':
+        'Правило для копии версии, отмеченной как текущая (Current). Можно включать вместе с Latest versionless.',
+    'Reads the version number from the uploaded file name (e.g. _v015). Use only on versioned rules (not with versionless).':
+        'Берёт номер версии из имени сдаваемого файла (например, _v015). Только для обычных версионных правил (не с versionless).',
+    'Conflict: Manual version does not apply to versionless rules (versionless snapshots always use version -1). Keep Manual version only on regular versioned rules.':
+        'Конфликт: «Версия вручную» не применяется к правилам versionless (у бесверсионных снимков версия всегда -1). Включайте «Версию вручную» только на обычном версионном правиле.',
+    'Active mode: This rule generates BOTH Latest and Current versionless copies. Regular versioned check-ins (v001, v002…) require a separate rule with versionless OFF.':
+        'Режим правила: создаёт и Latest, и Current бесверсионные копии. Для обычных версионных сдач (v001, v002…) нужно отдельное правило с выключенными versionless.',
+    'Active mode: Versionless-only rule. TACTIC uses this rule only for the versionless copy; regular versioned check-ins (v001, v002…) require a separate rule.':
+        'Режим правила: только для бесверсионной копии (versionless). Для обычных версионных сдач (v001, v002…) нужно отдельное правило.',
+    'Active mode: Versioned rule with manual version numbering parsed from the uploaded file name.':
+        'Режим правила: обычное версионное правило с чтением номера версии из имени загружаемого файла.',
+    'Active mode: Standard versioned rule (TACTIC numbers versions automatically: v001, v002, v003…).':
+        'Режим правила: стандартное версионное правило (TACTIC нумерует версии автоматически: v001, v002, v003…).',
     'Leave empty to keep the current password':
         'Оставьте пустым, чтобы сохранить текущий пароль',
     'License type': 'Тип лицензии',
@@ -5558,7 +5625,250 @@ const russian = {
         'К этому проекту уже подключён внешний агент',
     'Agent connection failed': 'Не удалось подключить агента',
     'No available models. Check AI providers.':
-        'Нет доступных моделей. Проверьте настройки ИИ-провайдеров.'
+        'Нет доступных моделей. Проверьте настройки ИИ-провайдеров.',
+    'Widget preview': 'Превью виджета',
+    'Show specialized and system widgets':
+        'Показать специализированные и системные виджеты',
+    'Include task, snapshot, timecard, JSON/XML, and administrative table widgets.':
+        'Включить табличные виджеты для задач, снапшотов, табелей, JSON/XML и администрирования.',
+    Automatic: 'Автоматически',
+    Format: 'Формат',
+    Expression: 'Выражение',
+    'Expression value': 'Значение выражения',
+    Link: 'Ссылка',
+    Thumbnail: 'Миниатюра',
+    Notes: 'Заметки',
+    Tasks: 'Задачи',
+    'Task completion': 'Выполнение задач',
+    'Instance links': 'Связи объектов',
+    'SObject details': 'Сведения об объекте',
+    Explorer: 'Проводник',
+    Metadata: 'Метаданные',
+    Delete: 'Удаление',
+    'Raw value': 'Исходное значение',
+    Array: 'Массив',
+    Parent: 'Родитель',
+    'Snapshot version': 'Версия снапшота',
+    'Snapshot lock': 'Блокировка снапшота',
+    'Snapshot file': 'Файл снапшота',
+    'Milestone completion': 'Выполнение этапа',
+    'Task group completion': 'Выполнение группы задач',
+    'Days until due': 'Дней до срока',
+    Subcontext: 'Субконтекст',
+    'Task summary': 'Сводка задач',
+    'Row selection': 'Выбор строки',
+    'Search Type title': 'Название типа объектов',
+    'Table availability': 'Доступность таблицы',
+    'Preference description': 'Описание настройки',
+    'Project database': 'База данных проекта',
+    'Related value': 'Связанное значение',
+    'Notification recipients': 'Получатели уведомлений',
+    'Object actions': 'Действия с объектом',
+    Login: 'Логин',
+    Process: 'Процесс',
+    'Related tasks': 'Связанные задачи',
+    Timecard: 'Табель',
+    Week: 'Неделя',
+    Dependencies: 'Зависимости',
+    Publish: 'Публикация',
+    'General publish': 'Общая публикация',
+    'Multiline text': 'Многострочный текст',
+    'Selected element XML': 'XML выбранного элемента',
+    'Apply XML': 'Применить XML',
+    'Displays the field value using its schema type, cell icon, alignment, and badge style.':
+        'Показывает значение поля с учётом типа схемы, иконки, выравнивания и стиля плашки.',
+    'Formats text, numbers, currency, dates, timestamps, or checkboxes.':
+        'Форматирует текст, числа, валюту, даты, время или флажки.',
+    'Computes a read-only value or aggregate from a TACTIC expression (@GET, @COUNT, @SUM).':
+        'Вычисляет значение или агрегат по выражению TACTIC (@GET, @COUNT, @SUM).',
+    'Evaluates a TACTIC expression while keeping the column bound to an editable field.':
+        'Вычисляет выражение TACTIC, сохраняя привязку колонки к редактируемому полю.',
+    'Renders the cell value as a clickable hyperlink or external URL.':
+        'Отображает значение ячейки в виде кликабельной ссылки или URL.',
+    'Shows the latest snapshot preview image or an avatar badge for the row.':
+        'Показывает превью последнего снимка или круглый значок строки.',
+    'Opens process notes and discussion comments with a message count badge.':
+        'Открывает заметки и обсуждения по процессам со счётчиком сообщений.',
+    'Displays interactive workflow task cards with process, status, and assignee.':
+        'Показывает интерактивные карточки задач пайплайна с процессом, статусом и исполнителем.',
+    'Renders a progress bar showing overall task completion percentage for the row.':
+        'Отображает полосу прогресса выполнения задач по объекту.',
+    'Shows a schedule timeline bar from task start and end dates.':
+        'Показывает шкалу расписания по датам начала и окончания задач.',
+    'Adds a button with a counter that expands an inline nested table of related records.':
+        'Добавляет кнопку со счётчиком, разворачивающую вложенную таблицу связанных записей.',
+    'Lists linked related records and supports drag-and-drop linking.':
+        'Показывает связанные объекты и позволяет привязывать их перетаскиванием.',
+    'Runs a custom server Python script or client action when clicked.':
+        'Запускает серверный Python-скрипт или действие клиента по нажатию.',
+    'Renders a custom HTML/Mako layout template inside the table cell.':
+        'Рендерит пользовательский шаблон HTML/Mako внутри ячейки таблицы.',
+    'Opens the full record detail inspector for the row.':
+        'Открывает карточку подробной информации о записи.',
+    'Opens the file upload and snapshot check-in dialog for the row.':
+        'Открывает окно загрузки файлов и публикации снимка (Check-in).',
+    'Opens the local sandbox or repository folder for the row.':
+        'Открывает локальную рабочую папку или каталог репозитория записи.',
+    'Lists published snapshot files attached to the record.':
+        'Показывает список опубликованных файлов снимков записи.',
+    'Inspects snapshot and file metadata for the record.':
+        'Открывает метаданные снимков и файлов записи.',
+    'Provides an action button to delete the record from the table.':
+        'Добавляет кнопку удаления записи из таблицы.',
+    'Displays the unformatted raw database column value.':
+        'Показывает неформатированное исходное значение колонки из базы данных.',
+    'Custom or legacy TACTIC table element class.':
+        'Пользовательский или унаследованный класс табличного элемента TACTIC.',
+    'XML options: <column>, <value_icon>, <value_align>, <value_style>, <value_text_style>.':
+        'Параметры XML: <column>, <value_icon>, <value_align>, <value_style>, <value_text_style>.',
+    'XML options: <type>integer|float|currency|percent|date|time|timecode|Checkbox</type>, <format>-1234.12|YYYY-MM-DD</format>, <fps>24</fps>, <total_summary>total|average|count</total_summary>.':
+        'Параметры XML: <type>integer|float|currency|percent|date|time|timecode|Checkbox</type>, <format>-1234.12|YYYY-MM-DD</format>, <fps>24</fps>, <total_summary>total|average|count</total_summary>.',
+    'XML options: <expression>@GET(...)</expression>, <mode>value|boolean|check</mode>, <use_cache>true|false</use_cache>, <order_by>, <bottom>, <group_bottom>.':
+        'Параметры XML: <expression>@GET(...)</expression>, <mode>value|boolean|check</mode>, <use_cache>true|false</use_cache>, <order_by>, <bottom>, <group_bottom>.',
+    'XML options: <expression>@GET(...)</expression>, <mode>value|boolean|check</mode>, <use_cache>true|false</use_cache>.':
+        'Параметры XML: <expression>@GET(...)</expression>, <mode>value|boolean|check</mode>, <use_cache>true|false</use_cache>.',
+    'XML options: <column>, <icon> (reads URL from the column value or expression).':
+        'Параметры XML: <column>, <icon> (читает URL из поля колонки или выражения).',
+    'XML options: <icon_context>icon|publish</icon_context>, <filename>true|false</filename>, <latest_icon>true|false</latest_icon>, <original>true|false</original>.':
+        'Параметры XML: <icon_context>icon|publish</icon_context>, <filename>true|false</filename>, <latest_icon>true|false</latest_icon>, <original>true|false</original>.',
+    'XML options: <process>, <context>, <use_parent>true|false</use_parent>. Legacy HTML popup flags (note_format, dialog_position, show_fullscreen_button, allow_email) are ignored because notes open in the unified inspector.':
+        'Параметры XML: <process>, <context>, <use_parent>true|false</use_parent>. Старые флаги HTML-попапа (note_format, dialog_position, show_fullscreen_button, allow_email) не используются, так как заметки открываются в едином инспекторе.',
+    'XML options: <process>, <context>, <pipeline_code>, <show_current_pipeline_only>true|false</show_current_pipeline_only>, <edit>true|false</edit>.':
+        'Параметры XML: <process>, <context>, <pipeline_code>, <show_current_pipeline_only>true|false</show_current_pipeline_only>, <edit>true|false</edit>.',
+    'XML options: <task_expr> (optional TACTIC expression to filter which tasks are counted).':
+        'Параметры XML: <task_expr> (необязательное выражение TACTIC для фильтрации учитываемых задач).',
+    'XML options: <options>[{"start_date_col":"bid_start_date","end_date_col":"bid_end_date"}]</options>, <range_start_date>, <range_end_date>.':
+        'Параметры XML: <options>[{"start_date_col":"bid_start_date","end_date_col":"bid_end_date"}]</options>, <range_start_date>, <range_end_date>.',
+    'XML options: <search_type>, <view>, <dynamic_class>tactic.ui.panel.FastTableLayoutWdg</dynamic_class>, <value_icon>.':
+        'Параметры XML: <search_type>, <view>, <dynamic_class>tactic.ui.panel.FastTableLayoutWdg</dynamic_class>, <value_icon>.',
+    'XML options: <instance_type>, <accepted_drop_type>, <path>.':
+        'Параметры XML: <instance_type>, <accepted_drop_type>, <path>.',
+    'XML options: <script_path>, <icon>, <hint>, <color>.':
+        'Параметры XML: <script_path>, <icon>, <hint>, <color>.',
+    'XML options: <view> (saved custom layout view name) or inline <html>.':
+        'Параметры XML: <view> (имя сохранённого вида Custom Layout) или встроенный <html>.',
+    'XML options: no extra <display> options required.':
+        'Параметры XML: дополнительные теги внутри <display> не требуются.',
+    'XML options: <process>, <subcontext>, <transfer_mode>upload|copy|move</transfer_mode>, <sobject_mode>self|parent|connect|expression</sobject_mode>.':
+        'Параметры XML: <process>, <subcontext>, <transfer_mode>upload|copy|move</transfer_mode>, <sobject_mode>self|parent|connect|expression</sobject_mode>.',
+    'XML options: <mode>sandbox|repository</mode>.':
+        'Параметры XML: <mode>sandbox|repository</mode>.',
+    'XML options: <expression> (optional snapshot/file query).':
+        'Параметры XML: <expression> (необязательное выражение выборки снимков/файлов).',
+    'XML options: <column> (optional database column override).':
+        'Параметры XML: <column> (необязательное переопределение колонки БД).',
+    'XML options: edit custom <display> parameters directly in Selected element XML below.':
+        'Параметры XML: редактируйте параметры <display> напрямую в поле XML выбранного элемента ниже.',
+    'Columns: from → to': 'Колонки: from → to',
+    'Parent / Child & M:N': 'Parent / Child и M:N',
+    'Tables & codes': 'Таблицы и коды',
+    Legend: 'Легенда',
+    'Schema Legend & Relationship Guide':
+        'Легенда схемы и справочник связей',
+    'Arrow direction: Child → Parent (from_col → to_col)':
+        'Направление стрелки: Child → Parent (from_col → to_col)',
+    'The arrow starts at the table storing the foreign key (from_col, e.g. Shot.episode_code) and points to the referenced parent table (to_col, e.g. Episode.code).':
+        'Стрелка начинается в дочерней таблице, где хранится внешний ключ (from_col, например Shot.episode_code), и указывает на родительскую таблицу (to_col, например Episode.code).',
+    'Hierarchy (type="hierarchy"): Child → Parent':
+        'Иерархия (type="hierarchy"): Child → Parent',
+    'Defines primary parent-child hierarchy used by @PARENT / @SOBJECT(parent) and folder/navigation trees.':
+        'Задаёт основную иерархию родитель–потомок, используемую выражениями @PARENT / @SOBJECT(parent) и деревьями навигации.',
+    'Many-to-Many (M:N): Link Table / Instance':
+        'Связь многие-ко-многим (M:N): промежуточная таблица (Link Table / Instance)',
+    'Connects two entities through an intermediate table (e.g. Assets in Episode -> Assets and Episode) storing two foreign keys.':
+        'Связывает две сущности через промежуточную таблицу (например, Assets in Episode -> Assets и Episode), хранящую два внешних ключа.',
+    'Draft ("skeleton") · not in DB': 'Черновик («рыба») · ещё не в БД',
+    'Link table · M:N': 'Связующая таблица · M:N',
+    'Entity · Search Type': 'Сущность · Search Type',
+    'Unregistered · reference': 'Не зарегистрирован · ссылка',
+    'New draft node ("skeleton")': '+ Черновик узла («рыба»)',
+    'Create & register Search Type…':
+        '+ Создать и зарегистрировать Search Type…',
+    'Add existing Search Type…': 'Добавить существующий Search Type…',
+    'New Many-to-Many (M:N) relation…':
+        'Создать связь Many-to-Many (M:N)…',
+    'Register Search Type in DB now':
+        'Зарегистрировать Search Type в БД сейчас',
+    'Open full Search Type creator…':
+        'Открыть полный мастер создания Search Type…',
+    'Start connection from this node': 'Начать связь от этого узла',
+    'Start connection from here': 'Начать связь отсюда',
+    'Connect Many-to-Many (M:N) from here…':
+        'Связать Many-to-Many (M:N) отсюда…',
+    'Connect Many-to-Many (M:N)…': 'Связать Many-to-Many (M:N)…',
+    'Convert to Many-to-Many (M:N)': 'Преобразовать в Many-to-Many (M:N)',
+    'Set as Hierarchy (Child → Parent)':
+        'Сделать иерархией (Child → Parent)',
+    'Set as Direct key (code)': 'Сделать прямой связью по ключу (code)',
+    'Reverse direction (from ↔ to)': 'Развернуть направление (from ↔ to)',
+    'Remove connection': 'Удалить связь',
+    '+ New process here': '+ Создать процесс здесь',
+    'Connection mode': 'Тип создаваемой связи',
+    'Hierarchy connects Child → Parent by code. Many-to-many (M:N) automatically creates an intermediate link table.':
+        'Hierarchy связывает Child → Parent по полю code. Many-to-many (M:N) автоматически создаёт промежуточную связующую таблицу.',
+    'Hierarchy · Child → Parent': 'Иерархия · Child → Parent',
+    'Many-to-many · M:N (link table)':
+        'Многие-ко-многим · M:N (связующая таблица)',
+    'Direct key · code': 'Прямой ключ · code',
+    'Direct key · id': 'Прямой ключ · id',
+    'Hierarchy · Child → Parent (code)':
+        'Иерархия · Child → Parent (code)',
+    'Many-to-many · via existing link table':
+        'Многие-ко-многим · через существующую связующую таблицу',
+    'Many-to-many · create new link table':
+        'Многие-ко-многим · создать новую связующую таблицу',
+    'Connect Many-to-Many (M:N)': 'Связать Many-to-Many (M:N)',
+    'Draft Search Type ("skeleton")':
+        'Черновик Search Type («рыба»)',
+    'This node exists only in your schema draft. You can rename it, wire connections, and register it in the database now or when saving the schema.':
+        'Этот узел пока существует только в черновике схемы. Вы можете переименовать его, протянуть связи и зарегистрировать таблицу в БД сейчас либо при сохранении схемы.',
+    'Table code (lowercase SQL)': 'Код таблицы (SQL в нижнем регистре)',
+    'Apply table code': 'Применить код таблицы',
+    'Pipeline support (pipeline_code)':
+        'Поддержка пайплайнов (pipeline_code)',
+    'Creates a pipeline_code column on registration so items can use Workflows.':
+        'Создаёт колонку pipeline_code при регистрации таблицы, чтобы к объектам можно было привязывать Workflow.',
+    'Many-to-many creates a separate instance Search Type with two key connections, or links through an existing intermediate table.':
+        'Many-to-many создаёт отдельный связующий Search Type с двумя ключевыми связями либо связывает таблицы через существующую промежуточную таблицу.',
+    'Link table (instance_type)': 'Связующая таблица (instance_type)',
+    'Intermediate Search Type storing foreign keys to both endpoints.':
+        'Промежуточный Search Type, хранящий внешние ключи к обеим связываемым таблицам.',
+    'Manual · Task': 'Ручной · Задача (manual)',
+    'Manual': 'Ручной',
+    'Standard human task stage (rectangular card). Creates an artist task and advances when its status reaches complete.':
+        'Стандартный пользовательский этап (прямоугольный узел). Создаёт задачу для исполнителя и завершается при переводе её статуса в complete.',
+    'Action · Auto script': 'Действие · Автоскрипт (action)',
+    'Action': 'Действие',
+    'Automated process (rounded pill). Runs a server script or command class automatically when triggered by upstream stages.':
+        'Автоматический процесс (скруглённая капсула). Запускает серверный скрипт или класс команды автоматически при срабатывании предыдущего этапа.',
+    'Condition · Branching': 'Условие · Ветвление (condition)',
+    'Condition': 'Условие',
+    'Conditional branch (diamond markers). Evaluates a script condition and routes flow to success or failure output streams.':
+        'Условное ветвление (маркеры ромба). Вычисляет условие в скрипте и направляет поток по ветке успеха или отказа.',
+    'Approval · Sign-off': 'Согласование · Приёмка (approval)',
+    'Approval': 'Согласование',
+    'Review gate (double-ring stadium). Requires supervisor approval; rejecting sends status back to upstream stages.':
+        'Этап проверки и утверждения (двойной контур). Требует приёмки супервайзером; при отклонении возвращает работу на предыдущие этапы.',
+    'Hierarchy · Sub-workflow': 'Иерархия · Подпайплайн (hierarchy)',
+    'Hierarchy': 'Иерархия',
+    'Nested sub-pipeline container. Expands into child workflow processes and can create parent and child tasks.':
+        'Контейнер вложенного подпайплайна. Раскрывается в дочерний Workflow и позволяет создавать родительские и дочерние задачи.',
+    'Dependency · External wait': 'Зависимость · Ожидание (dependency)',
+    'Dependency': 'Зависимость',
+    'Cross-object dependency node. Waits for or triggers a process on a related Search Type (parent, child, or expression).':
+        'Межобъектная зависимость. Ожидает завершения или запускает процесс у связанного Search Type (родителя, потомка или по выражению).',
+    'Progress · Tracker': 'Прогресс · Сводка (progress)',
+    'Circular progress aggregator. Tracks completion across related objects in another Search Type and pipeline.':
+        'Круговой индикатор прогресса. Отслеживает процент готовности связанных объектов другого Search Type и пайплайна.',
+    'Status · Task state': 'Статус · Состояние (status)',
+    'Task status state (used in sthpw/task status pipelines). Defines a status name, color, and completion flag.':
+        'Состояние статуса задачи (используется в пайплайнах sthpw/task). Задаёт имя статуса, цвет и признак завершения.',
+    'Choose how this stage behaves in the workflow and how it is drawn on the canvas:':
+        'Выберите, как этот этап работает в пайплайне и как он отображается на схеме:',
+    'DRAFT': 'РЫБА',
+    'Config table · config': 'Таблица конфигурации · config',
+    'System table · sthpw': 'Системная таблица · sthpw',
+    'External · {ns}': 'Внешний проект · {ns}'
 };
 
 export function translate(text, language, values) {

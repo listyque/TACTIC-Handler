@@ -26,6 +26,7 @@ Item {
     property bool skeyMenuCanOpen: true
 
     NotesTimelinePosition {
+        id: timelinePosition
         view: history
         controller: communicationController
         model: noteModel
@@ -150,6 +151,7 @@ Item {
             clip: true
             spacing: root.theme.communicationListSpacing
             bottomAnchored: true
+            reuseItems: true
             boundsBehavior: Flickable.StopAtBounds
 
             Label {
@@ -249,10 +251,12 @@ Item {
                 Rectangle {
                     id: bubble
                     objectName: "noteTimelineBubble"
+                    readonly property bool statusEntry: timelineRow.entryType === "status"
+                    readonly property bool rowSelected: history.currentIndex === timelineRow.index
                     readonly property var notePresentation: ({
-                            status: timelineRow.entryType === "status",
+                            status: statusEntry,
                             own: timelineRow.isOwn,
-                            selected: history.currentIndex === timelineRow.index,
+                            selected: rowSelected,
                             unread: timelineRow.unread,
                             author: timelineRow.author,
                             authorLabel: timelineRow.authorDisplay,
@@ -265,16 +269,17 @@ Item {
                             actionsVisible: bubbleHover.hovered || (messageOptionsMenu.opened && root.messageMenuRow === timelineRow.index),
                             busy: communicationController.busy
                         })
-                    readonly property var geometry: NoteUI.geometry(notePresentation, parent.width)
+                    readonly property var geometry: NoteUI.geometry({
+                        status: statusEntry,
+                        own: timelineRow.isOwn
+                    }, parent.width)
                     width: geometry.width
                     x: geometry.x
                     height: bubbleContent.implicitHeight + geometry.padding * 2
-                    color: "transparent"
-                    Frame.FrameView {
-                        anchors.fill: parent
-                        theme: root.theme
-                        scene: NoteUI.card(bubble.notePresentation, width, height)
-                    }
+                    radius: geometry.radius
+                    color: statusEntry ? Qt.rgba(timelineRow.statusColor.r, timelineRow.statusColor.g, timelineRow.statusColor.b, 48 / 255) : timelineRow.isOwn ? root.theme.secondaryContainer : root.theme.surfaceContainerHigh
+                    border.width: rowSelected ? 2 : (statusEntry || timelineRow.unread ? 1 : 0)
+                    border.color: rowSelected || !statusEntry ? root.theme.action : timelineRow.statusColor
 
                     HoverHandler {
                         id: bubbleHover
@@ -285,10 +290,20 @@ Item {
                         anchors.margins: root.theme.communicationBubblePadding
                         spacing: root.theme.communicationAvatarSpacing
 
-                        Item {
+                        Controls.ItemPreview {
+                            objectName: "noteAuthorAvatar"
                             Layout.preferredWidth: 32
                             Layout.preferredHeight: 32
                             Layout.alignment: Qt.AlignTop
+                            theme: root.theme
+                            source: timelineRow.avatarUrl
+                            fallbackIcon: "person"
+                            fallbackText: timelineRow.initials
+                            previewSize: 32
+                            round: true
+                            outlined: true
+                            accent: timelineRow.authorColor
+                            animateAppearance: false
                         }
 
                         ColumnLayout {
@@ -352,7 +367,8 @@ Item {
             ScrollBar.vertical: Controls.ScrollBar {
                 theme: root.theme
             }
-            onCountChanged: root.scrollToLatest()
+            onCountChanged: if (!timelinePosition.pending)
+                root.scrollToLatest()
         }
 
         Controls.DockWorkspaceFooter {

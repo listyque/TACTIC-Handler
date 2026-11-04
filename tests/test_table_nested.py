@@ -528,8 +528,11 @@ class NestedTableTests(unittest.TestCase):
             self.assertEqual(icons(), ['chevron-right'] * 6)
             click(2)
             self.assertEqual(icons(), ['chevron-right', 'chevron-right', 'expand-more', 'chevron-right', 'chevron-right', 'chevron-right'])
+            self.assertFalse(self.item(surfaces[0][1], 'tableServiceAction_0').property('selected'))
+            self.assertTrue(self.item(surfaces[2][1], 'tableServiceAction_0').property('selected'))
             click(3)
             self.assertEqual(icons(), ['chevron-right', 'chevron-right', 'expand-more', 'expand-more', 'chevron-right', 'chevron-right'])
+            self.assertTrue(self.item(surfaces[3][1], 'tableServiceAction_0').property('selected'))
             parent = owner.nested_row('A')
             parent._nodes['nested:R'] = SimpleNamespace(search_key='sthpw/snapshot?code=R')
             parent._model['rows'] = [dict(key='R', nodeId='nested:R')]

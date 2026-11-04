@@ -53,7 +53,7 @@ Item {
     property string selectedLayoutElement: ""
     signal layoutElementSelected(string name)
     signal layoutGeometryEdited(var change)
-    readonly property var compositionRecord: ({
+    readonly property var compositionRecord: !configuredLayout ? null : ({
             kind: isSobject ? "object" : isSnapshot ? "snapshot" : isProcess || isRelation ? "branch" : nodeType,
             depth: compositionDepth,
             title,
@@ -100,7 +100,9 @@ Item {
     }
 
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
-    readonly property var branchPreviewScene: Card.branchPreview({
+    readonly property var branchPreviewScene: isSobject || isSnapshot ? ({
+            nodes: []
+        }) : Card.branchPreview({
         kind: cardModel.kind,
         typeColor: String(typeColor),
         count: childCount
