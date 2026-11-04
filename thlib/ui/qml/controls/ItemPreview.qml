@@ -39,6 +39,7 @@ Item {
     // of a dock resize.
     property bool decodeAtItemSize: true
     property bool preserveDecodeAspect: false
+    property var failedSources: ({})
     signal imageReady
     signal appearanceCompleted
     readonly property bool pending: root.loading || String(root.source).indexOf("pending-preview:") === 0
@@ -49,7 +50,7 @@ Item {
 
     function isSupportedSource(value) {
         const text = String(value || "");
-        if (!text || text.indexOf("pending-preview:") === 0)
+        if (!text || text.indexOf("pending-preview:") === 0 || root.failedSources[text])
             return false;
         if (text.toLowerCase().indexOf("file:") !== 0)
             return true;
@@ -117,6 +118,11 @@ Item {
                     // fallback between two local preview sources.
                     retainWhileLoading: true
                     smooth: true
+                    onStatusChanged: if (status === Image.Error && source != "") {
+                        const next = Object.assign({}, root.failedSources);
+                        next[String(source)] = true;
+                        root.failedSources = next;
+                    }
                     // The image is already decoded at its render size. A mip chain adds
                     // roughly one third more texture memory without improving thumbnails.
                     mipmap: false

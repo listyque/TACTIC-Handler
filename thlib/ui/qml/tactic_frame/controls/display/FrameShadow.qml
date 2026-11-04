@@ -18,7 +18,7 @@ Canvas {
         const w = Math.max(0, width - inset * 2), h = Math.max(0, height - inset * 2);
         const r = Math.min(surfaceRadius, w / 2, h / 2), x = inset, y = inset;
         c.clearRect(0, 0, width, height);
-        if (!w || !h)
+        if (!w || !h || !shadow)
             return;
         function roundedRect(rx, ry, rw, rh, rr) {
             const rad = Math.max(0, Math.min(rr, rw / 2, rh / 2));

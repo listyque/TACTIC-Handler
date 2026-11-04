@@ -19,7 +19,7 @@ Item {
     readonly property double lastActivationAt: buttonTap.lastActivationAt
     readonly property real desiredContentWidth: (iconName.length > 0 ? 18 : 0) + (hasLabel && iconName.length > 0 ? 7 : 0) + (hasLabel ? buttonLabel.implicitWidth : 0)
     readonly property real cornerRadius: round ? height / 2 : theme.buttonRadius
-    activeFocusOnTab: enabled
+    activeFocusOnTab: enabled || activeFocus
     property int pendingActivationKey: 0
     Accessible.role: Accessible.Button
     Accessible.name: toolTip || text

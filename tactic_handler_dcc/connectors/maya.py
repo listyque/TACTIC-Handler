@@ -196,6 +196,8 @@ class MayaConnector:
     """
 
     _instance = None
+    _CHARMAP_CACHE = {}
+    _qt_app = None
     _SHELF_ICON_ALIASES = {
         "content-save": "save",
         "play-arrow": "play",
@@ -293,7 +295,7 @@ class MayaConnector:
             buttons.append({
                 "title": str(item.get("title") or script.rsplit("/", 1)[-1]),
                 "description": str(item.get("description") or script),
-                "icon": str(item.get("icon") or "play-arrow"),
+                "icon": str(item.get("icon") or item.get("iconName") or "play-arrow"),
                 "script": script,
             })
 
@@ -409,55 +411,132 @@ class MayaConnector:
             lines.append("tactic_handler_maya.startup(TACTIC_HANDLER_ROOT)")
         return "\n".join(lines)
 
-    def _shelf_icons(self, handler_root, buttons):
-        names = {
-            str(button.get("icon") or "")
-            for button in buttons
-            if button.get("icon")
-        }
-        if not names:
-            return {}
-        fonts = handler_root / "thlib" / "ui" / "assets" / "fonts"
-        families = (
-            ("regular", "fontawesome5-regular-webfont"),
-            ("solid", "fontawesome5-solid-webfont"),
-        )
+    @classmethod
+    def _load_charmaps(cls, fonts):
+        key = str(fonts)
+        if key in cls._CHARMAP_CACHE:
+            return cls._CHARMAP_CACHE[key]
         charmaps = {}
-        for family, stem in families:
+        for family, stem in (
+            ("fontawesome-outline", "fontawesome5-regular-webfont"),
+            ("fontawesome-solid", "fontawesome5-solid-webfont"),
+            ("material-design", "materialdesignicons-webfont"),
+        ):
             path = fonts / (stem + "-charmap.json")
             if path.is_file():
                 with path.open("r", encoding="utf-8") as stream:
-                    charmaps[family] = json.load(stream)
+                    raw = json.load(stream)
+                charmaps[family] = {
+                    name: chr(int(code, 16) if isinstance(code, str) else int(code))
+                    for name, code in raw.items()
+                }
+        fluent_path = fonts / "fluent-system-icons-resizable.json"
+        if fluent_path.is_file():
+            with fluent_path.open("r", encoding="utf-8") as stream:
+                raw_fluent = json.load(stream)
+            regular = {}
+            filled = {}
+            prefix = "ic_fluent_"
+            for raw_name, code in raw_fluent.items():
+                if not raw_name.startswith(prefix):
+                    continue
+                glyph = chr(int(code, 16) if isinstance(code, str) else int(code))
+                if raw_name.endswith("_20_regular"):
+                    regular[raw_name[len(prefix):-len("_20_regular")].replace("_", "-")] = glyph
+                elif raw_name.endswith("_20_filled"):
+                    filled[raw_name[len(prefix):-len("_20_filled")].replace("_", "-")] = glyph
+            charmaps["fluent-regular"] = regular
+            charmaps["fluent-filled"] = filled
+        cls._CHARMAP_CACHE[key] = charmaps
+        return charmaps
+
+    @classmethod
+    def render_shelf_icons(cls, handler_root, shelf_dir, buttons):
+        names = {
+            str(button.get("icon") or button.get("iconName") or "").strip()
+            for button in buttons
+            if button.get("icon") or button.get("iconName")
+        }
+        if not names:
+            return {}
+        fonts = Path(handler_root) / "thlib" / "ui" / "assets" / "fonts"
+        if not fonts.is_dir():
+            fonts = Path(__file__).resolve().parents[2] / "thlib" / "ui" / "assets" / "fonts"
+        charmaps = cls._load_charmaps(fonts)
         if not charmaps:
             return {}
 
         try:
-            from PySide6 import QtCore, QtGui
+            from PySide6 import QtCore, QtGui, QtWidgets
         except ImportError:
-            from PySide2 import QtCore, QtGui
+            from PySide2 import QtCore, QtGui, QtWidgets
 
-        shelf_dir = Path(self.cmds.internalVar(userShelfDir=True))
-        icon_dir = shelf_dir / "tactic_handler_icons"
+        if QtGui.QGuiApplication.instance() is None:
+            os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+            with contextlib.suppress(ImportError):
+                from PySide6.QtQuickControls2 import QQuickStyle
+                QQuickStyle.setStyle("Material")
+            cls._qt_app = QtWidgets.QApplication([])
+
+        font_files = {
+            "fontawesome-outline": "fontawesome5-regular-webfont.ttf",
+            "fontawesome-solid": "fontawesome5-solid-webfont.ttf",
+            "material-design": "materialdesignicons-webfont.ttf",
+            "fluent-regular": "fluent-system-icons-resizable.ttf",
+            "fluent-filled": "fluent-system-icons-resizable.ttf",
+        }
+        search_order = (
+            "fontawesome-outline",
+            "fontawesome-solid",
+            "material-design",
+            "fluent-regular",
+            "fluent-filled",
+        )
+        icon_dir = Path(shelf_dir) / "tactic_handler_icons"
         icon_dir.mkdir(parents=True, exist_ok=True)
         font_names = {}
         result = {}
-        for requested in names:
-            name = self._SHELF_ICON_ALIASES.get(requested, requested)
-            family = next((
-                key for key, _stem in families
-                if name in charmaps.get(key, {})
-            ), "")
-            if not family:
+        for requested in sorted(names):
+            if ":" in requested:
+                family, _, raw_name = requested.partition(":")
+                family = family.strip().lower()
+                alias_target = cls._SHELF_ICON_ALIASES.get(raw_name.strip(), raw_name.strip())
+                name = alias_target.lower().replace("_", "-")
+                if family in {"fluent-regular", "fluent-filled"} and name not in charmaps.get(family, {}):
+                    alt = "fluent-filled" if family == "fluent-regular" else "fluent-regular"
+                    if name in charmaps.get(alt, {}):
+                        family = alt
+                if name not in charmaps.get(family, {}):
+                    continue
+                stem = f"{family}_{name}"
+            else:
+                alias_target = cls._SHELF_ICON_ALIASES.get(requested, requested)
+                name = alias_target.strip().lower().replace("_", "-")
+                family = next(
+                    (key for key in search_order if name in charmaps.get(key, {})),
+                    "",
+                )
+                if not family:
+                    continue
+                stem = name
+            safe_stem = "".join(
+                ch if ch.isalnum() or ch in "._-" else "_" for ch in stem
+            ).strip("._")
+            if not safe_stem:
                 continue
-            path = icon_dir / (name + ".png")
+            path = icon_dir / (safe_stem + ".png")
             if not path.is_file():
                 if family not in font_names:
-                    stem = dict(families)[family]
-                    font_id = QtGui.QFontDatabase.addApplicationFont(
-                        str(fonts / (stem + ".ttf"))
+                    ttf_path = fonts / font_files[family]
+                    font_id = (
+                        QtGui.QFontDatabase.addApplicationFont(str(ttf_path))
+                        if ttf_path.is_file()
+                        else -1
                     )
-                    loaded = QtGui.QFontDatabase.applicationFontFamilies(
-                        font_id
+                    loaded = (
+                        QtGui.QFontDatabase.applicationFontFamilies(font_id)
+                        if font_id >= 0
+                        else []
                     )
                     font_names[family] = loaded[0] if loaded else ""
                 if not font_names[family]:
@@ -471,8 +550,9 @@ class MayaConnector:
                 painter.setFont(font)
                 painter.setPen(QtGui.QColor("#e7e9ec"))
                 painter.drawText(
-                    image.rect(), QtCore.Qt.AlignCenter,
-                    chr(int(charmaps[family][name], 16)),
+                    image.rect(),
+                    QtCore.Qt.AlignCenter,
+                    charmaps[family][name],
                 )
                 painter.end()
                 if not image.save(str(path), "PNG"):
@@ -480,6 +560,10 @@ class MayaConnector:
             if path.is_file():
                 result[requested] = str(path)
         return result
+
+    def _shelf_icons(self, handler_root, buttons):
+        shelf_dir = Path(self.cmds.internalVar(userShelfDir=True))
+        return self.render_shelf_icons(handler_root, shelf_dir, buttons)
 
     @staticmethod
     def _overlay(title):

@@ -20,7 +20,7 @@ Rectangle {
     readonly property string lifecycleText: details.isBuiltin ? qsTr("BUILT-IN") : details.isTemplate ? qsTr("TEMPLATE") : details.isRetired ? qsTr("ARCHIVED") : qsTr("ACTIVE")
     readonly property color lifecycleColor: details.isRetired ? theme.yellow : details.isBuiltin ? theme.secondaryText : theme.action
 
-    activeFocusOnTab: interactive
+    activeFocusOnTab: interactive || activeFocus
     Accessible.role: Accessible.Button
     Accessible.name: details.title || details.code || ""
     Accessible.selected: selected

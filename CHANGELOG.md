@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0.380 - 2026-11-05
+
+- Avoid synthetic cache invalidation storms on project SSE startup by reading the persisted `server_changes` cursor in `ServerUpdateController` and matching `TACTIC Stream` (`0.112.414`) `/admin/server-events` initial-handshake semantics.
+- Batch `WidgetDbConfig` lookups in `query_search_types_extended`, skip empty-table `widget.preprocess()` and duplicate action-handler queries in `query_table_layout`, and omit snapshot/total-count queries when loading custom scripts.
+- Fix QML `activeFocusOnTab` / `focusPolicy` focus guards, `RelatedObjectsView` / `UserAvatar` / `TaskCellDisplay` model role and null-user guards, `ErrorRequestBlocks` horizontal code scrolling, `ItemPreview` failed-decode caching, and `QtRuntimeLogBridge` multi-line Qt image-decode warning coalescing.
+- Render per-button PNG shelf icons for Maya shelf buttons across Font Awesome, Material Design, and Fluent icon sets.
+
 ## 0.6.0.379 - 2026-11-04
 
 - Synchronize Tactic Frame (`276` shared modules) with TACTIC Stream (`0.112.413`), including square service icon buttons, administration/workflow/layouts QML V4 compatibility (`Object.fromEntries` removal), plugin theme catalog integration, and updated EN/RU translations and Help articles.

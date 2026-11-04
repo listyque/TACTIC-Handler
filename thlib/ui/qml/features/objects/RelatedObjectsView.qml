@@ -7,7 +7,7 @@ Item {
     id: root
     required property var theme
     property var relatedController: relatedObjectsController
-    readonly property var users: userModel
+    readonly property var users: typeof userListModel !== "undefined" && userListModel ? userListModel : userModel
     readonly property string language: localizationController.current_language
     readonly property var toolbar: UI.toolbar(root.relatedController.model, width, root.language)
     Frame.FrameView {

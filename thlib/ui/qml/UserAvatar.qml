@@ -12,14 +12,14 @@ Controls.ItemPreview {
     property int profileRevision: 0
     readonly property var profile: {
         const revision = root.profileRevision
-        return root.login && root.userModel
-            ? root.userModel.lookup("login", root.login) : ({})
+        return (root.login && root.userModel
+            ? root.userModel.lookup("login", root.login) : null) || ({})
     }
 
-    source: root.avatarUrl || root.profile.avatarUrl || ""
+    source: root.avatarUrl || (root.profile ? root.profile.avatarUrl : "") || ""
     fallbackIcon: "person"
-    fallbackText: root.initials || root.profile.initials || ""
-    accent: root.avatarColor || root.profile.avatarColor || root.theme.action
+    fallbackText: root.initials || (root.profile ? root.profile.initials : "") || ""
+    accent: root.avatarColor || (root.profile ? root.profile.avatarColor : "") || root.theme.action
     round: true
     outlined: true
     animateAppearance: false

@@ -38,7 +38,7 @@ Item {
 
     implicitHeight: scene.height
     opacity: dimmed ? 0.5 : 1
-    activeFocusOnTab: interactive
+    activeFocusOnTab: interactive || activeFocus
     Accessible.role: Accessible.Button
     Accessible.name: title
     Accessible.selected: selected

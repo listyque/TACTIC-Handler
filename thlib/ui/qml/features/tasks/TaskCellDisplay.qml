@@ -96,7 +96,7 @@ Item {
             login: root.login
             effectsEnabled: !root.scrolling
             avatarUrl: root.avatarSource
-            initials: profile.initials || root.avatarInitials
+            initials: (profile && profile.initials) || root.avatarInitials
             previewSize: root.avatar ? root.avatar.width : 0
         }
     }

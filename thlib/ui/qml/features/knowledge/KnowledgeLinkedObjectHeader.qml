@@ -61,7 +61,7 @@ Rectangle {
             Layout.preferredWidth: 66
             Layout.preferredHeight: 66
             enabled: String(root.currentPreview.searchKey || "").length > 0 && root.currentPreview.status !== "loading"
-            activeFocusOnTab: enabled
+            activeFocusOnTab: enabled || activeFocus
             Accessible.role: Accessible.Button
             Accessible.name: qsTr("Open linked object")
             Accessible.onPressAction: root.controller.open_reference(String(root.currentPreview.searchKey || ""))

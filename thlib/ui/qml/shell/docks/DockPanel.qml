@@ -58,7 +58,7 @@ Item {
         required property var modelData
         required property int index
         objectName: "dockTab_" + root.panelId + "_" + record.panelId
-        activeFocusOnTab: record.active
+        activeFocusOnTab: record.active || activeFocus
         Accessible.role: Accessible.PageTab
         Accessible.name: tabLabel.titleText
         Accessible.selected: record.active

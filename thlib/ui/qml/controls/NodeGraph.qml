@@ -624,7 +624,7 @@ FocusScope {
                         x: modelData.nodeX
                         y: modelData.nodeY
                         z: nodeDrag.active ? 2 : 1
-                        activeFocusOnTab: root.selectionEnabled
+                        activeFocusOnTab: root.selectionEnabled || activeFocus
                         Accessible.role: Accessible.ListItem
                         Accessible.name: modelData.label
                         Accessible.selected: selected

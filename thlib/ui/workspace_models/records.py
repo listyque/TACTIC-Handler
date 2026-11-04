@@ -46,7 +46,7 @@ class RecordListModel(QAbstractListModel):
     def lookup(self, role: str, value: str) -> dict:
         """Find a presentation record by identity, sharing the index across views."""
         if role not in self._role_ids:
-            raise ValueError(f"Unknown model role: {role}")
+            return {}
         if role not in self._lookup_indexes:
             self._lookup_indexes[role] = {
                 str(record.get(role) or ""): row

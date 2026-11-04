@@ -126,7 +126,7 @@ Item {
         spacing: 3
         model: initialResultPresentation.activated ? root.resultModel : null
         focus: root.current
-        activeFocusOnTab: root.current
+        activeFocusOnTab: root.current || activeFocus
         boundsBehavior: Flickable.StopAtBounds
         flickDeceleration: 3600
         maximumFlickVelocity: 4800

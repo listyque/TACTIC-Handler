@@ -3997,7 +3997,9 @@ def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None
 
     search_type = server_start().build_search_type('config/custom_script', project_code=project)
 
-    scripts_sobjects, data = get_sobjects(search_type, filters)
+    scripts_sobjects, data = get_sobjects(
+        search_type, filters, include_snapshots=False, include_total_count=False
+    )
 
     if store_locally:
         # writing scripts to local folder

@@ -319,6 +319,52 @@ class MayaConnectorTests(unittest.TestCase):
                 2,
             )
 
+    def test_script_shelf_renders_png_icons_for_icon_name_and_prefixed_sets(self):
+        project_root = Path(__file__).resolve().parents[1]
+        with TemporaryDirectory() as shelf_dir:
+            connector, _calls = self.make_connector(
+                "scene.ma", handler_path=project_root,
+                shelf_dir=shelf_dir,
+            )
+            payload = {
+                "project": "demo",
+                "name": "Assets Shelf",
+                "buttons": [
+                    {
+                        "title": "TEX",
+                        "description": "Checkin Textures",
+                        "iconName": "photo-video",
+                        "script": "tools/textures",
+                    },
+                    {
+                        "title": "IMG",
+                        "description": "Add Image",
+                        "iconName": "material-design:file-image-plus",
+                        "script": "tools/image",
+                    },
+                    {
+                        "title": "ADD",
+                        "description": "Add Fluent",
+                        "icon": "fluent-regular:add",
+                        "script": "tools/add",
+                    },
+                ],
+            }
+            connector.create_script_shelf(payload)
+            images = [
+                Path(button["image1"])
+                for button in connector.cmds.shelf_buttons[1:]
+            ]
+            self.assertEqual(
+                [p.name for p in images],
+                [
+                    "photo-video.png",
+                    "material-design_file-image-plus.png",
+                    "fluent-regular_add.png",
+                ],
+            )
+            self.assertTrue(all(p.is_file() and p.stat().st_size > 0 for p in images))
+
     def test_script_shelf_updates_an_existing_maya_tab_with_the_same_label(self):
         project_root = Path(__file__).resolve().parents[1]
         with TemporaryDirectory() as shelf_dir:

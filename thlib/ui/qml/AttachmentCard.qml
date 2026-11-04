@@ -39,7 +39,7 @@ Rectangle {
     implicitHeight: !root.compact && imageAttachment
         ? imageHeight + 65
         : 64
-    activeFocusOnTab: enabled
+    activeFocusOnTab: enabled || activeFocus
     Accessible.role: Accessible.Button
     Accessible.name: root.activationLabel + ": "
         + (root.title || qsTr("Attachment"))

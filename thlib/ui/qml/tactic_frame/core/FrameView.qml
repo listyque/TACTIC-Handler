@@ -565,7 +565,7 @@ Item {
                     Label {
                         id: labelControl
                         property bool tipDismissed: false
-                        activeFocusOnTab: !!wrapper.node.focusable
+                        activeFocusOnTab: !!wrapper.node.focusable || activeFocus
                         Accessible.role: wrapper.node.role === "alert" ? Accessible.AlertMessage : wrapper.node.role === "heading" ? Accessible.Heading : Accessible.StaticText
                         objectName: wrapper.node.id
                         text: wrapper.node.text
@@ -669,7 +669,7 @@ Item {
                     Controls.MaterialIcon {
                         id: iconControl
                         property bool tipDismissed: false
-                        activeFocusOnTab: !!wrapper.node.focusable
+                        activeFocusOnTab: !!wrapper.node.focusable || activeFocus
                         objectName: wrapper.node.id
                         name: wrapper.node.icon || ""
                         size: wrapper.node.width
@@ -801,7 +801,7 @@ Item {
                         checkable: radio
                         checked: !!wrapper.node.selected
                         segmented: radio
-                        focusPolicy: wrapper.node.retainFocus ? Qt.TabFocus : radio && !checked ? Qt.ClickFocus : Qt.StrongFocus
+                        focusPolicy: wrapper.node.retainFocus ? Qt.TabFocus : radio && !checked && !activeFocus ? Qt.ClickFocus : Qt.StrongFocus
                         onActiveFocusChanged: if (activeFocus)
                             root.reveal(this)
                         Keys.priority: Keys.BeforeItem
@@ -1374,7 +1374,7 @@ Item {
                         readonly property var ownerWindow: splitter.Window.window
                         objectName: wrapper.node.id
                         enabled: !!wrapper.node.enabled
-                        activeFocusOnTab: enabled
+                        activeFocusOnTab: enabled || activeFocus
                         Accessible.role: Accessible.Separator
                         Accessible.name: wrapper.node.text
                         function set(value, commit) {

@@ -35,7 +35,7 @@ Item {
     readonly property real interactionOpacity: !enabled ? 0 : pointerPressed || pendingActivationKey ? Foundation.controls.iconButton.pressedOpacity : pointerHovered || activeFocus ? Foundation.controls.iconButton.hoveredOpacity : 0
     readonly property color interactionBackgroundColor: interactionOpacity > 0 ? theme.overlay(backgroundColor, iconColor, interactionOpacity) : backgroundColor
     property int pendingActivationKey: 0
-    activeFocusOnTab: enabled && !dragHandle
+    activeFocusOnTab: (enabled && !dragHandle) || activeFocus
     Accessible.role: Accessible.Button
     Accessible.name: toolTip || iconName
     Accessible.ignored: dragHandle

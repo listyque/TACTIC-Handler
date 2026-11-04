@@ -32,7 +32,7 @@ Item {
     width: Math.max(1, Number(imageData.width || 1))
     height: Math.max(1, Number(imageData.height || 1))
     enabled: interactive
-    activeFocusOnTab: interactive
+    activeFocusOnTab: interactive || activeFocus
     Accessible.ignored: !interactive
     Accessible.role: Accessible.Button
     Accessible.name: String(imageData.title || qsTr("Open image"))

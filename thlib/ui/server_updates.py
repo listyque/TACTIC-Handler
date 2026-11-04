@@ -188,7 +188,8 @@ class ServerUpdateService(QObject):
             channels.append("cache")
         payload = dict(ticket=session[2], project=project_code,
                        message_after=self._message_cursor, activity_after=self._activity_cursor,
-                       reaction_after=self._reaction_cursor, cache_after=self._cache_cursor,
+                       reaction_after=self._reaction_cursor,
+                       cache_after=self._cache_cursor or server_cache.read_cursor("server_changes", project_code),
                        channels=channels, search_types=sorted(types), presence_ttl=90)
         self._request_included_activity = "activity" in channels
         self._request_generation += 1

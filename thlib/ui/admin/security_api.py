@@ -263,7 +263,10 @@ def security_request(action: str, project_code: str, identity: str = '',
     read_links('project_view')
     targets = metadata['targets']
     script_paths = set()
-    for item in Search('config/custom_script').get_sobjects():
+    script_search = Search('config/custom_script')
+    if hasattr(script_search, 'add_columns'):
+        script_search.add_columns(['folder', 'title', 's_status'])
+    for item in script_search.get_sobjects():
         folder = (item.get_value('folder') or '').replace('\\', '/').strip('/')
         title = item.get_value('title') or ''
         if item.get_value('s_status', no_exception=True) != 'retired':

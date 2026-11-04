@@ -297,18 +297,56 @@ def install(profile: Path | str, handler_root: Path | str, *, shelf=None) -> Non
         ).encode("utf-8"),
     }
     if commands:
+        from .connectors.maya import MayaConnector
+
         extra = []
-        icons = {"save": "content-save-edit.png", "download": "download.png",
-                 "play": "run.png", "play-arrow": "run.png", "wrench": "tune.png"}
-        for button, command in zip(shelf["buttons"], commands):
-            button_icon = icon.with_name(icons.get(button.get("icon"), "tactic_logo.png"))
-            extra.append('    shelfButton -label {0} -annotation {1} -image1 {2} '
-                         '-imageOverlayLabel {0} -useAlpha 1 -width 35 -height 34 '
-                         '-docTag "tactic_stream/integration" -sourceType "python" -command {3};\n'.format(
-                             json.dumps(str(button.get("title") or "Run"), ensure_ascii=False),
-                             json.dumps(str(button.get("description") or button["script"]), ensure_ascii=False),
-                             json.dumps(button_icon.as_posix(), ensure_ascii=False),
-                             json.dumps(command, ensure_ascii=False)))
+        static_icons = {
+            "save": "content-save-edit.png",
+            "content-save": "content-save-edit.png",
+            "download": "download.png",
+            "play": "run.png",
+            "play-arrow": "run.png",
+            "wrench": "tune.png",
+        }
+        normalized_buttons = [
+            {
+                **button,
+                "icon": str(
+                    button.get("icon") or button.get("iconName") or "play-arrow"
+                ).strip(),
+            }
+            for button in shelf["buttons"]
+        ]
+        rendered_icons = MayaConnector.render_shelf_icons(
+            root, profile / "prefs" / "shelves", normalized_buttons
+        )
+        for button, command in zip(normalized_buttons, commands):
+            icon_key = button["icon"]
+            rendered = rendered_icons.get(icon_key)
+            if rendered:
+                button_icon_path = Path(rendered).as_posix()
+            else:
+                fallback = icon.with_name(static_icons.get(icon_key, "run.png"))
+                button_icon_path = (
+                    fallback.as_posix() if fallback.is_file() else "pythonFamily.png"
+                )
+            title = str(button.get("title") or "Run")
+            extra.append(
+                '    shelfButton -label {0} -annotation {1} -image1 {2} '
+                '-imageOverlayLabel {3} '
+                '-overlayLabelColor 0.9 0.9 0.9 -overlayLabelBackColor 0.08 0.08 0.08 0.85 '
+                '-useAlpha 1 -width 35 -height 34 '
+                '-docTag "tactic_stream/integration" -sourceType "python" -command {4};\n'.format(
+                    json.dumps(title, ensure_ascii=False),
+                    json.dumps(
+                        str(button.get("description") or button["script"]),
+                        ensure_ascii=False,
+                    ),
+                    json.dumps(button_icon_path, ensure_ascii=False),
+                    json.dumps(MayaConnector._overlay(title), ensure_ascii=False),
+                    json.dumps(command, ensure_ascii=False),
+                )
+            )
         name = f"prefs/shelves/shelf_{MODULE}.mel"
         data[name] = data[name].decode("utf-8").rsplit("}", 1)[0].encode("utf-8") + ("".join(extra) + "}\n").encode("utf-8")
     receipt_path = directory / "integration.json"

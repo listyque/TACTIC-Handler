@@ -47,7 +47,7 @@ Item {
                 iconName: "donut-small"
                 accentColor: String(modelData.color || root.theme.action)
                 interactive: searchType.length > 0
-                activeFocusOnTab: interactive
+                activeFocusOnTab: interactive || activeFocus
                 Accessible.role: Accessible.Button
                 Accessible.name: description
                 Accessible.onPressAction: {

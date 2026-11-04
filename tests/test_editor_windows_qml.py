@@ -246,18 +246,17 @@ ApplicationWindow {
             self.application.window_model.close_window, 'debug_log'
         )
         window = self.window('debug_log')
-        for width, expected_rows in ((680, 2), (1100, 1)):
+        for width, expected_rows in ((680, 3), (1100, 1)):
             with self.subTest(width=width):
                 window.resize(width, 480)
                 frame(window)
-                filters = self.item(window, 'debugLogLevelFilters')
                 chips = [
-                    item for item in SidebarEditorQmlTests.descendants(filters)
-                    if item.objectName() == 'debugLogLevelChip'
+                    item for item in SidebarEditorQmlTests.descendants(window.contentItem())
+                    if item.objectName().startswith('debugLevel_')
                 ]
                 self.assertEqual(len(chips), 8)
-                self.assertEqual(filters.height(), expected_rows * 28 +
-                                 (expected_rows - 1) * 6)
+                rows = {round(chip.mapToScene(QPointF()).y()) for chip in chips}
+                self.assertEqual(len(rows), expected_rows)
                 for chip in chips:
                     position = chip.mapToScene(QPointF())
                     self.assertGreaterEqual(position.x(), 12)
@@ -316,13 +315,14 @@ ApplicationWindow {
                     self.assertTrue(bar.isVisible())
                     self.assertEqual(bar.opacity(), 1)
                 position = scroll.mapToScene(QPointF())
-                self.assertGreaterEqual(position.x(), 24)
-                self.assertLessEqual(position.x() + scroll.width(), window.width() - 24)
+                self.assertGreaterEqual(position.x(), 18)
+                self.assertLessEqual(position.x() + scroll.width(), window.width() - 18)
                 screenshots = os.environ.get('EDITOR_WINDOW_SCREENSHOTS')
                 if screenshots:
                     window.grabWindow().save(str(
                         Path(screenshots) / f'error-request-{width}.png'))
                 body = self.item(window, 'errorBodyFlickable')
+                body = body.property('control') or body
                 body.setProperty('contentY', max(0, position.y() - 120))
                 frame(window)
                 point = scroll.mapToScene(QPointF(35, 35))
@@ -516,7 +516,7 @@ ApplicationWindow {
         self.click(editor, checkbox)
         self.assertFalse(self.process_filters.model._records[index]['checked'])
         save = next(item for item in SidebarEditorQmlTests.descendants(editor.contentItem())
-                    if item.property('text') == 'Сохранить и закрыть')
+                    if item.objectName() == 'processVisibility_saveClose')
         point = save.mapToScene(QPointF(save.width() / 2, save.height() / 2))
         QTest.mouseClick(editor, Qt.LeftButton, pos=point.toPoint())
         frame(window)
@@ -542,7 +542,7 @@ ApplicationWindow {
                          'rowEnabled': True, 'operator': 'begin', 'isDefault': True}],
         }])
         frame(popup)
-        self.click_filter_menu_action(popup, 'preset:0')
+        self.click_filter_menu_action(popup, 'preset:link_search:review:demo/asset')
         self.assertEqual(self.filter_editor.selected_preset, 0)
         self.assertEqual(self.application._current_tab().filter_records[0]['value'], 'props')
         self.assertEqual(self.state.filter_model.records()[0]['value'], 'props')
@@ -570,7 +570,7 @@ ApplicationWindow {
         )
         self.filter_editor._search_type_library = True
         self.filter_editor.load_presets.reset_mock()
-        self.click(window, self.item(window, 'searchPresetMoreButton'))
+        self.click(window, self.item(window, 'savedSearch_more'))
         menu = window.findChild(QObject, 'searchPresetActions')
         self.assertTrue(menu.property('opened'))
         popup = next(
@@ -821,7 +821,7 @@ ApplicationWindow {
             self.assertGreater(self.item(window, 'sidebarPreviewResults').width(), 350)
             self.assertGreater(self.item(window, 'previewSearchEditor').height(), 400)
             self.assertEqual(self.item(window, 'sidebarPreviewResults').property('activeResultCount'), 35)
-        combo = self.item(window, 'advancedSearchPresetCombo')
+        combo = self.item(window, 'savedSearchChoice')
         self.click(window, combo)
         self.native_windows = self.app.allWindows()
         popup_window = next(w for w in self.native_windows
@@ -843,7 +843,7 @@ ApplicationWindow {
             combo.forceActiveFocus()
             QTest.keyClick(window, Qt.Key_Down)
             frame(window)
-            self.assertEqual(self.filter_editor.selected_preset, 2)
+            self.assertEqual(self.filter_editor.selected_preset, 1)
         self.click(window, self.item(window, 'previewQuickFiltersButton'))
         popup = window.findChild(QObject, 'previewQuickFiltersPopup')
         self.assertTrue(popup.property('opened'))

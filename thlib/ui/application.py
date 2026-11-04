@@ -141,7 +141,7 @@ class QtRuntimeLogBridge(QObject):
         lowered = message.lower()
         image_not_found = (
             "qquickimage" in lowered
-            and "server replied: not found" in lowered
+            and ("server replied: not found" in lowered or "error decoding:" in lowered)
         )
         key = self._IMAGE_NOT_FOUND_KEY if image_not_found else message
         wake = False

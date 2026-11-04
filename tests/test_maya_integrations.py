@@ -114,6 +114,52 @@ class MayaIntegrationFilesTests(unittest.TestCase):
             integration.install(self.profile, self.root)
         self.assertFalse((self.profile / "modules/TACTIC_Stream.mod").exists())
 
+    def test_install_generates_png_icons_per_shelf_button_instead_of_duplicating_logo(self):
+        shelf_config = {
+            "project": "niki_friends",
+            "buttons": [
+                {
+                    "title": "Save",
+                    "description": "Save current scene",
+                    "iconName": "save",
+                    "script": "stream/tools/runners/save_similar_runner",
+                },
+                {
+                    "title": "TEX",
+                    "description": "Checkin Textures and Update",
+                    "iconName": "photo-video",
+                    "script": "stream/tools/runners/textures_checkin_runner",
+                },
+                {
+                    "title": "REF",
+                    "description": "Connect all Referenced Assets",
+                    "iconName": "box",
+                    "script": "stream/tools/runners/connect_assets_to_scene_runner",
+                },
+                {
+                    "title": "IMG",
+                    "description": "Material icon button",
+                    "iconName": "material-design:file-image-plus",
+                    "script": "stream/tools/runners/image_runner",
+                },
+            ],
+        }
+        integration.install(self.profile, self.root, shelf=shelf_config)
+        self.assertEqual(integration.integration_state(self.profile)["status"], "Installed")
+        shelf_mel = (self.profile / "prefs/shelves/shelf_TACTIC_Stream.mel").read_text(encoding="utf-8")
+        icon_dir = self.profile / "prefs/shelves/tactic_handler_icons"
+        for expected_png in (
+            "save.png",
+            "photo-video.png",
+            "box.png",
+            "material-design_file-image-plus.png",
+        ):
+            png_path = icon_dir / expected_png
+            self.assertTrue(png_path.is_file(), expected_png)
+            self.assertIn(json.dumps(png_path.as_posix(), ensure_ascii=False), shelf_mel)
+        self.assertEqual(shelf_mel.count("tactic_logo.png"), 1)
+        self.assertIn('-overlayLabelBackColor 0.08 0.08 0.08 0.85', shelf_mel)
+
     def test_startup_creates_or_refreshes_only_owned_launch_button_appearance(self):
         integration.install(self.profile, self.root)
         script = self.profile / "tactic_stream_payload/scripts/tactic_stream_maya.py"

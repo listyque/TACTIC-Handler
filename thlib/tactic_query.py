@@ -7892,6 +7892,11 @@ def query_search_types_extended(project_code):
                         stypes.append(stype)
                         known.add(code)
 
+    configs = Search(WidgetDbConfig.SEARCH_TYPE).get_sobjects()
+    db_configs_by_key = {
+        (config.get_value('search_type'), config.get_value('view')): config
+        for config in configs
+    }
     all_stypes = []
     # longest time consuming part, don't know how to optimize yet
     for stype in stypes:
@@ -7911,11 +7916,16 @@ def query_search_types_extended(project_code):
             full_search_type = Project.get_full_search_type(stype)
             for view in views:
 
-                db_config = WidgetDbConfig.get_by_search_type(full_search_type, view)
+                db_config = (
+                    db_configs_by_key.get((full_search_type, view))
+                    or db_configs_by_key.get((stype.get_base_key(), view))
+                )
                 if db_config:
                     config = db_config.get_xml()
                 else:
-                    config_view = WidgetConfigView.get_by_search_type(stype, view)
+                    config_view = WidgetConfigView.get_by_search_type(
+                        stype, view, local_search=not db_configs_by_key
+                    )
                     config = config_view.get_config()
 
                 definition[view] = config.to_string()
@@ -7977,9 +7987,6 @@ def query_search_types_extended(project_code):
         schema.append(admin_schema_dict)
 
     # configs = WidgetDbConfig('').get_all_by_search_type('SideBarWdg')
-
-    search = Search(WidgetDbConfig.SEARCH_TYPE)
-    configs = search.get_sobjects()
 
     views_configs = []
     for config in configs:
@@ -10426,6 +10433,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
         display_widget = config.get_widget_key(element_name, 'display') or ''
         edit_handler = edit_config.get_display_handler(element_name) or ''
         edit_widget = edit_config.get_widget_key(element_name, 'display') or ''
+        config_action = config.get_action_handler(element_name)
         data_type = config.get_type(element_name)
         if not data_type:
             data_type = SearchType.get_tactic_type(
@@ -10457,9 +10465,9 @@ def query_table_layout(search_type, search_keys=None, view='table',
             ),
             'editXml': element_xml(edit_config, element_name),
             'editSelected': element_name in edit_element_names,
-            'actionClass': config.get_action_handler(element_name) or edit_config.get_action_handler(element_name) or '',
+            'actionClass': config_action or edit_config.get_action_handler(element_name) or '',
             'actionOptions': json_value(
-                (config.get_action_options(element_name) if config.get_action_handler(element_name)
+                (config.get_action_options(element_name) if config_action
                  else edit_config.get_action_options(element_name)) or {}
             ),
         }
@@ -10505,7 +10513,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 widget = config.get_display_widget(name)
             widget.set_sobjects(sobjects)
             widget.action_options = column.get('actionOptions') or {}
-            if hasattr(widget, 'get_cell_value') or widget.__class__.__name__ not in ('GanttWdg','GanttElementWdg','WeekTableElement','TimecardInfoTableElement','WorkHoursElementWdg'):
+            if sobjects and (hasattr(widget, 'get_cell_value') or widget.__class__.__name__ not in ('GanttWdg','GanttElementWdg','WeekTableElement','TimecardInfoTableElement','WorkHoursElementWdg')):
                 widget.preprocess()
             widgets[name] = widget
             column['resolvedClass'] = '%s.%s' % (

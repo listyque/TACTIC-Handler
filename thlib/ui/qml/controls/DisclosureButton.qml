@@ -14,7 +14,7 @@ Item {
     readonly property bool showLoading: loading && loadingRequested
     signal activated(int modifiers)
     property int pendingActivationKey: 0
-    activeFocusOnTab: enabled && hasChildren && !loading
+    activeFocusOnTab: (enabled && hasChildren && !loading) || activeFocus
     Accessible.role: Accessible.Button
     Accessible.name: expanded ? qsTr("Collapse item") : qsTr("Expand item")
     Accessible.onPressAction: activate(Qt.NoModifier)

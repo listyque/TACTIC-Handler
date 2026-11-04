@@ -74,7 +74,7 @@ Item {
                             readOnly: true
                             selectByMouse: true
                             textFormat: TextEdit.PlainText
-                            wrapMode: TextEdit.WrapAnywhere
+                            wrapMode: TextEdit.NoWrap
                             text: modelData.text
                             font.family: "Consolas"
                             font.pointSize: Controls.Typography.label

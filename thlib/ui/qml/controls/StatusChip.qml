@@ -69,7 +69,7 @@ Rectangle {
         objectName: "statusChipAction"
         anchors.fill: parent
         visible: root.interactive
-        focusPolicy: root.activeFocusOnTab ? Qt.NoFocus : Qt.StrongFocus
+        focusPolicy: root.activeFocusOnTab && !activeFocus ? Qt.NoFocus : Qt.StrongFocus
         Accessible.ignored: root.activeFocusOnTab
         background: Item {}
         contentItem: Item {}
