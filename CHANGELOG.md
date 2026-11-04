@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.383 - 2026-11-05
+
+- Keep retired snapshots out of `get_max_version` in `get_virtual_snapshot_extended` / `create_snapshot_extended` after the single-column version query.
+- Restore the stat-keyed server procedure source cache in `tactic_query._function_source_lines` (regressed in 0.6.0.382).
+- Release every `queue_dict` alias of a reused `RepositorySyncController` handle, and prune day-old Maya check-in playblast capture folders.
+
 ## 0.6.0.382 - 2026-11-05
 
 - Harden Maya playblast isolation, custom script context propagation, and `maya_bootstrap.connect(show=True)` connection handoff.

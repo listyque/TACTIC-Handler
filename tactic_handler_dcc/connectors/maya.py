@@ -8,8 +8,10 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import sys
 import tempfile
+import time
 import uuid
 from pathlib import Path
 
@@ -764,6 +766,14 @@ class MayaConnector:
             else:
                 folder = Path(tempfile.gettempdir()) / "tactic_handler_maya"
                 folder.mkdir(parents=True, exist_ok=True)
+                # The Handler reads the preview asynchronously; prune day-old captures only.
+                stale = time.time() - 86400
+                for old in folder.glob("checkin_*"):
+                    try:
+                        if old.is_dir() and old.stat().st_mtime < stale:
+                            shutil.rmtree(old, ignore_errors=True)
+                    except OSError:
+                        pass
                 capture_folder = Path(
                     tempfile.mkdtemp(prefix="checkin_", dir=folder)
                 )

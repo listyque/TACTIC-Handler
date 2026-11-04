@@ -8,6 +8,9 @@ from pprint import pformat
 from functools import lru_cache
 
 
+_PROCEDURE_FILE_CACHE = {}
+
+
 @lru_cache(maxsize=4)
 def _parse_procedure_module(source, source_path):
     # Cache syntax only; current arguments and script execution remain per call.
@@ -31,12 +34,21 @@ def _function_source_lines(func):
     try:
         source_path = inspect.getsourcefile(func) or inspect.getfile(func)
         resolved = Path(source_path)
-        if not resolved.is_file():
+        try:
+            stat = resolved.stat()
+        except FileNotFoundError:
             resolved = resolved.with_suffix('.source')
             source_path = str(resolved)
-        with io.open(source_path, 'r', encoding='utf-8') as source_file:
-            source = source_file.read()
-        procedures = _parse_procedure_module(source, source_path)
+            stat = resolved.stat()
+        # Avoid re-reading the large procedure module on every server call.
+        cache_key = (source_path, stat.st_mtime_ns, stat.st_size)
+        procedures = _PROCEDURE_FILE_CACHE.get(cache_key)
+        if procedures is None:
+            with io.open(source_path, 'r', encoding='utf-8') as source_file:
+                source = source_file.read()
+            procedures = _parse_procedure_module(source, source_path)
+            _PROCEDURE_FILE_CACHE.clear()
+            _PROCEDURE_FILE_CACHE[cache_key] = procedures
     except FileNotFoundError as error:
         try:
             return inspect.getsourcelines(func)[0]
@@ -11603,6 +11615,8 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
         search.add_sobject_filter(sobject)
         search.add_filter('context', context)
         search.add_column('version')
+        # Selecting s_status keeps the native retired-row filter active.
+        search.add_column('s_status')
         search.add_order_by('version desc')
         search.set_limit(1)
         snaps = search.get_sobjects()
@@ -11778,6 +11792,8 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
         search.add_sobject_filter(sobject)
         search.add_filter('context', context)
         search.add_column('version')
+        # Selecting s_status keeps the native retired-row filter active.
+        search.add_column('s_status')
         search.add_order_by('version desc')
         search.set_limit(1)
         snaps = search.get_sobjects()

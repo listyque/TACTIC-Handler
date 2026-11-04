@@ -796,7 +796,7 @@ class RepositorySyncController(QObject):
                 unique_id = entry.unique_id
                 if unique_id is not None:
                     if not entry.is_ui_preview:
-                        handle._unique_id = unique_id
+                        handle._unique_ids = getattr(handle, "_unique_ids", set()) | {unique_id}
                         self.queue_dict[unique_id] = handle
                 if auto_start:
                     handle.download()
@@ -825,7 +825,7 @@ class RepositorySyncController(QObject):
         key_index[key] = task_id
         unique_id = entry.unique_id
         if unique_id is not None and not entry.is_ui_preview:
-            handle._unique_id = unique_id
+            handle._unique_ids = {unique_id}
             self.queue_dict[unique_id] = handle
         record = {
             "taskId": task_id, "title": title, "process": process,
@@ -1089,10 +1089,10 @@ class RepositorySyncController(QObject):
                 task.signals = None
             task.file_object = None
             task.handle = None
-        unique_id = getattr(handle, "_unique_id", None) if handle else None
-        if unique_id is not None:
-            if self.queue_dict.get(unique_id) is handle:
-                self.queue_dict.pop(unique_id, None)
+        if handle is not None:
+            for unique_id in getattr(handle, "_unique_ids", ()):
+                if self.queue_dict.get(unique_id) is handle:
+                    self.queue_dict.pop(unique_id, None)
         elif self.queue_dict:
             self.queue_dict = {
                 key: queued_handle

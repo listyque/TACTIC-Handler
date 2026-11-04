@@ -421,6 +421,26 @@ class RepositorySyncTests(unittest.TestCase):
         )
         file_object.get_timestamp.assert_called_with(obj=True)
 
+    def test_released_handle_leaves_no_queue_aliases(self):
+        controller = RepositorySyncController()
+        handles = []
+        for unique_id in ("FILE_A", "FILE_B"):
+            file_object = Mock()
+            file_object.get_full_abs_path.return_value = "C:/repository/shared.ma"
+            file_object.get_full_web_path.return_value = "https://example.invalid/shared.ma"
+            file_object.get_filename_with_ext.return_value = "shared.ma"
+            file_object.get_file_size.return_value = 10
+            file_object.get_md5.return_value = ""
+            file_object.get_unique_id.return_value = unique_id
+            file_object.get_timestamp.return_value = None
+            handles.append(controller.schedule_file_object(
+                file_object, process="publish", auto_start=False,
+            ))
+        self.assertIs(handles[0], handles[1])
+        self.assertEqual(set(controller.queue_dict), {"FILE_A", "FILE_B"})
+        controller._release_task(handles[0].task_id)
+        self.assertEqual(controller.queue_dict, {})
+
     def test_fresh_ui_preview_finishes_without_queue_logs_or_batch_notice(self):
         application = QGuiApplication.instance() or QGuiApplication([])
         self.assertIsNotNone(application)
