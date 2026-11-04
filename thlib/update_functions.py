@@ -181,8 +181,9 @@ def create_update_archive(app_dir: Path, archive_path: Path,
                     continue
                 if relative == "thlib/version.json":
                     continue
-                archive.write(source, relative)
-                sha256_manifest[relative] = hashlib.sha256(source.read_bytes()).hexdigest()
+                data = source.read_bytes()
+                archive.writestr(relative, data)
+                sha256_manifest[relative] = hashlib.sha256(data).hexdigest()
         archive.writestr("thlib/version.json", version_bytes)
         sha256_manifest["thlib/version.json"] = hashlib.sha256(version_bytes).hexdigest()
         archive.writestr("release.json", json.dumps({

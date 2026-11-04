@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.378 - 2026-11-04
+
+- Cache parsed JSON configuration documents by `(st_mtime_ns, st_size)` and skip redundant unchanged cursor writes in `server_cache`.
+- Index parsed server-procedure AST ranges in `tactic_query._function_source_lines` by file stat key to avoid re-reading `tactic_query.py` on every script preparation call.
+- Synchronize `tactic_client_lib` file transfer and workspace reconciliation optimizations with TACTIC Stream (`0.112.412`), and avoid redundant buffer copies in `server_checkin_queue` and `update_functions`.
+
 ## 0.6.0.377 - 2026-11-03
 
 - Harden `tactic_server_stub`, proxy configuration, `handler_server` IPC framing/discovery permissions, UI thread blocking guards, and portable update archive SHA-256 manifest verification and rollback safety.

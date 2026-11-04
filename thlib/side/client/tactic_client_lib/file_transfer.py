@@ -311,7 +311,6 @@ class FileTransferClient:
                     break
         if self.rpc('status',change=change)['edit_revision']!=expected_revision:
             raise ValueError('Changelist changed; review the files again.')
-        self.validate_change(root, review, cancelled=cancelled)
         return {'review':str(review), 'change':change, 'root':str(root),
                 'edit_revision':expected_revision, 'files':count, 'pending_uploads':dirty}
 
@@ -433,8 +432,9 @@ class FileTransferClient:
                 rows = db.execute('SELECT path,size,mtime,sha,blob FROM files WHERE path>? ORDER BY path LIMIT 1000', (after,)).fetchall()
                 if not rows:
                     break
-                while len(json.dumps([row[0] for row in rows]).encode()) > 256 * 1024:
-                    rows = rows[:max(1, len(rows) // 2)]
+                if sum(len(row[0]) for row in rows) > 60000:
+                    while len(json.dumps([row[0] for row in rows]).encode()) > 256 * 1024:
+                        rows = rows[:max(1, len(rows) // 2)]
                 if not rows[0][4]:
                     self.progress({**status,'phase':'manifest','path':rows[0][0],
                                    'chunk_files':len(rows),'manifest_after':after})
@@ -647,6 +647,7 @@ class FileTransferClient:
                     if temporary.is_symlink() or not temporary.resolve().is_relative_to(root):
                         raise ValueError('Unsafe partial file')
                     remaining = entry['size'] - offset if length is None else length
+                    stream_digest = sha256() if not offset else None
                     with temporary.open('r+b' if offset else 'wb') as output:
                         output.truncate(offset)
                         output.seek(offset)
@@ -655,13 +656,16 @@ class FileTransferClient:
                             if not block:
                                 raise OSError('Download interrupted; partial file retained')
                             output.write(block)
+                            if stream_digest is not None:
+                                stream_digest.update(block)
                             remaining -= len(block)
                             with self.progress_lock:
                                 self.progress({**self.status, 'phase': 'downloading', 'path': entry['path'],
                                     'file_bytes_done': entry['size'] - remaining, 'file_bytes_total': entry['size']})
                         output.flush()
                         os.fsync(output.fileno())
-                    if temporary.stat().st_size != entry['size'] or digest_file(temporary) != entry['sha256']:
+                    actual_sha = stream_digest.hexdigest() if stream_digest is not None else digest_file(temporary)
+                    if temporary.stat().st_size != entry['size'] or actual_sha != entry['sha256']:
                         temporary.unlink(missing_ok=True)
                         raise FileOperationError('Downloaded file checksum mismatch',path=entry['path'],operation='download')
                     if (fingerprint(target) if target.exists() else None) != before[entry.get('local_path', entry['path'])]:
@@ -711,7 +715,7 @@ class FileTransferClient:
                         if offset and response.status != 206:
                             raise ValueError('Server did not honor resumed download range')
                         receive(entry, response, offset=offset)
-                large = [entry for entry in targets.values() if entry['size'] > SMALL]
+                large = [entry for name, entry in targets.items() if entry['size'] > SMALL and name not in present]
                 parallel = min(self.parallel, self.status.get('max_parallel', 4))
                 with ThreadPoolExecutor(max_workers=parallel) as pool:
                     for start in range(0, len(large), parallel):

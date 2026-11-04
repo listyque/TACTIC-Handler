@@ -8,6 +8,9 @@ from pprint import pformat
 from functools import lru_cache
 
 
+_PROCEDURE_FILE_CACHE = {}
+
+
 @lru_cache(maxsize=4)
 def _parse_procedure_module(source, source_path):
     # Cache syntax only; current arguments and script execution remain per call.
@@ -24,14 +27,39 @@ def _function_source_lines(func):
     source_path = '<unknown>'
     try:
         source_path = inspect.getsourcefile(func) or inspect.getfile(func)
+        resolved = Path(source_path)
         try:
-            with io.open(source_path, 'r', encoding='utf-8') as source_file:
-                source = source_file.read()
+            stat = resolved.stat()
         except FileNotFoundError:
-            source_path = str(Path(source_path).with_suffix('.source'))
+            resolved = resolved.with_suffix('.source')
+            source_path = str(resolved)
+            stat = resolved.stat()
+        cache_key = (source_path, stat.st_mtime_ns, stat.st_size)
+        procedures = _PROCEDURE_FILE_CACHE.get(cache_key)
+        if procedures is None:
             with io.open(source_path, 'r', encoding='utf-8') as source_file:
                 source = source_file.read()
-        source_lines, module = _parse_procedure_module(source, source_path)
+            source_lines, module = _parse_procedure_module(source, source_path)
+            function_nodes = (ast.FunctionDef,)
+            if hasattr(ast, 'AsyncFunctionDef'):
+                function_nodes += (ast.AsyncFunctionDef,)
+            procedures = {}
+            for item in module.body:
+                if not isinstance(item, function_nodes):
+                    continue
+                start = int(item.lineno) - 1
+                end = getattr(item, 'end_lineno', None)
+                if end is None:
+                    following = [
+                        int(other.lineno) - 1 for other in module.body
+                        if getattr(other, 'lineno', 0) > item.lineno
+                    ]
+                    end = min(following) if following else len(source_lines)
+                    while end > start and not source_lines[end - 1].strip():
+                        end -= 1
+                procedures[item.name] = source_lines[start:int(end)]
+            _PROCEDURE_FILE_CACHE.clear()
+            _PROCEDURE_FILE_CACHE[cache_key] = procedures
     except FileNotFoundError as error:
         try:
             return inspect.getsourcelines(func)[0]
@@ -44,33 +72,15 @@ def _function_source_lines(func):
     except (OSError, TypeError, SyntaxError, UnicodeError):
         return inspect.getsourcelines(func)[0]
 
-    function_nodes = (ast.FunctionDef,)
-    if hasattr(ast, 'AsyncFunctionDef'):
-        function_nodes += (ast.AsyncFunctionDef,)
-    node = next((
-        item for item in module.body
-        if isinstance(item, function_nodes)
-        and item.name == func.__name__
-    ), None)
-    if node is None:
+    lines = procedures.get(func.__name__)
+    if lines is None:
         raise RuntimeError(
             'Server procedure {0} no longer exists in {1}; restart the '
             'application to load the current code'.format(
                 func.__name__, source_path
             )
         )
-
-    start = int(node.lineno) - 1
-    end = getattr(node, 'end_lineno', None)
-    if end is None:
-        following = [
-            int(item.lineno) - 1 for item in module.body
-            if getattr(item, 'lineno', 0) > node.lineno
-        ]
-        end = min(following) if following else len(source_lines)
-        while end > start and not source_lines[end - 1].strip():
-            end -= 1
-    return source_lines[start:int(end)]
+    return lines
 
 
 def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, shrink=True, catch_traceback=True):

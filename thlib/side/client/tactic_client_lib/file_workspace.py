@@ -160,6 +160,7 @@ def open_local_files(client, change, root, cache, sources, *, cancelled=lambda: 
             comparison = client.rpc('reconcile', workspace=change['workspace'], files=descriptors,
                 heads=heads, have_root=workspace['have_root'], view_revision=workspace.get('view_revision', 0))
             heads.update(comparison['heads'])
+            dirs_batch = set()
             for row, descriptor in zip(comparison['items'], descriptors):
                 head = row.get('head') or {}
                 row.update(descriptor, fingerprint=fingerprints[row['path']])
@@ -169,8 +170,13 @@ def open_local_files(client, change, root, cache, sources, *, cancelled=lambda: 
                 db.execute('INSERT OR REPLACE INTO local VALUES (?,?)', (row['path'], json.dumps(row)))
                 parent = Path(row['path']).parent
                 while parent.as_posix() != '.':
-                    db.execute('INSERT OR IGNORE INTO directories VALUES (?)', (parent.as_posix()+'/',))
+                    dir_key = parent.as_posix() + '/'
+                    if dir_key in dirs_batch:
+                        break
+                    dirs_batch.add(dir_key)
                     parent = parent.parent
+            if dirs_batch:
+                db.executemany('INSERT OR IGNORE INTO directories VALUES (?)', [(d,) for d in dirs_batch])
             db.execute("INSERT OR REPLACE INTO meta VALUES ('summary_valid','false')")
             db.commit()
             count += len(page)
@@ -191,12 +197,24 @@ def reconcile_workspace(client, workspace, root, cache, *, cancelled=lambda: Fal
         if ignore_file.stat().st_size > 1048576:
             raise ValueError('Workspace ignore file exceeds 1 MiB')
         rules = [line.strip() for line in ignore_file.read_text(encoding='utf-8').splitlines() if line.strip() and not line.lstrip().startswith('#')]
+    parsed_rules = [
+        (rule, rule.startswith('!'), rule.lstrip('!').lstrip('/').rstrip('/'), '/' in rule.lstrip('!').lstrip('/').rstrip('/'))
+        for rule in rules
+    ]
+    has_negated_rules = any(neg for _, neg, _, _ in parsed_rules)
     def ignored(path):
+        if not parsed_rules:
+            return None
         matched = None
-        for rule in rules:
-            pattern = rule.lstrip('!').lstrip('/').rstrip('/')
-            if fnmatchcase(path, pattern) or '/' not in pattern and any(fnmatchcase(part, pattern) for part in path.split('/')):
-                matched = None if rule.startswith('!') else rule
+        parts = None
+        for rule, negated, pattern, has_slash in parsed_rules:
+            if fnmatchcase(path, pattern):
+                matched = None if negated else rule
+            elif not has_slash:
+                if parts is None:
+                    parts = path.split('/')
+                if any(fnmatchcase(part, pattern) for part in parts):
+                    matched = None if negated else rule
         return matched
     heads, count, fingerprints, summary = {}, 0, {}, {}
     with closing(sqlite3.connect(cache)) as db:
@@ -244,7 +262,7 @@ def reconcile_workspace(client, workspace, root, cache, *, cancelled=lambda: Fal
                 raise InterruptedError('Workspace scan stopped')
             db.execute('INSERT INTO directories_next VALUES (?)', (path.relative_to(root).as_posix() + '/',))
             rule = ignored(path.relative_to(root).as_posix())
-            if rule and not any(pattern.startswith('!') for pattern in rules):
+            if rule and not has_negated_rules:
                 return False
             directories += 1
             if directories % 1000 == 0:

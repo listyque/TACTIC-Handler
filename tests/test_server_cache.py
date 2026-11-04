@@ -195,6 +195,11 @@ class ServerCacheTests(unittest.TestCase):
 
     def test_clear_removes_change_cursor(self):
         server_cache.write_cursor("server_changes", "2026-08-25", "project")
+        before_control = self.documents[("cache/server_data", "control")]
+        self.documents[("cache/server_data", "control")] = dict(before_control)
+        with patch.object(server_cache, "_write_control") as write_control:
+            server_cache.write_cursor("server_changes", "2026-08-25", "project")
+            write_control.assert_not_called()
         self.assertEqual(
             server_cache.read_cursor("server_changes", "project"),
             "2026-08-25",

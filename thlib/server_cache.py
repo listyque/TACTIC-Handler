@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 import re
 import threading
 import time
@@ -46,6 +47,7 @@ DOMAIN_LIMITS = {
 }
 
 _CACHE_LOCK = threading.RLock()
+_DISK_DOCUMENT_CACHE: dict[str, tuple[int, int, dict]] = {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +63,86 @@ def _environment_api():
     from thlib.environment import env_read_config, env_write_config
 
     return env_read_config, env_write_config
+
+
+def _disk_json_path(filename: str, unique_id: str) -> str | None:
+    from thlib import environment
+
+    if getattr(environment, "CFG_FORMAT", None) != "json":
+        return None
+    safe_name = str(filename or "").replace("/", "_").replace("\\", "_")
+    if not safe_name:
+        return None
+    base = environment._config_base_path(True, "user")
+    return os.path.join(
+        environment._config_directory(base, unique_id),
+        f"{safe_name}.json",
+    )
+
+
+def _read_config_cached(filename: str, unique_id: str) -> object:
+    env_read_config, _env_write_config = _environment_api()
+    if getattr(env_read_config, "__module__", "") != "thlib.environment":
+        return env_read_config(
+            filename=filename,
+            unique_id=unique_id,
+            long_abs_path=True,
+        )
+    full_path = _disk_json_path(filename, unique_id)
+    if full_path:
+        try:
+            st = os.stat(full_path)
+        except OSError:
+            _DISK_DOCUMENT_CACHE.pop(full_path, None)
+            return None
+        cached = _DISK_DOCUMENT_CACHE.get(full_path)
+        if cached is not None and cached[0] == st.st_mtime_ns and cached[1] == st.st_size:
+            return dict(cached[2])
+    payload = env_read_config(
+        filename=filename,
+        unique_id=unique_id,
+        long_abs_path=True,
+    )
+    if full_path and isinstance(payload, dict):
+        try:
+            st = os.stat(full_path)
+            _DISK_DOCUMENT_CACHE[full_path] = (st.st_mtime_ns, st.st_size, dict(payload))
+        except OSError:
+            pass
+    return payload
+
+
+def _write_config_cached(
+    payload: object = None,
+    *,
+    filename: str,
+    unique_id: str,
+    remove: bool = False,
+) -> None:
+    _env_read_config, env_write_config = _environment_api()
+    if remove:
+        env_write_config(
+            filename=filename,
+            unique_id=unique_id,
+            long_abs_path=True,
+            remove=True,
+        )
+        _DISK_DOCUMENT_CACHE.clear()
+        return
+    env_write_config(
+        payload,
+        filename=filename,
+        unique_id=unique_id,
+        long_abs_path=True,
+    )
+    if getattr(env_write_config, "__module__", "") == "thlib.environment" and isinstance(payload, dict):
+        full_path = _disk_json_path(filename, unique_id)
+        if full_path:
+            try:
+                st = os.stat(full_path)
+                _DISK_DOCUMENT_CACHE[full_path] = (st.st_mtime_ns, st.st_size, dict(payload))
+            except OSError:
+                _DISK_DOCUMENT_CACHE.pop(full_path, None)
 
 
 def _identity(project_code: str = "") -> tuple[str, str, str]:
@@ -98,11 +180,9 @@ def _entry_digest(key: str) -> str:
 
 
 def _preferences_payload() -> dict:
-    env_read_config, _env_write_config = _environment_api()
-    payload = env_read_config(
+    payload = _read_config_cached(
         filename="data_cache",
         unique_id="ui_conf",
-        long_abs_path=True,
     )
     if not isinstance(payload, dict):
         return {}
@@ -137,11 +217,9 @@ def _default_control() -> dict:
 
 
 def _read_control() -> dict:
-    env_read_config, _env_write_config = _environment_api()
-    payload = env_read_config(
+    payload = _read_config_cached(
         filename="control",
         unique_id="cache/server_data",
-        long_abs_path=True,
     )
     if (
         not isinstance(payload, dict)
@@ -167,12 +245,10 @@ def _read_control() -> dict:
 
 
 def _write_control(control: dict) -> None:
-    _env_read_config, env_write_config = _environment_api()
-    env_write_config(
+    _write_config_cached(
         control,
         filename="control",
         unique_id="cache/server_data",
-        long_abs_path=True,
     )
 
 
@@ -197,12 +273,32 @@ def write_cursor(name: str, value: str, project_code: str = "") -> None:
         scope = _scope(project_code)
         cursors = dict(control.get("cursors") or {})
         scoped = dict(cursors.get(scope) or {})
-        scoped[str(name or "")] = str(value or "")
+        key, normalized = str(name or ""), str(value or "")
+        scopes = list(control.get("scopes") or [])
+        if scoped.get(key) == normalized and scope in scopes:
+            return
+        scoped[key] = normalized
         cursors[scope] = scoped
         control["cursors"] = cursors
-        if scope not in control.get("scopes", []):
-            control.setdefault("scopes", []).append(scope)
+        if scope not in scopes:
+            scopes.append(scope)
+            control["scopes"] = scopes
         _write_control(control)
+
+
+def _token_from_control(
+    control: dict, domain: str, project_code: str = "",
+) -> CacheToken:
+    scope = _scope(project_code)
+    return CacheToken(
+        domain=domain,
+        scope=scope,
+        epoch=max(1, int(control.get("epoch") or 1)),
+        domain_epoch=max(
+            1, int(dict(control.get("domainEpochs") or {}).get(domain) or 1)
+        ),
+        revision=_revision(control, scope, domain),
+    )
 
 
 def token(domain: str, project_code: str = "") -> CacheToken | None:
@@ -211,16 +307,7 @@ def token(domain: str, project_code: str = "") -> CacheToken | None:
         return None
     with _CACHE_LOCK:
         control = _read_control()
-        scope = _scope(project_code)
-        return CacheToken(
-            domain=domain,
-            scope=scope,
-            epoch=max(1, int(control.get("epoch") or 1)),
-            domain_epoch=max(
-                1, int(dict(control.get("domainEpochs") or {}).get(domain) or 1)
-            ),
-            revision=_revision(control, scope, domain),
-        )
+        return _token_from_control(control, domain, project_code)
 
 
 def _domain_path(scope: str, domain: str) -> tuple[str, str]:
@@ -245,19 +332,21 @@ def _read_entry(
     *,
     allow_stale_revision: bool = False,
 ) -> object | None:
-    cache_token = token(domain, project_code)
-    if cache_token is None:
+    domain = str(domain or "")
+    if domain not in CACHE_DOMAINS:
         return None
     digest = _entry_digest(key)
-    unique_id, filename = _domain_path(
-        cache_token.scope, cache_token.domain
-    )
-    env_read_config, _env_write_config = _environment_api()
     with _CACHE_LOCK:
-        document = env_read_config(
+        if not domain_enabled(domain):
+            return None
+        control = _read_control()
+        cache_token = _token_from_control(control, domain, project_code)
+        unique_id, filename = _domain_path(
+            cache_token.scope, cache_token.domain
+        )
+        document = _read_config_cached(
             filename=filename,
             unique_id=unique_id,
-            long_abs_path=True,
         )
         if not _domain_document_valid(document, cache_token):
             return None
@@ -312,22 +401,23 @@ def write_entry(
     expected_token: CacheToken | None = None,
 ) -> bool:
     domain = str(domain or "")
-    cache_token = expected_token or token(domain, project_code)
-    if cache_token is None or cache_token.domain != domain:
+    if domain not in CACHE_DOMAINS or not domain_enabled(domain):
+        return False
+    if expected_token is not None and expected_token.domain != domain:
         return False
     digest = _entry_digest(key)
-    unique_id, filename = _domain_path(
-        cache_token.scope, cache_token.domain
-    )
-    env_read_config, env_write_config = _environment_api()
     with _CACHE_LOCK:
-        current = token(domain, project_code)
+        control = _read_control()
+        current = _token_from_control(control, domain, project_code)
+        cache_token = expected_token or current
         if current != cache_token:
             return False
-        document = env_read_config(
+        unique_id, filename = _domain_path(
+            cache_token.scope, cache_token.domain
+        )
+        document = _read_config_cached(
             filename=filename,
             unique_id=unique_id,
-            long_abs_path=True,
         )
         entries = (
             dict(document.get("entries") or {})
@@ -350,7 +440,7 @@ def write_entry(
                 reverse=True,
             )
             entries = dict(ordered[:maximum])
-        env_write_config(
+        _write_config_cached(
             {
                 "domain": domain,
                 "scope": cache_token.scope,
@@ -358,9 +448,7 @@ def write_entry(
             },
             filename=filename,
             unique_id=unique_id,
-            long_abs_path=True,
         )
-        control = _read_control()
         scopes = list(control.get("scopes") or [])
         if cache_token.scope not in scopes:
             scopes.append(cache_token.scope)
@@ -441,14 +529,12 @@ def update_preferences(values: dict[str, object]) -> dict[str, bool]:
     }
     with _CACHE_LOCK:
         previous = preferences()
-        _env_read_config, env_write_config = _environment_api()
-        env_write_config(
+        _write_config_cached(
             {
                 "enabled": normalized,
             },
             filename="data_cache",
             unique_id="ui_conf",
-            long_abs_path=True,
         )
         changed = [
             domain for domain in CACHE_DOMAINS
@@ -478,10 +564,9 @@ def clear_all() -> int:
         }
         control["revisions"] = {}
         control["cursors"] = {}
-        env_write_config(
+        _write_config_cached(
             filename="",
             unique_id="cache/server_data",
-            long_abs_path=True,
             remove=True,
         )
         control["scopes"] = []

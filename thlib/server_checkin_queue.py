@@ -39,7 +39,6 @@ def request(server: str, ticket: str, project: str, action: str,
             body.extend(('--' + boundary + '\r\nContent-Disposition: form-data; name="file' + str(index) + '"; filename="part"\r\nContent-Type: application/octet-stream\r\n\r\n').encode())
             body.extend(content); body.extend(b'\r\n')
         body.extend(('--' + boundary + '--\r\n').encode())
-        body = bytes(body)
         content_type = 'multipart/form-data; boundary=' + boundary
     try:
         with (opener or UrllibTransport()).open(Request(url, data=body, headers={'Content-Type':content_type}), timeout=120) as response:
