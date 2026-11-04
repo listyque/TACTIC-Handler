@@ -24,6 +24,8 @@ Flickable {
     property bool updating: false
     property int firstIndex: -1
     property int lastIndex: -1
+    property var rowNodeCache: ({})
+    property real cachedRowWidth: -1
     property var displayScene: ({
             nodes: []
         })
@@ -68,11 +70,17 @@ Flickable {
         updating = false;
         firstIndex = -1;
         lastIndex = -1;
+        rowNodeCache = ({});
+        cachedRowWidth = width;
         refreshScene(true);
     }
     function refreshScene(force = false) {
         if (!ready || updating)
             return;
+        if (force || cachedRowWidth !== width) {
+            rowNodeCache = ({});
+            cachedRowWidth = width;
+        }
         const range = Contract.listRange(records.length, node.rowHeight, height, contentY, 3, rowOffsets);
         if (!force && range.first === firstIndex && range.last === lastIndex)
             return;
@@ -84,16 +92,34 @@ Flickable {
         if (!range)
             range = Contract.listRange(records.length, node.rowHeight, height, contentY, 3, rowOffsets);
         const nodes = [];
+        const nextCache = {};
+        const rowWidth = Math.max(0, width - 16);
         for (let index = range.first; index < range.last; index++) {
             const record = records[index];
             const key = String(record[node.keyField]);
             const bounds = Contract.listBounds(node, rowOffsets, index);
-            nodes.push(Contract.node("Box", "row:" + key, Contract.rect(0, bounds.y, Math.max(0, width - 16), bounds.height), {
+            const cached = rowNodeCache[index];
+            if (cached && cached.record === record && cached.key === key && cached.y === bounds.y && cached.height === bounds.height && cached.width === rowWidth) {
+                nextCache[index] = cached;
+                nodes.push(cached.box);
+                continue;
+            }
+            const box = Contract.node("Box", "row:" + key, Contract.rect(0, bounds.y, rowWidth, bounds.height), {
                 recordKey: key,
                 background: "transparent",
                 children: describeRow(node, record, index).nodes
-            }));
+            });
+            nextCache[index] = {
+                record,
+                key,
+                y: bounds.y,
+                height: bounds.height,
+                width: rowWidth,
+                box
+            };
+            nodes.push(box);
         }
+        rowNodeCache = nextCache;
         return {
             nodes
         };

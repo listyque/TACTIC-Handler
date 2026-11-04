@@ -120,6 +120,10 @@ class _SnapshotActionHarness(SnapshotActionsMixin):
         self.workspace_state = _SnapshotActionState(
             file_object, selected_sobject
         )
+        self.window_model = SimpleNamespace(
+            is_window_visible=lambda _window_id: False,
+            raise_window=lambda _window_id: None,
+        )
         self._task_snapshot_source = None
         self._sobject_editor_request = {}
         self.opened_window = ""
@@ -518,6 +522,9 @@ ApplicationWindow {
         node.card_preview_url = "pending-preview:card-task"
         model.fail_preview("card-task")
 
+        self.assertTrue(node.card_preview_requested)
+        self.assertEqual(node.card_preview_url, "")
+        model.refresh_previews()
         self.assertFalse(node.card_preview_requested)
         self.assertEqual(
             model.begin_card_preview_request(node.node_id),
@@ -1117,9 +1124,6 @@ ApplicationWindow {
             incoming_preview = window.findChild(
                 QObject, "snapshotIncomingPreview"
             )
-            image_mode = window.findChild(
-                QQuickItem, "snapshotPreviewImageMode"
-            )
             files = window.findChild(QObject, "snapshotFilesPanel")
             files_view = window.findChild(QObject, "snapshotFilesView")
             splitter = window.findChild(QObject, "snapshotSplitterHandle")
@@ -1129,15 +1133,17 @@ ApplicationWindow {
             self.assertIsNotNone(settings_menu)
             self.assertIsNotNone(preview_viewport)
             self.assertIsNotNone(incoming_preview)
-            self.assertIsNotNone(image_mode)
-            pending = list(image_mode.childItems())
+            pending = list(window.contentItem().childItems())
+            fit_button = None
             fill_button = None
             while pending:
                 candidate = pending.pop()
-                if candidate.objectName() == "segmentedButtonSegment_fill":
+                if candidate.objectName() == "snapshotImage_fit":
+                    fit_button = candidate
+                elif candidate.objectName() == "snapshotImage_fill":
                     fill_button = candidate
-                    break
                 pending.extend(candidate.childItems())
+            self.assertIsNotNone(fit_button)
             self.assertIsNotNone(fill_button)
             self.assertEqual(preview_viewport.property("x"), 0)
             self.assertEqual(preview_viewport.property("y"), 0)
@@ -1188,7 +1194,15 @@ ApplicationWindow {
             self.assertFalse(preview.property("visible"))
             self.assertTrue(files.property("visible"))
             self.assertFalse(splitter.property("visible"))
-            self.assertFalse(image_mode.property("visible"))
+            pending = list(window.contentItem().childItems())
+            found_fit = False
+            while pending:
+                candidate = pending.pop()
+                if candidate.objectName() == "snapshotImage_fit":
+                    found_fit = True
+                    break
+                pending.extend(candidate.childItems())
+            self.assertFalse(found_fit)
             self.assertEqual(files_view.property("count"), 1)
             self.assertGreater(files.property("height"), 400)
 

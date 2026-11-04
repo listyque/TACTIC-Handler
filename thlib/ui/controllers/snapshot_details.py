@@ -53,6 +53,11 @@ class SnapshotDetailsMixin:
             return
         identity = (search_key, process, context)
         source_token = (search_key, id(source))
+        source_info = getattr(source, "info", None)
+        source_complete = (
+            isinstance(source_info, dict)
+            and bool(source_info.get("__snapshots_complete__"))
+        )
         previous_identity = self._task_snapshot_identity
         self._task_snapshot_source = source
         self._task_snapshot_identity = identity
@@ -61,7 +66,8 @@ class SnapshotDetailsMixin:
         if (
             not force
             and identity == previous_identity
-            and source_token in self._task_snapshot_loaded_sources
+            and (source_token in self._task_snapshot_loaded_sources or source_complete)
+            and (not isinstance(source_info, dict) or source_complete)
             and self.workspace_state.snapshot_model.count() > 0
             and self._selected_detail_key == search_key
             and self._selected_detail_process == process
@@ -93,6 +99,7 @@ class SnapshotDetailsMixin:
                 bool(
                     force
                     or source_token not in self._task_snapshot_loaded_sources
+                    or (isinstance(source_info, dict) and not source_complete)
                 ),
             )
             if worker is None:
@@ -171,6 +178,9 @@ class SnapshotDetailsMixin:
         self._task_snapshot_loaded_sources.discard(
             (identity[0], id(self._task_snapshot_source))
         )
+        source_info = getattr(self._task_snapshot_source, "info", None)
+        if isinstance(source_info, dict):
+            source_info.pop("__snapshots_complete__", None)
 
     def mark_task_snapshot_source_current(self, search_key: str) -> None:
         if (
@@ -181,6 +191,9 @@ class SnapshotDetailsMixin:
                 self._task_snapshot_identity[0],
                 id(self._task_snapshot_source),
             ))
+            source_info = getattr(self._task_snapshot_source, "info", None)
+            if isinstance(source_info, dict):
+                source_info["__snapshots_complete__"] = True
 
     @Slot(str)
     def set_results_view_mode(self, mode: str) -> None:
@@ -431,13 +444,17 @@ class SnapshotDetailsMixin:
             and callable(getattr(sobject, "get_project", None))
             and sobject.get_project() is not None
         )
-        if "__details__" in sobject.info:
+        if "__details__" in sobject.info or "__details_processes__" in sobject.info:
             from thlib import server_cache
 
             if (force_snapshot_refresh or sobject._details_cache_token
                     != server_cache.token("search", sobject.project.get_code())):
                 sobject.info.pop("__details__", None)
-        if "__details__" in sobject.info:
+                sobject.info.pop("__details_processes__", None)
+        loaded_processes = sobject.info.get("__details_processes__")
+        if "__details__" in sobject.info or (
+            process and isinstance(loaded_processes, set) and process in loaded_processes
+        ):
             tasks = values(sobject.tasks_sobjects)
             notes = [
                 note for note in values(sobject.notes_sobjects)
@@ -453,15 +470,32 @@ class SnapshotDetailsMixin:
             )
             tasks = list((tasks_data or {}).values())
             notes = list((notes_data or {}).values())
-            if not process and getattr(sobject, "project", None) is not None:
+            if getattr(sobject, "project", None) is not None:
                 from thlib import server_cache
 
                 sobject.tasks_sobjects = (dict(tasks_data or {}), {})
-                sobject.notes_sobjects = (dict(notes_data or {}), {})
+                if not process:
+                    sobject.notes_sobjects = (dict(notes_data or {}), {})
+                    sobject.info["__details__"] = True
+                else:
+                    existing_notes = (
+                        dict(sobject.notes_sobjects[0])
+                        if isinstance(getattr(sobject, "notes_sobjects", None), tuple)
+                        and sobject.notes_sobjects
+                        else {}
+                    )
+                    for key, note in list(existing_notes.items()):
+                        if getattr(note, "info", {}).get("process") == process:
+                            existing_notes.pop(key, None)
+                    existing_notes.update(dict(notes_data or {}))
+                    sobject.notes_sobjects = (existing_notes, {})
+                    if not isinstance(loaded_processes, set):
+                        loaded_processes = set()
+                        sobject.info["__details_processes__"] = loaded_processes
+                    loaded_processes.add(process)
                 sobject._details_cache_token = server_cache.token(
                     "search", sobject.project.get_code()
                 )
-                sobject.info["__details__"] = True
         else:
             tasks = values(sobject.get_tasks_sobjects(
                 process=None,

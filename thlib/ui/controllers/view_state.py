@@ -54,6 +54,7 @@ from .types import (
 _TAG_CATALOG_CACHE_TTL = 600.0
 _TAG_CATALOG_PAGE_SIZE = 1000
 _QUICK_FILTER_CATALOG_PAGE_SIZE = 1000
+_QUICK_FILTER_CATALOG_MAX_ROWS = 5000
 
 class ViewStateMixin:
     def clear_quick_filter_configurations(self) -> None:
@@ -494,12 +495,14 @@ class ViewStateMixin:
         stype_code: str,
         facet_columns: list[dict],
         page_size: int = _QUICK_FILTER_CATALOG_PAGE_SIZE,
+        max_rows: int = _QUICK_FILTER_CATALOG_MAX_ROWS,
     ) -> list[dict]:
         import thlib.tactic_classes as tc
 
         columns = [
             str(record.get("column") or "")
             for record in facet_columns
+            for _ in (0,)
             if record.get("column")
         ]
         if not columns:
@@ -507,13 +510,14 @@ class ViewStateMixin:
         rows = []
         offset = 0
         page_size = max(1, int(page_size))
-        while True:
+        max_rows = max(page_size, int(max_rows))
+        while len(rows) < max_rows:
             batch = list(tc.server_query(
                 filters=[],
                 stype=stype_code,
                 columns=columns,
                 project=project_code,
-                limit=page_size,
+                limit=min(page_size, max_rows - len(rows)),
                 offset=offset,
                 order_bys=[],
             ) or [])

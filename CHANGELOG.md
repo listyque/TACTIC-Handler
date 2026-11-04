@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.381 - 2026-11-05
+
+- Cap `_query_quick_filter_catalog` pagination (`_QUICK_FILTER_CATALOG_MAX_ROWS = 5000`), route `SObjectInfoController._request_file_inspection` to `local_pool`, and cache per-process `tc.get_tasks_and_notes` results on `SObject.info["__details_processes__"]` to eliminate repeated RPCs when re-selecting items.
+- Build `SObject.process` atomically in `init_snapshots` and `get_snapshots`, deep-copy cached entries in `server_cache._read_entry`, cache `server_query.json` by `(st_mtime_ns, st_size)` in `execute_procedure_serverside`, and guard `_task_snapshot_loaded_sources` against Python `id(source)` ABA reuse.
+- Optimize `FrameView.qml` `sync()` node key indexing (`itemKeys`) and cache visible row definitions across scroll steps in `FrameArrayList.qml` (`rowNodeCache`).
+
 ## 0.6.0.380 - 2026-11-05
 
 - Avoid synthetic cache invalidation storms on project SSE startup by reading the persisted `server_changes` cursor in `ServerUpdateController` and matching `TACTIC Stream` (`0.112.414`) `/admin/server-events` initial-handshake semantics.

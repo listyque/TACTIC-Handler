@@ -7,6 +7,7 @@ means and when it must be refreshed.
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 import hashlib
 import json
@@ -365,7 +366,7 @@ def _read_entry(
             )
         ):
             return None
-        return entry.get("value")
+        return copy.deepcopy(entry.get("value"))
 
 
 def read_entry(

@@ -340,12 +340,12 @@ class SObjectInfoController(QObject):
                    if identity not in self._file_metadata]
         if not missing or self._file_worker is not None or self._file_inspection_error:
             return
-        if env_inst.server_pool.is_stopped:
-            env_inst.server_pool.start()
+        if env_inst.local_pool.is_stopped:
+            env_inst.local_pool.start()
         request_id = uuid.uuid4().hex
-        worker = env_inst.server_pool.add_task(self._inspect_files, missing)
+        worker = env_inst.local_pool.add_task(self._inspect_files, missing)
         if worker is None:
-            self._error = "Server worker pool is unavailable"
+            self._error = "Local worker pool is unavailable"
             return
         self._file_request_id = request_id
         self._file_worker = worker

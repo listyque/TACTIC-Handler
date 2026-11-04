@@ -121,6 +121,7 @@ Item {
         }
         return true;
     }
+    property var itemKeys: []
     function sync() {
         if (!ready)
             return;
@@ -135,28 +136,37 @@ Item {
                 const nodes = Contract.validateScene(scene, models, views);
                 const prevCache = Object.assign({}, Contract.getCache(cacheId));
                 const nextCache = {};
+                if (itemKeys.length !== items.count) {
+                    itemKeys = [];
+                    for (let i = 0; i < items.count; i++)
+                        itemKeys.push(items.get(i).key);
+                }
                 for (let index = 0; index < nodes.length; index++) {
                     const definition = nodes[index];
                     const id = definition.id;
                     nextCache[id] = definition;
                     Contract.setCachedNode(cacheId, id, definition);
-                    let existing = index;
-                    while (existing < items.count && items.get(existing).key !== id)
-                        existing++;
-                    if (existing === items.count) {
+                    const existing = itemKeys.indexOf(id, index);
+                    if (existing === -1) {
+                        itemKeys.splice(index, 0, id);
                         items.insert(index, {
                             key: id,
                             rev: 0
                         });
                     } else {
-                        if (existing !== index)
+                        if (existing !== index) {
+                            itemKeys.splice(existing, 1);
+                            itemKeys.splice(index, 0, id);
                             items.move(existing, index, 1);
+                        }
                         if (!sameValue(prevCache[id], definition))
                             items.setProperty(index, "rev", items.get(index).rev + 1);
                     }
                 }
-                if (items.count > nodes.length)
+                if (items.count > nodes.length) {
+                    itemKeys.length = nodes.length;
                     items.remove(nodes.length, items.count - nodes.length);
+                }
                 Contract.setCache(cacheId, nextCache);
             } while (syncPending)
         } finally {

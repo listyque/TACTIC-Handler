@@ -583,15 +583,15 @@ class SObject(object):
                 )
         self.info['__snapshots_complete__'] = not filters
         self._snapshot_cache_token = cache_token
-        self.process = {}
         self.init_snapshots(snapshot_dict)
 
     # Initial Snapshots by process without query
     def init_snapshots(self, snapshot_dict):
         process_set = set(snapshot['process'].split('/')[-1] for snapshot in snapshot_dict)
-
+        processes = {}
         for process in process_set:
-            self.process[process] = Process(snapshot_dict, process)
+            processes[process] = Process(snapshot_dict, process)
+        self.process = processes
 
     # Snapshots by SObject
     def get_snapshots(self, order_bys=None):
@@ -608,9 +608,10 @@ class SObject(object):
 
         snapshots_list = self.query_snapshots(self.info['code'], order_bys=order_bys)
         process_set = set(snapshot['process'] for snapshot in snapshots_list)
-
+        processes = {}
         for process in process_set:
-            self.process[process] = Process(snapshots_list, process)
+            processes[process] = Process(snapshots_list, process)
+        self.process = processes
 
         return self.process
 
@@ -2680,12 +2681,34 @@ def _execute_plugin_command(server, command_args):
             ) from last_error
 
 
+_SERVER_QUERY_MODES_CACHE = None
+
+
 def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, server=None):
     # This is for TACTIC 4.7 compatibility
-    query_settings = env_read_config(
-        filename='server_query', unique_id='ui_conf',
-        long_abs_path=True, scope='installation',
-    ) or {}
+    global _SERVER_QUERY_MODES_CACHE
+    query_settings = None
+    if getattr(env_read_config, '__module__', '') == 'thlib.environment' and getattr(env_inst, 'CFG_FORMAT', 'json') == 'json':
+        from thlib import environment as _env
+        full_path = os.path.join(_env._config_directory(_env._config_base_path(True, 'installation'), 'ui_conf'), 'server_query.json')
+        try:
+            st = os.stat(full_path)
+            if _SERVER_QUERY_MODES_CACHE and _SERVER_QUERY_MODES_CACHE[0] == full_path and _SERVER_QUERY_MODES_CACHE[1] == st.st_mtime_ns and _SERVER_QUERY_MODES_CACHE[2] == st.st_size:
+                query_settings = _SERVER_QUERY_MODES_CACHE[3]
+            else:
+                query_settings = env_read_config(
+                    filename='server_query', unique_id='ui_conf',
+                    long_abs_path=True, scope='installation',
+                ) or {}
+                _SERVER_QUERY_MODES_CACHE = (full_path, st.st_mtime_ns, st.st_size, dict(query_settings) if isinstance(query_settings, dict) else {})
+        except OSError:
+            _SERVER_QUERY_MODES_CACHE = (full_path, -1, -1, {})
+            query_settings = {}
+    if query_settings is None:
+        query_settings = env_read_config(
+            filename='server_query', unique_id='ui_conf',
+            long_abs_path=True, scope='installation',
+        ) or {}
     query_modes = query_settings.get('modes') or {}
     server_url = str(env_server.get_server() or '').rstrip('/')
     use_plugin = (query_modes.get(server_url) == 'plugin'
