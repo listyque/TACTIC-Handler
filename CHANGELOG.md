@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.386 - 2026-11-05
+
+- Load verified client plugin modules directly from source, including delayed relative imports, so source-checkout launches cannot create or reuse unverified bytecode in immutable plugin caches.
+
 ## 0.6.0.385 - 2026-11-05
 
 - Add desktop-only client plugin delivery through original TACTIC plugin records and installer, without Stream commands, schema changes or server hooks.

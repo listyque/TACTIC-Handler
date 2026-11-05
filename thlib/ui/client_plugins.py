@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+from importlib.abc import MetaPathFinder
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -13,6 +15,31 @@ from PySide6.QtWidgets import QFileDialog
 from thlib import client_plugin_server as remote
 from thlib.client_plugins import build_package, cache_payload
 from thlib.environment import env_inst, env_mode, env_server, env_read_config, env_write_config
+
+
+class _SourceOnlyLoader(SourceFileLoader):
+    def get_code(self, fullname):
+        return self.source_to_code(self.get_data(self.path), self.path)
+
+
+class _PluginSources(MetaPathFinder):
+    """Keep verified plugin sources independent of the host's bytecode policy."""
+    def __init__(self, namespace, folder):
+        self.namespace, self.folder = namespace, folder
+
+    def find_spec(self, fullname, path=None, target=None):
+        if not fullname.startswith(self.namespace + '.'):
+            return None
+        relative = fullname[len(self.namespace) + 1:].split('.')
+        candidate = self.folder.joinpath(*relative)
+        package = candidate / '__init__.py'
+        file = package if package.is_file() else candidate.with_suffix('.py')
+        if not file.is_file():
+            return None
+        return importlib.util.spec_from_file_location(
+            fullname, file, loader=_SourceOnlyLoader(fullname, str(file)),
+            submodule_search_locations=[str(candidate)] if file == package else None,
+        )
 
 
 class ClientPluginsController(QObject):
@@ -212,7 +239,12 @@ class ClientPluginsController(QObject):
             self._message = self.tr('The running plugin keeps its version. Updates apply after closing it.')
             return
         namespace = '_th_plugin_' + key[0] + '_' + code + '_' + row['sha256']
-        spec = importlib.util.spec_from_file_location(namespace, folder / 'entry.py', submodule_search_locations=[str(folder)])
+        finder = _PluginSources(namespace, folder)
+        sys.meta_path.insert(0, finder)
+        spec = importlib.util.spec_from_file_location(
+            namespace, folder / 'entry.py', loader=_SourceOnlyLoader(namespace, str(folder / 'entry.py')),
+            submodule_search_locations=[str(folder)],
+        )
         module = importlib.util.module_from_spec(spec)
         sys.modules[namespace] = module
         try:
@@ -221,12 +253,14 @@ class ClientPluginsController(QObject):
             if window is None or not callable(getattr(window, 'showNormal', None)):
                 raise TypeError('Plugin entry point must return its native window')
         except Exception:
+            sys.meta_path.remove(finder)
             for name in list(sys.modules):
                 if name == namespace or name.startswith(namespace + '.'):
                     sys.modules.pop(name, None)
             raise
         self._runs[key] = {'window': window, 'version': row['version'], 'module': module}
         def released(*_):
+            sys.meta_path.remove(finder)
             self._runs.pop(key, None)
             for name in list(sys.modules):
                 if name == namespace or name.startswith(namespace + '.'):

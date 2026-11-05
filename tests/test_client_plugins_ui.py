@@ -13,7 +13,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from thlib.environment import env_mode,env_inst,env_server
-from thlib.ui.client_plugins import ClientPluginsController
+from thlib.ui.client_plugins import ClientPluginsController, _PluginSources
 from thlib.ui.localization import CatalogTranslator
 
 class Application(QObject):
@@ -31,6 +31,32 @@ class ClientPluginUiTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         env_inst.exit_pools()
+
+
+    def test_plugin_lazy_imports_do_not_write_or_read_bytecode(self):
+        import importlib
+        import sys
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/'late.py').write_text('value=17\n')
+            name='_th_fixture_sources'
+            import types
+            package=types.ModuleType(name)
+            package.__path__=[folder]
+            finder=_PluginSources(name,root)
+            sys.modules[name]=package
+            sys.meta_path.insert(0,finder)
+            previous=sys.dont_write_bytecode
+            try:
+                sys.dont_write_bytecode=False
+                result=importlib.import_module(name+'.late')
+                self.assertEqual(result.value,17)
+                self.assertFalse(list(root.rglob('*.pyc')))
+            finally:
+                sys.dont_write_bytecode=previous
+                sys.meta_path.remove(finder)
+                sys.modules.pop(name+'.late',None)
+                sys.modules.pop(name,None)
 
     def test_native_page_mouse_keyboard_narrow_and_russian(self):
         source=Path(__file__).parents[1]
