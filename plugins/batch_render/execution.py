@@ -29,6 +29,7 @@ class ExecutionMixin:
         self._status = "Queue running"
         self._error = ""
         for entry in self._entries:
+            entry["startRequested"] = True
             if entry["state"] == "held" and entry.pop("restored", False):
                 entry["state"] = "waiting"
         self.stateChanged.emit()
@@ -58,10 +59,11 @@ class ExecutionMixin:
             )
         test = _queue_entry(entry["episodeKey"], entry, True, "manual")
         test.update(
-            title=f"{entry['title']} · тест",
+            title=entry["title"],
             state="waiting",
-            stage="Тестовый рендер",
+            stage="Test render",
             jobs=jobs,
+            startRequested=True,
         )
         self._entries.append(test)
         self._flush_queue()
@@ -87,9 +89,10 @@ class ExecutionMixin:
             self.holdQueue(entry["id"])
         if entry["state"] in _TERMINAL:
             entry.update(state="waiting", stage="Waiting", prepared=False, error="")
+        entry["startRequested"] = True
         self._run_only = row["id"]
         self._paused = False
-        self._status = f"Запуск только: {row['title']}"
+        self._status = f"Run only: {row['title']}"
         self._error = ""
         self.selectQueue(row["id"])
         self.stateChanged.emit()
@@ -139,7 +142,7 @@ class ExecutionMixin:
         job.update(state="preparing", stage="Preparing shot", error="")
         entry.update(
             state="preparing",
-            stage=f"Подготовка: {job['title']}",
+            stage=f"Preparing: {job['title']}",
         )
         config = dict(self._config)
         saved_entry = deepcopy(entry)
@@ -153,7 +156,7 @@ class ExecutionMixin:
 
     def _next_entry(self, preferred):
         entry = preferred or next(
-            (row for row in self._entries if row["state"] == "waiting"), None
+            (row for row in self._entries if row["state"] == "waiting" and row.get("startRequested", True)), None
         )
         if entry is None:
             self._show_idle_status()
@@ -172,7 +175,8 @@ class ExecutionMixin:
         elif self._watch_server:
             self._status = "Waiting for jobs"
         else:
-            self._status = "Queue finished"
+            self._paused = True
+            self._status = "Ready · press Start queue" if any(not row.get("startRequested", True) for row in self._entries) else "Queue finished"
         self.stateChanged.emit()
 
     def _finish_or_hold_entry(self, entry):
@@ -290,15 +294,19 @@ class ExecutionMixin:
             self._log(payload["text"], entry, job)
         if payload.get("file"):
             self._show_transfer_progress(row, payload)
-        self._publish_queue()
+        if not self._progress_timer.isActive():
+            self._progress_timer.start()
 
     def _update_job_progress(self, job, payload):
         for key in (
             "pid", "frame", "framesDone", "progress",
-            "renderOutput", "renderFiles",
+            "renderOutput", "renderFiles", "renderFileVersions",
         ):
             if key in payload:
+                changed = payload[key] != job.get(key)
                 job[key] = payload[key]
+                if key == "renderFileVersions" and changed:
+                    self.previewsChanged.emit()
         if "elapsed" in payload:
             job["renderElapsed"] = payload["elapsed"]
         if payload.get("renderError"):
@@ -317,16 +325,16 @@ class ExecutionMixin:
         last_output = job.get("lastOutput", job.get("started", time.time()))
         silence = max(0, int(time.time() - last_output))
         phase = (
-            "Рендеринг шота"
+            "Rendering shot"
             if job.get("frame") not in (None, "")
-            else "Рендер запущен · Maya работает"
+            else "Render running · Maya is working"
         )
         job["stage"] = (
-            f"{phase} · PID {job.get('pid') or 'запуск'} · ожидание вывода {silence} с"
+            f"{phase} · PID {job.get('pid') or '—'} · waiting for output {silence}s"
         )
 
     def _show_transfer_progress(self, row, payload):
-        row["stage"] = f"Загрузка: {Path(payload['file']).name}"
+        row["stage"] = f"Downloading: {Path(payload['file']).name}"
         total = payload.get("bytes_total", 0)
         if total:
             row["stage"] += f" · {payload.get('bytes_done', 0) / total:.0%}"
@@ -601,4 +609,4 @@ class ExecutionMixin:
             self._active_entry["elapsed"] += delta
             if self._active_job:
                 self._active_job["elapsed"] += delta
-            self._publish_queue()
+            self._publish_progress()

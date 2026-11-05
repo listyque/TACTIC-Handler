@@ -123,7 +123,7 @@ class QueueActionsMixin:
             stage = "Render pause requested" if paused else "Resuming render"
             if paused:
                 self._render_pause.set()
-                self._status = f"Рендер на паузе: {active_job['title']}"
+                self._status = f"Render paused: {active_job['title']}"
             else:
                 self._render_pause.clear()
                 self._status = (
@@ -237,36 +237,21 @@ class QueueActionsMixin:
         if entry is self._active_entry:
             self._pending_removal = entry["id"]
             self.cancelQueue(entry["id"])
-            self._status = f"Остановка и удаление: {entry['title']}"
+            self._status = f"Stopping and removing: {entry['title']}"
             self.stateChanged.emit()
             return True
         self._remove_entries([entry])
-        self._status = f"Удалено из очереди: {entry['title']}"
+        self._status = f"Removed from queue: {entry['title']}"
         self.stateChanged.emit()
         self._pump()
         return True
 
     @Slot(str)
+    @Slot(str, bool)
     def selectQueue(self, identity, align_top=False):
-        self._selected_queue = identity
-        entry, _job = self._find(identity)
-        self._select_episode(entry["episodeKey"] if entry else "")
-        self._publish_queue()
-        self.queueSelected.emit(
-            next(
-                (
-                    index
-                    for index, row in enumerate(self.queue.records())
-                    if row["jobId"] == identity
-                ),
-                -1,
-            ),
-            align_top,
-        )
-        self.logScopeChanged.emit()
-        self.logChanged.emit()
+        self._select_queue(identity, 0, bool(align_top))
 
-    def _select_episode(self, key):
+    def _select_episode(self, key, reveal=False):
         self._selected_episode = key
         episode_index = -1
         for index, row in enumerate(self.episodes.records()):
@@ -274,7 +259,8 @@ class QueueActionsMixin:
             self.episodes.set_value(index, "selected", selected)
             if selected:
                 episode_index = index
-        self.episodeSelected.emit(episode_index)
+        if reveal:
+            self.episodeSelected.emit(episode_index)
 
     @Slot(str)
     def toggleExpanded(self, identity):
@@ -286,14 +272,13 @@ class QueueActionsMixin:
     @Slot(str)
     def toggleIncluded(self, identity):
         entry, job = self._find(identity)
-        if entry is None or "include" not in self._allowed_actions(entry, job):
+        if entry is None or job is None:
             return
-        state = "waiting" if job["state"] == "skipped" else "skipped"
-        job.update(state=state, stage="Waiting" if state == "waiting" else "Excluded")
-        if state == "waiting" and entry["state"] in _TERMINAL:
-            entry.update(state="waiting", stage="Waiting", prepared=False, error="")
-        self._flush_queue()
-        self._pump()
+        included = job['state'] == 'skipped'
+        if identity in self._selected_shots and len(self._selected_shots) > 1:
+            self.setSelectedIncluded(included)
+        else:
+            self._set_shots_included([(entry,job)],included)
 
     @Slot(str, str, result=bool)
     def setFrameSpec(self, identity, value):

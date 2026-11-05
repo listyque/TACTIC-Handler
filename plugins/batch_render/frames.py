@@ -72,6 +72,7 @@ def _queue_entry(key: str, episode: dict, test_render: bool, origin: str) -> dic
         "created": time.time(),
         "jobs": [],
         "origin": origin,
+        "startRequested": origin != "manual",
     }
 
 

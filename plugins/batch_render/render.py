@@ -174,9 +174,11 @@ class RenderProgress:
         self.wrapper_completed = False
         self.pause_state = ""
         self.files = []
+        self.file_versions = {}
+        self.file_revision = 0
 
     def feed(self, text: str) -> dict:
-        previous_files = tuple(self.files)
+        previous_revision = self.file_revision
         for line in text.splitlines():
             if line.startswith(_RENDER_EVENT_PREFIX):
                 self._feed_event(line)
@@ -187,10 +189,11 @@ class RenderProgress:
         }
         if self.pause_state:
             progress["pauseState"] = self.pause_state
-        if tuple(self.files) != previous_files:
+        if self.file_revision != previous_revision:
             progress.update(
                 renderOutput=str(Path(self.files[-1]).parent),
                 renderFiles=list(self.files),
+                renderFileVersions=dict(self.file_versions),
             )
         return progress
 
@@ -229,6 +232,8 @@ class RenderProgress:
                     if path in self.files:
                         self.files.remove(path)
                     self.files.append(path)
+                    self.file_revision += 1
+                    self.file_versions[path] = self.file_revision
 
     def _frame_position(self, frame):
         if frame is None:

@@ -8,6 +8,7 @@ import "__CONTROLS_URL__" as Controls
 import "__FRAME_URL__" as Frame
 import "__NODES_URL__" as Nodes
 import "summary.mjs" as Summary
+import "items.mjs" as Items
 
 Window {
     id: root
@@ -15,7 +16,11 @@ Window {
     required property var controller
     readonly property string language: typeof localizationController !== "undefined"
         ? localizationController.current_language : "en"
-    function tr(source) { return controller.translate(source, language) }
+    readonly property var messages: Object.assign({},controller.translations)
+    function tr(source) { return language === 'ru' ? (messages[source] || source) : source }
+    function selectionModifiers(modifiers) {
+        return ((modifiers & Qt.ShiftModifier) ? 1 : 0) | ((modifiers & Qt.ControlModifier) ? 2 : 0)
+    }
     onLanguageChanged: controller.setLanguage(language)
     readonly property var theme: batchTheme
     readonly property var webThemeSnapshot: ({
@@ -32,6 +37,13 @@ Window {
         "panelRaised": String(theme.panelRaised),
         "panelDeep": String(theme.panelDeep),
         "row": String(theme.row),
+        "surfaceContainerLow": String(theme.surfaceContainerLow),
+        "outlineVariant": String(theme.outlineVariant),
+        "popupShadow": String(theme.popupShadow),
+        "cardHover": String(theme.overlay(theme.surfaceContainerLow,theme.primaryText,0.08)),
+        "selectionHover": String(theme.overlay(theme.contentSelection,theme.action,0.08)),
+        "previewBackground": String(Qt.darker(theme.contentAccent,1.65)),
+        "previewForeground": String(theme.readableText(Qt.darker(theme.contentAccent,1.65))),
         "rowHover": String(theme.rowHover),
         "contentSelection": String(theme.contentSelection),
         "outline": String(theme.outline),
@@ -119,6 +131,7 @@ Window {
         controller.closeWindow()
     }
 
+    Timer { id: logUpdate; interval: 50; onTriggered: root.updateLog() }
     Timer {
         id: windowStateSave
         interval: 400
@@ -177,24 +190,25 @@ Window {
                 Layout.fillWidth: true
                 text: root.draggedQueueTitle
                 elide: Text.ElideRight
-                font.pointSize: Controls.Typography.label
+                font.pixelSize: Items.fonts.label
                 font.weight: Font.DemiBold
             }
         }
     }
     component BatchCard: Controls.ItemSurface {
-        railX: inset + 3; railWidth: 3
-        railTopMargin: 12; railBottomMargin: 12
-        inset: 0; cornerRadius: 0
-        borderWidth: 0; borderColor: theme.outlineVariant
-        elevated: false; shadowVerticalOffset: 0
-        separatorVisible: true
+        railX: inset + 3; railWidth: Items.card.railWidth
+        railTopMargin: Items.card.railMargin; railBottomMargin: Items.card.railMargin
+        inset: Items.card.inset; cornerRadius: theme.surfaceRadius
+        borderWidth: 1; borderColor: theme.outlineVariant
+        elevated: true; shadowVerticalOffset: 3
+        separatorVisible: false
         normalColor: theme.surfaceContainerLow
         selectedColor: theme.contentSelection
     }
     component BatchLabel: Label {
         color: root.theme.primaryText
         font.family: root.theme.fontFamily
+        font.pixelSize: Items.fonts.body
         renderType: Text.NativeRendering
     }
     component BatchButton: Controls.Button { theme: root.theme }
@@ -213,8 +227,8 @@ Window {
         if (!detail || !detail.id)
             return []
         return [
-            {"label": root.tr("Milestone"), "value": detail.stage},
-            {"label": root.tr("State"), "value": detail.state},
+            {"label": root.tr("Stage"), "value": detail.stage},
+            {"label": root.tr("State"), "value": detail.stateLabel},
             {"label": root.tr("Frames"), "value": detail.frames},
             {"label": root.tr("Attempt"), "value": detail.attempt},
             {"label": "PID", "value": detail.pid},
@@ -223,8 +237,8 @@ Window {
             {"label": root.tr("Scene"), "value": detail.scene},
             {"label": root.tr("Output"), "value": detail.output},
             {"label": root.tr("Log"), "value": detail.logPath},
-            {"label": root.tr("Team"), "value": detail.command},
-            {"label": root.tr("Request failed"), "value": detail.error}
+            {"label": root.tr("Command"), "value": detail.command},
+            {"label": root.tr("Error"), "value": detail.error}
         ].filter(row => row.value !== "" && row.value !== undefined
             && row.value !== null)
     }
@@ -357,10 +371,13 @@ Window {
         target: controller
         function onCatalogFilterChanged() { Qt.callLater(() => episodeList.positionViewAtBeginning()) }
         function onWindowStateChanged() { root.restoreWindowState() }
-        function onLogChanged() { root.updateLog() }
+        function onLogChanged() { if (!logUpdate.running) logUpdate.start() }
         function onQueueSelected(index, alignTop) {
-            if (index >= 0) queueList.positionViewAtIndex(
-                index, alignTop ? ListView.Beginning : ListView.Contain)
+            if (index >= 0) {
+                queueList.currentIndex = index
+                queueList.positionViewAtIndex(index,alignTop ? ListView.Beginning : ListView.Contain)
+                Qt.callLater(() => { if (queueList.currentItem) queueList.currentItem.forceActiveFocus() })
+            }
         }
         function onEpisodeSelected(index) {
             if (index < 0) return
@@ -391,7 +408,7 @@ Window {
                     Layout.fillWidth: true
                     text: root.tr("Batch Render")
                     color: theme.primaryText
-                    font.pointSize: Controls.Typography.title
+                    font.pixelSize: Items.fonts.title
                     font.weight: Font.DemiBold
                 }
                 BatchLabel {
@@ -399,7 +416,7 @@ Window {
                     elide: Text.ElideRight
                     text: controller.statusText
                     color: theme.secondaryText
-                    font.pointSize: Controls.Typography.label
+                    font.pixelSize: Items.fonts.label
                 }
             }
             BatchButton {
@@ -420,9 +437,10 @@ Window {
                 toolTip: root.tr("Open sequence output directory")
                 onClicked: controller.showDestination()
             }
-            BatchIconButton {
+            BatchButton {
                 objectName: "batchOpenWeb"
-                iconName: "language"
+                icon.name: "open_in_new"
+                text: root.tr("Web panel")
                 toolTip: controller.webError.length
                     ? controller.webError
                     : root.tr("Open web control")
@@ -461,8 +479,8 @@ Window {
 
         BatchLabel {
             Layout.fillWidth: true
-            visible: controller.errorText.length > 0
-            text: controller.errorText
+            visible: controller.errorText.length > 0 || controller.webError.length > 0
+            text: [controller.errorText, controller.webError].filter(value => value.length).join("\n")
             color: theme.error
             wrapMode: Text.WrapAnywhere
             maximumLineCount: 3
@@ -545,8 +563,22 @@ Window {
                             required property color statusColor
                             required property bool queued
                             objectName: "batchEpisodeRow_" + index
+                            activeFocusOnTab: true
+                            Accessible.role: Accessible.ListItem
+                            Accessible.name: title
+                            Accessible.selected: selected
+                            Keys.onPressed: event => {
+                                if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                                    const row = index + (event.key === Qt.Key_Up ? -1 : 1)
+                                    if (row >= 0 && row < episodeList.count) {
+                                        controller.selectEpisode(row)
+                                        episodeList.positionViewAtIndex(row,ListView.Contain)
+                                    }
+                                    event.accepted = true
+                                }
+                            }
                             width: episodeList.width - episodeBar.reservedExtent - 4
-                            height: 80
+                            height: Items.catalog.height
                             BatchCard {
                                 objectName: "batchEpisodeSurface_" + episodeRow.index
                                 anchors.fill: parent
@@ -562,8 +594,8 @@ Window {
                             HoverHandler { id: episodeHover }
                             Controls.ActivationHandler {
                                 id: episodeActivation
-                                anchors.rightMargin: 44
-                                onActivated: controller.selectEpisode(episodeRow.index)
+                                anchors.rightMargin: 84
+                                onActivated: { episodeRow.forceActiveFocus(); controller.selectEpisode(episodeRow.index) }
                             }
                             TapHandler {
                                 acceptedDevices: PointerDevice.Mouse
@@ -578,10 +610,10 @@ Window {
                                 anchors.leftMargin: 18; spacing: 10
                                 Controls.ItemPreview {
                                     theme: root.theme
-                                    Layout.preferredWidth: 48; Layout.preferredHeight: 48
+                                    Layout.preferredWidth: Items.catalog.preview; Layout.preferredHeight: Items.catalog.preview
                                     source: episodeRow.previewUrl
                                     fallbackIcon: "movie"
-                                    fallbackText: episodeRow.title.slice(0, 2)
+                                    fallbackText: controller.acronym(episodeRow.title)
                                     animateAppearance: false
                                     selected: episodeRow.selected
                                 }
@@ -593,7 +625,7 @@ Window {
                                         Layout.fillWidth: true; text: episodeRow.title
                                         textFormat: Text.PlainText; maximumLineCount: 1
                                         color: theme.primaryText; elide: Text.ElideRight
-                                        font.pointSize: Controls.Typography.label
+                                        font.pixelSize: Items.fonts.label
                                         font.weight: Font.DemiBold
                                     }
                                     BatchLabel {
@@ -604,7 +636,7 @@ Window {
                                         textFormat: Text.PlainText; maximumLineCount: 1
                                         visible: text.length > 0
                                         color: theme.secondaryText; elide: Text.ElideRight
-                                        font.pointSize: Controls.Typography.micro
+                                        font.pixelSize: Items.fonts.micro
                                     }
                                     BatchLabel {
                                         Layout.fillWidth: true
@@ -614,16 +646,29 @@ Window {
                                         textFormat: Text.PlainText; maximumLineCount: 1
                                         color: episodeRow.statusColor
                                         elide: Text.ElideRight
-                                        font.pointSize: Controls.Typography.micro
+                                        font.pixelSize: Items.fonts.micro
                                     }
                                 }
                                 BatchIconButton {
                                     objectName: "batchEpisodeAdd_" + episodeRow.index
+                                    Layout.rightMargin: 30
                                     iconName: "add"
                                     toolTip: root.tr("Add episode to queue")
                                     visible: !episodeRow.queued
                                     enabled: controller.ready
                                     onClicked: controller.renderEpisode(episodeRow.index, false)
+                                }
+                            }
+                            BatchIconButton {
+                                objectName: "batchEpisodeMore_" + episodeRow.index
+                                anchors.right: parent.right
+                                anchors.rightMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                iconName: "more_vert"
+                                toolTip: root.tr("More actions")
+                                onClicked: {
+                                    root.episodeContextRow = episodeRow.index
+                                    episodeMenu.openBelow(this)
                                 }
                             }
                             MouseArea {
@@ -657,7 +702,7 @@ Window {
                             objectName: "batchQueueTitle"
                             text: root.tr("RENDER QUEUE")
                             color: theme.secondaryText
-                            font.pointSize: Controls.Typography.label
+                            font.pixelSize: Items.fonts.label
                         }
                     Item { Layout.fillWidth: true }
                     BatchIconButton {
@@ -754,30 +799,31 @@ Window {
                                 spacing: 10
                                 Item { Layout.preferredWidth: 28 }
                                 Item { Layout.preferredWidth: 28 }
-                                Item { Layout.preferredWidth: 44 }
+                                Item { Layout.preferredWidth: 28 }
+                                Item { Layout.preferredWidth: Items.queue.preview }
                                 BatchLabel {
                                     objectName: "batchQueueHeaderTitle"
                                     Layout.fillWidth: true
                                     text: root.tr("JOB / STAGE"); color: theme.secondaryText
-                                    font.pointSize: Controls.Typography.micro
+                                    font.pixelSize: Items.fonts.micro
                                 }
                                 BatchLabel {
                                     objectName: "batchQueueHeaderProgress"
                                     Layout.preferredWidth: 112
                                     text: root.tr("PROGRESS"); color: theme.secondaryText
-                                    font.pointSize: Controls.Typography.micro
+                                    font.pixelSize: Items.fonts.micro
                                 }
                                 BatchLabel {
                                     objectName: "batchQueueHeaderFrames"
                                     Layout.preferredWidth: 78
                                     text: root.tr("FRAMES"); color: theme.secondaryText
-                                    font.pointSize: Controls.Typography.micro
+                                    font.pixelSize: Items.fonts.micro
                                 }
                                 BatchLabel {
                                     objectName: "batchQueueHeaderElapsed"
                                     Layout.preferredWidth: 86
                                     text: root.tr("ELAPSED / REMAINING"); color: theme.secondaryText
-                                    font.pointSize: Controls.Typography.micro
+                                    font.pixelSize: Items.fonts.micro
                                 }
                                 Item { Layout.preferredWidth: 218 }
                             }
@@ -810,6 +856,7 @@ Window {
                                 required property bool test
                                 required property var pid
                                 required property bool included
+                                required property int includeState
                                 required property var actions
                                 required property bool indeterminate
                                 required property url previewUrl
@@ -819,7 +866,20 @@ Window {
                                     root.dragTargetQueueId === queueRow.jobId
                                     && !queueRow.dragSource
                                 width: queueList.contentWidth - queueBar.reservedExtent - 4
-                                height: depth ? 80 : 88
+                                height: depth ? Items.queue.shotHeight : Items.queue.episodeHeight
+                                activeFocusOnTab: true
+                                Accessible.role: Accessible.ListItem
+                                Accessible.name: title
+                                Accessible.selected: selected
+                                Keys.onPressed: event => {
+                                    if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                                        controller.navigateQueue(jobId,event.key === Qt.Key_Up ? -1 : 1,root.selectionModifiers(event.modifiers));event.accepted=true
+                                    } else if (event.key === Qt.Key_Space && depth) {
+                                        controller.toggleIncluded(jobId);event.accepted=true
+                                    } else if (event.key === Qt.Key_A && (event.modifiers & Qt.ControlModifier)) {
+                                        controller.selectAllShots(jobId);event.accepted=true
+                                    }
+                                }
                                 clip: true
                                 opacity: dragSource ? 0.58 : 1
                                 scale: dragSource ? 0.985 : 1
@@ -832,7 +892,7 @@ Window {
                                 BatchCard {
                                     objectName: "batchQueueSurface_" + queueRow.index
                                     anchors.fill: parent
-                                    anchors.leftMargin: queueRow.depth * 24
+                                    anchors.leftMargin: queueRow.depth * Items.queue.indent
                                     theme: root.theme
                                     selected: queueRow.selected
                                     hovered: queueHover.hovered
@@ -857,7 +917,7 @@ Window {
                                     id: queueActivation
                                     anchors.leftMargin: queueRow.depth * 24
                                     anchors.rightMargin: quickActions.width + 54
-                                    onActivated: controller.selectQueue(queueRow.jobId)
+                                    onActivated: (modifiers,x,y) => { queueRow.forceActiveFocus(); controller.selectQueueRange(queueRow.jobId,root.selectionModifiers(modifiers)) }
                                 }
                                 TapHandler {
                                     acceptedDevices: PointerDevice.Mouse
@@ -928,30 +988,36 @@ Window {
                                             root.dragTargetQueueIndex = -1
                                         }
                                     }
-                                    BatchIconButton {
-                                        visible: !queueRow.depth
-                                        iconName: queueRow.expanded ? "expand_more" : "chevron_right"
-                                        toolTip: root.tr("Expand / collapse")
-                                        onClicked: controller.toggleExpanded(queueRow.jobId)
+                                    Item {
+                                        Layout.preferredWidth: 28
+                                        Layout.preferredHeight: 28
+                                            BatchIconButton {
+                                            visible: !queueRow.depth
+                                            iconName: queueRow.expanded ? "expand_more" : "chevron_right"
+                                            toolTip: root.tr("Expand / collapse")
+                                            onClicked: controller.toggleExpanded(queueRow.jobId)
+                                        }
                                     }
                                     Controls.CheckBox {
                                         objectName: "batchInclude_" + queueRow.index
                                         theme: root.theme; compact: true
                                         Layout.preferredWidth: 28
-                                        visible: queueRow.depth > 0
-                                        checked: queueRow.included
-                                        enabled: root.allows(queueRow.actions, "include")
-                                        Accessible.name: root.tr("Include shot") + " " + queueRow.title
-                                        onClicked: controller.toggleIncluded(queueRow.jobId)
+                                        visible: true
+                                        tristate: queueRow.depth === 0
+                                        checkState: queueRow.depth ? (queueRow.included ? Qt.Checked : Qt.Unchecked) : queueRow.includeState
+                                        nextCheckState: () => checkState === Qt.Checked ? Qt.Unchecked : Qt.Checked
+                                        enabled: queueRow.depth ? root.allows(queueRow.actions, "include") : queueRow.included
+                                        Accessible.name: root.tr(queueRow.depth ? "Include shot" : "Include / exclude all shots") + " " + queueRow.title
+                                        onClicked: queueRow.depth ? controller.toggleIncluded(queueRow.jobId) : controller.setEpisodeIncluded(queueRow.jobId,checked)
                                     }
                                     Controls.ItemPreview {
                                         objectName: "batchQueuePreview_" + queueRow.index
                                         theme: root.theme
-                                        Layout.minimumWidth: 44; Layout.maximumWidth: 44
-                                        Layout.preferredWidth: 44; Layout.preferredHeight: 44
+                                        Layout.minimumWidth: Items.queue.preview; Layout.maximumWidth: Items.queue.preview
+                                        Layout.preferredWidth: Items.queue.preview; Layout.preferredHeight: Items.queue.preview
                                         source: queueRow.previewUrl
                                         fallbackIcon: "movie"
-                                        fallbackText: queueRow.title.slice(0, 2)
+                                        fallbackText: controller.acronym(queueRow.title)
                                         selected: queueRow.selected
                                         animateAppearance: false
                                     }
@@ -962,10 +1028,10 @@ Window {
                                         spacing: 2
                                         BatchLabel {
                                             Layout.fillWidth: true
-                                            text: queueRow.title + (queueRow.test ? " · TEST" : "")
+                                            text: queueRow.title + (queueRow.test ? " · " + root.tr("TEST") : "")
                                             textFormat: Text.PlainText; maximumLineCount: 1
                                             color: theme.primaryText; elide: Text.ElideRight
-                                            font.pointSize: Controls.Typography.label
+                                            font.pixelSize: Items.fonts.label
                                             font.weight: queueRow.depth ? Font.Normal : Font.DemiBold
                                         }
                                         BatchLabel {
@@ -975,14 +1041,14 @@ Window {
                                             textFormat: Text.PlainText; maximumLineCount: 1
                                             color: root.stateColor(queueRow.state)
                                             elide: Text.ElideRight
-                                            font.pointSize: Controls.Typography.micro
+                                            font.pixelSize: Items.fonts.micro
                                         }
                                         BatchLabel {
                                             Layout.fillWidth: true
                                             text: queueRow.subtitle + (queueRow.pid ? " · PID " + queueRow.pid : "")
                                             textFormat: Text.PlainText; maximumLineCount: 1
                                             color: theme.secondaryText; elide: Text.ElideRight
-                                            font.pointSize: Controls.Typography.micro
+                                            font.pixelSize: Items.fonts.micro
                                         }
                                     }
                                     ColumnLayout {
@@ -993,7 +1059,7 @@ Window {
                                             text: queueRow.indeterminate ? root.tr("Working…")
                                                 : Math.floor(queueRow.progress * 100) + "%"
                                             color: theme.primaryText
-                                            font.pointSize: Controls.Typography.micro
+                                            font.pixelSize: Items.fonts.micro
                                         }
                                         Rectangle {
                                             Layout.fillWidth: true; Layout.preferredHeight: 4
@@ -1010,7 +1076,7 @@ Window {
                                         Layout.minimumWidth: 78; Layout.maximumWidth: 78
                                         Layout.preferredWidth: 78; text: queueRow.frames
                                         color: theme.secondaryText
-                                        font.pointSize: Controls.Typography.label
+                                        font.pixelSize: Items.fonts.label
                                     }
                                     ColumnLayout {
                                         objectName: "batchQueueElapsed_" + queueRow.index
@@ -1018,11 +1084,11 @@ Window {
                                         Layout.preferredWidth: 86; spacing: 4
                                         BatchLabel {
                                             text: queueRow.elapsed; color: theme.primaryText
-                                            font.pointSize: Controls.Typography.label
+                                            font.pixelSize: Items.fonts.label
                                         }
                                         BatchLabel {
                                             text: queueRow.eta; color: theme.secondaryText
-                                            font.pointSize: Controls.Typography.micro
+                                            font.pixelSize: Items.fonts.micro
                                         }
                                     }
                                     RowLayout {
@@ -1160,7 +1226,7 @@ Window {
                                 readOnly: true
                                 textFormat: TextEdit.PlainText
                                 wrapMode: TextEdit.WrapAnywhere
-                                font.pointSize: Controls.Typography.micro
+                                font.pixelSize: Items.fonts.micro
                                 background: Item {}
                                 onSelectedTextChanged: if (!selectedText.length) root.updateLog()
                             }
@@ -1256,7 +1322,7 @@ Window {
                                                 elide: Text.ElideMiddle
                                                 maximumLineCount: 2
                                                 wrapMode: Text.Wrap
-                                                font.pointSize: Controls.Typography.micro
+                                                font.pixelSize: Items.fonts.micro
                                             }
                                         }
                                         MouseArea {
@@ -1355,7 +1421,7 @@ Window {
                                             selectionColor: theme.action
                                             selectedTextColor: theme.selectedText
                                             font.family: theme.fontFamily
-                                            font.pointSize: Controls.Typography.micro
+                                            font.pixelSize: Items.fonts.micro
                                         }
                                     }
                                 }
@@ -1439,7 +1505,7 @@ Window {
                 Layout.fillWidth: true
                 text: root.tr("Separate frames and ranges with commas. Frames must be within the shot range.")
                 color: theme.secondaryText
-                font.pointSize: Controls.Typography.micro; wrapMode: Text.Wrap
+                font.pixelSize: Items.fonts.micro; wrapMode: Text.Wrap
             }
         }
         footer: Controls.DialogActions {

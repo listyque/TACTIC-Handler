@@ -456,6 +456,7 @@ class SettingsMixin:
             self.webChanged.emit()
         self._poll_timer.stop()
         self._clock.stop()
+        self._progress_timer.stop()
         for operation, subscriptions in self._operations.values():
             operation.cancel()
             for subscription in subscriptions:

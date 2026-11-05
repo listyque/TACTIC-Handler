@@ -22,11 +22,11 @@ class CatalogControllerMixin:
             [
                 {
                     **record,
-                    "title": record["title"] or self._text("No render status"),
+                    "title": record["title"] if record["value"] else self._text("No render status"),
                     "active": current.get(
                         record["value"],
                         record["value"] in self._filter_preferences if self._filter_preferences is not None
-                        else record["value"] != self._config["terminal_status"],
+                        else record["value"] not in {"", self._config["terminal_status"]},
                     ),
                 }
                 for record in records
@@ -173,7 +173,8 @@ class CatalogControllerMixin:
         else:
             self._selected_queue = ""
             self._select_episode(key)
-            self._publish_queue()
+            self._selected_shots.clear()
+            self._update_selection()
             self.queueSelected.emit(-1, False)
             self.logScopeChanged.emit()
             self.logChanged.emit()
@@ -217,7 +218,7 @@ class CatalogControllerMixin:
                 break
         if not test_render:
             self._server_seen.add(key)
-        self.selectQueue(entry["id"])
+        self.selectQueue(entry["id"], True)
         self._discover_entry(entry)
 
     def _discover_entry(self, entry):
@@ -227,7 +228,7 @@ class CatalogControllerMixin:
         if self._discovery_entry is not None:
             return
         self._discovery_entry = entry
-        status = config["queue_statuses"][-1] if (entry["origin"] == "manual") else ""
+        status = ""  # Adding to the local queue must not trigger a legacy server watcher.
         self._submit(
             lambda: _discover_queue(
                 self._api, entry["episodeKey"], config, entry["test"], status
@@ -243,7 +244,7 @@ class CatalogControllerMixin:
             jobs = [_shot_job(row, entry["test"]) for row in records]
             if not jobs:
                 raise ValueError("No shots to render")
-            entry.update(jobs=jobs, state="waiting", stage="Waiting")
+            entry.update(jobs=jobs, state="waiting", stage="Waiting" if entry.get("startRequested", True) else "Ready · press Start queue")
             self._log(f"{entry['title']}: {len(jobs)} shots queued", entry)
             self._flush_queue()
             self._pump()

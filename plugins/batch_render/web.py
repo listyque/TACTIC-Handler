@@ -63,6 +63,8 @@ class _BatchWebHandler(BaseHTTPRequestHandler):
         try:
             if request.path in {"/", "/index.html"}:
                 self._send(self.server.web_html, "text/html; charset=utf-8")
+            elif request.path in self.server.assets:
+                self._file(self.server.assets[request.path])
             elif request.path in self.server.icon_fonts:
                 self._file(self.server.icon_fonts[request.path])
             elif request.path == "/api/health":
@@ -130,6 +132,8 @@ class _BatchWebHandler(BaseHTTPRequestHandler):
 
     def _authorized(self, request) -> bool:
         if request.path in {
+            "/assets/items.mjs",
+            "/assets/strings.ru.json",
             "/assets/icons-solid.ttf",
             "/assets/icons-regular.ttf",
             "/assets/icons-material.ttf",
@@ -225,6 +229,8 @@ class BatchWebServer:
             "/assets/icons-regular.ttf": fonts / "fontawesome5-regular-webfont.ttf",
             "/assets/icons-material.ttf": fonts / "materialdesignicons-webfont.ttf",
         }
+        self.assets = {"/assets/items.mjs": Path(__file__).parent / "ui/items.mjs",
+                       "/assets/strings.ru.json": Path(__file__).parent / "strings.ru.json"}
         self._server = None
         self._thread = None
 
@@ -250,6 +256,7 @@ class BatchWebServer:
         server.access_html = ACCESS_REQUIRED_HTML.encode("utf-8")
         server.web_html = WEB_HTML.encode("utf-8")
         server.icon_fonts = self.icon_fonts
+        server.assets = self.assets
         self._server = server
         self.port = server.server_port
         self._thread = threading.Thread(

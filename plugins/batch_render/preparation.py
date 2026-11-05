@@ -101,8 +101,6 @@ def _discover_queue(api, episode_key, config, test_render, queued_status):
     records = _query_shots(episode, config)
     if not records:
         raise ValueError(f"No shots to render for {_title(episode)}")
-    if queued_status and not test_render:
-        _set_episode_task_status(episode, config["render_process"], queued_status)
     return records
 
 
@@ -114,7 +112,7 @@ def _download_dependency(api, file, skip_errors: bool, errors: list[str]):
     except (OSError, RuntimeError) as error:
         if not skip_errors:
             raise
-        message = f"Пропущена зависимость {file.get_filename_with_ext()}: {error}"
+        message = f"Skipped dependency {file.get_filename_with_ext()}: {error}"
         errors.append(message)
         report_progress({"text": message, "preparationError": message})
         return None

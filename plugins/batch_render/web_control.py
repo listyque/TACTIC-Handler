@@ -62,10 +62,13 @@ class WebControlMixin:
         ]
         job = self._preview_job(identity)
         previews = [
-            {"jobId": job["id"], "title": Path(path).name}
+            {"jobId": job["id"], "title": Path(path).name, "revision": job.get("renderFileVersions", {}).get(path, 0)}
             for path in (job or {}).get("renderFiles", [])
         ]
         return {
+            "language": self._language,
+            "selectedIds": sorted(self._selected_shots),
+            "selectionCount": len(self._selected_shots),
             "ready": self._ready,
             "busy": self._busy,
             "running": self.running,
@@ -73,12 +76,12 @@ class WebControlMixin:
             "watchServer": self._watch_server,
             "autoClear": self._auto_clear_finished,
             "status": self.statusText,
-            "error": self._error,
+            "error": self.errorText,
             "summary": self.summary,
             "settings": self.settings,
             "theme": self._web_theme,
             "filters": self.episode_filters.records(),
-            "episodes": self.episodes.records(),
+            "episodes": [dict(row,previewText=self.acronym(row.get("title", ""))) for row in self.episodes.records()],
             "queue": queue,
             "selected": self._detail(identity),
             "log": self._log_text(identity),
@@ -114,6 +117,29 @@ class WebControlMixin:
             "clear": self.clearCompleted,
             "open-root-output": self.showDestination,
         }
+        if action == 'select-episode':
+            identity=str(request.get('id') or '')
+            row=next((index for index,record in enumerate(self.episodes.records()) if record['searchKey']==identity),-1)
+            if row<0:
+                raise ValueError('Episode is no longer available')
+            self.selectEpisode(row)
+            return {'ok':True}
+        if action == 'select':
+            self.selectQueueRange(str(request.get('id') or ''), int(request.get('modifiers',0)))
+            return {'ok': True}
+        if action == 'select-all':
+            self.selectAllShots(str(request.get('id') or ''))
+            return {'ok': True}
+        if action == 'include-all':
+            if type(request.get('included')) is not bool:
+                raise ValueError('Expected an inclusion state')
+            self.setEpisodeIncluded(str(request.get('id') or ''), request['included'])
+            return {'ok': True}
+        if action == 'include-selected':
+            if type(request.get('included')) is not bool:
+                raise ValueError('Expected an inclusion state')
+            self.setSelectedIncluded(request['included'])
+            return {'ok': True}
         if action in simple:
             simple[action]()
             return {"ok": True}
@@ -195,6 +221,7 @@ class WebControlMixin:
             return {"ok": True}
 
         commands = {
+            "expand": self.toggleExpanded,
             "test": self.testQueue,
             "only": self.runOnly,
             "hold": self.holdQueue,
@@ -231,7 +258,7 @@ class WebControlMixin:
         if not self.webUrl:
             return
         QGuiApplication.clipboard().setText(self.webUrl)
-        self._status = "LAN-ссылка скопирована"
+        self._status = "LAN link copied"
         self.stateChanged.emit()
 
     def _restart_web_server(self):

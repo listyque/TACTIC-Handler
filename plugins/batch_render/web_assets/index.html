@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Диспетчер батч-рендера</title>
+<title>Batch Render</title>
 <style>
 @font-face { font-family: HandlerIconSolid; src: url('/assets/icons-solid.ttf') format('truetype'); font-display: block }
 @font-face { font-family: HandlerIconRegular; src: url('/assets/icons-regular.ttf') format('truetype'); font-display: block }
@@ -87,10 +87,12 @@ button.primary:hover { background: var(--accent) }
 .queue-scroll { padding: 0 10px 10px }
 .queue-row { position: relative; min-height: 92px; margin-bottom: 10px; padding: 9px 11px 9px 13px; border: 1px solid var(--line-soft); border-radius: var(--item-radius); background: var(--card); box-shadow: 0 2px 1px #0005 }
 .queue-row:hover { background: var(--card-hover) }
-.queue-row.selected { background: var(--accent-dark); border-color: var(--accent) }
-.queue-row.child { margin-left: 30px; min-height: 88px }
+.queue-row.selected { background: var(--accent-dark) }
+
 .queue-row.dragging { opacity: .45; outline: 2px solid var(--accent) }
-.queue-row.drop-before { border-top: 3px solid var(--accent) }
+.queue-row.drop-before::after,.queue-row.drop-after::after {content:"";position:absolute;left:0;right:0;height:3px;background:var(--accent);z-index:2}
+.queue-row.drop-before::after {top:0}
+.queue-row.drop-after::after {bottom:0}
 .queue-row > .stripe { position: absolute; left: 3px; top: 11px; bottom: 11px; width: 4px }
 .grip { display: grid; place-items: center; color: #71848d; cursor: grab; user-select: none }
 .grip-dots { display: grid; grid-template-columns: repeat(2,3px); gap: 4px 5px }
@@ -157,56 +159,86 @@ dialog::backdrop { background: #0a1015cc }
   .main { height: 100vh; margin-top: 10px }.columns, .queue-row { grid-template-columns: 18px 25px 48px minmax(170px,1fr) 120px 180px }
   .columns .frames-head, .queue-row .frames { display: none }
 }
+
+/* Workspace object cards: the same metrics and semantic roles as native. */
+body { font-size:13px }
+.catalog-card { box-sizing:border-box; grid-template-columns:var(--catalog-preview) minmax(0,1fr) 64px;gap:10px;height:calc(var(--catalog-row-height) - 2 * var(--card-inset));min-height:0;margin:var(--card-inset) var(--card-inset) calc(var(--card-inset) + var(--card-gap));padding:8px 8px 8px 13px;border-radius:var(--surface-radius);box-shadow:0 1px 1px var(--shadow,#0004),0 3px 2px var(--shadow,#0006) }
+.catalog-card.selected,.queue-row.selected { background:var(--accent-dark) }
+.catalog-card.selected:hover,.queue-row.selected:hover {background:var(--selection-hover,var(--accent-dark))}
+.catalog-card .stripe,.queue-row .stripe { position:absolute;left:3px;top:var(--card-rail-margin);bottom:var(--card-rail-margin);width:var(--card-rail);border-radius:2px }
+.catalog-card .thumb { width:var(--catalog-preview);height:var(--catalog-preview) }
+.thumb { border-radius:4px;background:var(--preview-background,#4a7c93);color:var(--preview-foreground,white) }
+.initials { font-size:10px }
+.title { font-size:var(--row-secondary-font-size);font-weight:600 }
+.description,.stage { font-size:11px;margin-top:2px }
+.queue-row.child .title {font-weight:400}
+#catalog,#queue {display:flex;flex-direction:column}
+.catalog-card,.queue-row {flex-shrink:0}
+.columns,.queue-row { grid-template-columns:28px 66px var(--queue-preview) minmax(210px,1fr) 112px 78px 86px 218px;column-gap:10px }
+.queue-row { box-sizing:border-box;min-height:0;height:calc(var(--episode-row-height) - 2 * var(--card-inset));margin:var(--card-inset) 4px calc(var(--card-inset) + var(--card-gap));padding:8px 8px 8px 11px;border:1px solid var(--line);border-radius:var(--surface-radius);box-shadow:0 1px 1px #0004,0 3px 2px #0006;overflow:hidden }
+.queue-row.child { height:calc(var(--shot-row-height) - 2 * var(--card-inset));margin-left:calc(4px + var(--row-indent)) }
+.queue-row .thumb { width:var(--queue-preview);height:var(--queue-preview) }
+.episode-toggles { display:flex;align-items:center;gap:10px }
+.episode-toggles .expand {width:28px;flex-shrink:0}
+.episode-toggles input,.queue-row.child > span:nth-child(2) input {margin:5px}
+.queue-row.child > span:nth-child(2) {display:flex;justify-content:flex-end}
+.columns,.queue-row {min-width:1000px}
+.columns .time-head,.queue-row .time,.columns .frames-head,.queue-row .frames {display:block}
+.episode-toggles input,.queue-row input[type=checkbox] { width:18px;height:18px;accent-color:var(--accent) }
+.catalog-card .row-actions button {width:28px;height:28px;min-height:28px;padding:0}
+.queue-row .row-actions button {width:28px;height:28px;min-height:28px;padding:0}
+.grip { min-width:28px;min-height:28px;display:grid;place-items:center }
+.catalog-card:focus-visible,.queue-row:focus-visible,.grip:focus-visible { outline:1px solid var(--accent);outline-offset:-2px }
 </style>
 </head>
 <body>
 <div class="app">
   <header class="app-header">
     <div class="brand-icon"><i class="app-icon" data-icon="list"></i></div>
-    <div class="brand"><h1>Диспетчер батч-рендера</h1><small id="status"></small></div>
+    <div class="brand"><h1>Batch Render</h1><small id="status"></small></div>
     <button id="scheduler" class="primary" data-action="toggle"></button>
-    <button id="stop" class="icon" data-action="stop" title="Остановить очередь сейчас"><i class="app-icon" data-icon="stop"></i></button>
-    <button class="icon" data-action="open-root-output" title="Открыть общую папку секвенций"><i class="app-icon" data-icon="folderOpen"></i></button>
-    <button class="icon" data-action="settings-open" title="Настройки рендера"><i class="app-icon" data-icon="settings"></i></button>
+    <button id="stop" class="icon" data-action="stop" title="Stop queue now"><i class="app-icon" data-icon="stop"></i></button>
+    <button class="icon" data-action="open-root-output" title="Open sequence output directory"><i class="app-icon" data-icon="folderOpen"></i></button>
+    <button class="icon" data-action="settings-open" title="Render settings"><i class="app-icon" data-icon="settings"></i></button>
   </header>
   <div id="summary" class="summary"></div>
   <div class="content" id="content">
     <aside class="panel catalog-panel">
       <div class="panel-head">
-        <input id="search" class="search" placeholder="Найти эпизод">
+        <input id="search" class="search" placeholder="Search episodes">
         <span id="episode-count" class="count"></span>
-        <button id="filter-button" class="icon flat" data-action="filters" title="Фильтры"><i class="app-icon" data-icon="filter"></i></button>
-        <button class="icon flat" data-action="refresh" title="Обновить"><i class="app-icon" data-icon="refresh"></i></button>
+        <button id="filter-button" class="icon flat" data-action="filters" title="Filters"><i class="app-icon" data-icon="filter"></i></button>
+        <button class="icon flat" data-action="refresh" title="Refresh"><i class="app-icon" data-icon="refresh"></i></button>
       </div>
       <div id="catalog" class="scroll"></div>
     </aside>
     <div id="catalog-splitter" class="splitter"></div>
     <main class="main" id="main">
       <div class="queue-tools">
-        <span class="panel-title">Очередь рендера</span>
-        <button class="icon flat" data-selected-action="top" title="В самое начало"><i class="app-icon" data-icon="top"></i></button>
-        <button class="icon flat" data-selected-action="up" title="Выше"><i class="app-icon" data-icon="up"></i></button>
-        <button class="icon flat" data-selected-action="down" title="Ниже"><i class="app-icon" data-icon="down"></i></button>
-        <button class="icon flat" data-selected-action="bottom" title="В самый конец"><i class="app-icon" data-icon="bottom"></i></button>
-        <label class="check"><input id="auto-clear" type="checkbox" data-action="auto">Автоочистка</label>
-        <button id="detail-toggle" class="icon" data-action="detail-toggle" title="Показать или скрыть панель"><i class="app-icon" data-icon="terminal"></i></button>
-        <button data-action="clear"><i class="app-icon" data-icon="clear"></i> Очистить завершённые</button>
+        <span class="panel-title">Render queue</span>
+        <button class="icon flat" data-selected-action="top" title="Move to beginning"><i class="app-icon" data-icon="top"></i></button>
+        <button class="icon flat" data-selected-action="up" title="Move up"><i class="app-icon" data-icon="up"></i></button>
+        <button class="icon flat" data-selected-action="down" title="Move down"><i class="app-icon" data-icon="down"></i></button>
+        <button class="icon flat" data-selected-action="bottom" title="Move to end"><i class="app-icon" data-icon="bottom"></i></button>
+        <label class="check"><input id="auto-clear" type="checkbox" data-action="auto">Auto-clean</label>
+        <button id="detail-toggle" class="icon" data-action="detail-toggle" title="Show or hide panel"><i class="app-icon" data-icon="terminal"></i></button>
+        <button data-action="clear"><i class="app-icon" data-icon="clear"></i> Clear completed</button>
       </div>
       <section class="panel queue-panel">
-        <div class="columns"><span></span><span></span><span class="task">Задача / этап</span><span>Прогресс</span><span class="frames-head">Кадры</span><span class="time-head">Прошло / осталось</span></div>
+        <div class="columns"><span></span><span></span><span class="task">Job / stage</span><span>Progress</span><span class="frames-head">Frames</span><span class="time-head">Elapsed / remaining</span></div>
         <div id="queue" class="scroll queue-scroll"></div>
       </section>
       <div id="detail-splitter" class="splitter detail-splitter"></div>
       <section id="detail" class="panel detail">
         <div class="detail-head">
-          <button class="tab" data-tab="log">Лог</button>
-          <button class="tab" data-tab="preview">Превью</button>
-          <button class="tab" data-tab="parameters">Параметры</button>
-          <span id="detail-title" class="detail-title">Все задачи</span>
-          <button class="icon flat" data-action="open-log" title="Открыть файл лога"><i class="app-icon" data-icon="open"></i></button>
-          <label class="check"><input id="follow" type="checkbox">Следить</label>
-          <label class="check"><input id="freeze" type="checkbox">Зафиксировать</label>
-          <button class="icon flat" data-action="detail-toggle" title="Скрыть панель"><i class="app-icon" data-icon="chevronDown"></i></button>
+          <button class="tab" data-tab="log">Log</button>
+          <button class="tab" data-tab="preview">Preview</button>
+          <button class="tab" data-tab="parameters">Parameters</button>
+          <span id="detail-title" class="detail-title">All jobs</span>
+          <button class="icon flat" data-action="open-log" title="Open log file"><i class="app-icon" data-icon="open"></i></button>
+          <label class="check"><input id="follow" type="checkbox">Follow</label>
+          <label class="check"><input id="freeze" type="checkbox">Freeze</label>
+          <button class="icon flat" data-action="detail-toggle" title="Hide panel"><i class="app-icon" data-icon="chevronDown"></i></button>
         </div>
         <div id="detail-body" class="detail-body"></div>
       </section>
@@ -218,33 +250,34 @@ dialog::backdrop { background: #0a1015cc }
 <div id="menu" class="popover menu" hidden></div>
 <dialog id="settings-dialog">
   <form id="settings-form">
-    <div class="dialog-head">Настройки рендера</div>
+    <div class="dialog-head">Render settings</div>
     <div class="dialog-body">
       <label>Maya Render.exe<input name="mayaPath" type="text" required></label>
-      <label>Папка вывода<input name="savePath" type="text" required></label>
-      <label>Камера (пусто — настройки сцены)<input name="camera" type="text"></label>
-      <label>Ограничение времени шота, минут (0 — без ограничения)<input name="timeout" type="number" min="0"></label>
-      <label>Чек-ин логов в TACTIC<select name="logCheckin"><option value="always">Всегда</option><option value="failed">Только при ошибке</option><option value="never">Никогда</option></select></label>
-      <label class="check"><input name="skipDependencyErrors" type="checkbox">Пропускать недоступные зависимости</label>
-      <label>Проверка серверной очереди, секунды<input name="pollInterval" type="number" min="5" max="3600" required></label>
-      <label class="check"><input name="webEnabled" type="checkbox">Запускать веб-диспетчер</label>
-      <label>Порт веб-диспетчера<input name="webPort" type="number" min="1" max="65535" required></label>
-      <label class="check"><input name="webSecurity" type="checkbox">Требовать защищённую ссылку</label>
-      <label class="check"><input name="stopOnError" type="checkbox">Поставить очередь на паузу после ошибки</label>
+      <label>Output directory<input name="savePath" type="text" required></label>
+      <label>Camera (leave blank to use scene settings)<input name="camera" type="text"></label>
+      <label>Shot timeout, minutes (0 — unlimited)<input name="timeout" type="number" min="0"></label>
+      <label>Log check-in to TACTIC<select name="logCheckin"><option value="always">Always</option><option value="failed">On failure only</option><option value="never">Never</option></select></label>
+      <label class="check"><input name="skipDependencyErrors" type="checkbox">Skip unavailable dependencies</label>
+      <label>Server queue polling, seconds<input name="pollInterval" type="number" min="5" max="3600" required></label>
+      <label class="check"><input name="webEnabled" type="checkbox">Enable web control</label>
+      <label>Web control port<input name="webPort" type="number" min="1" max="65535" required></label>
+      <label class="check"><input name="webSecurity" type="checkbox">Require a protected link</label>
+      <label class="check"><input name="stopOnError" type="checkbox">Pause queue after an error</label>
     </div>
-    <div class="dialog-actions"><button type="button" data-action="settings-close">Отмена</button><button class="primary" type="submit">Сохранить</button></div>
+    <div class="dialog-actions"><button type="button" data-action="settings-close">Cancel</button><button class="primary" type="submit">Keep</button></div>
   </form>
 </dialog>
 <dialog id="frames-dialog" class="compact">
   <form id="frames-form">
-    <div class="dialog-head">Кадры шота</div>
+    <div class="dialog-head">Shot frames</div>
     <div class="dialog-body">
-      <label>Диапазоны и отдельные кадры<input name="frames" type="text" placeholder="1-20, 50, 66, 68, 70-150" required></label>
+      <label>Ranges and individual frames<input name="frames" type="text" placeholder="1-20, 50, 66, 68, 70-150" required></label>
     </div>
-    <div class="dialog-actions"><button type="button" data-action="frames-close">Отмена</button><button class="primary" type="submit">Применить</button></div>
+    <div class="dialog-actions"><button type="button" data-action="frames-close">Cancel</button><button class="primary" type="submit">Apply</button></div>
   </form>
 </dialog>
-<script>
+<script type="module">
+import * as ItemUI from "/assets/items.mjs";
 const token = new URLSearchParams(location.search).get('token') || '';
 const byId = id => document.getElementById(id);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -279,8 +312,9 @@ function icon(name) {
 function applyIcons() {
   document.querySelectorAll('[data-icon]').forEach(node => {
     const [font, code] = resolvedIcon(node.dataset.icon);
-    node.className = `app-icon ${font}`;
-    node.textContent = String.fromCodePoint(parseInt(code, 16));
+    const className=`app-icon ${font}`, glyph=String.fromCodePoint(parseInt(code,16));
+    if(node.className!==className)node.className=className;
+    if(node.textContent!==glyph)node.textContent=glyph;
   });
 }
 function applyTheme(theme = {}) {
@@ -302,12 +336,39 @@ function applyTheme(theme = {}) {
   };
   for (const [property, key] of Object.entries(sizes)) if (Number.isFinite(theme[key])) root.style.setProperty(property, theme[key] + 'px');
   if (theme.fontFamily) root.style.fontFamily = `"${theme.fontFamily}", system-ui, sans-serif`;
+  for(const [key,value] of Object.entries(ItemUI.cssMetrics()))root.style.setProperty(key,value);
+  for(const [key,value] of Object.entries({'--card':theme.surfaceContainerLow,'--card-hover':theme.cardHover,'--selection-hover':theme.selectionHover,'--line':theme.outlineVariant,'--preview-background':theme.previewBackground,'--preview-foreground':theme.previewForeground}))if(value)root.style.setProperty(key,value);
   root.style.colorScheme = theme.dark === false ? 'light' : 'dark';
 }
 const saved = JSON.parse(localStorage.getItem('batch-web-ui') || '{}');
-let state = {}, selected = '', expanded = new Set(), tab = saved.tab || 'log';
+let state = {}, selected = '', tab = saved.tab || 'log';
 let detailVisible = saved.detailVisible !== false, previewIndex = -1;
-let loading = false, dragged = '', draggedParent = '';
+let reloadRequested = false;
+let loading = false, dragged = '', draggedParent = '', dragPending = false;
+let language = 'en', messages = {}, russianMessages = null;
+const textSources = new WeakMap(), attributeSources = new WeakMap();
+function tr(source) { return language === 'ru' ? (messages[source] || source) : source; }
+function localizeDocument() {
+  document.documentElement.lang=language;
+  document.title=tr('Batch Render');
+  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+  while(walker.nextNode()) {
+    const node=walker.currentNode;
+    if(node.parentElement.closest('script,style,[data-server-value],.title,.description,.stage,.detail-title,.log,#status,#error,.parameters dd,[data-action="status"],[data-action="filter"]'))continue;
+    const source=textSources.get(node) ?? node.textContent;
+    textSources.set(node,source);
+    const trimmed=source.trim();
+    if(trimmed)node.textContent=source.replace(trimmed,tr(trimmed));
+  }
+  document.querySelectorAll('[title],[placeholder],[aria-label]').forEach(node=>{
+    if(node.matches('[data-server-value],.thumb'))return;
+    const originals=attributeSources.get(node)||{};
+    for(const name of ['title','placeholder','aria-label'])if(node.hasAttribute(name)){
+      originals[name]??=node.getAttribute(name);node.setAttribute(name,tr(originals[name]));
+    }
+    attributeSources.set(node,originals);
+  });
+}
 
 function saveUi() {
   localStorage.setItem('batch-web-ui', JSON.stringify({
@@ -341,76 +402,111 @@ async function command(action, values = {}) {
 }
 function patch(id, html) {
   const node = byId(id);
-  if (node._html === html) return;
+  if (node._html === html || (id === 'queue' && (dragged || dragPending))) return;
   const top = node.scrollTop;
-  node.innerHTML = html;
+  if(id === 'queue' || id === 'catalog') {
+    const key = id === 'queue' ? 'select' : 'catalog';
+    const old = new Map([...node.children].map(child => [child.dataset[key],child]));
+    const template=document.createElement('template');template.innerHTML=html;
+    let next=node.firstElementChild;
+    for(const candidate of [...template.content.children]) {
+      const identity=candidate.dataset[key];
+      let child=old.get(identity);
+      if(!identity || !child) {
+        child=candidate;
+        for(const part of child.children)part._sourceHtml=part.outerHTML;
+      }
+      else {
+        old.delete(identity);
+        if(child._sourceHtml!==candidate.outerHTML) {
+          // Keep the row identity/focus; update only its changed presentation.
+          child.className=candidate.className;
+          for(const attr of candidate.attributes)if(child.getAttribute(attr.name)!==attr.value)child.setAttribute(attr.name,attr.value);
+          const current=[...child.children], incoming=[...candidate.children];
+          incoming.forEach((part,index)=>{
+            const previous=current[index];
+            if(previous?._sourceHtml===part.outerHTML)return;
+            part._sourceHtml=part.outerHTML;
+            if(previous)previous.replaceWith(part);else child.appendChild(part);
+          });
+          current.slice(incoming.length).forEach(part=>part.remove());
+        }
+      }
+      child._sourceHtml=candidate.outerHTML;
+      if(child!==next)node.insertBefore(child,next);
+      next=child.nextElementSibling;
+    }
+    for(const child of old.values())child.remove();
+  } else node.innerHTML=html;
   node.scrollTop = top;
   node._html = html;
 }
+
 function initials(title) {
   return String(title || '').split(/[_\s]+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').slice(0, 2);
 }
-function image(url, title, identity, className = 'thumb') {
+function image(url, title, identity, className = 'thumb',previewText='') {
   if (url) url = `/api/thumb?identity=${encodeURIComponent(identity)}&token=${encodeURIComponent(token)}`;
-  return url ? `<img class="${className}" src="${escapeHtml(url)}">` : `<div class="${className} initials">${escapeHtml(initials(title))}</div>`;
+  return url ? `<img class="${className}" src="${escapeHtml(url)}">` : `<div class="${className} initials">${escapeHtml(previewText || initials(title))}</div>`;
 }
 function actionButton(action, iconName, title, id, enabled = true) {
   return `<button data-action="${action}" data-id="${escapeHtml(id || '')}" title="${escapeHtml(title)}" ${enabled ? '' : 'disabled'}>${icon(iconName)}</button>`;
 }
 function catalogCard(row) {
   const choices = (row.statusChoices || []).map(choice => escapeHtml(choice.title)).join('|');
-  return `<article class="catalog-card" style="--status:${escapeHtml(row.statusColor || '#60b6da')}" data-catalog="${escapeHtml(row.searchKey)}">
-    <i class="stripe"></i>${image(row.previewUrl, row.title, row.searchKey)}
+  return `<article tabindex="0" role="option" class="catalog-card ${row.selected ? 'selected' : ''}" style="--status:${escapeHtml(row.statusColor || '#60b6da')}" data-catalog="${escapeHtml(row.searchKey)}">
+    <i class="stripe"></i>${image(row.previewUrl, row.title, row.searchKey,'thumb',row.previewText)}
     <div><div class="title">${escapeHtml(row.title)}</div><div class="description">${escapeHtml(row.subtitle)}</div><div class="stage">${escapeHtml(row.renderStatus)}</div></div>
-    <div class="row-actions"><button class="icon flat" data-action="add" data-id="${escapeHtml(row.searchKey)}" title="Добавить в очередь">${icon('plus')}</button><button class="icon flat" data-menu-episode="${escapeHtml(row.searchKey)}" data-statuses="${choices}" title="Действия">${icon('more')}</button></div>
+    <div class="row-actions"><button class="icon flat" data-action="add" data-id="${escapeHtml(row.searchKey)}" title="Add to queue">${icon('plus')}</button><button class="icon flat" data-menu-episode="${escapeHtml(row.searchKey)}" data-statuses="${choices}" title="Actions">${icon('more')}</button></div>
   </article>`;
 }
 function queueRow(row, child) {
   const actions = new Set(row.actions || []), color = statusColors[row.state] || '#778991';
   const movable = actions.has('move');
   let controls = '';
-  if (actions.has('only')) controls += actionButton('only', 'play', 'Запустить только это', row.jobId);
-  if (actions.has('hold')) controls += actionButton('hold', ['held','paused'].includes(row.state) ? 'resume' : 'pause', row.state === 'paused' ? 'Продолжить рендер' : 'Удержать / поставить на паузу', row.jobId);
-  if (actions.has('retry')) controls += actionButton('retry', 'refresh', 'Повторить ошибки / отменённые', row.jobId);
-  if (actions.has('frames')) controls += `<button data-action="frames" data-id="${escapeHtml(row.jobId)}" data-value="${escapeHtml(row.frameSpec || '')}" title="Изменить кадры">${icon('frames')}</button>`;
-  if (actions.has('cancel')) controls += actionButton('cancel', 'stop', 'Отмена', row.jobId);
-  if (actions.has('remove')) controls += actionButton('remove', 'remove', 'Удалить из очереди', row.jobId);
-  controls += actionButton('row-menu', 'more', 'Другие действия', row.jobId);
-  const expand = child ? (actions.has('include') ? `<input type="checkbox" data-action="include" data-id="${escapeHtml(row.jobId)}" ${row.included ? 'checked' : ''}>` : '') : `<span class="expand" data-expand="${escapeHtml(row.jobId)}">${icon(expanded.has(row.jobId) ? 'chevronDown' : 'right')}</span>`;
-  return `<article class="queue-row ${child ? 'child' : ''} ${row.jobId === selected ? 'selected' : ''}" data-select="${escapeHtml(row.jobId)}" data-target="${escapeHtml(row.jobId)}" data-parent="${escapeHtml(row.parentId || '')}" style="--status:${color}">
-    <span class="grip" draggable="${movable}" data-drag="${escapeHtml(row.jobId)}" title="Перетащить"><i class="grip-dots"><b></b><b></b><b></b><b></b><b></b><b></b></i></span>
-    <span>${expand}</span>${image(row.previewUrl, row.title, row.jobId)}
-    <div class="queue-copy"><div class="title">${escapeHtml(row.title)}</div><div class="stage">${escapeHtml(row.stage)}</div><div class="description">${escapeHtml(row.subtitle)}</div></div>
+  if (actions.has('only')) controls += actionButton('only', 'play', 'Run only this', row.jobId);
+  if (actions.has('hold')) controls += actionButton('hold', ['held','paused'].includes(row.state) ? 'resume' : 'pause', row.state === 'paused' ? 'Resume render' : 'Hold / pause', row.jobId);
+  if (actions.has('retry')) controls += actionButton('retry', 'refresh', 'Retry failed / cancelled', row.jobId);
+  if (actions.has('frames')) controls += `<button data-action="frames" data-id="${escapeHtml(row.jobId)}" data-value="${escapeHtml(row.frameSpec || '')}" title="Edit frames">${icon('frames')}</button>`;
+  if (actions.has('cancel')) controls += actionButton('cancel', 'stop', 'Cancel', row.jobId);
+  if (actions.has('remove')) controls += actionButton('remove', 'remove', 'Remove from queue', row.jobId);
+  controls += actionButton('row-menu', 'more', 'More actions', row.jobId);
+  const expand = child ? (actions.has('include') ? `<input type="checkbox" data-action="include" data-id="${escapeHtml(row.jobId)}" ${row.included ? 'checked' : ''}>` : '') : `<span class="episode-toggles"><span class="expand" data-expand="${escapeHtml(row.jobId)}">${icon(row.expanded ? 'chevronDown' : 'right')}</span><input type="checkbox" data-action="include-all" data-id="${escapeHtml(row.jobId)}" ${row.includeState === 2 ? 'checked' : ''} ${!row.included ? 'disabled' : ''} aria-label="Include / exclude all shots"></span>`;
+  return `<article tabindex="0" role="option" class="queue-row ${child ? 'child' : ''} ${(row.selected || (!child && row.jobId === selected)) ? 'selected' : ''}" data-select="${escapeHtml(row.jobId)}" data-target="${escapeHtml(row.jobId)}" data-parent="${escapeHtml(row.parentId || '')}" style="--status:${color}">
+    <span class="grip" tabindex="0" role="button" draggable="${movable}" data-drag="${escapeHtml(row.jobId)}" title="Reorder"><i class="grip-dots"><b></b><b></b><b></b><b></b><b></b><b></b></i></span>
+    <span>${expand}</span>${image(row.previewUrl, row.title, row.jobId,'thumb',row.previewText)}
+    <div class="queue-copy"><div class="title">${escapeHtml(row.title)}${row.test ? " · " + tr("TEST") : ""}</div><div class="stage">${escapeHtml(row.stage)}</div><div class="description">${escapeHtml(row.subtitle)}</div></div>
     <div class="progress-copy"><span>${Math.round((row.progress || 0) * 100)}%</span><div class="bar"><i style="width:${Math.round((row.progress || 0) * 100)}%"></i></div></div>
     <div class="frames">${escapeHtml(row.frames)}</div><div class="time"><b>${escapeHtml(row.elapsed)}</b>${escapeHtml(row.eta)}</div><div class="row-actions">${controls}</div><i class="stripe"></i>
   </article>`;
 }
 function renderSummary() {
   const value = state.summary || {}, progress = Math.round((value.progress || 0) * 100);
-  byId('summary').innerHTML = `<div class="metric"><span>В очереди</span><b>${value.pending || 0}</b></div><div class="metric"><span>Готово / ошибки</span><b>${value.completed || 0} / ${value.failed || 0}</b></div><div class="metric"><span>Прошло</span><b>${escapeHtml(value.elapsed || '0:00')}</b></div><div class="metric"><span>Осталось</span><b>${escapeHtml(value.eta || '—')}</b></div><div class="overall"><div class="bar"><i style="width:${progress}%"></i></div><span>Всего: ${progress}%</span></div>`;
+  byId('summary').innerHTML = `<div class="metric"><span>Pending</span><b>${value.pending || 0}</b></div><div class="metric"><span>Done / failed</span><b>${value.completed || 0} / ${value.failed || 0}</b></div><div class="metric"><span>Elapsed</span><b>${escapeHtml(value.elapsed || '0:00')}</b></div><div class="metric"><span>Remaining</span><b>${escapeHtml(value.eta || '—')}</b></div><div class="overall"><div class="bar"><i style="width:${progress}%"></i></div><span>${tr("Total:")} ${progress}%</span></div>`;
 }
 function renderCatalog() {
   const query = byId('search').value.trim().toLocaleLowerCase();
   const rows = (state.episodes || []).filter(row => !query || `${row.title} ${row.subtitle}`.toLocaleLowerCase().includes(query));
   byId('episode-count').textContent = rows.length;
-  patch('catalog', rows.map(catalogCard).join('') || '<div class="empty">Подходящих эпизодов нет</div>');
+  patch('catalog', rows.map(catalogCard).join('') || '<div class="empty">No matching episodes</div>');
 }
 function renderQueue() {
   const html = [];
   for (const group of state.queue || []) {
     html.push(queueRow(group.episode, false));
-    if (expanded.has(group.episode.jobId)) for (const shot of group.shots) html.push(queueRow(shot, true));
+    if (group.episode.expanded) for (const shot of group.shots) html.push(queueRow(shot, true));
   }
-  patch('queue', html.join('') || '<div class="empty">Добавьте эпизоды слева — очередь пока пуста</div>');
+  patch('queue', html.join('') || '<div class="empty">Add episodes on the left to build the queue</div>');
+  document.querySelectorAll('[data-action="include-all"]').forEach(input=>{const row=(state.queue||[]).find(group=>group.episode.jobId===input.dataset.id)?.episode;input.indeterminate=row?.includeState===1;});
   const detail = state.selected || {};
   const canMove = (detail.actions || []).includes('move');
   document.querySelectorAll('[data-selected-action]').forEach(button => button.disabled = !canMove);
 }
 function renderFilters() {
-  patch('filters', (state.filters || []).map(row => `<button class="filter-row ${row.active ? 'active' : ''}" data-action="filter" data-value="${escapeHtml(row.value)}" style="--status:${escapeHtml(row.statusAccent || '#778991')}"><i class="dot"></i><span>${escapeHtml(row.title)}</span><b>${row.count}</b><span>${row.active ? icon('checked') : ''}</span></button>`).join('') + `<hr><button class="filter-row ${state.watchServer ? 'active' : ''}" data-action="watch">${icon('sync')}<span>Следить за серверной очередью</span><span>${state.watchServer ? icon('checked') : ''}</span></button>`);
+  patch('filters', (state.filters || []).map(row => `<button class="filter-row ${row.active ? 'active' : ''}" data-action="filter" data-value="${escapeHtml(row.value)}" style="--status:${escapeHtml(row.statusAccent || '#778991')}"><i class="dot"></i><span>${escapeHtml(row.title)}</span><b>${row.count}</b><span>${row.active ? icon('checked') : ''}</span></button>`).join('') + `<hr><button class="filter-row ${state.watchServer ? 'active' : ''}" data-action="watch">${icon('sync')}<span>Watch server queue</span><span>${state.watchServer ? icon('checked') : ''}</span></button>`);
 }
 function previewUrl(item, index) {
-  return `/api/preview?job=${encodeURIComponent(item.jobId)}&index=${index}&token=${encodeURIComponent(token)}`;
+  return `/api/preview?job=${encodeURIComponent(item.jobId)}&index=${index}&changed=${item.revision || 0}&token=${encodeURIComponent(token)}`;
 }
 function renderDetail() {
   byId('detail').classList.toggle('hidden', !detailVisible);
@@ -419,7 +515,7 @@ function renderDetail() {
   if (!detailVisible) return;
   document.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
   const detail = state.selected || {};
-  byId('detail-title').textContent = detail.title || 'Все задачи';
+  byId('detail-title').textContent = detail.title || 'All jobs';
   const body = byId('detail-body');
   if (tab === 'log') {
     if (!body.querySelector('.log')) body.innerHTML = '<pre class="log"></pre>';
@@ -432,14 +528,14 @@ function renderDetail() {
     return;
   }
   if (tab === 'parameters') {
-    const pairs = [['Этап',detail.stage],['Состояние',detail.state],['Кадры',detail.frames],['Попытка',detail.attempt],['PID',detail.pid],['Код выхода',detail.exitCode],['Прошло',detail.elapsed],['Сцена',detail.scene],['Вывод',detail.output],['Лог',detail.logPath],['Команда',detail.command],['Ошибка',detail.error]];
+    const pairs = [['Stage',detail.stage],['State',detail.stateLabel],['Frames',detail.frames],['Attempt',detail.attempt],['PID',detail.pid],['Exit code',detail.exitCode],['Elapsed',detail.elapsed],['Scene',detail.scene],['Output',detail.output],['Log',detail.logPath],['Command',detail.command],['Error',detail.error]];
     body.innerHTML = `<div class="parameters"><dl>${pairs.filter(pair => pair[1] !== '' && pair[1] != null).map(pair => `<dt>${escapeHtml(pair[0])}</dt><dd>${escapeHtml(pair[1])}</dd>`).join('')}</dl></div>`;
     return;
   }
   const items = state.previews || [];
   if (!items.length) {
     previewIndex = -1;
-    body.innerHTML = '<div class="empty">Кадры появятся здесь во время рендера</div>';
+    body.innerHTML = '<div class="empty">Rendered frames will appear here</div>';
     return;
   }
   if (previewIndex < 0 || previewIndex >= items.length) previewIndex = 0;
@@ -456,21 +552,25 @@ function render() {
   applyTheme(state.theme);
   byId('status').textContent = state.status || '';
   byId('error').textContent = state.error || '';
-  byId('scheduler').innerHTML = (state.paused ? icon('play') + ' Запустить очередь' : icon('pause') + ' Пауза после шота');
+  byId('scheduler').innerHTML = (state.paused ? icon('play') + ' Start queue' : icon('pause') + ' Pause after shot');
   byId('scheduler').disabled = !state.ready;
   byId('stop').disabled = !state.running;
   byId('auto-clear').checked = !!state.autoClear;
   renderSummary(); renderFilters(); renderCatalog(); renderQueue(); renderDetail();
   applyIcons();
+  localizeDocument();
 }
 async function load() {
-  if (loading) return;
+  if (loading) {reloadRequested=true;return;}
   loading = true;
   try {
     state = await request('/api/state?selected=' + encodeURIComponent(selected));
+    language=state.language || 'en';
+    if(language==='ru' && !russianMessages)russianMessages=await (await fetch('/assets/strings.ru.json')).json();
+    messages=language==='ru' ? russianMessages : {};
     if (selected && !state.selected?.id) { selected = ''; previewIndex = -1 }
     render();
-  } catch (error) { showError(error) } finally { loading = false }
+  } catch (error) { showError(error) } finally { loading = false; if(reloadRequested){reloadRequested=false;queueMicrotask(load);} }
 }
 function positionPopover(node, anchor) {
   const rect = anchor.getBoundingClientRect();
@@ -482,18 +582,18 @@ function positionPopover(node, anchor) {
 function showEpisodeMenu(button) {
   const id = button.dataset.menuEpisode, statuses = (button.dataset.statuses || '').split('|').filter(Boolean);
   const menu = byId('menu');
-  menu.innerHTML = `<button data-action="add" data-id="${escapeHtml(id)}">${icon('playlist')}Добавить в очередь</button><hr>${statuses.map(status => `<button data-action="status" data-id="${escapeHtml(id)}" data-value="${escapeHtml(status)}">Статус: ${escapeHtml(status)}</button>`).join('')}`;
+  menu.innerHTML = `<button data-action="add" data-id="${escapeHtml(id)}">${icon('playlist')}Add to queue</button><hr>${statuses.map(status => `<button data-action="status" data-id="${escapeHtml(id)}" data-value="${escapeHtml(status)}">${tr("Status:")} ${escapeHtml(status)}</button>`).join('')}`;
   positionPopover(menu, button);
 }
 function showRowMenu(button) {
   const id = button.dataset.id, detail = state.selected?.id === id ? state.selected : {};
   const actions = new Set(detail.actions || []), menu = byId('menu');
   let html = '';
-  if (actions.has('test')) html += `<button data-action="test" data-id="${escapeHtml(id)}">${icon('flask')}Тестовый рендер первого кадра</button>`;
-  html += `<button data-action="open-output" data-id="${escapeHtml(id)}">${icon('folder')}Открыть папку секвенции</button>`;
-  if (detail.logPath) html += `<button data-action="open-log" data-id="${escapeHtml(id)}">${icon('open')}Открыть файл лога</button>`;
-  if (actions.has('frames')) html += `<button data-action="frames" data-id="${escapeHtml(id)}" data-value="${escapeHtml(detail.frameSpec || '')}">${icon('frames')}Кадры…</button>`;
-  if (actions.has('move')) html += `<hr><button data-action="top" data-id="${escapeHtml(id)}">${icon('top')}В самое начало</button><button data-action="up" data-id="${escapeHtml(id)}">${icon('up')}Выше</button><button data-action="down" data-id="${escapeHtml(id)}">${icon('down')}Ниже</button><button data-action="bottom" data-id="${escapeHtml(id)}">${icon('bottom')}В самый конец</button>`;
+  if (actions.has('test')) html += `<button data-action="test" data-id="${escapeHtml(id)}">${icon('flask')}Test render of first frame</button>`;
+  html += `<button data-action="open-output" data-id="${escapeHtml(id)}">${icon('folder')}Open sequence directory</button>`;
+  if (detail.logPath) html += `<button data-action="open-log" data-id="${escapeHtml(id)}">${icon('open')}Open log file</button>`;
+  if (actions.has('frames')) html += `<button data-action="frames" data-id="${escapeHtml(id)}" data-value="${escapeHtml(detail.frameSpec || '')}">${icon('frames')}Frames…</button>`;
+  if (actions.has('move')) html += `<hr><button data-action="top" data-id="${escapeHtml(id)}">${icon('top')}Move to beginning</button><button data-action="up" data-id="${escapeHtml(id)}">${icon('up')}Move up</button><button data-action="down" data-id="${escapeHtml(id)}">${icon('down')}Move down</button><button data-action="bottom" data-id="${escapeHtml(id)}">${icon('bottom')}Move to end</button>`;
   menu.innerHTML = html;
   positionPopover(menu, button);
 }
@@ -573,6 +673,7 @@ document.addEventListener('click', event => {
     if (action === 'frames-close') { byId('frames-dialog').close(); return }
     if (action === 'detail-toggle') { detailVisible = !detailVisible; saveUi(); renderDetail(); return }
     if (action === 'frames') { openFrames(id, actionNode.dataset.value || ''); return }
+    if (action === 'include-all') {command(action,{id,included:actionNode.checked});return;}
     if (action === 'filter' || action === 'status') command(action,{id,value:actionNode.dataset.value});
     else if (action === 'top' || action === 'bottom') command(action,{id,delta:action === 'top' ? -1000000 : 1000000});
     else command(action,{id});
@@ -585,33 +686,49 @@ document.addEventListener('click', event => {
   const previewNode = event.target.closest('[data-preview]');
   if (previewNode) { previewIndex = Number(previewNode.dataset.preview); renderDetail(); return }
   const expandNode = event.target.closest('[data-expand]');
-  if (expandNode) { const id = expandNode.dataset.expand; expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderQueue(); return }
+  if (expandNode) {command('expand',{id:expandNode.dataset.expand});return;}
   const row = event.target.closest('[data-select]');
-  if (row) { selected = row.dataset.select; previewIndex = -1; load() }
+  if (row) { selected = row.dataset.select; previewIndex = -1; command('select',{id:selected,modifiers:(event.shiftKey?1:0)|((event.ctrlKey||event.metaKey)?2:0)});return; }
+  const card=event.target.closest('[data-catalog]');
+  if(card)command('select-episode',{id:card.dataset.catalog});
 });
 document.addEventListener('dblclick', event => {
   const row = event.target.closest('.queue-row:not(.child)');
-  if (row) { const id = row.dataset.select; expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderQueue(); return }
+  if (row) {command('expand',{id:row.dataset.select});return;}
   const card = event.target.closest('[data-catalog]');
   if (card) command('add',{id:card.dataset.catalog});
 });
+document.addEventListener('pointerdown',event=>{if(event.target.closest('[data-drag]'))dragPending=true;});
+document.addEventListener('pointerup',()=>{dragPending=false;});
+document.addEventListener('pointercancel',()=>{dragPending=false;});
+document.addEventListener('keydown',event=>{
+  if(event.target.matches('input,textarea,select'))return;
+  const row=event.target.closest('[data-select]');if(!row)return;
+  if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='a'){event.preventDefault();command('select-all',{id:row.dataset.select});}
+  else if(event.key===' '){event.preventDefault();command('include',{id:row.dataset.select});}
+  else if(event.target.closest('[data-drag]')&&['ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();command(event.key==='ArrowUp'?'up':'down',{id:row.dataset.select});}
+});
+
 document.addEventListener('dragstart', event => {
   const grip = event.target.closest('[data-drag]');
   if (!grip || grip.getAttribute('draggable') !== 'true') { event.preventDefault(); return }
   dragged = grip.dataset.drag; draggedParent = grip.closest('.queue-row').dataset.parent; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', dragged);
   grip.closest('.queue-row').classList.add('dragging');
+  selected=dragged;command('select',{id:dragged,modifiers:0});
 });
 document.addEventListener('dragover', event => {
   const target = event.target.closest('[data-target]');
   if (!target || !dragged || target.dataset.target === dragged || target.dataset.parent !== draggedParent) return;
-  event.preventDefault(); target.classList.add('drop-before');
+  event.preventDefault();
+  const source=document.querySelector('[data-select="'+CSS.escape(dragged)+'"]');
+  target.classList.add(source?.compareDocumentPosition(target)&Node.DOCUMENT_POSITION_FOLLOWING?'drop-after':'drop-before');
 });
-document.addEventListener('dragleave', event => event.target.closest('[data-target]')?.classList.remove('drop-before'));
+document.addEventListener('dragleave', event => event.target.closest('[data-target]')?.classList.remove('drop-before','drop-after'));
 document.addEventListener('drop', event => {
-  const target = event.target.closest('[data-target]'); document.querySelectorAll('.drop-before').forEach(node => node.classList.remove('drop-before'));
+  const target = event.target.closest('[data-target]'); document.querySelectorAll('.drop-before,.drop-after').forEach(node => node.classList.remove('drop-before','drop-after'));
   if (target && dragged && target.dataset.target !== dragged && target.dataset.parent === draggedParent) { event.preventDefault(); command('move-to',{id:dragged,target:target.dataset.target}) }
 });
-document.addEventListener('dragend', () => { dragged = ''; draggedParent = ''; document.querySelectorAll('.dragging,.drop-before').forEach(node => node.classList.remove('dragging','drop-before')) });
+document.addEventListener('dragend', () => { dragged = ''; draggedParent = ''; dragPending=false; document.querySelectorAll('.dragging,.drop-before,.drop-after').forEach(node => node.classList.remove('dragging','drop-before','drop-after')) });
 document.addEventListener('pointerdown', event => {
   if (!event.target.closest('.popover') && !event.target.closest('[data-menu-episode]') && !event.target.closest('[data-action="filters"]')) { byId('filters').hidden = true; byId('menu').hidden = true }
 });

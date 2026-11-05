@@ -24,6 +24,8 @@ from .domain import (
 from .queue_state import _TERMINAL, _ACTIVE, _IDLE, _RETRYABLE, _RUNNABLE
 
 
+from .localization import LocalizationMixin
+from .selection import SelectionMixin
 from .web_control import WebControlMixin
 from .settings import SettingsMixin
 from .execution import ExecutionMixin
@@ -31,12 +33,14 @@ from .queue_actions import QueueActionsMixin
 from .catalog_controller import CatalogControllerMixin
 
 
-class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, QueueActionsMixin, CatalogControllerMixin, QObject):
+class BatchDispatcherController(LocalizationMixin, SelectionMixin, WebControlMixin, SettingsMixin, ExecutionMixin, QueueActionsMixin, CatalogControllerMixin, QObject):
     stateChanged = Signal()
 
     settingsChanged = Signal()
 
     queueChanged = Signal()
+    detailChanged = Signal()
+    previewsChanged = Signal()
 
     episodeFiltersChanged = Signal()
 
@@ -72,8 +76,7 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
         self._project_code = project_code
         self._config = deepcopy((manifest or BATCH_DISPATCHER_CONFIG)["project_config"])
         self._config.update(settings or {})
-        self._language = "en"
-        self._translations = json.loads((Path(__file__).parent / "strings.ru.json").read_text(encoding="utf-8"))
+        self._init_localization()
         self._offline = offline
         self._ready = offline
         self._closing = False
@@ -87,6 +90,9 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
         self._events = []
         self._selected_episode = ""
         self._selected_queue = ""
+        self._selected_shots = set()
+        self._selection_anchor = ""
+        self._queue_rows = {}
         self._run_only = ""
         self._pending_removal = ""
         self._active_entry = None
@@ -121,7 +127,7 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
             "episodeStatuses": [
                 status
                 for status in _episode_filter_statuses(self._config)
-                if status != self._config["terminal_status"]
+                if status not in {"", self._config["terminal_status"]}
             ],
         }
         self._tray = None
@@ -171,6 +177,7 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
                 "indeterminate",
                 "previewUrl",
                 "included",
+                "includeState",
                 "actions",
             ),
             identity_role="jobId",
@@ -185,7 +192,7 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
                     "title": status,
                     "statusAccent": "",
                     "count": 0,
-                    "active": status != self._config["terminal_status"],
+                    "active": status not in {"", self._config["terminal_status"]},
                 }
                 for status in _episode_filter_statuses(self._config)
             ]
@@ -196,24 +203,23 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
         self._poll_timer = QTimer(self)
         self._poll_timer.setSingleShot(True)
         self._poll_timer.timeout.connect(self.refresh)
+        self._progress_timer = QTimer(self)
+        self._progress_timer.setSingleShot(True)
+        self._progress_timer.setInterval(50)
+        self._progress_timer.timeout.connect(self._publish_progress)
         self._clock = QTimer(self)
         self._clock.setInterval(1000)
         self._clock.timeout.connect(self._tick)
         self._clock.start()
 
-    @Slot(str, str, result=str)
-    def translate(self, value, language):
-        return self._translations.get(value, value) if language == 'ru' else value
+    @Slot(str, result=str)
+    def acronym(self, title):
+        from thlib.global_functions import gen_acronym
+        return str(gen_acronym(title,length=2) or '?').upper()
 
-    def _text(self, value):
-        return '\n'.join(self.translate(line, self._language) for line in str(value or '').split('\n'))
-
-    @Slot(str)
-    def setLanguage(self, language):
-        if self._language != language:
-            self._language = language
-            self._publish_queue()
-            self.stateChanged.emit()
+    @Property(int, notify=detailChanged)
+    def selectedShotCount(self):
+        return len(self._selected_shots)
 
     @Slot(object)
     def _invoke(self, callback):
@@ -340,7 +346,7 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
 
     @Property(str, notify=stateChanged)
     def errorText(self):
-        return self._error
+        return self._text(self._error)
 
     @Property(bool, notify=stateChanged)
     def closePending(self):
@@ -415,7 +421,7 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
                     return entry, job
         return None, None
 
-    @Property("QVariantMap", notify=queueChanged)
+    @Property("QVariantMap", notify=detailChanged)
     def selectedDetail(self):
         return self._detail(self._selected_queue)
 
@@ -433,6 +439,7 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
             "id": row["id"],
             "title": row["title"],
             "state": row["state"],
+            "stateLabel": self._text(row["state"].capitalize()),
             "stage": self._text(row.get("stage", "")),
             "error": row.get("error", ""),
             "command": row.get("command", ""),
@@ -466,16 +473,13 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
             )
         return self._active_job
 
-    @Property("QVariantList", notify=queueChanged)
+    @Property("QVariantList", notify=previewsChanged)
     def renderPreviews(self):
         job = self._preview_job()
         previews = []
         for path in (job or {}).get("renderFiles", []):
             url = QUrl.fromLocalFile(path)
-            try:
-                url.setQuery(f"changed={Path(path).stat().st_mtime_ns}")
-            except OSError:
-                pass
+            url.setQuery("changed=" + str(job["id"]) + "-" + str(job.get("renderFileVersions", {}).get(path, 0)))
             previews.append(
                 {
                     "jobId": job["id"],
@@ -504,8 +508,9 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
         )
         if active_render:
             allowed.add("hold")
-        elif state in _IDLE:
-            allowed.add("hold")
+        elif state in _IDLE | {"skipped"}:
+            if state in _IDLE:
+                allowed.add("hold")
             if (job is None and entry["state"] not in _ACTIVE) or (
                 job is not None and job is not self._active_job
             ):
@@ -635,10 +640,8 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
             "parentId": "",
             "title": entry["title"],
             "previewUrl": entry.get("previewUrl", ""),
-            "subtitle": (
-                f"{len(jobs)} шотов · завершено "
-                f"{sum(job['state'] == 'completed' for job in jobs)}"
-            ),
+            "previewText": self.acronym(entry["title"]),
+            "subtitle": self._text(f"{len(jobs)} shots · {sum(job['state'] == 'completed' for job in jobs)} completed"),
             "state": entry["state"],
             "stage": self._text(entry["stage"]),
             "selected": entry["id"] == self._selected_queue,
@@ -651,7 +654,8 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
             "test": entry["test"],
             "attempt": 0,
             "pid": "",
-            "included": False,
+            "included": any("include" in self._allowed_actions(entry,job) for job in jobs),
+            "includeState": self._episode_include_state(entry),
             "actions": self._allowed_actions(entry),
             "error": entry["error"],
             "indeterminate": entry["state"] in {"discovering", "preparing", "saving"},
@@ -661,16 +665,17 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
         eta = self._job_eta(job, frame_seconds)
         default_spec = _format_frame_ranges([(job["start"], job["end"])])
         frame_spec = job.get("frameSpec") or default_spec
-        frame_label = "Кадры: " if frame_spec != default_spec else ""
+        frame_label = "Frames: " if frame_spec != default_spec else ""
         return {
             "jobId": job["id"],
             "parentId": entry["id"],
             "title": job["title"],
             "previewUrl": job.get("previewUrl", ""),
-            "subtitle": f"{frame_label}{frame_spec} · попытка {job['attempt']}",
+            "previewText": self.acronym(job["title"]),
+            "subtitle": self._text(f"{frame_label}{frame_spec} · attempt {job['attempt']}"),
             "state": job["state"],
             "stage": self._text(job["stage"]),
-            "selected": job["id"] == self._selected_queue,
+            "selected": job["id"] in self._selected_shots,
             "expanded": False,
             "progress": self._job_fraction(job),
             "frames": f"{job.get('framesDone', 0)}/{_job_frame_count(job)}",
@@ -681,6 +686,7 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
             "test": entry["test"],
             "attempt": job["attempt"],
             "included": job["state"] != "skipped",
+            "includeState": 0 if job["state"] == "skipped" else 2,
             "actions": self._allowed_actions(entry, job),
             "pid": job.get("pid", ""),
             "error": job["error"],
@@ -689,6 +695,8 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
         }
 
     def _publish_queue(self):
+        self._progress_timer.stop()
+        self._selected_shots.intersection_update(job["id"] for entry in self._entries for job in entry["jobs"])
         records = []
         frame_seconds = self._frame_seconds()
         for entry in self._entries:
@@ -699,6 +707,8 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
                     for job in entry["jobs"]
                 )
         self.queue.replace(records)
+        self._queue_rows = {row["jobId"]:index for index,row in enumerate(records)}
+        self._highlighted_rows = {row["jobId"] for row in records if row["selected"]}
         queued = {
             entry["episodeKey"]
             for entry in self._entries
@@ -709,3 +719,20 @@ class BatchDispatcherController(WebControlMixin, SettingsMixin, ExecutionMixin, 
             if episode.get("queued") != value:
                 self.episodes.set_value(index, "queued", value)
         self.queueChanged.emit()
+        self.detailChanged.emit()
+        self.previewsChanged.emit()
+
+    def _publish_progress(self):
+        if self._closing or self._active_entry is None:
+            return
+        frame_seconds = self._frame_seconds()
+        entry = self._active_entry
+        parent_index = self._queue_rows.get(entry['id'])
+        if parent_index is not None:
+            self.queue.update_record(parent_index,self._episode_record(entry,frame_seconds))
+        if self._active_job is not None:
+            index = self._queue_rows.get(self._active_job['id'])
+            if index is not None:
+                self.queue.update_record(index,self._shot_record(entry,self._active_job,frame_seconds))
+        self.queueChanged.emit()
+        self.detailChanged.emit()

@@ -50,109 +50,10 @@ from thlib.environment import env_mode
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def episode(identity="ep", shots=2):
-    return {
-        "id": identity,
-        "episodeKey": identity,
-        "title": identity,
-        "test": True,
-        "state": "waiting",
-        "stage": "Waiting",
-        "error": "",
-        "elapsed": 0.0,
-        "expanded": True,
-        "prepared": False,
-        "preparationErrors": [],
-        "origin": "manual",
-        "jobs": [
-            {
-                "id": f"{identity}-{i}",
-                "shotKey": f"{identity}/shot{i}",
-                "title": f"Shot {i}",
-                "start": 1,
-                "end": 5,
-                "state": "waiting",
-                "stage": "Waiting",
-                "error": "",
-                "progress": 0.0,
-                "elapsed": 0.0,
-                "renderElapsed": 0.0,
-                "frame": "",
-                "framesDone": 0,
-                "attempt": 1,
-                "scene": "",
-                "logPath": "",
-                "renderOutput": "",
-                "renderFiles": [],
-                "preparationErrors": [],
-                "pid": "",
-            }
-            for i in range(shots)
-        ],
-    }
+from batch_render_fixture import BatchCase, episode, Root
 
 
-class Root(QObject):
-    dark = Property(bool, lambda self: True, constant=True)
-    applicationThemeStyleName = Property(str, lambda self: "default", constant=True)
-    applicationThemeAccentColor = Property(str, lambda self: "#58b9e6", constant=True)
-    applicationThemeBaseColor = Property(str, lambda self: "#202b32", constant=True)
-
-
-class QueueTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        if os.name == "nt":
-            import ctypes
-
-            kernel32 = ctypes.windll.kernel32
-            kernel32.SetErrorMode(kernel32.GetErrorMode() | 0x0001 | 0x0002 | 0x8000)
-        cls.app = QGuiApplication.instance() or QGuiApplication([])
-        # Offscreen Windows does not discover system fonts automatically.
-        if os.name == "nt":
-            for name in ("segoeui.ttf", "segoeuib.ttf", "seguisb.ttf"):
-                QFontDatabase.addApplicationFont(
-                    str(Path(os.environ["WINDIR"]) / "Fonts" / name)
-                )
-
-    def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.addCleanup(self.directory.cleanup)
-        old = env_mode.current_path
-        env_mode.current_path = self.directory.name
-        self.addCleanup(setattr, env_mode, "current_path", old)
-        self.executor = Executor(4, 32)
-        self.api = SimpleNamespace(submit=self.executor.submit)
-        self.controller = batch.BatchDispatcherController(
-            self.api, "test", offline=True, settings={}
-        )
-        self.addCleanup(self.finish)
-
-    def finish(self):
-        self.controller.shutdown()
-        thread = threading.Thread(target=lambda: self.executor.close(wait=True))
-        thread.start()
-        thread.join(20)
-        self.assertFalse(thread.is_alive(), "Worker did not stop")
-        self.controller.deleteLater()
-        self.app.processEvents()
-
-    def until(self, predicate, seconds=4):
-        deadline = time.monotonic() + seconds
-        while not predicate() and time.monotonic() < deadline:
-            self.app.processEvents()
-            QTest.qWait(5)
-        self.assertTrue(predicate(), self.controller.errorText)
-
-    def visual(self, item, name):
-        if item.objectName() == name:
-            return item
-        for child in item.childItems():
-            found = self.visual(child, name)
-            if found is not None:
-                return found
-        return None
-
+class QueueTests(BatchCase):
     def test_two_episodes_run_once_and_remain_in_history(self):
         c = self.controller
         c._entries = [episode("one"), episode("two")]
@@ -188,9 +89,9 @@ class QueueTests(unittest.TestCase):
         )
         self.addCleanup(server.stop)
         url = server.start()
-        self.assertIn("Диспетчер батч-рендера", WEB_HTML)
+        self.assertTrue("Batch Render" in WEB_HTML)
         with urlopen(url, timeout=2) as response:
-            self.assertIn("Диспетчер батч-рендера", response.read().decode())
+            self.assertIn("Batch Render", response.read().decode())
         with urlopen(url.split("/?", 1)[0], timeout=2) as response:
             self.assertIn("Нужна защищённая ссылка", response.read().decode())
         for name in ("solid", "regular", "material"):
@@ -831,7 +732,7 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(self.controller.queue.get(1)["frames"], "0/104")
         self.assertEqual(
             self.controller.queue.get(1)["subtitle"],
-            "Кадры: 1-20, 50,66,68, 70-150 · попытка 1",
+            "Frames: 1-20, 50,66,68, 70-150 · attempt 1",
         )
 
     def test_window_state_is_saved_without_losing_normal_geometry(self):
@@ -1087,6 +988,7 @@ class QueueTests(unittest.TestCase):
         c._catalog = records
         with patch.object(c,'refresh') as refresh:
             c.toggleEpisodeStatusFilter('Custom')
+            c.toggleEpisodeStatusFilter('')
             c._episodes_ready(c._generation,dict(episodes=records,queuedEpisodes=[],filters=c.episode_filters.records()))
             self.assertEqual([row['code'] for row in c.episodes.records()],['EP1','EP3'])
             c.setEpisodeSearch('ep3')

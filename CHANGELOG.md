@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.391 - 2026-11-06
+
+- Package Batch Render 1.2.0: read-only episode addition with explicit queue start, workspace card styling, matching native/browser item metrics and interface language.
+- Keep scroll position during selection; add Shift/Ctrl ranges, an episode inclusion checkbox and selected-shot bulk inclusion. Preserve browser grip dragging across polling and allow excluded shots to move.
+- Update only changed selection/progress roles, coalesce render output updates and invalidate frame previews from worker events instead of GUI filesystem checks.
+
 ## 0.6.0.390 - 2026-11-05
 
 - Correct Batch Render web-panel Material icon code points against the bundled native font; package the fix as plugin 1.1.1, also usable by Handler 0.6.0.389 without an application update.
