@@ -73,7 +73,7 @@ version directories cannot be overwritten with changed contents. Old hash-named
 caches are no longer used; an active old window must be closed before moving or
 removing its files.
 
-**Open when Handler starts** is opt-in per plugin/server/project in Configuration
+**Start … automatically** is opt-in per plugin/server/project in Configuration
 -> Client plugins. After authentication/project restoration, the normal loader
 rechecks access and opens each eligible plugin once per application session.
 Disabling the plugin blocks automatic launch too. Opening Batch Render restores
@@ -117,3 +117,10 @@ optional `tests/run_batch_render_browser_smoke.py --evidence <folder>` checks re
 Edge input and paired native/browser item geometry in English/Russian at narrow
 and wide sizes. It requires an existing Playwright installation (set
 `BATCH_PLAYWRIGHT` to its module URL) and does not run Maya or contact TACTIC.
+
+Configuration catalogue selection does not execute a plugin. Each row has an
+explicit Launch / Show window button that delegates to the same fresh-access
+loader as the main-window actions. Enablement controls availability only. Each
+automatic-start checkbox includes the plugin title and applies only to that
+plugin in the current server/project; unrelated enabled tools are not started.
+There is no TS counterpart to this desktop plugin management page.

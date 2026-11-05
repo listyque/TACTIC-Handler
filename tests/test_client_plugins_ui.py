@@ -88,12 +88,14 @@ class ClientPluginUiTests(unittest.TestCase):
             application = Application()
             controller = ClientPluginsController(application, parent=application)
             try:
-                controller._rows = [{'code':'th_batch_render','title':'Batch Render','allowed':True,'error':''}]
+                controller._rows = [{'code':'th_batch_render','title':'Batch Render','allowed':True,'error':''},
+                                    {'code':'second_plugin','title':'Second plugin','allowed':True,'error':''}]
                 with patch.object(env_inst, 'ui_main', object()), patch.object(controller, 'open_plugin') as launch:
                     controller._autostart_next()
                     launch.assert_not_called()
                     controller.set_autostart('th_batch_render', True)
                     self.assertTrue(controller.rows[0]['autostart'])
+                    self.assertFalse(controller.rows[1]['autostart'])
                     controller.set_enabled('th_batch_render', False)
                     controller._autostart_next()
                     launch.assert_not_called()
@@ -220,7 +222,7 @@ Window {{ width: 800; height: 640; visible: true
                     self.app.processEvents()
                     if time.monotonic()>end: self.fail(controller.error or 'Native UI timeout')
             try:
-                with patch.object(ClientPluginsController,'_catalog',return_value=([record],True)):
+                with patch.object(ClientPluginsController,'_catalog',return_value=([record,dict(record,code='second_plugin',title='Second plugin with a deliberately long descriptive name')],True)):
                     engine.loadData(qml.encode(),QUrl.fromLocalFile(str(source/'thlib/ui/qml/plugin-ui-test.qml')))
                     self.assertTrue(engine.rootObjects(),warnings)
                     self.app.installTranslator(translator)
@@ -236,10 +238,50 @@ Window {{ width: 800; height: 640; visible: true
                             pending.extend(item.childItems())
                     self.assertFalse(warnings,warnings)
                     pump(lambda:find('clientPluginEnabled_fixture_plugin') is not None)
+                    # Catalogue selection is inert; only explicit launch actions call the loader.
+                    with patch.object(controller,'_run') as launch:
+                        item=find('clientPluginSelect_fixture_plugin')
+                        point=item.mapToScene(QPointF(item.width()/2,item.height()/2)).toPoint()
+                        QTest.mouseClick(window,Qt.MouseButton.LeftButton,pos=point)
+                        self.assertTrue(item.property('selected'))
+                        item.forceActiveFocus()
+                        QTest.keyClick(window,Qt.Key.Key_Return)
+                        launch.assert_not_called()
+                        button=find('clientPluginLaunch_fixture_plugin')
+                        self.assertEqual(button.property('text'),'Запустить')
+                        QTest.mouseClick(window,Qt.MouseButton.LeftButton,pos=button.mapToScene(QPointF(button.width()/2,button.height()/2)).toPoint())
+                        self.assertEqual(launch.call_count,1)
+                        self.assertEqual(launch.call_args.args[:2],('open','fixture_plugin'))
+                        button.forceActiveFocus()
+                        QTest.keyClick(window,Qt.Key.Key_Space)
+                        self.assertEqual(launch.call_count,2)
+                        device=QTest.createTouchDevice()
+                        point=button.mapToScene(QPointF(button.width()/2,button.height()/2)).toPoint()
+                        QTest.touchEvent(window,device).press(0,point,window).commit()
+                        QTest.touchEvent(window,device).release(0,point,window).commit()
+                        self.app.processEvents()
+                        self.assertEqual(launch.call_count,3)
+                        controller.set_enabled('fixture_plugin',False)
+                        self.app.processEvents()
+                        button=find('clientPluginLaunch_fixture_plugin')
+                        self.assertFalse(button.isEnabled())
+                        launch.reset_mock()
+                        QTest.mouseClick(window,Qt.MouseButton.LeftButton,pos=button.mapToScene(QPointF(button.width()/2,button.height()/2)).toPoint())
+                        launch.assert_not_called()
+                        controller.set_enabled('fixture_plugin',True)
+                        self.app.processEvents()
+                        key=(controller._scope(controller._context()),'fixture_plugin')
+                        controller._runs[key]={'version':'1.0.0'}
+                        controller.stateChanged.emit();self.app.processEvents()
+                        self.assertEqual(find('clientPluginLaunch_fixture_plugin').property('text'),'Показать окно')
+                        controller._runs.clear();controller.stateChanged.emit();self.app.processEvents()
                     autostart=find('clientPluginAutostart_fixture_plugin')
+                    self.assertEqual(autostart.property('text'),'Автоматически запускать Fixture plugin')
                     autostart.forceActiveFocus()
                     QTest.keyClick(window,Qt.Key.Key_Space)
                     pump(lambda:controller.rows[0]['autostart'])
+                    self.assertFalse(controller.rows[1]['autostart'])
+                    self.assertFalse(find('clientPluginAutostart_second_plugin').property('checked'))
                     controller.set_autostart('fixture_plugin',False)
                     toggle=find('clientPluginEnabled_fixture_plugin')
                     point=toggle.mapToScene(QPointF(toggle.width()/2,toggle.height()/2)).toPoint()
@@ -254,6 +296,11 @@ Window {{ width: 800; height: 640; visible: true
                     button=find('clientPluginBuild')
                     self.assertGreaterEqual(button.mapToScene(QPointF(0,0)).x(),0)
                     self.assertLessEqual(button.mapToScene(QPointF(button.width(),0)).x(),500)
+                    for code in ('fixture_plugin','second_plugin'):
+                        for action in ('Launch','Autostart'):
+                            control=find(f'clientPlugin{action}_{code}')
+                            self.assertGreaterEqual(control.mapToScene(QPointF()).x(),0)
+                            self.assertLessEqual(control.mapToScene(QPointF(control.width(),0)).x(),500)
                     self.assertFalse(warnings,warnings)
                     window.close()
             finally:

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.392 - 2026-11-06
+
+- Separate client plugin selection from explicit Launch / Show window actions in Configuration. Keep the existing permission-checked loader and main-window launch actions.
+- Name each plugin in its automatic-start checkbox and clarify that enablement alone does not launch it; automatic start is independent per plugin after authentication and project selection.
+
 ## 0.6.0.391 - 2026-11-06
 
 - Package Batch Render 1.2.0: read-only episode addition with explicit queue start, workspace card styling, matching native/browser item metrics and interface language.

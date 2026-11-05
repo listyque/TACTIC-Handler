@@ -9,6 +9,7 @@ Item {
     required property var theme
     required property var controller
     property string pendingArchive: ""
+    property string selectedPlugin: ""
     ColumnLayout {
         anchors.fill: parent
         spacing: Foundation.spacing.compact
@@ -55,13 +56,27 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     Controls.EditorListItem {
+                        objectName: "clientPluginSelect_" + modelData.code
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         theme: root.theme
                         text: modelData.title + (modelData.version ? " · " + modelData.version : "")
                         description: modelData.error || (!modelData.allowed ? qsTr("Your groups cannot run this plugin") : modelData.running ? qsTr("Running version: %1").arg(modelData.runningVersion) : modelData.description || qsTr("Runs in TACTIC Handler"))
+                        selected: root.selectedPlugin === modelData.code
+                        wrapTitle: true
+                        enabled: !root.controller.busy
+                        onClicked: root.selectedPlugin = modelData.code
+                    }
+                    Controls.Button {
+                        objectName: "clientPluginLaunch_" + modelData.code
+                        theme: root.theme
+                        text: modelData.running ? qsTr("Show window") : qsTr("Launch")
                         enabled: !root.controller.busy && modelData.allowed && modelData.enabled && !modelData.error
-                        onClicked: root.controller.open_plugin(modelData.code)
+                        Accessible.name: (modelData.running ? qsTr("Show %1") : qsTr("Launch %1")).arg(modelData.title)
+                        onClicked: {
+                            root.selectedPlugin = modelData.code
+                            root.controller.open_plugin(modelData.code)
+                        }
                     }
                     Controls.CheckBox {
                         objectName: "clientPluginEnabled_" + modelData.code
@@ -75,10 +90,23 @@ Item {
                 Controls.CheckBox {
                     objectName: "clientPluginAutostart_" + modelData.code
                     theme: root.theme
-                    text: qsTr("Open when Handler starts")
+                    Layout.fillWidth: true
+                    wrapText: true
+                    text: qsTr("Start %1 automatically").arg(modelData.title)
                     checked: modelData.autostart
                     enabled: !root.controller.busy && modelData.enabled && modelData.allowed && !modelData.error
                     onToggled: root.controller.set_autostart(modelData.code, checked)
+                }
+                Controls.SectionLabel {
+                    Layout.fillWidth: true
+                    theme: root.theme
+                    text: qsTr("Only this plugin, after sign-in and project selection. Other plugins have their own setting.")
+                    wrapMode: Text.Wrap
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: root.theme.outlineVariant
                 }
             }
             QQC.ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
@@ -115,7 +143,7 @@ Item {
         Controls.SelectableText {
             Layout.fillWidth: true
             theme: root.theme
-            text: root.controller.error || root.controller.message || qsTr("Click a plugin to open it. Active render queues keep their current version.")
+            text: root.controller.error || root.controller.message || qsTr("Enabled makes a plugin available; it does not launch it. Use Launch here or the main-window plugin actions. Active queues keep their version.")
         }
     }
     Connections {

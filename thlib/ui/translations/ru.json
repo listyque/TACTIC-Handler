@@ -6186,7 +6186,6 @@
   "No client plugins are active in this project": "В этом проекте нет активных клиентских плагинов",
   "Release version": "Версия выпуска",
   "Build ZIP…": "Собрать ZIP…",
-  "Click a plugin to open it. Active render queues keep their current version.": "Нажмите на плагин для запуска. Работающие очереди рендера сохраняют свою версию.",
   "Publish client plugin": "Публикация клиентского плагина",
   "Make this ZIP the active client plugin release for the current server and project? Running queues keep their version.\n%1": "Назначить этот ZIP активным выпуском клиентского плагина на текущем сервере в текущем проекте? Работающие очереди сохранят свою версию.\n%1",
   "Plugin ZIP files (*.zip)": "Пакеты плагинов (*.zip)",
@@ -6205,6 +6204,12 @@
   "Installed plugin files were modified; preserve them before retrying": "Файлы установленного плагина изменены; сохраните их перед повторной установкой",
   "Installed plugin contains unexpected files": "В установленном плагине есть посторонние файлы",
   "Plugin installation cannot be a directory link": "Папка установки плагина не может быть ссылкой",
-  "Open when Handler starts": "Открывать при запуске ТХ",
+  "Launch": "Запустить",
+  "Show window": "Показать окно",
+  "Launch %1": "Запустить %1",
+  "Show %1": "Показать %1",
+  "Start %1 automatically": "Автоматически запускать %1",
+  "Only this plugin, after sign-in and project selection. Other plugins have their own setting.": "Только этот плагин, после входа и выбора проекта. Для других плагинов настройка задаётся отдельно.",
+  "Enabled makes a plugin available; it does not launch it. Use Launch here or the main-window plugin actions. Active queues keep their version.": "«Включено» делает плагин доступным, но не запускает его. Используйте кнопку «Запустить» здесь или действия плагинов в главном окне. Работающие очереди сохраняют свою версию.",
   "Batch Render": "Батч-рендер"
 }

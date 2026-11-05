@@ -11,8 +11,11 @@ Open **Configuration -> Client plugins** after signing in and selecting a projec
 These tools run in Handler. The project's original TACTIC server stores and
 publishes their releases; TACTIC Stream is not required.
 
-Click **Refresh**, then a plugin to open it. **Enabled** controls future launches
-for this client and server/project. Disabling does not interrupt a running queue.
+Click **Refresh** to list plugins. Clicking a row only selects it. Use its
+**Launch** button to open the tool; an already running tool offers **Show window**.
+The main-window film button and account-menu actions remain direct launch commands.
+**Enabled** makes that plugin available for this client and server/project; it
+does not launch it. Disabling does not interrupt a running queue.
 The list shows the available release and, while open, the running release.
 Before launch Handler checks the current server version and your group access.
 An open plugin keeps its version; close it and open it again to use an update.
@@ -40,9 +43,11 @@ source publicly; group launch restrictions are not source-code encryption or a
 sandbox. A download/checksum/compatibility error prevents loading the new code.
 Actual Maya/Redshift rendering needs separate validation on your workstation.
 
-**Open when Handler starts** opens the enabled plugin automatically after login
-and project selection. This option belongs to the current server/project. It
-opens Batch Render with the saved queue paused; use **Start queue** to render.
+**Start … automatically** is a separate checkbox for each plugin.
+Only checked, enabled and permitted plugins open after sign-in and project
+selection. It does not apply to every installed or enabled plugin. The option
+belongs to the current server/project. Batch Render restores its queue paused;
+use **Start queue** to render.
 
 Installed versions are in `plugins/installed/<protocol>/<server>/<project>/<plugin>/<version>`
 under this client's settings folder. New server packages use names such as
