@@ -13,6 +13,8 @@ Item {
     readonly property var entries: {
         root.pageRevision;
         const result = UI.pages.slice();
+        result.push({ id: "client_plugins", title: qsTr("Client plugins"), icon: "deployed_code",
+            description: qsTr("Server-supplied desktop tools and updates"), help: "client_plugins" });
         for (let index = 0; index < configPageModel.count(); index++) {
             const record = configPageModel.get(index);
             if (!result.some(page => (page.nativeId || page.id) === record.target))

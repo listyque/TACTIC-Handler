@@ -862,6 +862,8 @@ def _build_editors(
     delivery: DeliveryBundle,
 ) -> EditorBundle:
     controller = core.controller
+    from thlib.ui.client_plugins import ClientPluginsController
+
     settings = ConfigurationBridge(core, task_bundle, collaboration, delivery)
     configuration = ConfigurationController(
         controller.apply_server_configuration,
@@ -883,6 +885,7 @@ def _build_editors(
         dcc_runtime_values=delivery.handler_server.selected_scene_info,
         server_control=ServerControlEditor(controller),
         database_resources=DatabaseResourcesEditor(controller),
+        client_plugins=ClientPluginsController(controller, parent=controller),
     )
     delivery.handler_server.stateChanged.connect(
         configuration.refresh_dcc_runtime

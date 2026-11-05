@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.385 - 2026-11-05
+
+- Add desktop-only client plugin delivery through original TACTIC plugin records and installer, without Stream commands, schema changes or server hooks.
+- Add native Configuration -> Client plugins with project/group checks, enablement, background delivery, immutable verified caches and running-release pinning.
+- Add GUI/CLI ZIP build and administrator publication/rollback, plus the Niki Batch Render package preserving the reviewed VM dispatcher body.
+
 ## 0.6.0.384 - 2026-11-05
 
 - Validate server procedure source by content, including bundled `.source` files, so same-size edits with preserved timestamps cannot execute an older body; retain a bounded syntax cache.

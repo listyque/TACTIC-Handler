@@ -1,0 +1,6 @@
+{
+  "code": "th_batch_render",
+  "title": "Batch Render",
+  "description": "Niki batch renderer. Runs locally in TACTIC Handler.",
+  "access_script": "stream/batch/dispatcher_runner"
+}

@@ -121,6 +121,7 @@ class ConfigurationController(QObject):
         "tasks_preferences",
         "cache",
         "dcc_plugins",
+        "client_plugins",
     }
     _builtin_resettable_pages = {
         "server", "database_resources", "checkin_preferences",
@@ -150,9 +151,13 @@ class ConfigurationController(QObject):
         dcc_runtime_values=None,
         server_control=None,
         database_resources=None,
+        client_plugins=None,
     ) -> None:
         super().__init__(parent)
         self._integration_controllers = {}
+        if client_plugins is not None:
+            self._integration_controllers["client_plugins"] = client_plugins
+            client_plugins.stateChanged.connect(self.dirtyChanged)
         self._apply_server_configuration = apply_server_configuration
         self._notify = notify
         self._server_control = server_control
@@ -572,7 +577,8 @@ class ConfigurationController(QObject):
 
     @Property(bool, notify=dirtyChanged)
     def busy(self) -> bool:
-        return any(editor.busy for editor in self._remote_editors.values())
+        return (any(editor.busy for editor in self._remote_editors.values())
+                or any(getattr(controller, "busy", False) for controller in self._integration_controllers.values()))
 
     def _server_control_dirty(self) -> bool:
         return bool(self._server_control and (self._server_control.dirty or self._server_control.writeUncertain))
@@ -660,6 +666,10 @@ class ConfigurationController(QObject):
 
     @Slot(str, result="QVariantMap")
     def page_schema(self, page_id: str) -> dict:
+        if page_id == "client_plugins":
+            return {"integration": {
+                "title": "Client plugins", "view": "ClientPlugins.qml", "height": 440,
+            }}
         if page_id == "dcc_plugins":
             return {"integration": {
                 "title": "DCC plugins", "module": "thlib.ui.dcc_plugins",
