@@ -48,26 +48,37 @@ Item {
             spacing: Foundation.spacing.compact
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            delegate: RowLayout {
+            delegate: ColumnLayout {
                 required property var modelData
                 width: plugins.width - Foundation.controls.scrollBar.extent - Foundation.spacing.compact
                 spacing: Foundation.spacing.compact
-                Controls.EditorListItem {
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    theme: root.theme
-                    text: modelData.title + (modelData.version ? " · " + modelData.version : "")
-                    description: modelData.error || (!modelData.allowed ? qsTr("Your groups cannot run this plugin") : modelData.running ? qsTr("Running version: %1").arg(modelData.runningVersion) : modelData.description || qsTr("Runs in TACTIC Handler"))
-                    enabled: !root.controller.busy && modelData.allowed && modelData.enabled && !modelData.error
-                    onClicked: root.controller.open_plugin(modelData.code)
+                    Controls.EditorListItem {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        theme: root.theme
+                        text: modelData.title + (modelData.version ? " · " + modelData.version : "")
+                        description: modelData.error || (!modelData.allowed ? qsTr("Your groups cannot run this plugin") : modelData.running ? qsTr("Running version: %1").arg(modelData.runningVersion) : modelData.description || qsTr("Runs in TACTIC Handler"))
+                        enabled: !root.controller.busy && modelData.allowed && modelData.enabled && !modelData.error
+                        onClicked: root.controller.open_plugin(modelData.code)
+                    }
+                    Controls.CheckBox {
+                        objectName: "clientPluginEnabled_" + modelData.code
+                        theme: root.theme
+                        text: qsTr("Enabled")
+                        checked: modelData.enabled
+                        enabled: !root.controller.busy
+                        onToggled: root.controller.set_enabled(modelData.code, checked)
+                    }
                 }
                 Controls.CheckBox {
-                    objectName: "clientPluginEnabled_" + modelData.code
+                    objectName: "clientPluginAutostart_" + modelData.code
                     theme: root.theme
-                    text: qsTr("Enabled")
-                    checked: modelData.enabled
-                    enabled: !root.controller.busy
-                    onToggled: root.controller.set_enabled(modelData.code, checked)
+                    text: qsTr("Open when Handler starts")
+                    checked: modelData.autostart
+                    enabled: !root.controller.busy && modelData.enabled && modelData.allowed && !modelData.error
+                    onToggled: root.controller.set_autostart(modelData.code, checked)
                 }
             }
             QQC.ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }

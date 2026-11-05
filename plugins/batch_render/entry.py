@@ -1,4 +1,4 @@
-"""Package entry point; the VM dispatcher itself is preserved byte for byte."""
+"""Desktop-only Batch Render plugin entry point."""
 from . import dispatcher
 
 

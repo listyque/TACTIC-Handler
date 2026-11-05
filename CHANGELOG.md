@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0.389 - 2026-11-05
+
+- Store installed desktop plugins in readable server/project/plugin/version folders and publish API 2 releases with readable server directory names; retain API 1 rollback support and verified immutable sources.
+- Add opt-in, access-checked plugin startup after login/project restoration. Batch Render opens with its restored queue paused.
+- Package modular Batch Render 1.1.0 with native house controls, a Frame summary and its own protected HTTP control panel; fix Windows port collisions and pending-request shutdown.
+- Batch episode tasks and native snapshot prefetch, follow query pages, preserve blank/custom statuses and filter locally without losing clicks or scroll position.
+
 ## 0.6.0.388 - 2026-11-05
 
 - Add a Batch Render launch button beside the project selector and permitted client plugin actions in the account menu, using the existing loader and group checks.

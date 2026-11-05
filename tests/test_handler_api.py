@@ -123,6 +123,20 @@ class HandlerApiTests(_WorkerTestCase):
         self.records[code] = row
         return deepcopy(row)
 
+    def test_prefetched_snapshots_use_native_files_and_require_explicit_prefetch(self):
+        obj = self.api.sobject(self.records['O1']['__search_key__'])
+        with self.assertRaisesRegex(ValueError,'include_snapshots'):
+            obj.snapshots(prefetched=True)
+        info = dict(code='SN1',process='publish',context='publish',version=-1,
+                    __files__=[],snapshot='<snapshot/>')
+        obj._native.init_snapshots([info])
+        obj._info['__snapshots__'] = []
+        snapshots = obj.snapshots(prefetched=True)
+        self.assertEqual([snapshot.get_code() for snapshot in snapshots], ['SN1'])
+        self.assertEqual(snapshots[0].get_files_objects(), [])
+        self.assertEqual(obj.snapshots(prefetched=True,process='other'), [])
+        self.server.query.assert_not_called()
+
     def test_edit_is_local_until_commit_and_preserves_legacy_object(self):
         obj = self.api.sobject(self.records["O1"]["__search_key__"])
         legacy = obj._native

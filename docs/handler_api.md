@@ -699,3 +699,13 @@ The client-only HTTP/MCP runtime and indexed TS reference documents are bundled 
 `python tools/sync_agent_runtime.py --stream-root <TS/tactic_stream>` and verify with
 `--check`; do not copy Stream server/database code. Local Codex uses the current OS
 account's CLI authentication; TACTIC credentials stay outside model inputs.
+
+### Explicit snapshot prefetch
+
+For a local `SType.query(include_snapshots=True)`, call
+`sobject.snapshots(prefetched=True)` to use that query's native `Process` /
+`Contexts` / `Snapshot` objects and their existing File methods without another
+request. `process=` remains supported. This explicitly reads the prefetched
+point-in-time data; call ordinary `snapshots()` for a fresh query. Requesting
+prefetch without `include_snapshots=True` raises `ValueError`. The default query
+behavior and remote API contracts are unchanged.

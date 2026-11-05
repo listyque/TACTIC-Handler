@@ -6202,5 +6202,9 @@
   "Incomplete plugin download": "Загрузка плагина не завершена",
   "Plugin checksum does not match": "Контрольная сумма плагина не совпала",
   "This plugin requires another Handler plugin API": "Плагину требуется другая версия API плагинов ТХ",
+  "Installed plugin files were modified; preserve them before retrying": "Файлы установленного плагина изменены; сохраните их перед повторной установкой",
+  "Installed plugin contains unexpected files": "В установленном плагине есть посторонние файлы",
+  "Plugin installation cannot be a directory link": "Папка установки плагина не может быть ссылкой",
+  "Open when Handler starts": "Открывать при запуске ТХ",
   "Batch Render": "Батч-рендер"
 }

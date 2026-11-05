@@ -379,9 +379,20 @@ class SObject:
             if context is None or value.get_value("context") == context
         ]
 
-    def snapshots(self, *, process: str | None = None):
+    def snapshots(self, *, process: str | None = None, prefetched: bool = False):
         self._api._check()
         self.get_search_key()
+        if prefetched:
+            if '__snapshots__' not in self._info:
+                raise ValueError('Query with include_snapshots=True before using prefetched snapshots')
+            return [
+                Snapshot(self._api, snapshot)
+                for group in self._native.process.values()
+                for context in group.get_contexts().values()
+                for snapshots in (context.get_versionless(), context.get_versions())
+                for snapshot in snapshots.values()
+                if process is None or snapshot.get_info().get('process') == process
+            ]
         server = self._api._core.server_start(project=self.get_project().get_code())
         search_type = server.build_search_type(
             self._stype.get_code(),

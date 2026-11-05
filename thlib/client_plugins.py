@@ -12,8 +12,9 @@ import stat
 import tempfile
 from xml.etree import ElementTree as ET
 import zipfile
+from urllib.parse import quote, urlsplit
 
-API_VERSION = 1
+API_VERSION = 2
 MAX_PACKAGE = 8 * 1024 * 1024
 MAX_CONTENT = 32 * 1024 * 1024
 
@@ -36,7 +37,7 @@ def manifest_metadata(text: str) -> dict | None:
     metadata = json.loads(client)
     if set(metadata) != {'api', 'targets', 'sha256', 'size', 'access_script'}:
         raise ValueError('Invalid client plugin metadata')
-    if type(metadata['api']) is not int or metadata['api'] != API_VERSION or metadata['targets'] != ['th']:
+    if type(metadata['api']) is not int or not 1 <= metadata['api'] <= API_VERSION or metadata['targets'] != ['th']:
         raise ValueError('This plugin requires another Handler plugin API')
     if not re.fullmatch(r'[0-9a-f]{64}', str(metadata['sha256'])):
         raise ValueError('Invalid plugin checksum')
@@ -68,10 +69,10 @@ def payload_files(payload: bytes) -> dict[str, bytes]:
             name = member.filename
             path = PurePosixPath(name)
             parts = name.split('/')
-            if (member.is_dir() or name.casefold() in normalized_names or path.is_absolute() or '\\' in name
+            if (name == '.release.json' or member.is_dir() or name.casefold() in normalized_names or path.is_absolute() or '\\' in name
                     or any(part in ('', '.', '..') or ':' in part or part.rstrip(' .') != part for part in parts)
                     or stat.S_ISLNK(member.external_attr >> 16)
-                    or path.suffix.lower() not in {'.py', '.qml', '.json', '.png', '.svg', '.ico', '.txt', '.md'}):
+                    or path.suffix.lower() not in {'.py', '.qml', '.json', '.png', '.svg', '.ico', '.txt', '.md', '.mjs', '.html', '.css', '.js'}):
                 raise ValueError('Unsafe plugin archive path: ' + name)
             normalized_names.add(name.casefold())
             total += member.file_size
@@ -95,6 +96,26 @@ def _zip(files: dict[str, bytes]) -> bytes:
             entry.external_attr = 0o100644 << 16
             archive.writestr(entry, data)
     return stream.getvalue()
+
+
+def release_directory(metadata: dict) -> str:
+    """API 1 releases retain their original name for rollback."""
+    name = metadata['code'] + '-' + metadata['version']
+    return name + '-' + metadata['sha256'][:12] if metadata['api'] == 1 else name
+
+
+def installation_root(root: Path, server: str, project: str) -> Path:
+    """Readable, distinct filesystem scopes without credentials or hashes."""
+    address = urlsplit(server if '://' in server else 'http://' + server)
+    if (address.scheme not in {'http', 'https'} or not address.hostname
+            or address.username or address.password or address.query or address.fragment
+            or address.path.rstrip('/') or not project):
+        raise ValueError('Invalid plugin server or project')
+    host = quote(address.hostname.casefold(), safe='.-_')
+    port = address.port or (443 if address.scheme == 'https' else 80)
+    # The fixed prefix also keeps Windows device names and dot segments inert.
+    project_name = 'project-' + quote(project, safe='-_').replace('.', '%2E')
+    return root / 'plugins' / 'installed' / address.scheme / f'{host}_port-{port}' / project_name
 
 
 def build_package(source: Path, version: str, output: Path) -> Path:
@@ -123,7 +144,7 @@ def build_package(source: Path, version: str, output: Path) -> Path:
     }, separators=(',', ':'))
     manifest = ET.tostring(root, encoding='unicode')
     metadata = manifest_metadata(manifest)
-    directory = metadata['code'] + '-' + metadata['version'] + '-' + metadata['sha256'][:12]
+    directory = release_directory(metadata)
     package = _zip({directory + '/manifest.xml': manifest.encode(), directory + '/payload.zip': payload})
     output.mkdir(parents=True, exist_ok=True)
     target = output / (directory + '.zip')
@@ -149,32 +170,38 @@ def read_package(path: Path) -> dict:
         payload = archive.read(path.stem + '/payload.zip')
     if digest(payload) != metadata['sha256'] or len(payload) != metadata['size']:
         raise ValueError('Plugin checksum does not match')
-    directory = metadata['code'] + '-' + metadata['version'] + '-' + metadata['sha256'][:12]
+    directory = release_directory(metadata)
     if directory != path.stem:
         raise ValueError('Plugin filename does not match its release')
     payload_files(payload)
     return dict(metadata=metadata, manifest=manifest, directory=directory)
 
 
-def cache_payload(payload: bytes, metadata: dict, cache: Path) -> Path:
+def install_payload(payload: bytes, metadata: dict, root: Path) -> Path:
     """Stage and verify immutable source files before making them importable."""
     if len(payload) != metadata['size'] or digest(payload) != metadata['sha256']:
         raise ValueError('Plugin checksum does not match')
     files = payload_files(payload)
-    cache.mkdir(parents=True, exist_ok=True)
-    destination = cache / metadata['sha256']
-    if destination.is_symlink():
-        raise ValueError('Plugin cache cannot be a directory link')
+    if (not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', metadata['code'])
+            or not re.fullmatch(r'\d+\.\d+\.\d+', metadata['version'])):
+        raise ValueError('Invalid plugin code or version')
+    destination = root / metadata['code'] / metadata['version']
+    for parent in [root, *root.parents, destination.parent, destination]:
+        if parent.is_symlink() or parent.is_junction():
+            raise ValueError('Plugin installation cannot be a directory link')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    files['.release.json'] = (json.dumps({key: metadata[key] for key in
+        ('code', 'version', 'sha256', 'size')}, sort_keys=True, indent=2) + '\n').encode()
     if destination.exists():
         for name, data in files.items():
             path = destination / name
             if not path.resolve().is_relative_to(destination.resolve()) or path.read_bytes() != data:
-                raise ValueError('Cached plugin files were modified; preserve them before retrying')
+                raise ValueError('Installed plugin files were modified; preserve them before retrying')
         actual = {p.relative_to(destination).as_posix() for p in destination.rglob('*') if p.is_file()}
         if actual != set(files):
-            raise ValueError('Cached plugin contains unexpected files')
+            raise ValueError('Installed plugin contains unexpected files')
         return destination
-    stage = Path(tempfile.mkdtemp(prefix='.plugin-', dir=cache))
+    stage = Path(tempfile.mkdtemp(prefix='.install-', dir=destination.parent))
     try:
         for name, data in files.items():
             path = stage / name
@@ -183,7 +210,7 @@ def cache_payload(payload: bytes, metadata: dict, cache: Path) -> Path:
         os.replace(stage, destination)
     finally:
         if stage.exists():
-            if stage.parent.resolve() != cache.resolve():
+            if stage.parent.resolve() != destination.parent.resolve():
                 raise ValueError('Invalid plugin staging cleanup path')
             shutil.rmtree(stage)
     return destination

@@ -3,8 +3,9 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import build_opener, HTTPRedirectHandler
+from urllib.error import HTTPError
 
-from thlib.client_plugins import MAX_PACKAGE, manifest_metadata, read_package
+from thlib.client_plugins import MAX_PACKAGE, manifest_metadata, read_package, release_directory, digest
 
 
 def plugin_administrator(project_code):
@@ -25,7 +26,7 @@ def catalog(server) -> list[dict]:
         item = {'code': row['code'], 'title': row['code'], 'error': ''}
         try:
             metadata = manifest_metadata(text)
-            directory = metadata['code'] + '-' + metadata['version'] + '-' + metadata['sha256'][:12]
+            directory = release_directory(metadata)
             if row['code'] != metadata['code'] or row['version'] != metadata['version'] or row['rel_dir'] != directory:
                 raise ValueError('The active plugin record does not match its manifest')
             item.update(metadata, directory=directory)
@@ -70,8 +71,21 @@ def publish(server, project: str, path: Path) -> dict:
         if before is None:
             raise ValueError('This plugin code is already owned by a server plugin')
         if before['version'] == metadata['version']:
-            if before['sha256'] == metadata['sha256']:
+            if before['sha256'] != metadata['sha256']:
+                raise ValueError('Use a new version number for changed plugin files')
+            if previous[0]['rel_dir'] == package['directory']:
                 return metadata
+    # A readable version directory is immutable even when another release is active.
+    try:
+        existing = download(server, dict(metadata, directory=package['directory']))
+    except HTTPError as error:
+        if error.code != 404:
+            raise
+        error.close()
+    except ValueError as error:
+        raise ValueError('Use a new version number for changed plugin files') from error
+    else:
+        if digest(existing) != metadata['sha256']:
             raise ValueError('Use a new version number for changed plugin files')
     server.start('Publish Handler client plugin')
     try:

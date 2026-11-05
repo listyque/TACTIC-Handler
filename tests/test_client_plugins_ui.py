@@ -80,6 +80,43 @@ class ClientPluginUiTests(unittest.TestCase):
                 controller.shutdown()
                 env_mode.set_current_path(original)
 
+    def test_autostart_is_opt_in_scoped_and_attempted_once(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as folder:
+            original = env_mode.get_current_path()
+            env_mode.set_current_path(folder)
+            application = Application()
+            controller = ClientPluginsController(application, parent=application)
+            try:
+                controller._rows = [{'code':'th_batch_render','title':'Batch Render','allowed':True,'error':''}]
+                with patch.object(env_inst, 'ui_main', object()), patch.object(controller, 'open_plugin') as launch:
+                    controller._autostart_next()
+                    launch.assert_not_called()
+                    controller.set_autostart('th_batch_render', True)
+                    self.assertTrue(controller.rows[0]['autostart'])
+                    controller.set_enabled('th_batch_render', False)
+                    controller._autostart_next()
+                    launch.assert_not_called()
+                    controller.set_enabled('th_batch_render', True)
+                    controller._rows[0]['allowed'] = False
+                    controller._autostart_next()
+                    launch.assert_not_called()
+                    controller._rows[0]['allowed'] = True
+                    controller._autostart_next()
+                    controller._autostart_next()
+                    launch.assert_called_once_with('th_batch_render')
+                    application.current_project_code = 'another'
+                    self.assertFalse(controller.rows[0]['autostart'])
+                    controller.set_autostart('th_batch_render', True)
+                    controller._autostart_next()
+                    self.assertEqual(launch.call_count,2)
+                    controller.shutdown()
+                    controller._autostart_next()
+                    self.assertEqual(launch.call_count,2)
+            finally:
+                controller.shutdown()
+                env_mode.set_current_path(original)
+
     def test_main_menu_launch_is_not_restricted_to_administrators(self):
         from types import SimpleNamespace
         from unittest.mock import Mock
@@ -199,6 +236,11 @@ Window {{ width: 800; height: 640; visible: true
                             pending.extend(item.childItems())
                     self.assertFalse(warnings,warnings)
                     pump(lambda:find('clientPluginEnabled_fixture_plugin') is not None)
+                    autostart=find('clientPluginAutostart_fixture_plugin')
+                    autostart.forceActiveFocus()
+                    QTest.keyClick(window,Qt.Key.Key_Space)
+                    pump(lambda:controller.rows[0]['autostart'])
+                    controller.set_autostart('fixture_plugin',False)
                     toggle=find('clientPluginEnabled_fixture_plugin')
                     point=toggle.mapToScene(QPointF(toggle.width()/2,toggle.height()/2)).toPoint()
                     QTest.mouseClick(window,Qt.MouseButton.LeftButton,Qt.KeyboardModifier.NoModifier,point)

@@ -9,11 +9,11 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
-from PySide6.QtCore import QObject, Property, Signal, Slot
+from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
 from PySide6.QtWidgets import QFileDialog
 
 from thlib import client_plugin_server as remote
-from thlib.client_plugins import build_package, cache_payload
+from thlib.client_plugins import build_package, install_payload, installation_root
 from thlib.environment import env_inst, env_mode, env_server, env_read_config, env_write_config
 
 
@@ -58,8 +58,10 @@ class ClientPluginsController(QObject):
         self._runs = {}
         self._last_archive = ''
         self._observed_context = None
+        self._autostart_attempted = set()
         for signal in (application.project_changed, application.authentication_changed):
             signal.connect(self._session_changed)
+        QTimer.singleShot(0, self._session_changed)
 
     def _context(self):
         return (env_server.get_server(), self._application.current_project_code,
@@ -84,9 +86,11 @@ class ClientPluginsController(QObject):
 
     @Property('QVariantList', notify=stateChanged)
     def rows(self):
-        _, disabled = self._disabled()
+        values, disabled = self._disabled()
         scope = self._scope(self._context())
+        autostart = values.get('autostart', {}).get(scope, [])
         return [{**row, 'enabled': row['code'] not in disabled,
+                 'autostart': row['code'] in autostart,
                  'running': (scope, row['code']) in self._runs,
                  'runningVersion': self._runs.get((scope, row['code']), {}).get('version', '')} for row in self._rows]
 
@@ -128,11 +132,13 @@ class ClientPluginsController(QObject):
         return rows, bool(admin)
 
     def _session_changed(self, *_):
-        if self._context() != self._observed_context:
+        if not self._closed and self._context() != self._observed_context:
             self.refresh()
 
     @Slot()
     def refresh(self, *_):
+        if self._closed:
+            return
         self._generation += 1
         self._rows = []
         self._admin = False
@@ -158,13 +164,42 @@ class ClientPluginsController(QObject):
             self._error = self.tr(str(error))
         self.stateChanged.emit()
 
+    @Slot(str, bool)
+    def set_autostart(self, code, enabled):
+        if self._busy or not any(row['code'] == code for row in self._rows):
+            return
+        try:
+            values, _ = self._disabled()
+            scopes = values.setdefault('autostart', {})
+            scope = self._scope(self._context())
+            codes = set(scopes.get(scope, []))
+            codes.add(code) if enabled else codes.discard(code)
+            scopes[scope] = sorted(codes)
+            env_write_config(values, filename='ui_client_plugins', unique_id='ui_main', long_abs_path=True)
+        except (OSError, ValueError) as error:
+            self._error = self.tr(str(error))
+        self.stateChanged.emit()
+
+    def _autostart_next(self):
+        if self._closed or self._busy or env_inst.ui_main is None:
+            return
+        scope = self._scope(self._context())
+        for row in self.rows:
+            key = scope, row['code']
+            if (row['autostart'] and row['enabled'] and row.get('allowed')
+                    and not row.get('error') and key not in self._autostart_attempted):
+                self._autostart_attempted.add(key)
+                if key not in self._runs:
+                    self.open_plugin(row['code'])
+                    return
+
     @Slot(str)
     def open_plugin(self, code):
         if self._busy or code in self._disabled()[1]:
             return
         context = self._context()
         key = self._scope(context), code
-        cache = Path(env_mode.get_current_path()) / 'cache/client_plugins' / key[0]
+        root = installation_root(Path(env_mode.get_current_path()), context[0], context[1])
         running = key in self._runs
         def prepare():
             rows, admin = self._catalog(context)
@@ -173,7 +208,7 @@ class ClientPluginsController(QObject):
                 raise PermissionError('This plugin is unavailable for your account')
             folder = None
             if not running:
-                folder = cache_payload(remote.download(self._server(context), row), row, cache)
+                folder = install_payload(remote.download(self._server(context), row), row, root)
             return rows, admin, row, folder
         self._run('open', code, prepare)
 
@@ -230,6 +265,7 @@ class ClientPluginsController(QObject):
             if kind == 'open' and self._error:
                 self._application.notify(self._error)
             self.stateChanged.emit()
+            QTimer.singleShot(0, self._autostart_next)
         def failed(value):
             if not self._closed and generation == self._generation and context == self._context():
                 self._busy = False
@@ -237,6 +273,7 @@ class ClientPluginsController(QObject):
                 if kind == 'open':
                     self._application.notify(self._error)
                 self.stateChanged.emit()
+                QTimer.singleShot(0, self._autostart_next)
         worker.result.connect(done)
         worker.error.connect(failed)
         worker.start()

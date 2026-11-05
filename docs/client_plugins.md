@@ -24,9 +24,9 @@ not select that directory for clients. Publication requires server administrator
 status. Packaging never imports the client code; Python syntax is checked only.
 
 Each launch rechecks the authenticated project's catalogue and existing group
-runner denials. Cache identity includes server and project; no tickets/passwords
-are stored in packages or cache names. Payloads are bounded, hashed and validated
-before atomic installation; cached sources are verified again before importing.
+runner denials. Installation identity includes server and project; no tickets/passwords
+are stored in packages or directory names. Payloads are bounded, hashed and validated
+before atomic installation; installed sources are verified again before importing.
 Different plugin identities/releases have distinct Python module namespaces.
 A live native window pins its module and release. A new release takes effect on
 its next launch after destruction; disablement blocks future launches and does
@@ -50,18 +50,51 @@ Configuration -> Client plugins is a native desktop integration page. Its
 build/publish controls use the installed Python runtime; build selects a source
 folder containing `plugin.json`, a release version and an output folder. Sources
 for Batch Render live under `plugins/batch_render`. `BUILD_BATCH_PLUGIN.bat` and
-`tools/client_plugins.py build --version 1.0.2 --output <folder>` provide the same
+`tools/client_plugins.py build --version 1.1.0 --output <folder>` provide the same
 builder; the BAT/CLI requires Python 3. The GUI does not need external Python.
 Publish a built ZIP from this page while signed into the intended server/project.
 The browser has no desktop loader or equivalent execution page in this stage.
 
-The Niki dispatcher body is preserved byte-for-byte from the reviewed VM export
-(SHA-256 `15b45a92abb641c66fdd4fd1a4eda7c2fb9c9e0cb694cf8b4d9b20c1a1d5df48`).
-Only the package entry wrapper supplies the correct Qt parent. Its existing
-`stream/batch/dispatcher_runner` group rules govern plugin launch. Original
-legacy scripts, names, argument shapes and business data are retained.
+Batch Render 1.1.0 is a desktop-only, modular client plugin. Its queue,
+Maya process, dependency preparation, catalogue, settings, window and HTTP panel
+have separate owners. The window keeps native house controls; its summary uses
+Tactic Frame. This is a separate plugin window, with no custom dashboard or TS
+browser execution counterpart. The original VM scripts and legacy entry points
+remain unchanged; `stream/batch/dispatcher_runner` still controls launch access.
 
-Verification includes deterministic package/cache tests, actual native QML input,
+Installed sources live under the client's settings root, for example:
+`plugins/installed/http/studio.example_port-80/project-niki_friends/th_batch_render/1.1.0`.
+`plugins/batch_render` is the source folder, distinct from installed releases.
+New server releases use readable `th_batch_render-1.1.0` directories and ZIP names.
+Checksums remain in the manifest and local `.release.json`, not directory names.
+API 2 supports these names and QML/MJS/browser assets; Handler still reads API 1
+packages for rollback. API 2 packages require Handler 0.6.0.389 or later. Inactive
+version directories cannot be overwritten with changed contents. Old hash-named
+caches are no longer used; an active old window must be closed before moving or
+removing its files.
+
+**Open when Handler starts** is opt-in per plugin/server/project in Configuration
+-> Client plugins. After authentication/project restoration, the normal loader
+rechecks access and opens each eligible plugin once per application session.
+Disabling the plugin blocks automatic launch too. Opening Batch Render restores
+the saved queue paused; it never starts restored renders automatically.
+
+Episode discovery loads tasks and prefetched native snapshots in batches, follows
+all pages, selects the latest task before filtering and includes taskless/empty
+and project-specific statuses. Filter changes and text search apply locally,
+including clicks during a refresh. Locally queued episodes remain out of the
+catalogue; removing them respects the current filters. Saved explicit empty
+filter selections remain empty after reopening.
+
+The globe opens Batch Render's own HTTP panel. Copy LAN link includes the token
+when protection is enabled (the default for a new profile). Render settings
+control panel enablement, port and secret-link protection; a bind failure is
+shown rather than pretending the panel is running. `/api/health` is authenticated
+and reports the HTTP service; `/api/state` also checks the Qt controller bridge.
+The browser controls this running desktop queue; it is not a server render farm.
+Closing the window stops its HTTP listener and releases pending requests.
+
+Verification includes deterministic package/installation tests, actual native QML input,
 original legacy Docker installation/download, native dispatcher open, active
 release pinning, subsequent launch update and rollback. Rendering real frames,
 Maya/Redshift availability and the entire render/check-in queue remain separate
