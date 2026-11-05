@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import QUrl
@@ -46,6 +47,17 @@ def _create_window(engine, application_root, parent, controller):
         QUrl.fromLocalFile(str(application_root / 'thlib/ui/qml/tactic_frame')).toString()
     ).replace('__NODES_URL__',
         QUrl.fromLocalFile(str(application_root / 'thlib/ui/qml/tactic_frame/core/frame.mjs')).toString())
+    # Qt caches modules for the engine's lifetime; temporary copies avoid stale UI.
+    modules = {}
+    with tempfile.TemporaryDirectory(prefix="th-batch-ui-") as directory:
+        for property_name, name in (("summaryUI", "summary.mjs"), ("itemMetrics", "items.mjs")):
+            module_path = Path(directory) / name
+            module_path.write_bytes((Path(__file__).parent / "ui" / name).read_bytes())
+        for property_name, name in (("summaryUI", "summary.mjs"), ("itemMetrics", "items.mjs")):
+            module = engine.importModule(str(Path(directory) / name))
+            if module.isError():
+                raise RuntimeError(f"Cannot load Batch Render module {name}: {module.toString()}")
+            modules[property_name] = module
     component = QQmlComponent(engine)
     component.setData(source.encode("utf-8"), QUrl.fromLocalFile(str(Path(__file__).parent / "ui/BatchWindow.qml")))
     if component.isError():
@@ -53,7 +65,7 @@ def _create_window(engine, application_root, parent, controller):
         component.deleteLater()
         raise RuntimeError(f"Cannot load Batch Dispatcher QML:\n{details}")
     window = component.createWithInitialProperties(
-        {"applicationRoot": parent, "controller": controller}
+        {"applicationRoot": parent, "controller": controller, **modules}
     )
     if window is None:
         details = "\n".join(error.toString() for error in component.errors())

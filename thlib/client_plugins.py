@@ -10,13 +10,15 @@ import re
 import shutil
 import stat
 import tempfile
+import threading
 from xml.etree import ElementTree as ET
 import zipfile
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 API_VERSION = 2
 MAX_PACKAGE = 8 * 1024 * 1024
 MAX_CONTENT = 32 * 1024 * 1024
+_INSTALL_LOCK = threading.RLock()
 
 
 def digest(data: bytes) -> str:
@@ -105,17 +107,14 @@ def release_directory(metadata: dict) -> str:
 
 
 def installation_root(root: Path, server: str, project: str) -> Path:
-    """Readable, distinct filesystem scopes without credentials or hashes."""
+    """Validate the connection while keeping installed code in one plugins folder."""
     address = urlsplit(server if '://' in server else 'http://' + server)
     if (address.scheme not in {'http', 'https'} or not address.hostname
             or address.username or address.password or address.query or address.fragment
-            or address.path.rstrip('/') or not project):
+            or address.path.rstrip('/') or not project
+            or (address.port is not None and address.port < 1)):
         raise ValueError('Invalid plugin server or project')
-    host = quote(address.hostname.casefold(), safe='.-_')
-    port = address.port or (443 if address.scheme == 'https' else 80)
-    # The fixed prefix also keeps Windows device names and dot segments inert.
-    project_name = 'project-' + quote(project, safe='-_').replace('.', '%2E')
-    return root / 'plugins' / 'installed' / address.scheme / f'{host}_port-{port}' / project_name
+    return root / 'plugins'
 
 
 def build_package(source: Path, version: str, output: Path) -> Path:
@@ -177,40 +176,77 @@ def read_package(path: Path) -> dict:
     return dict(metadata=metadata, manifest=manifest, directory=directory)
 
 
+def _verified_installation(folder: Path, code: str) -> dict:
+    actual = {}
+    for path in folder.rglob('*'):
+        if path.is_symlink() or path.is_junction():
+            raise ValueError('Plugin installation cannot be a directory link')
+        if path.is_file() and path.relative_to(folder).as_posix() != '.release.json':
+            actual[path.relative_to(folder).as_posix()] = digest(path.read_bytes())
+    try:
+        receipt = json.loads((folder / '.release.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError) as error:
+        raise ValueError('This plugin folder is not a managed installation; its files were preserved') from error
+    if not isinstance(receipt, dict) or receipt.get('code') != code or receipt.get('files') != actual:
+        raise ValueError('Installed plugin files were modified; preserve them before retrying')
+    return receipt
+
+
 def install_payload(payload: bytes, metadata: dict, root: Path) -> Path:
-    """Stage and verify immutable source files before making them importable."""
+    """Replace one verified installed version; settings stay outside its folder."""
     if len(payload) != metadata['size'] or digest(payload) != metadata['sha256']:
         raise ValueError('Plugin checksum does not match')
     files = payload_files(payload)
     if (not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', metadata['code'])
             or not re.fullmatch(r'\d+\.\d+\.\d+', metadata['version'])):
         raise ValueError('Invalid plugin code or version')
-    destination = root / metadata['code'] / metadata['version']
-    for parent in [root, *root.parents, destination.parent, destination]:
+    name = 'batch_render' if metadata['code'] == 'th_batch_render' else metadata['code']
+    destination = root / name
+    previous = root / ('.previous-' + name)
+    if previous.resolve().parent != root.resolve():
+        raise ValueError('Invalid previous plugin cleanup path')
+    for parent in [root, *root.parents, destination, previous]:
         if parent.is_symlink() or parent.is_junction():
             raise ValueError('Plugin installation cannot be a directory link')
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    files['.release.json'] = (json.dumps({key: metadata[key] for key in
-        ('code', 'version', 'sha256', 'size')}, sort_keys=True, indent=2) + '\n').encode()
-    if destination.exists():
-        for name, data in files.items():
-            path = destination / name
-            if not path.resolve().is_relative_to(destination.resolve()) or path.read_bytes() != data:
-                raise ValueError('Installed plugin files were modified; preserve them before retrying')
-        actual = {p.relative_to(destination).as_posix() for p in destination.rglob('*') if p.is_file()}
-        if actual != set(files):
-            raise ValueError('Installed plugin contains unexpected files')
-        return destination
-    stage = Path(tempfile.mkdtemp(prefix='.install-', dir=destination.parent))
-    try:
-        for name, data in files.items():
-            path = stage / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-        os.replace(stage, destination)
-    finally:
-        if stage.exists():
-            if stage.parent.resolve() != destination.parent.resolve():
-                raise ValueError('Invalid plugin staging cleanup path')
-            shutil.rmtree(stage)
+    receipt = {key: metadata[key] for key in ('code', 'version', 'sha256', 'size')}
+    receipt.update(scope=metadata.get('scope', ''), files={name: digest(data) for name, data in files.items()})
+    with _INSTALL_LOCK:
+        root.mkdir(parents=True, exist_ok=True)
+        if previous.exists():
+            _verified_installation(previous, metadata['code'])
+            if not destination.exists():
+                os.replace(previous, destination)
+            else:
+                _verified_installation(destination, metadata['code'])
+                shutil.rmtree(previous)
+        if destination.exists():
+            current = _verified_installation(destination, metadata['code'])
+            if current == receipt:
+                return destination
+            if current.get('scope') == receipt['scope'] and current.get('version') == receipt['version']:
+                raise ValueError('Use a new version number for changed plugin files')
+        stage = Path(tempfile.mkdtemp(prefix='.updating-' + name + '-', dir=root))
+        try:
+            for name, data in files.items():
+                path = stage / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            (stage / '.release.json').write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+            if destination.exists():
+                os.replace(destination, previous)
+            try:
+                os.replace(stage, destination)
+            except OSError:
+                if previous.exists() and not destination.exists():
+                    os.replace(previous, destination)
+                raise
+            if previous.exists():
+                if previous.parent.resolve() != root.resolve():
+                    raise ValueError('Invalid previous plugin cleanup path')
+                shutil.rmtree(previous)
+        finally:
+            if stage.exists():
+                if stage.parent.resolve() != root.resolve():
+                    raise ValueError('Invalid plugin staging cleanup path')
+                shutil.rmtree(stage)
     return destination

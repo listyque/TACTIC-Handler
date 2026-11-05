@@ -90,6 +90,7 @@ class BatchCase(unittest.TestCase):
         self.controller = batch.BatchDispatcherController(
             self.api, "test", offline=True, settings={}
         )
+        self.controller._scope = "fixture"
         self.addCleanup(self.finish)
 
     def finish(self):

@@ -119,6 +119,22 @@ class ClientPluginUiTests(unittest.TestCase):
                 controller.shutdown()
                 env_mode.set_current_path(original)
 
+    def test_running_plugin_cannot_be_replaced_from_another_context(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as folder:
+            original=env_mode.get_current_path();env_mode.set_current_path(folder)
+            application=Application();application.notify=Mock()
+            controller=ClientPluginsController(application,parent=application)
+            try:
+                controller._runs[('another-project','th_batch_render')]={'version':'1.0.0'}
+                with patch.object(controller,'_run') as work:
+                    controller.open_plugin('th_batch_render')
+                work.assert_not_called()
+                application.notify.assert_called_once()
+                self.assertIn('another server/project',controller.error)
+            finally:
+                controller.shutdown();env_mode.set_current_path(original)
+
     def test_main_menu_launch_is_not_restricted_to_administrators(self):
         from types import SimpleNamespace
         from unittest.mock import Mock

@@ -4,6 +4,7 @@ os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 os.environ.setdefault('QT_QUICK_BACKEND','software')
 os.environ.setdefault('QT_QUICK_CONTROLS_STYLE','Basic')
 import json
+import shutil
 from pathlib import Path
 from unittest.mock import Mock, patch
 from PySide6.QtCore import QObject, QPointF, Qt, QEvent, QCoreApplication
@@ -207,6 +208,48 @@ class BatchUsabilityTests(BatchCase):
             window.hide();window.deleteLater();component.deleteLater()
             QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
             engine.deleteLater();self.app.processEvents()
+
+    def test_reopening_uses_new_modules_from_the_same_plugin_folder(self):
+        c=self.controller
+        self.queue(1)
+        plugin=Path(self.directory.name)/'plugin'
+        shutil.copytree(ROOT/'plugins/batch_render/ui',plugin/'ui')
+        engine=QQmlEngine();parent=Root()
+        try:
+            with patch.object(batch_ui,'__file__',str(plugin/'window.py')):
+                for height in (80,104):
+                    metrics=plugin/'ui/items.mjs'
+                    text=metrics.read_text(encoding='utf-8')
+                    metrics.write_text(text.replace('shotHeight:80','shotHeight:104') if height==104 else text,encoding='utf-8')
+                    component,window=batch_ui._create_window(engine,ROOT,parent,c)
+                    window.show();QTest.qWait(30)
+                    row=self.visual(window.contentItem(),'batchQueueRow_1')
+                    self.assertEqual(row.height(),height)
+                    window.hide();window.deleteLater();component.deleteLater()
+                    QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+        finally:
+            engine.deleteLater();self.app.processEvents()
+
+    def test_short_config_files_keep_other_server_project_settings(self):
+        from thlib.environment import env_server,env_read_config
+        c=self.controller
+        with patch.object(env_server,'get_server',return_value='http://first.invalid'),patch.object(env_server,'get_user',return_value='artist'):
+            first=c._load_saved_state()[3]
+            c._scope=first;c._offline=False
+            c.saveSettings('render.exe','output','cameraA',False,10,'always',False,10,True,92,True)
+            self.until(lambda:not c._operations)
+        path=Path(self.directory.name)/'settings/batch_render.json'
+        self.assertTrue(path.is_file())
+        self.assertEqual(env_read_config(filename='batch_render',sub_id=first)['camera'],'cameraA')
+        with patch.object(env_server,'get_server',return_value='http://other.invalid'),patch.object(env_server,'get_user',return_value='artist'):
+            second=c._load_saved_state()[3]
+            self.assertNotEqual(first,second)
+            self.assertEqual(c._load_saved_state()[0],{})
+            c._scope=second
+            c.saveSettings('render.exe','output','cameraB',False,10,'always',False,10,True,92,True)
+            self.until(lambda:not c._operations)
+        self.assertEqual(env_read_config(filename='batch_render',sub_id=first)['camera'],'cameraA')
+        self.assertEqual(env_read_config(filename='batch_render',sub_id=second)['camera'],'cameraB')
 
     def descendants(self,item):
         for child in item.childItems():

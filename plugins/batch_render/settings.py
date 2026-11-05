@@ -24,42 +24,14 @@ class SettingsMixin:
         )
 
     def _load_saved_state(self):
-        # Scope durable work to the same endpoint and project.
-        import hashlib
-
         from thlib.environment import env_read_config, env_server
         from thlib.ui.server_address import normalize_tactic_server_url
 
         endpoint = normalize_tactic_server_url(env_server.get_server())
-        scope = (
-            hashlib.sha256(endpoint.encode()).hexdigest()[:16]
-            + "/"
-            + self._project_code
-        )
-        settings = (
-            env_read_config(
-                filename="ui_batch_dispatcher",
-                unique_id=self._project_code,
-                long_abs_path=True,
-            )
-            or {}
-        )
-        window_state = (
-            env_read_config(
-                filename="ui_batch_dispatcher_window",
-                unique_id=self._project_code,
-                long_abs_path=True,
-            )
-            or {}
-        )
-        queue = (
-            env_read_config(
-                filename="batch_queue",
-                unique_id="cache/" + scope,
-                long_abs_path=True,
-            )
-            or {}
-        )
+        scope = f"{env_server.get_user()} | {endpoint} | {self._project_code}"
+        settings = env_read_config(filename="batch_render", sub_id=scope) or {}
+        window_state = env_read_config(filename="batch_render_window", sub_id=scope) or {}
+        queue = env_read_config(filename="batch_render_queue", sub_id=scope) or {}
         return settings, window_state, queue, scope
 
     def _state_loaded(self, payload):
@@ -146,9 +118,9 @@ class SettingsMixin:
         self._submit(
             lambda: env_write_config(
                 payload,
-                filename="batch_queue",
-                unique_id="cache/" + self._scope,
-                long_abs_path=True,
+                filename="batch_render_queue",
+                sub_id=self._scope,
+                update_file=True,
             ),
             self._queue_saved,
             self._queue_save_failed,
@@ -227,16 +199,16 @@ class SettingsMixin:
                 screen_height=screen.height,
             )
         self._window_state = self._resolved_window_state(state)
-        if self._offline:
+        if self._offline or not self._scope:
             return
         from thlib.environment import env_write_config
 
         self._submit(
             lambda: env_write_config(
                 self._window_state,
-                filename="ui_batch_dispatcher_window",
-                unique_id=self._project_code,
-                long_abs_path=True,
+                filename="batch_render_window",
+                sub_id=self._scope,
+                update_file=True,
             ),
             lambda _value: None,
         )
@@ -294,9 +266,9 @@ class SettingsMixin:
         self._submit(
             lambda: env_write_config(
                 values,
-                filename="ui_batch_dispatcher",
-                unique_id=self._project_code,
-                long_abs_path=True,
+                filename="batch_render",
+                sub_id=self._scope,
+                update_file=True,
             ),
             lambda _value: self._settings_saved(values),
         )
@@ -433,8 +405,7 @@ class SettingsMixin:
             or self._saving
         ):
             return
-        # Discovery may still carry an authorized status write. Wait for its
-        # completion, then persist before disposing the QObject.
+        # Finish discovery and persist the queue before disposing its owner.
         if self._operations:
             return
         self.shutdown()

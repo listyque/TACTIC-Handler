@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.395 - 2026-11-06
+
+- Keep each installed client plugin in one stable plugins folder, with Batch Render at plugins/batch_render. Replace verified code on update rather than retaining local version/server/protocol directories; preserve modified or unmanaged folders and restore previous code if replacement fails.
+- Package Batch Render 1.3.0 with short settings/batch_render*.json files, retaining server/project/account separation inside JSON and refreshing native UI modules on reopen. Block replacement while the tool is open in another context.
+
 ## 0.6.0.394 - 2026-11-06
 
 - Use one normal desktop instance across portable installation/settings folders; repeat EXE or Python launches activate the existing window. Keep private ownership only for explicitly isolated test profiles.

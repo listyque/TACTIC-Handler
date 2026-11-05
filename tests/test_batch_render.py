@@ -632,7 +632,8 @@ class QueueTests(BatchCase):
 
         c = self.controller
         endpoint = normalize_tactic_server_url("https://tactic.invalid")
-        c._scope = hashlib.sha256(endpoint.encode()).hexdigest()[:16] + "/test"
+        from thlib.environment import env_server
+        c._scope = f"{env_server.get_user()} | {endpoint} | test"
         entry = episode()
         entry["jobs"][0].update(state="completed")
         entry["jobs"][1].update(state="rendering", pid=12345)
@@ -776,9 +777,9 @@ class QueueTests(BatchCase):
         self.assertFalse(saved["logPanelVisible"])
         self.assertEqual(saved["episodeStatuses"], ["Готов"])
         self.assertEqual(write.call_args_list[-1].kwargs, {
-            "filename": "ui_batch_dispatcher_window",
-            "unique_id": "test",
-            "long_abs_path": True,
+            "filename": "batch_render_window",
+            "sub_id": "fixture",
+            "update_file": True,
         })
         with (
             patch.object(self.controller, "refresh"),

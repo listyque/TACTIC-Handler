@@ -29,7 +29,7 @@ class ClientPluginPackageTests(unittest.TestCase):
             payload = source.read(archive.stem + '/payload.zip')
         cached = install_payload(payload, package['metadata'], self.root / 'cache')
         self.assertTrue((cached / 'entry.py').is_file())
-        self.assertEqual(cached, self.root / 'cache/test_tool/1.0.0')
+        self.assertEqual(cached, self.root / 'cache/test_tool')
         self.assertEqual(archive.stem, 'test_tool-1.0.0')
         self.assertEqual(install_payload(payload, package['metadata'], self.root / 'cache'), cached)
         (cached / 'entry.py').write_text('modified')
@@ -65,17 +65,78 @@ class ClientPluginPackageTests(unittest.TestCase):
             manifest_metadata('<!DOCTYPE manifest><manifest/>')
 
 
-    def test_readable_installation_scopes_do_not_merge_servers_or_projects(self):
-        expected = self.root / 'plugins/installed/http/example.org_port-18080/project-niki_friends'
-        self.assertEqual(installation_root(self.root, 'http://EXAMPLE.ORG:18080/', 'niki_friends'), expected)
-        for server, project in [('example.org:80', 'niki_friends'), ('https://example.org:18080', 'niki_friends'),
-                                ('other.example:18080', 'niki_friends'), ('example.org:18080', '../niki')]:
-            path = installation_root(self.root, server, project)
-            self.assertNotEqual(path, expected)
-            self.assertTrue(path.resolve().is_relative_to(self.root.resolve()))
+    def test_connections_share_one_plain_plugins_folder(self):
+        expected = self.root / 'plugins'
+        for server, project in [('http://EXAMPLE.ORG:18080/', 'niki_friends'),
+                                ('https://other.example', 'another')]:
+            self.assertEqual(installation_root(self.root, server, project), expected)
         for server in ('http://user:secret@example.org', 'http://example.org/path', 'file:///temp'):
             with self.assertRaises(ValueError):
                 installation_root(self.root, server, 'niki')
+
+    def test_updates_replace_one_folder_and_remove_old_files(self):
+        def install(version):
+            archive = build_package(self.source, version, self.root / 'releases')
+            package = read_package(archive)
+            with zipfile.ZipFile(archive) as stream:
+                payload = stream.read(archive.stem + '/payload.zip')
+            return install_payload(payload, package['metadata'], self.root / 'plugins')
+        (self.source / 'old.py').write_text('old = True')
+        first = install('1.0.0')
+        (self.source / 'old.py').unlink()
+        (self.source / 'entry.py').write_text('def open_plugin(context): return "updated"')
+        second = install('1.0.1')
+        self.assertEqual(first, second)
+        self.assertFalse((second / 'old.py').exists())
+        self.assertIn('updated', (second / 'entry.py').read_text())
+        self.assertEqual(list((self.root / 'plugins').iterdir()), [second])
+
+    def test_unmanaged_or_modified_folders_are_never_replaced(self):
+        archive = build_package(self.source, '1.0.0', self.root / 'releases')
+        package = read_package(archive)
+        with zipfile.ZipFile(archive) as stream:
+            payload = stream.read(archive.stem + '/payload.zip')
+        folder = self.root / 'plugins/test_tool';folder.mkdir(parents=True)
+        (folder / 'own.py').write_text('user_data = True')
+        with self.assertRaisesRegex(ValueError, 'preserved'):
+            install_payload(payload, package['metadata'], self.root / 'plugins')
+        self.assertTrue((folder / 'own.py').exists())
+
+    def test_failed_replacement_restores_the_previous_code(self):
+        import os
+        from unittest.mock import patch
+        def package(version):
+            archive=build_package(self.source,version,self.root/'releases')
+            values=read_package(archive)['metadata']
+            with zipfile.ZipFile(archive) as stream:
+                return values,stream.read(archive.stem+'/payload.zip')
+        before,payload=package('1.0.0')
+        installed=install_payload(payload,before,self.root/'plugins')
+        original=(installed/'entry.py').read_bytes()
+        (self.source/'entry.py').write_text('def open_plugin(context): return None')
+        after,payload=package('1.0.1')
+        replace=os.replace
+        def fail_stage(source,target):
+            if Path(source).name.startswith('.updating-'):
+                raise OSError('simulated filesystem failure')
+            return replace(source,target)
+        with patch('thlib.client_plugins.os.replace',side_effect=fail_stage):
+            with self.assertRaisesRegex(OSError,'simulated'):
+                install_payload(payload,after,self.root/'plugins')
+        self.assertEqual((installed/'entry.py').read_bytes(),original)
+        self.assertEqual(list((self.root/'plugins').iterdir()),[installed])
+
+    def test_batch_folder_is_plain_and_origin_is_metadata(self):
+        (self.source/'plugin.json').write_text(json.dumps({'code':'th_batch_render','title':'Batch Render'}))
+        archive=build_package(self.source,'1.0.0',self.root/'releases')
+        values=read_package(archive)['metadata']
+        with zipfile.ZipFile(archive) as stream:payload=stream.read(archive.stem+'/payload.zip')
+        installed=install_payload(payload,dict(values,scope='first-server'),self.root/'plugins')
+        other=install_payload(payload,dict(values,scope='other-server'),self.root/'plugins')
+        self.assertEqual(installed,self.root/'plugins/batch_render')
+        self.assertEqual(other,installed)
+        self.assertEqual(json.loads((installed/'.release.json').read_text())['scope'],'other-server')
+        self.assertEqual(list((self.root/'plugins').iterdir()),[installed])
 
     def test_old_release_layout_remains_readable_for_rollback(self):
         from xml.etree import ElementTree as ET
@@ -110,7 +171,7 @@ class ClientPluginPackageTests(unittest.TestCase):
             if package is one:
                 installed = install_payload(payload,package['metadata'],self.root / 'installed')
             else:
-                with self.assertRaisesRegex(ValueError,'modified'):
+                with self.assertRaisesRegex(ValueError,'new version'):
                     install_payload(payload,package['metadata'],self.root / 'installed')
         self.assertIn('context.window',(installed / 'entry.py').read_text())
 

@@ -6218,5 +6218,7 @@
   "For example, 1.2.1": "Например, 1.2.1",
   "Next, choose the source folder and where to save the ZIP. Publishing it is a separate action.": "Далее выберите папку исходников и папку для сохранения ZIP. Публикация выполняется отдельной командой.",
   "Build ZIP": "Собрать ZIP",
+  "This plugin is already open for another server/project. Close it before opening it here.": "Этот плагин уже открыт для другого сервера или проекта. Сначала закройте его окно.",
+  "This plugin folder is not a managed installation; its files were preserved": "Эта папка не является установленным плагином; её файлы сохранены.",
   "Batch Render": "Батч-рендер"
 }

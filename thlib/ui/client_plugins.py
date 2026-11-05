@@ -199,6 +199,11 @@ class ClientPluginsController(QObject):
             return
         context = self._context()
         key = self._scope(context), code
+        if any(other != key and other[1] == code for other in self._runs):
+            self._error = self.tr('This plugin is already open for another server/project. Close it before opening it here.')
+            self._application.notify(self._error)
+            self.stateChanged.emit()
+            return
         root = installation_root(Path(env_mode.get_current_path()), context[0], context[1])
         running = key in self._runs
         def prepare():
@@ -208,7 +213,7 @@ class ClientPluginsController(QObject):
                 raise PermissionError('This plugin is unavailable for your account')
             folder = None
             if not running:
-                folder = install_payload(remote.download(self._server(context), row), row, root)
+                folder = install_payload(remote.download(self._server(context), row), dict(row, scope=key[0]), root)
             return rows, admin, row, folder
         self._run('open', code, prepare)
 

@@ -52,10 +52,15 @@ selection. It does not apply to every installed or enabled plugin. The option
 belongs to the current server/project. Batch Render restores its queue paused;
 use **Start queue** to render.
 
-Installed versions are in `plugins/installed/<protocol>/<server>/<project>/<plugin>/<version>`
-under this client's settings folder. New server packages use names such as
-`th_batch_render-1.2.0`, without checksum folder names. These packages require
-Handler 0.6.0.389 or later; older packages still work in this client.
+Installed code is in **plugins/batch_render** under this client's profile folder.
+There are no protocol, server, project or version directories. Reopening checks
+server permissions and updates this one folder. A running tool keeps its code;
+close it before updating or opening it for another server/project. Settings are
+separate: **settings/batch_render.json**, **settings/batch_render_window.json**
+and **settings/batch_render_queue.json**. Each file keeps account/server/project
+entries inside JSON so another context cannot restore your queue. Version numbers
+remain package metadata, not local directory names. Previously installed source
+folders are not configuration files and need not be copied to a new client.
 
 Batch Render's search and status filters update immediately without another
 server request. Empty and unfamiliar render statuses are available as filters.

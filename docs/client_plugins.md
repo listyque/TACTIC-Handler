@@ -53,28 +53,39 @@ release-version input. Enter a new three-part version, then **Build ZIP** select
 a source folder containing `plugin.json` and an output folder. Opening/cancelling
 the prompt does not build or publish; an empty/invalid version cannot continue. Sources
 for Batch Render live under `plugins/batch_render`. `BUILD_BATCH_PLUGIN.bat` and
-`tools/client_plugins.py build --version 1.2.0 --output <folder>` provide the same
+`tools/client_plugins.py build --version 1.3.0 --output <folder>` provide the same
 builder; the BAT/CLI requires Python 3. The GUI does not need external Python.
 Publish a built ZIP from this page while signed into the intended server/project.
 The browser has no desktop loader or equivalent execution page in this stage.
 
-Batch Render 1.2.0 is a desktop-only, modular client plugin. Its queue,
+Batch Render 1.3.0 is a desktop-only, modular client plugin. Its queue,
 Maya process, dependency preparation, catalogue, settings, window and HTTP panel
 have separate owners. The window keeps native house controls; its summary uses
 Tactic Frame. This is a separate plugin window, with no custom dashboard or TS
 browser execution counterpart. The original VM scripts and legacy entry points
 remain unchanged; `stream/batch/dispatcher_runner` still controls launch access.
 
-Installed sources live under the client's settings root, for example:
-`plugins/installed/http/studio.example_port-80/project-niki_friends/th_batch_render/1.2.0`.
-`plugins/batch_render` is the source folder, distinct from installed releases.
-New server releases use readable `th_batch_render-1.2.0` directories and ZIP names.
-Checksums remain in the manifest and local `.release.json`, not directory names.
-API 2 supports these names and QML/MJS/browser assets; Handler still reads API 1
-packages for rollback. API 2 packages require Handler 0.6.0.389 or later. Inactive
-version directories cannot be overwritten with changed contents. Old hash-named
-caches are no longer used; an active old window must be closed before moving or
-removing its files.
+Installed code has one stable path under the client profile: `plugins/<code>`;
+the existing `th_batch_render` code uses `plugins/batch_render`. Connection scope
+is metadata, never a directory hierarchy. API 1/2 server package formats and
+native immutable release ZIPs remain supported. The runtime verifies installed
+source checksums, stages the new payload, restores old code on replacement
+failure and removes the superseded copy after commit. Modified/unmanaged folders
+are preserved. Source checkouts must use a separate runtime profile to avoid
+colliding with their authoritative `plugins/batch_render` source folder.
+
+A running plugin pins its code. Another server/project cannot replace it until
+its window closes. Batch UI modules are imported from short-lived temporary
+copies because Qt caches JS module files for the entire engine lifetime; no
+module version copies remain on disk. Sources still live only in the stable
+plugin folder.
+
+Batch Render settings use the existing config API with short JSON paths:
+`settings/batch_render.json`, `settings/batch_render_window.json`, and
+`settings/batch_render_queue.json`. Account/server/project scopes are keys inside
+the files; writes update only their own entry. Source updates never touch these
+files. Earlier user data is migrated explicitly during delivery, outside the
+product; there is no permanent old-storage reader or automatic queue execution.
 
 **Start … automatically** is opt-in per plugin/server/project in Configuration
 -> Client plugins. After authentication/project restoration, the normal loader
@@ -103,7 +114,7 @@ release pinning, subsequent launch update and rollback. Rendering real frames,
 Maya/Redshift availability and the entire render/check-in queue remain separate
 production workflow checks. No production deployment is part of this stage.
 
-Batch Render 1.2.0 adds staged manual entries (`startRequested=false`). Discovery
+Batch Render 1.3.0 adds staged manual entries (`startRequested=false`). Discovery
 is read-only: it never writes the legacy server queue status. Explicit Start,
 Run only and Test release work; server-watched entries retain their existing
 workflow. No legacy server script, task schema or client entry point changes.

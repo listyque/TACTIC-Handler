@@ -74,6 +74,7 @@ class BatchDispatcherController(LocalizationMixin, SelectionMixin, WebControlMix
         super().__init__()
         self._api = api
         self._project_code = project_code
+        self._scope = ""
         self._config = deepcopy((manifest or BATCH_DISPATCHER_CONFIG)["project_config"])
         self._config.update(settings or {})
         self._init_localization()
