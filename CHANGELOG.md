@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.396 - 2026-11-06
+
+- Expand English and Russian client-plugin Help with the purpose and contents of a release package, source/output folder examples, plugin versioning, publishing, update delivery and rollback instructions.
+
 ## 0.6.0.395 - 2026-11-06
 
 - Keep each installed client plugin in one stable plugins folder, with Batch Render at plugins/batch_render. Replace verified code on update rather than retaining local version/server/protocol directories; preserve modified or unmanaged folders and restore previous code if replacement fails.

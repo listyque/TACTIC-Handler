@@ -22,20 +22,75 @@ An open plugin keeps its version; close it and open it again to use an update.
 A changed server/account/project does not reuse another context's cache or access.
 Keep your session stable while a render queue is running.
 
-Administrators can build and publish releases on the same page:
+## What building a package does
 
-1. Click **Build plugin package…**. This administrative tool packages plugin
-   source code; it is not needed to launch or download an existing plugin.
-2. Enter a new three-part plugin version, for example **1.2.1**. The version field
-   is in this dialog only; it starts empty. Cancel leaves everything unchanged.
-3. Click **Build ZIP**, select the source folder containing `plugin.json`, then
-   the output folder. No compiler or separately installed Python is needed.
-4. Click **Publish ZIP…**, choose the built archive and confirm the target project.
-   Clients fetch this release automatically on their next plugin launch.
-5. To roll back, publish a previously built ZIP. Existing release files are kept.
+**Build plugin package…** creates a ZIP for publishing a desktop plugin on the
+server. A Batch Render package includes its Python code, native interface,
+web panel, release description and checksums. Python remains source code;
+this does not compile an EXE. Building alone does not install or publish an
+update, start rendering or change user settings. A compatible plugin update
+does not require rebuilding the whole Handler application.
 
-Batch Render sources live in `plugins/batch_render` in the Handler source
-checkout. **BUILD_BATCH_PLUGIN.bat** is an alternative builder requiring Python 3.
+This is an administrator or plugin-author tool, not a normal launch command.
+If you already have a ready-to-publish ZIP, skip building and publish it directly.
+
+## Build a Batch Render update
+
+1. Edit the Batch Render sources at `plugins/batch_render` in the Handler source
+   checkout. Do not edit the managed installed copy in a client profile;
+   it belongs to the updater and is not the development source folder.
+2. Open **Configuration -> Client plugins** and click **Build plugin package…**.
+3. Enter a new three-part version of the plugin, for example **1.3.1**.
+   This is not the Handler application version. The field starts empty.
+4. Click **Build ZIP**. In the first folder dialog choose `plugins/batch_render`
+   itself: the source folder with `plugin.json` directly inside it. Do not select
+   the whole Handler checkout, the installed plugin copy or a ZIP file.
+   Selecting a plugin row in the catalogue does not select its build sources.
+5. In the second dialog choose an output folder outside the source folder,
+   for example `plugin_releases` beside the checkout. Do not save packages
+   inside the plugin sources: their files would enter subsequent builds.
+6. Wait for the ZIP-created message. This example produces
+   `th_batch_render-1.3.1.zip` and `th_batch_render-1.3.1.zip.sha256`.
+   Publish the ZIP; the adjacent checksum file lets you verify its integrity.
+
+Select the folder with `plugin.json` at its top level, for example:
+
+```text
+batch_render/
+    plugin.json
+    entry.py
+    controller.py
+    ui/
+    web_assets/
+```
+
+The builder packages files from that folder and its subfolders for the original
+legacy TACTIC server. No compiler or separately installed Python is required.
+Cancelling a folder selection publishes nothing. An existing ZIP with the same
+name is not overwritten; use a new version for a changed release.
+
+## Publish an update and receive it in Handler
+
+1. Check the connected server address and selected project. Publication uses
+   the current connection and project; building a ZIP does not change them.
+2. Click **Publish ZIP…**, select the ready-to-publish
+   `th_batch_render-1.3.1.zip` and confirm publication. A file named
+   `th_batch_render-1.3.1-source.zip`, if supplied, is a source archive,
+   not a release for this button. Extract its sources before building.
+3. Users receive the published release automatically on their next plugin
+   launch, provided it is enabled and their groups allow it. There is no need
+   to reinstall Handler or manually copy code to each workstation.
+4. An already open Batch Render keeps its current code. Let its queue finish,
+   close the Batch Render window and launch it again to receive the update.
+   Manually modified installed files block replacement; preserve your changes
+   separately and resolve the reported conflict.
+
+To roll back, publish a previously built ZIP of the required version and reopen
+the plugin. Keep tested release packages outside the installed code folder.
+Rolling back code does not undo completed renders or server data changes.
+
+**BUILD_BATCH_PLUGIN.bat** is an alternative builder requiring Python 3.
+
 The modular plugin includes a native render queue and its own web control panel. Its original
 `stream/batch/dispatcher_runner` group access rules also control plugin launch;
 existing legacy buttons and scripts continue using their own original paths.
