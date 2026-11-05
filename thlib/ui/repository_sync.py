@@ -221,21 +221,39 @@ class WorkerSignals(QObject):
     finished = Signal(str, object)
     failed = Signal(str, str, str)
     cancelled = Signal(str)
+    repository_unavailable = Signal(str, str, int)
 
 
 from thlib.repository_download import DownloadOperation, PreparedSyncEntry, SyncTask
 
 
 class DownloadRunnable(QRunnable):
-    def __init__(self, task, signals, retries=2, chunk_size=256 * 1024):
+    def __init__(
+        self, task, signals, retries=2, chunk_size=256 * 1024,
+        repository_generation=0,
+    ):
         super().__init__()
         self.task = task
         self.signals = signals
         self.retries = retries
         self.chunk_size = chunk_size
+        self.repository_generation = repository_generation
         self.setAutoDelete(True)
 
     def run(self):
+        root = self.task.repository_root
+        if root is not None:
+            try:
+                available = (
+                    bool(root) and Path(root).is_absolute() and Path(root).is_dir()
+                )
+            except OSError:
+                available = False
+            if not available:
+                self.signals.repository_unavailable.emit(
+                    self.task.task_id, root, self.repository_generation,
+                )
+                return
         DownloadOperation.run(self)
 
 
@@ -267,6 +285,8 @@ class RepositorySyncController(QObject):
         self._preview_key_to_task: dict[str, str] = {}
         self._handles: dict[str, SyncHandle] = {}
         self._active = 0
+        self._unavailable_repositories: set[str] = set()
+        self._repository_generation = 0
         self._visible_active = 0
         self._focused_task_id = ""
         self._pending_start_ids = deque()
@@ -614,6 +634,23 @@ class RepositorySyncController(QObject):
 
     @Slot()
     def reload_configuration(self) -> None:
+        self._repository_generation += 1
+        self._unavailable_repositories.clear()
+        resume_ids = []
+        for task in list(self._tasks.values()):
+            if task.state == "waiting_repository" and task.is_ui_preview:
+                self._release_task(task.task_id)
+            elif task.signals is None and task.state in {
+                "waiting", "queued", "waiting_repository",
+            }:
+                self._refresh_repository_paths(task)
+                if task.state == "waiting_repository":
+                    task.state = "waiting"
+                    self.model.update(task.task_id, status="waiting")
+                    resume_ids.append(task.task_id)
+        # Rebase every pending path before starting workers for the new mapping.
+        for task_id in resume_ids:
+            self.start_task(task_id)
         if self.auto_clean_enabled() and self._active == 0:
             self._schedule_auto_clean()
         else:
@@ -779,6 +816,9 @@ class RepositorySyncController(QObject):
                     # A second caller cannot change an in-flight transfer's source or policy.
                     return (handle, None) if return_record else handle
                 existing_task.file_object = file_object
+                existing_task.repository_root = str(
+                    file_object.get_repo_path() or ""
+                )
                 existing_task.expected_size = expected_size
                 existing_task.expected_md5 = expected_md5
                 existing_task.expected_mtime = expected_mtime
@@ -817,6 +857,7 @@ class RepositorySyncController(QObject):
             is_ui_preview=entry.is_ui_preview,
             verify_md5=verify_md5,
             overwrite_policy=overwrite_policy,
+            repository_root=str(file_object.get_repo_path() or ""),
         )
         handle = SyncHandle(self, task_id, file_object)
         task.handle = handle
@@ -863,7 +904,7 @@ class RepositorySyncController(QObject):
         task = self._tasks.get(task_id)
         status = self.status(task_id)
         if not task or status in {
-            "downloading", "finished", "exists", "skipped"
+            "downloading", "finished", "exists", "skipped", "waiting_repository"
         }:
             if task and status in {"finished", "exists", "skipped"}:
                 task.handle.downloaded.emit(task.file_object)
@@ -930,10 +971,13 @@ class RepositorySyncController(QObject):
                 self.task_failed.emit(task_id)
                 continue
             self._start_task_now(task)
-            capacity -= 1
+            capacity = max(0, self.pool.maxThreadCount() - self._active)
 
     def _start_task_now(self, task: SyncTask) -> None:
         task_id = task.task_id
+        if task.repository_root in self._unavailable_repositories:
+            self._wait_for_repository(task)
+            return
         task.cancel.clear()
         task.verify_md5 = (
             self.verify_repository_md5_enabled()
@@ -953,6 +997,9 @@ class RepositorySyncController(QObject):
         signals.cancelled.connect(
             self._cancelled, Qt.ConnectionType.QueuedConnection
         )
+        signals.repository_unavailable.connect(
+            self._repository_unavailable, Qt.ConnectionType.QueuedConnection
+        )
         # Keep signal objects alive only for the lifetime of the runnable.
         task.signals = signals
         self._active += 1
@@ -970,7 +1017,55 @@ class RepositorySyncController(QObject):
                 "API", f"Checking repository: {task.title}",
                 command=task.web_path,
             )
-        self.pool.start(DownloadRunnable(task, signals))
+        self.pool.start(DownloadRunnable(
+            task, signals, repository_generation=self._repository_generation,
+        ))
+
+    def _wait_for_repository(self, task: SyncTask) -> None:
+        task.state = "waiting_repository"
+        if not task.is_ui_preview:
+            self.model.update(
+                task.task_id, status=task.state, active=False, progress="Waiting",
+                error="", phase="queued", speed="", speedValue=0.0,
+            )
+        self.state_changed.emit()
+
+    @Slot(str, str, int)
+    def _repository_unavailable(
+        self, task_id: str, root: str, generation: int,
+    ) -> None:
+        task = self._tasks.get(task_id)
+        if not task:
+            return
+        if task.cancel.is_set():
+            self._cancelled(task_id)
+            return
+        if generation == self._repository_generation:
+            self._unavailable_repositories.add(root)
+        self._wait_for_repository(task)
+        self._release_task_signals(task)
+        self._complete_active(task)
+        if generation != self._repository_generation:
+            self._resume_repository_task(task)
+
+    def _refresh_repository_paths(self, task: SyncTask) -> None:
+        index = (
+            self._preview_key_to_task if task.is_ui_preview else self._key_to_task
+        )
+        if index.get(task.key) == task.task_id:
+            index.pop(task.key)
+        task.repository_root = str(task.file_object.get_repo_path() or "")
+        task.local_path = str(task.file_object.get_full_abs_path() or "")
+        task.web_path = str(task.file_object.get_full_web_path() or "")
+        task.key = f"{task.local_path}|{task.web_path}"
+        index[task.key] = task.task_id
+        self.model.update(task.task_id, localPath=task.local_path, webPath=task.web_path)
+
+    def _resume_repository_task(self, task: SyncTask) -> None:
+        self._refresh_repository_paths(task)
+        task.state = "waiting"
+        self.model.update(task.task_id, status="waiting")
+        self.start_task(task.task_id)
 
     @Slot()
     def start_checked(self) -> None:
@@ -1035,7 +1130,10 @@ class RepositorySyncController(QObject):
         task = self._tasks.get(task_id)
         if task:
             task.cancel.set()
-            if task_id in self._pending_start_set:
+            if (
+                task_id in self._pending_start_set
+                or task.state == "waiting_repository"
+            ):
                 self._pending_start_set.discard(task_id)
                 self._pending_start_ids = deque(
                     pending for pending in self._pending_start_ids
@@ -1141,7 +1239,12 @@ class RepositorySyncController(QObject):
         self._refresh_aggregate()
 
     def is_all_downloads_done(self) -> bool:
-        return self._active == 0 and not self._pending_start_ids
+        return (
+            self._active == 0 and not self._pending_start_ids
+            and not any(
+                task.state == "waiting_repository" for task in self._tasks.values()
+            )
+        )
 
     @Slot(str, int, int, float)
     def _progress(self, task_id: str, done: int, total: int, speed: float) -> None:
@@ -1223,7 +1326,14 @@ class RepositorySyncController(QObject):
             and not self._tasks[task_id].is_ui_preview
             for task_id in self._pending_start_ids
         )
-        if self._visible_active == 0 and not visible_pending:
+        waiting_for_repository = any(
+            self._tasks[task_id].state == "waiting_repository"
+            for task_id in self._batch_task_ids if task_id in self._tasks
+        )
+        if (
+            self._visible_active == 0 and not visible_pending
+            and not waiting_for_repository
+        ):
             # Partial discovery deliberately overlaps server queries and file
             # transfers. An empty gap between two root chunks is not the end
             # of the batch: checkpoints, auto-close and the final summary must

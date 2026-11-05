@@ -13,6 +13,14 @@ notes were removed after the QML implementation became authoritative.
   `tc.checkin_snapshot()`, and the native `SObject`, `Snapshot`, and `File`
   methods.
 - `RepositorySyncController` owns HTTP/local checkout and download state.
+  Its runnable checks the captured native File repository root off the GUI thread.
+  A blank, relative or unavailable root enters `waiting_repository`, without
+  download failure signals or error logs. The controller suppresses retries for
+  that root until repository configuration is applied, releases old preview
+  requests before refreshing views, and rebases/resumes waiting explicit transfers.
+  Generation-tagged worker results cannot block a newly applied configuration.
+  Waiting transfers are not successful checkpoints or completed batches; available
+  repositories and real transfer errors retain their ordinary behavior.
 - `CommitQueueController` owns queued prepared operations. It reuses the same
   check-in executor; it does not implement a second check-in engine.
 - DCC actions are routed to a selected thin client through fixed connector

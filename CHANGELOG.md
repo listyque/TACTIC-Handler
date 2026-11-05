@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.397 - 2026-11-06
+
+- Wait quietly when a local repository root is missing, relative or unavailable. Check paths in a worker, pause transfers without repeated download errors, and resume with current paths after repository configuration is applied.
+- Keep real transfer errors visible, allow waiting transfers to be cancelled, and avoid marking a blocked queue as successfully completed.
+
 ## 0.6.0.396 - 2026-11-06
 
 - Expand English and Russian client-plugin Help with the purpose and contents of a release package, source/output folder examples, plugin versioning, publishing, update delivery and rollback instructions.

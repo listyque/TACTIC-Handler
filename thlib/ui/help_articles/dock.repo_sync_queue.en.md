@@ -40,7 +40,7 @@ transfers are verified against response metadata.
 
 ## Errors
 
-- Missing repository configuration blocks the row before transfer.
+- A missing or unavailable local repository keeps the row waiting without repeated error notifications. Apply a usable path in Repository Editor to resume it.
 - Cancellation is a normal terminal state, not an application error.
 - A temporary network failure keeps the source identity for retry.
 - Credentials and tokens never appear in the visible detail or Debug Log.

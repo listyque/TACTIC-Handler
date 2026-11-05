@@ -776,11 +776,11 @@ class ConfigurationBridge:
         self.core.controller.apply_appearance_configuration(values)
 
     def reload_repository_configuration(self) -> None:
+        self.core.controller.repository_sync.reload_configuration()
         self.core.controller.refresh_checkin_defaults()
         self.delivery.checkin_out.reload_repository_configuration()
         self.delivery.commit_queue.reload_repository_configuration()
         self.delivery.drop_plate.reload_configuration()
-        self.core.controller.repository_sync.reload_configuration()
 
     def checkin_values(self) -> dict[str, Any]:
         controller = self.core.controller
@@ -897,9 +897,7 @@ def _build_editors(
         delivery.checkin_out,
         controller.workspace_state,
     )
-    repository.saved.connect(
-        delivery.commit_queue.reload_repository_configuration
-    )
+    repository.saved.connect(settings.reload_repository_configuration)
     filters = FilterEditorController(
         controller.workspace_state.filter_model.records,
         controller.workspace_state.filter_column_model.records,

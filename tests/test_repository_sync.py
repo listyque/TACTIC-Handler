@@ -451,6 +451,7 @@ class RepositorySyncTests(unittest.TestCase):
             local_mtime = os.path.getmtime(destination)
             debug_log = Mock()
             file_object = Mock()
+            file_object.get_repo_path.return_value = directory
             file_object.get_full_abs_path.return_value = destination
             file_object.get_full_web_path.return_value = (
                 "https://example.invalid/preview.jpg"

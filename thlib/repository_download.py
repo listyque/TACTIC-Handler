@@ -39,6 +39,7 @@ class SyncTask:
     cancel: threading.Event = field(default_factory=threading.Event)
     started_at: float = 0.0
     overwrite_policy: str = "overwrite"
+    repository_root: str | None = None
 
 
 @dataclass(frozen=True)

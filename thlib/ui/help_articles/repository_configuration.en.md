@@ -37,3 +37,18 @@ Local is disabled by default for new repository settings. Existing saved enablem
 
 If the active server preset has no usable default repository, TACTIC Handler offers this page once
 per launch. Choosing **Later** postpones setup; it does not mark the repository as configured.
+
+## Waiting for a repository
+
+If a local repository root is blank, relative or unavailable, background previews
+and Repository Sync wait for repository setup. No HTTP download or automatic
+root-directory creation is attempted, and this expected state does not add
+repeated download errors to Notifications or Debug Log. Other available
+repositories continue working.
+
+Open **Repository Editor**, select an absolute local folder and save the mapping.
+Use **Check paths** to create/check the folder explicitly. After the configuration
+is applied, previews are requested using the current paths and transfers waiting
+in the sync queue resume with their existing file identity. Repeated refreshes
+or Retry do not retry an unavailable root until repository configuration is
+applied. Real transfer errors with an available root remain visible.
