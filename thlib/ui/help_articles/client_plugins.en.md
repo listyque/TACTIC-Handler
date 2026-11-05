@@ -24,12 +24,15 @@ Keep your session stable while a render queue is running.
 
 Administrators can build and publish releases on the same page:
 
-1. Set a new three-part release version, for example **1.2.0**.
-2. Click **Build ZIP…**, select the source folder containing `plugin.json`, then
+1. Click **Build plugin package…**. This administrative tool packages plugin
+   source code; it is not needed to launch or download an existing plugin.
+2. Enter a new three-part plugin version, for example **1.2.1**. The version field
+   is in this dialog only; it starts empty. Cancel leaves everything unchanged.
+3. Click **Build ZIP**, select the source folder containing `plugin.json`, then
    the output folder. No compiler or separately installed Python is needed.
-3. Click **Publish ZIP…**, choose the built archive and confirm the target project.
+4. Click **Publish ZIP…**, choose the built archive and confirm the target project.
    Clients fetch this release automatically on their next plugin launch.
-4. To roll back, publish a previously built ZIP. Existing release files are kept.
+5. To roll back, publish a previously built ZIP. Existing release files are kept.
 
 Batch Render sources live in `plugins/batch_render` in the Handler source
 checkout. **BUILD_BATCH_PLUGIN.bat** is an alternative builder requiring Python 3.

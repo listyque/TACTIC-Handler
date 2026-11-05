@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.393 - 2026-11-06
+
+- Move the administrative plugin package version input out of the main catalogue into an explicit Build plugin package dialog. Explain source packaging, version format, folder selection and separate publication; do not prefill an arbitrary version.
+
 ## 0.6.0.392 - 2026-11-06
 
 - Separate client plugin selection from explicit Launch / Show window actions in Configuration. Keep the existing permission-checked loader and main-window launch actions.

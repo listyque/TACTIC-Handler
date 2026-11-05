@@ -47,8 +47,11 @@ are notified without opening Configuration. This desktop-only control has no
 browser execution counterpart.
 
 Configuration -> Client plugins is a native desktop integration page. Its
-build/publish controls use the installed Python runtime; build selects a source
-folder containing `plugin.json`, a release version and an output folder. Sources
+build/publish controls use the installed Python runtime. **Build plugin package…**
+opens an explanatory administrative version prompt; the main catalogue has no
+release-version input. Enter a new three-part version, then **Build ZIP** selects
+a source folder containing `plugin.json` and an output folder. Opening/cancelling
+the prompt does not build or publish; an empty/invalid version cannot continue. Sources
 for Batch Render live under `plugins/batch_render`. `BUILD_BATCH_PLUGIN.bat` and
 `tools/client_plugins.py build --version 1.2.0 --output <folder>` provide the same
 builder; the BAT/CLI requires Python 3. The GUI does not need external Python.

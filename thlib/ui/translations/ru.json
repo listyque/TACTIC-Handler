@@ -6211,5 +6211,12 @@
   "Start %1 automatically": "Автоматически запускать %1",
   "Only this plugin, after sign-in and project selection. Other plugins have their own setting.": "Только этот плагин, после входа и выбора проекта. Для других плагинов настройка задаётся отдельно.",
   "Enabled makes a plugin available; it does not launch it. Use Launch here or the main-window plugin actions. Active queues keep their version.": "«Включено» делает плагин доступным, но не запускает его. Используйте кнопку «Запустить» здесь или действия плагинов в главном окне. Работающие очереди сохраняют свою версию.",
+  "Build plugin package…": "Собрать пакет плагина…",
+  "Build plugin package": "Сборка пакета плагина",
+  "For plugin authors: create a ZIP from source files for publication on the server. This is not needed to launch an existing plugin.": "Для авторов плагинов: создать ZIP из исходников для публикации на сервере. Для запуска существующего плагина это не нужно.",
+  "New plugin version": "Новая версия плагина",
+  "For example, 1.2.1": "Например, 1.2.1",
+  "Next, choose the source folder and where to save the ZIP. Publishing it is a separate action.": "Далее выберите папку исходников и папку для сохранения ZIP. Публикация выполняется отдельной командой.",
+  "Build ZIP": "Собрать ZIP",
   "Batch Render": "Батч-рендер"
 }

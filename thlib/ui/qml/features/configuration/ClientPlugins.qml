@@ -120,25 +120,13 @@ Item {
                 wrapMode: Text.Wrap
             }
         }
-        RowLayout {
+        Controls.Button {
+            objectName: "clientPluginBuild"
+            theme: root.theme
+            text: qsTr("Build plugin package…")
             visible: root.controller.canPublish
-            Layout.fillWidth: true
-            Controls.SectionLabel { theme: root.theme; text: qsTr("Release version") }
-            Controls.TextField {
-                id: version
-                objectName: "clientPluginBuildVersion"
-                theme: root.theme
-                Layout.fillWidth: true
-                text: "1.0.0"
-                enabled: !root.controller.busy
-            }
-            Controls.Button {
-                objectName: "clientPluginBuild"
-                theme: root.theme
-                text: qsTr("Build ZIP…")
-                enabled: !root.controller.busy && !!version.text
-                onClicked: root.controller.build(version.text)
-            }
+            enabled: !root.controller.busy
+            onClicked: buildDialog.open()
         }
         Controls.SelectableText {
             Layout.fillWidth: true
@@ -152,6 +140,62 @@ Item {
             root.pendingArchive = path;
             confirmation.open();
         }
+    }
+    Controls.Dialog {
+        id: buildDialog
+        objectName: "clientPluginBuildDialog"
+        theme: root.theme
+        anchors.centerIn: parent
+        width: Math.min(520, root.width - 24)
+        modal: true
+        title: qsTr("Build plugin package")
+        contentItem: ColumnLayout {
+            spacing: Foundation.spacing.compact
+            Controls.SectionLabel {
+                Layout.fillWidth: true
+                theme: root.theme
+                text: qsTr("For plugin authors: create a ZIP from source files for publication on the server. This is not needed to launch an existing plugin.")
+                wrapMode: Text.Wrap
+            }
+            Controls.SectionLabel {
+                Layout.fillWidth: true
+                theme: root.theme
+                text: qsTr("New plugin version")
+            }
+            Controls.TextField {
+                id: version
+                objectName: "clientPluginBuildVersion"
+                Layout.fillWidth: true
+                theme: root.theme
+                placeholderText: qsTr("For example, 1.2.1")
+                validator: RegularExpressionValidator { regularExpression: /\d+\.\d+\.\d+/ }
+                Accessible.name: qsTr("New plugin version")
+            }
+            Controls.SectionLabel {
+                Layout.fillWidth: true
+                theme: root.theme
+                text: qsTr("Next, choose the source folder and where to save the ZIP. Publishing it is a separate action.")
+                wrapMode: Text.Wrap
+            }
+        }
+        footer: Controls.DialogActions {
+            theme: root.theme
+            Controls.Button {
+                objectName: "clientPluginBuildCancel"
+                theme: root.theme
+                text: qsTr("Cancel")
+                onClicked: buildDialog.reject()
+            }
+            Controls.Button {
+                objectName: "clientPluginBuildConfirm"
+                theme: root.theme
+                text: qsTr("Build ZIP")
+                enabled: root.controller.canPublish && !root.controller.busy && version.acceptableInput
+                onClicked: buildDialog.accept()
+            }
+        }
+        onOpened: version.forceActiveFocus()
+        onAccepted: root.controller.build(version.text)
     }
     Controls.Dialog {
         id: confirmation
