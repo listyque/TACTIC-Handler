@@ -19,6 +19,11 @@ operation = th.submit(lambda: [project.get_code() for project in th.projects()])
 print(operation.result())
 ```
 
+Importing the standalone API does not load Qt. Localized date presentation loads
+Qt only when called. Server procedure source is checked by content, including
+bundled `.source` files; changing source without changing its size or timestamp
+cannot reuse an older executable body. Parsing is cached for four source bodies.
+
 For a standalone script, use the existing configured Handler session. This does
 not open windows, connect a DCC, or switch the application's current project:
 

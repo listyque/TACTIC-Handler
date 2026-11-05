@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import functools
 
+
 @functools.lru_cache(maxsize=512)
 def _cached_date(
     locale_name: str, year: int, month: int, day: int, fmt: str

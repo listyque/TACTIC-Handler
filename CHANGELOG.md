@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.384 - 2026-11-05
+
+- Validate server procedure source by content, including bundled `.source` files, so same-size edits with preserved timestamps cannot execute an older body; retain a bounded syntax cache.
+- Document HTTPS scheme preservation through the configured proxy transport and Qt-free standalone API imports, with regression coverage for both paths.
+
 ## 0.6.0.383 - 2026-11-05
 
 - Keep retired snapshots out of `get_max_version` in `get_virtual_snapshot_extended` / `create_snapshot_extended` after the single-column version query.

@@ -26,6 +26,9 @@ the JSON transport option requires TACTIC Stream.
 
 ## Connection
 
+XML-RPC preserves the configured `https://` scheme, including requests through
+Handler's custom proxy transport. Switching presets also updates the scheme.
+
 | Setting or action | What it controls |
 | --- | --- |
 | **Server address** | The TACTIC HTTP endpoint used by the current draft and by **Test**. Changing it does not authenticate an account. |
