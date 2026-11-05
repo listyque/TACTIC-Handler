@@ -21,7 +21,7 @@ Keep your session stable while a render queue is running.
 
 Administrators can build and publish releases on the same page:
 
-1. Set a new three-part release version, for example **1.1.0**.
+1. Set a new three-part release version, for example **1.1.1**.
 2. Click **Build ZIP…**, select the source folder containing `plugin.json`, then
    the output folder. No compiler or separately installed Python is needed.
 3. Click **Publish ZIP…**, choose the built archive and confirm the target project.
@@ -46,7 +46,7 @@ opens Batch Render with the saved queue paused; use **Start queue** to render.
 
 Installed versions are in `plugins/installed/<protocol>/<server>/<project>/<plugin>/<version>`
 under this client's settings folder. New server packages use names such as
-`th_batch_render-1.1.0`, without checksum folder names. These packages require
+`th_batch_render-1.1.1`, without checksum folder names. These packages require
 Handler 0.6.0.389 or later; older packages still work in this client.
 
 Batch Render's search and status filters update immediately without another

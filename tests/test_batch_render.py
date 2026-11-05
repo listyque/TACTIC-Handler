@@ -1917,6 +1917,15 @@ class QueueTests(unittest.TestCase):
             self.app.processEvents()
             qInstallMessageHandler(previous)
 
+    def test_browser_material_glyphs_exist_in_the_bundled_native_font(self):
+        import re
+        charmap=json.loads((ROOT/'thlib/ui/assets/fonts/materialdesignicons-webfont-charmap.json').read_text(encoding='utf-8'))
+        supported={int(value,16) for value in charmap.values()}
+        codes=re.findall(r"material:'([0-9A-F]+)'",WEB_HTML)
+        self.assertGreater(len(codes),10)
+        self.assertTrue(all(int(code,16) in supported for code in codes))
+        self.assertIn("settings:{solid:'F013',material:'"+charmap['cog'].upper()+"'}",WEB_HTML)
+
     def test_http_health_validation_and_release_port(self):
         from urllib.request import Request
         from urllib.parse import urlsplit

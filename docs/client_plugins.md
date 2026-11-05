@@ -50,12 +50,12 @@ Configuration -> Client plugins is a native desktop integration page. Its
 build/publish controls use the installed Python runtime; build selects a source
 folder containing `plugin.json`, a release version and an output folder. Sources
 for Batch Render live under `plugins/batch_render`. `BUILD_BATCH_PLUGIN.bat` and
-`tools/client_plugins.py build --version 1.1.0 --output <folder>` provide the same
+`tools/client_plugins.py build --version 1.1.1 --output <folder>` provide the same
 builder; the BAT/CLI requires Python 3. The GUI does not need external Python.
 Publish a built ZIP from this page while signed into the intended server/project.
 The browser has no desktop loader or equivalent execution page in this stage.
 
-Batch Render 1.1.0 is a desktop-only, modular client plugin. Its queue,
+Batch Render 1.1.1 is a desktop-only, modular client plugin. Its queue,
 Maya process, dependency preparation, catalogue, settings, window and HTTP panel
 have separate owners. The window keeps native house controls; its summary uses
 Tactic Frame. This is a separate plugin window, with no custom dashboard or TS
@@ -63,9 +63,9 @@ browser execution counterpart. The original VM scripts and legacy entry points
 remain unchanged; `stream/batch/dispatcher_runner` still controls launch access.
 
 Installed sources live under the client's settings root, for example:
-`plugins/installed/http/studio.example_port-80/project-niki_friends/th_batch_render/1.1.0`.
+`plugins/installed/http/studio.example_port-80/project-niki_friends/th_batch_render/1.1.1`.
 `plugins/batch_render` is the source folder, distinct from installed releases.
-New server releases use readable `th_batch_render-1.1.0` directories and ZIP names.
+New server releases use readable `th_batch_render-1.1.1` directories and ZIP names.
 Checksums remain in the manifest and local `.release.json`, not directory names.
 API 2 supports these names and QML/MJS/browser assets; Handler still reads API 1
 packages for rollback. API 2 packages require Handler 0.6.0.389 or later. Inactive

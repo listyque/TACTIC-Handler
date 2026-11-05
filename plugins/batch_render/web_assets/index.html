@@ -250,21 +250,21 @@ const byId = id => document.getElementById(id);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const statusColors = {waiting:'#aab8be',held:'#c9973f',discovering:'#60b6da',preparing:'#60b6da',rendering:'#60b6da',paused:'#e1b64e',saving:'#60b6da',completed:'#31a66a',failed:'#ef5f70',cancelled:'#aab8be',skipped:'#778991',stopping:'#ef9b5f'};
 const iconCodes = {
-  list:{solid:'F03A',material:'F572'}, play:{solid:'F04B',material:'F40A'},
+  list:{solid:'F03A',material:'F0572'}, play:{solid:'F04B',material:'F040A'},
   pause:{solid:'F04C'}, resume:{solid:'F144',regular:'F144'},
-  stop:{solid:'F04D',material:'F4DB'}, folderOpen:{solid:'F07C',regular:'F07C',material:'F76F',automatic:true},
-  settings:{solid:'F013',material:'F8D5'}, filter:{solid:'F0B0',material:'F232'},
-  refresh:{solid:'F2F9',material:'F450'}, sync:{solid:'F2F1',material:'F4E6'},
-  plus:{solid:'F067'}, playlist:{solid:'F0CA',material:'F412'},
-  more:{solid:'F142',material:'F1D9'}, right:{solid:'F054',material:'F142'},
-  chevronDown:{solid:'F078',material:'F140'},
-  checked:{solid:'F058',regular:'F058',material:'F5E0',automatic:true},
-  flask:{solid:'F0C3'}, open:{solid:'F35D',material:'F3CC'},
-  folder:{solid:'F07B',regular:'F07B',material:'F24B',automatic:true},
-  frames:{solid:'F044',regular:'F044',automatic:true}, remove:{solid:'F2ED',regular:'F2ED',material:'F9E6'},
-  top:{solid:'F102'}, up:{solid:'F062',material:'F05D'},
-  down:{solid:'F063',material:'F045'}, bottom:{solid:'F103'},
-  terminal:{solid:'F120'}, clear:{solid:'F51A',material:'F5E9'}
+  stop:{solid:'F04D',material:'F04DB'}, folderOpen:{solid:'F07C',regular:'F07C',material:'F0770',automatic:true},
+  settings:{solid:'F013',material:'F0493'}, filter:{solid:'F0B0',material:'F0232'},
+  refresh:{solid:'F2F9',material:'F0450'}, sync:{solid:'F2F1',material:'F04E6'},
+  plus:{solid:'F067'}, playlist:{solid:'F0CA',material:'F0412'},
+  more:{solid:'F142',material:'F01D9'}, right:{solid:'F054',material:'F0142'},
+  chevronDown:{solid:'F078',material:'F0140'},
+  checked:{solid:'F058',regular:'F058',material:'F05E0',automatic:true},
+  flask:{solid:'F0C3'}, open:{solid:'F35D',material:'F03CC'},
+  folder:{solid:'F07B',regular:'F07B',material:'F024B',automatic:true},
+  frames:{solid:'F044',regular:'F044',automatic:true}, remove:{solid:'F2ED',regular:'F2ED',material:'F01B4'},
+  top:{solid:'F102'}, up:{solid:'F062',material:'F005D'},
+  down:{solid:'F063',material:'F0045'}, bottom:{solid:'F103'},
+  terminal:{solid:'F120'}, clear:{solid:'F51A',material:'F05E9'}
 };
 function resolvedIcon(name) {
   const value = iconCodes[name], iconSet = state.theme?.iconSet || 'automatic';

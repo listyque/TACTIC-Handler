@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.390 - 2026-11-05
+
+- Correct Batch Render web-panel Material icon code points against the bundled native font; package the fix as plugin 1.1.1, also usable by Handler 0.6.0.389 without an application update.
+
 ## 0.6.0.389 - 2026-11-05
 
 - Store installed desktop plugins in readable server/project/plugin/version folders and publish API 2 releases with readable server directory names; retain API 1 rollback support and verified immutable sources.
