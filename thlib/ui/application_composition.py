@@ -355,6 +355,7 @@ class EditorBundle:
     def qml_bindings(self) -> dict[str, Any]:
         return {
             "configurationController": self.configuration,
+            "clientPluginsController": self.configuration.page_integration("client_plugins"),
             "repositoryEditorController": self.repository,
             "repositoryEditorModel": self.repository.model,
             "filterEditorController": self.filters,
@@ -864,6 +865,8 @@ def _build_editors(
     controller = core.controller
     from thlib.ui.client_plugins import ClientPluginsController
 
+    client_plugins = ClientPluginsController(controller, parent=controller)
+    controller.attach_client_plugins(client_plugins)
     settings = ConfigurationBridge(core, task_bundle, collaboration, delivery)
     configuration = ConfigurationController(
         controller.apply_server_configuration,
@@ -885,7 +888,7 @@ def _build_editors(
         dcc_runtime_values=delivery.handler_server.selected_scene_info,
         server_control=ServerControlEditor(controller),
         database_resources=DatabaseResourcesEditor(controller),
-        client_plugins=ClientPluginsController(controller, parent=controller),
+        client_plugins=client_plugins,
     )
     delivery.handler_server.stateChanged.connect(
         configuration.refresh_dcc_runtime

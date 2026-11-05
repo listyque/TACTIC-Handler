@@ -6201,5 +6201,6 @@
   "Use a new version number for changed plugin files": "Для изменённых файлов укажите новый номер версии",
   "Incomplete plugin download": "Загрузка плагина не завершена",
   "Plugin checksum does not match": "Контрольная сумма плагина не совпала",
-  "This plugin requires another Handler plugin API": "Плагину требуется другая версия API плагинов ТХ"
+  "This plugin requires another Handler plugin API": "Плагину требуется другая версия API плагинов ТХ",
+  "Batch Render": "Батч-рендер"
 }

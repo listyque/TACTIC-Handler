@@ -58,6 +58,101 @@ class ClientPluginUiTests(unittest.TestCase):
                 sys.modules.pop(name+'.late',None)
                 sys.modules.pop(name,None)
 
+
+    def test_launch_actions_follow_existing_rights_and_enablement(self):
+        with tempfile.TemporaryDirectory() as folder:
+            original=env_mode.get_current_path()
+            env_mode.set_current_path(folder)
+            application=Application()
+            controller=ClientPluginsController(application,parent=application)
+            try:
+                controller._rows=[{'code':'th_batch_render','title':'Batch Render','allowed':True,'error':''},
+                                  {'code':'denied','title':'Denied','allowed':False,'error':''}]
+                self.assertEqual([a['command'] for a in controller.launchActions],['client_plugin:th_batch_render'])
+                controller.set_enabled('th_batch_render',False)
+                self.assertEqual(controller.launchActions,[])
+                controller.set_enabled('th_batch_render',True)
+                controller._busy=True
+                self.assertFalse(controller.launchActions[0]['enabled'])
+                controller._rows[0]['allowed']=False
+                self.assertEqual(controller.launchActions,[])
+            finally:
+                controller.shutdown()
+                env_mode.set_current_path(original)
+
+    def test_main_menu_launch_is_not_restricted_to_administrators(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from thlib.ui.controllers.commands import CommandsMixin
+        from thlib.ui.menu_schema import MenuRegistry
+        class Host(CommandsMixin,QObject):
+            command_requested=Signal(str)
+            can_manage_tools=False
+            is_stream_server=False
+            debug_log=None
+        host=Host()
+        host._menus=MenuRegistry()
+        plugins=SimpleNamespace(launchActions=[{'title':'Batch Render','icon':'movie',
+                                                'command':'client_plugin:th_batch_render'}],open_plugin=Mock())
+        host.attach_client_plugins(plugins)
+        self.assertEqual(host.menu_actions('user')[0]['command'],'client_plugin:th_batch_render')
+        host.invoke('client_plugin:th_batch_render')
+        plugins.open_plugin.assert_called_once_with('th_batch_render')
+
+    def test_top_bar_launch_button_mouse_keyboard_and_touch(self):
+        from PySide6.QtCore import Property,Slot
+        class Launcher(QObject):
+            stateChanged=Signal()
+            def __init__(self):
+                super().__init__()
+                self.actions=[{'title':'Batch Render','command':'client_plugin:th_batch_render','enabled':True}]
+                self.calls=[]
+            @Property('QVariantList',notify=stateChanged)
+            def launchActions(self): return self.actions
+            @Slot(str)
+            def open_plugin(self,code): self.calls.append(code)
+        controller=Launcher()
+        source=Path(__file__).parents[1]
+        engine=QQmlApplicationEngine()
+        warnings=[]
+        engine.warnings.connect(lambda values:warnings.extend(value.toString() for value in values))
+        engine.rootContext().setContextProperty('testLauncher',controller)
+        qml=b'''import QtQuick
+import "." as App
+import "features/plugins" as Plugins
+Window { width: 300; height: 100; visible: true
+ App.Theme { id: palette; dark: true }
+ Plugins.BatchRenderButton { x: 12; y: 12; width: 36; height: 36; theme: palette; controller: testLauncher }
+}'''
+        engine.loadData(qml,QUrl.fromLocalFile(str(source/'thlib/ui/qml/button-test.qml')))
+        self.assertTrue(engine.rootObjects(),warnings)
+        window=engine.rootObjects()[0]
+        try:
+            self.app.processEvents()
+            button=window.findChild(QObject,'batchRenderLaunchButton')
+            self.assertTrue(button.isVisible())
+            point=button.mapToScene(QPointF(18,18)).toPoint()
+            QTest.mouseClick(window,Qt.MouseButton.LeftButton,Qt.KeyboardModifier.NoModifier,point)
+            button.forceActiveFocus()
+            QTest.keyClick(window,Qt.Key.Key_Return)
+            self.assertEqual(controller.calls,['th_batch_render']*2)
+            # Separate authentic input from the house 180 ms duplicate-activation guard.
+            QTest.qWait(200)
+            device=QTest.createTouchDevice()
+            QTest.touchEvent(window,device).press(0,point,window).commit()
+            QTest.touchEvent(window,device).release(0,point,window).commit()
+            self.app.processEvents()
+            self.assertEqual(controller.calls,['th_batch_render']*3)
+            controller.actions=[]
+            controller.stateChanged.emit()
+            self.app.processEvents()
+            self.assertFalse(button.isVisible())
+            self.assertFalse(warnings,warnings)
+        finally:
+            window.close()
+            engine.deleteLater()
+            self.app.processEvents()
+
     def test_native_page_mouse_keyboard_narrow_and_russian(self):
         source=Path(__file__).parents[1]
         with tempfile.TemporaryDirectory() as folder:

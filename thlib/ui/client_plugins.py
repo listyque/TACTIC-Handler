@@ -90,6 +90,12 @@ class ClientPluginsController(QObject):
                  'running': (scope, row['code']) in self._runs,
                  'runningVersion': self._runs.get((scope, row['code']), {}).get('version', '')} for row in self._rows]
 
+    @Property('QVariantList', notify=stateChanged)
+    def launchActions(self):
+        return [dict(title=row['title'], icon='movie', command='client_plugin:' + row['code'],
+                     enabled=not self._busy)
+                for row in self.rows if row['enabled'] and row.get('allowed') and not row.get('error')]
+
     @Property(bool, notify=stateChanged)
     def busy(self):
         return self._busy
@@ -221,11 +227,15 @@ class ClientPluginsController(QObject):
                     self._open(context, code, row, folder)
             except Exception as error:
                 self._error = self.tr(str(error))
+            if kind == 'open' and self._error:
+                self._application.notify(self._error)
             self.stateChanged.emit()
         def failed(value):
             if not self._closed and generation == self._generation and context == self._context():
                 self._busy = False
                 self._error = self.tr(str(value.get('exception') or 'Client plugin operation failed')).replace(str(context[2]), '[redacted]')
+                if kind == 'open':
+                    self._application.notify(self._error)
                 self.stateChanged.emit()
         worker.result.connect(done)
         worker.error.connect(failed)

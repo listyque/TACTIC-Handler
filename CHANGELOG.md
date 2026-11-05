@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.388 - 2026-11-05
+
+- Add a Batch Render launch button beside the project selector and permitted client plugin actions in the account menu, using the existing loader and group checks.
+- Report plugin launch errors without requiring Configuration to be open.
+
 ## 0.6.0.387 - 2026-11-05
 
 - Preserve the reviewed Batch Render source bytes across Windows Git checkouts so GUI, CLI and archived-source builds use the same dispatcher body.

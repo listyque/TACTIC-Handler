@@ -5,6 +5,8 @@ order: 62
 ---
 # Client plugins
 
+Launch **Batch Render** with the film button beside the project selector in the main window. The account menu also lists enabled client tools available to your groups. Launching does not open Configuration; errors appear as notifications. Disabled, denied or unavailable plugins have no launch action.
+
 Open **Configuration -> Client plugins** after signing in and selecting a project.
 These tools run in Handler. The project's original TACTIC server stores and
 publishes their releases; TACTIC Stream is not required.

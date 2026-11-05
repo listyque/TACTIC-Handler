@@ -5,6 +5,8 @@ import QtQuick.Layouts
 import QtQuick.Window
 import "controls" as Controls
 import "features/table" as Table
+import "features/plugins" as Plugins
+import "tactic_frame/core/foundation.mjs" as Foundation
 import "tactic_frame/shell/main_toolbar.ui.mjs" as MainToolbar
 import "tactic_frame/shell/main.menus.mjs" as MainMenus
 import "tactic_frame/shell/workspace.ui.mjs" as WorkspaceShell
@@ -273,6 +275,16 @@ ApplicationWindow {
         Item {
             id: topAppBarContent
             anchors.fill: parent
+            Plugins.BatchRenderButton {
+                id: batchRenderButton
+                x: projectButton.x + projectButton.width + Foundation.spacing.compact
+                y: projectButton.y
+                width: topAppBar.controlExtent
+                height: topAppBar.controlExtent
+                theme: theme
+                controller: clientPluginsController
+                roomAvailable: x + width <= topAppBar.controls.mainActivity.x
+            }
             Controls.CompactIconButton {
                 readonly property var frameGeometry: topAppBar.controls.mainNavigation
                 property string frameId: "mainNavigation"

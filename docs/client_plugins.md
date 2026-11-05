@@ -40,6 +40,12 @@ and catalogue requests use the current authenticated session; no ticket is sent
 to a redirected download host. HTTP transport has the host's normal network
 trust limitations; HTTPS is recommended where the server already supports it.
 
+Batch Render has a native main-bar film button beside the project selector. The
+account menu also exposes the same permitted/enabled plugin actions. Both routes
+use the existing loader, fresh access checks and release lifecycle. Launch errors
+are notified without opening Configuration. This desktop-only control has no
+browser execution counterpart.
+
 Configuration -> Client plugins is a native desktop integration page. Its
 build/publish controls use the installed Python runtime; build selects a source
 folder containing `plugin.json`, a release version and an output folder. Sources

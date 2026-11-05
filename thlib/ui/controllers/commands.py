@@ -48,6 +48,9 @@ from .types import ActionRegistry, SearchTabSession, SectionSession
 class CommandsMixin:
     _stream_commands = {'open_agent_request', 'open_agent_providers', 'show_system_info', 'show_layout_editor'}
     _stream_windows = {'agent_request', 'agent_providers', 'agent_mcp', 'system_info', 'table_views'}
+    def attach_client_plugins(self, controller) -> None:
+        self._client_plugins = controller
+
     def attach_workspace_layout_presets(self, controller) -> None:
         """Attach the project-scoped preset owner after core composition."""
         self._workspace_layout_presets = controller
@@ -296,6 +299,11 @@ class CommandsMixin:
                 caller=2,
             )
         self.command_requested.emit(command)
+        if command.startswith("client_plugin:"):
+            plugins = getattr(self, "_client_plugins", None)
+            if plugins is not None:
+                plugins.open_plugin(command.partition(":")[2])
+            return
         if command.startswith("dcc_tool:"):
             bridge = getattr(self, "_dcc_bridge", None)
             application_type = str(
@@ -468,6 +476,9 @@ class CommandsMixin:
                 action for action in actions
                 if action.get("command") not in hidden
             ]
+        plugins = getattr(self, "_client_plugins", None)
+        if menu_id == "user" and plugins is not None and plugins.launchActions:
+            actions = [*plugins.launchActions, {"separator": True}, *actions]
         return actions
 
     @Slot(bool, result="QVariantList")
