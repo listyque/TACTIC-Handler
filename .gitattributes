@@ -1,3 +1,4 @@
 *.mjs text eol=lf
 *.qml text eol=lf
 thlib/ui/qml/tactic_frame/**/*.json text eol=lf
+plugins/batch_render/dispatcher.py text eol=lf

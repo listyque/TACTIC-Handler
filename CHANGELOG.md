@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.387 - 2026-11-05
+
+- Preserve the reviewed Batch Render source bytes across Windows Git checkouts so GUI, CLI and archived-source builds use the same dispatcher body.
+
 ## 0.6.0.386 - 2026-11-05
 
 - Load verified client plugin modules directly from source, including delayed relative imports, so source-checkout launches cannot create or reuse unverified bytecode in immutable plugin caches.
