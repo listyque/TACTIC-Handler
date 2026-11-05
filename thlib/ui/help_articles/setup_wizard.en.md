@@ -60,3 +60,6 @@ installer (or a previously generated EXE), set the public defaults (server,
 project code, installation folder, repository folder name, DCC plugins, default
 shelf, language, theme, tray behavior and desktop shortcut), and click **Create EXE**. Logins, passwords and
 session tickets are never stored in generated installers.
+
+Setup shares the normal desktop ownership guard with TH across installation folders.
+Close every running TH window and tray instance before configuring an installation.

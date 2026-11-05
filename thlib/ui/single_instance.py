@@ -57,6 +57,8 @@ class SingleInstanceGuard(QObject):
         self._lock = QLockFile(
             str(Path(lock_root) / f"tactic-handler-{lock_digest}.lock")
         )
+        # Age alone must not release a live application's ownership.
+        self._lock.setStaleLockTime(0)
         self._server = QLocalServer(self)
         self._server.newConnection.connect(self._accept_connections)
         self._activation_handler: Callable[[], None] | None = None

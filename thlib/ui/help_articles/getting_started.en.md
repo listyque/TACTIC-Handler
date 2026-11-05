@@ -19,9 +19,9 @@ tabs.
 - Open Configuration first when no server is configured.
 - Project-defined Search Types, processes, statuses, groups, contexts, and pipelines are displayed
   exactly as supplied by TACTIC.
-- TACTIC Handler runs as one desktop instance.
+- TACTIC Handler runs as one desktop instance across normal installation folders and versions.
 - Launching it again restores the existing main window, including when it is hidden in the system
-  tray.
+  tray. Close older builds that used separate instance keys before switching to a new build.
 - On Windows, both launchers use the Handler taskbar icon.
 - In a portable build, installing an application update closes and reopens Handler automatically.
 

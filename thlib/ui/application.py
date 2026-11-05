@@ -216,8 +216,9 @@ def main() -> int:
         set_app_id("TACTIC.Handler.Desktop")
 
     smoke_offline = os.environ.get("TACTIC_QML_SMOKE_OFFLINE", "") == "1"
+    test_settings_dir = os.environ.get("TACTIC_QML_TEST_SETTINGS_DIR", "").strip()
     settings_dir = (
-        os.environ.get("TACTIC_QML_TEST_SETTINGS_DIR", "").strip()
+        test_settings_dir
         or os.environ.get("TACTIC_HANDLER_SETTINGS_DIR", "").strip()
     )
     if settings_dir:
@@ -259,7 +260,7 @@ def main() -> int:
         app = QApplication(sys.argv)
     app.setApplicationName("TacticHandler_Client")
     single_instance = SingleInstanceGuard(
-        instance_server_name(app.applicationName(), settings_dir),
+        instance_server_name(app.applicationName(), test_settings_dir),
         app,
     )
     if not single_instance.start():

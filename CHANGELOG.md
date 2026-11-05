@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.394 - 2026-11-06
+
+- Use one normal desktop instance across portable installation/settings folders; repeat EXE or Python launches activate the existing window. Keep private ownership only for explicitly isolated test profiles.
+- Use the same normal ownership in Setup and disable age-based expiry of the live application lock while retaining crashed-process recovery.
+
 ## 0.6.0.393 - 2026-11-06
 
 - Move the administrative plugin package version input out of the main catalogue into an explicit Build plugin package dialog. Explain source packaging, version format, folder selection and separate publication; do not prefill an arbitrary version.

@@ -307,8 +307,9 @@ def main(*, builder=False) -> int:
     from thlib.ui.single_instance import SingleInstanceGuard, instance_server_name
 
     root = Path(__file__).resolve().parents[2]
+    test_settings = os.environ.get("TACTIC_QML_TEST_SETTINGS_DIR", "").strip()
     settings = (
-        os.environ.get("TACTIC_QML_TEST_SETTINGS_DIR")
+        test_settings
         or os.environ.get("TACTIC_HANDLER_SETTINGS_DIR")
         or str(root)
     )
@@ -324,7 +325,7 @@ def main(*, builder=False) -> int:
     guard = SingleInstanceGuard(
         instance_server_name(
             "TacticHandler_SetupBuilder" if builder else "TacticHandler_Client",
-            settings,
+            settings if builder else test_settings,
         ),
         app,
     )

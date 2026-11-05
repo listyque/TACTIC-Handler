@@ -340,3 +340,23 @@ and saved cards plus ready table/tree views. Native and Chromium font
 rasterization/window chrome remain platform differences. The all-window offline
 smoke check passes. The broader Help/schema suite also reports unrelated
 Changelist-catalog and XML-format expectations; these are not claimed as passing.
+
+## Desktop process ownership
+
+`SingleInstanceGuard` acquires a `QLockFile` and local activation server before
+runtime controllers or thread pools start. Normal EXE, Python and Setup launches
+share the `TacticHandler_Client` identity across installation/settings paths.
+`TACTIC_HANDLER_SETTINGS_DIR` isolates stored data only; the explicit
+`TACTIC_QML_TEST_SETTINGS_DIR` gives smoke/integration tests a private instance
+identity. Setup Builder has its own identity. The existing tray show action
+restores an already running window, including requests received before the main
+window is attached.
+
+The ownership lock disables timestamp expiry (`setStaleLockTime(0)`), as
+recommended for long-lived resources in the [Qt QLockFile documentation](https://doc.qt.io/qt-6/qlockfile.html).
+Dead-process detection remains enabled; startup removes a stale activation
+endpoint only after acquiring the ownership lock. Different-profile entrypoint,
+secondary-process, early-activation, normal-close and crash-recovery tests use
+private names. Older releases used path-scoped keys and must be exited once
+before switching to a release with shared ownership. Preferences remain separate
+and are never copied between installation folders.
