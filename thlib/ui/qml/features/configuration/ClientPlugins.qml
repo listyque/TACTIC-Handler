@@ -10,6 +10,8 @@ Item {
     required property var controller
     property string pendingArchive: ""
     property string selectedPlugin: ""
+    readonly property var selectedPluginData: root.controller.rows.find(
+        row => row.code === root.selectedPlugin) || null
     ColumnLayout {
         anchors.fill: parent
         spacing: Foundation.spacing.compact
@@ -125,7 +127,7 @@ Item {
             theme: root.theme
             text: qsTr("Build plugin package…")
             visible: root.controller.canPublish
-            enabled: !root.controller.busy
+            enabled: root.controller.canPublish && !root.controller.busy && !!root.selectedPluginData
             onClicked: buildDialog.open()
         }
         Controls.SelectableText {
@@ -143,6 +145,8 @@ Item {
     }
     Controls.Dialog {
         id: buildDialog
+        property string pluginCode: ""
+        property string pluginTitle: ""
         objectName: "clientPluginBuildDialog"
         theme: root.theme
         anchors.centerIn: parent
@@ -151,6 +155,13 @@ Item {
         title: qsTr("Build plugin package")
         contentItem: ColumnLayout {
             spacing: Foundation.spacing.compact
+            Controls.SectionLabel {
+                objectName: "clientPluginBuildTarget"
+                Layout.fillWidth: true
+                theme: root.theme
+                text: qsTr("Plugin: %1").arg(buildDialog.pluginTitle)
+                wrapMode: Text.Wrap
+            }
             Controls.SectionLabel {
                 Layout.fillWidth: true
                 theme: root.theme
@@ -190,12 +201,17 @@ Item {
                 objectName: "clientPluginBuildConfirm"
                 theme: root.theme
                 text: qsTr("Build ZIP")
-                enabled: root.controller.canPublish && !root.controller.busy && version.acceptableInput
+                enabled: root.controller.canPublish && !root.controller.busy && !!root.selectedPluginData
+                    && root.selectedPlugin === buildDialog.pluginCode && version.acceptableInput
                 onClicked: buildDialog.accept()
             }
         }
-        onOpened: version.forceActiveFocus()
-        onAccepted: root.controller.build(version.text)
+        onOpened: {
+            pluginCode = root.selectedPlugin;
+            pluginTitle = root.selectedPluginData ? root.selectedPluginData.title : "";
+            version.forceActiveFocus();
+        }
+        onAccepted: root.controller.build(version.text, pluginCode)
     }
     Controls.Dialog {
         id: confirmation

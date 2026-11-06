@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.398 - 2026-11-06
+
+- Require an existing selected client-plugin row before enabling package build, show the selected plugin in the build dialog and reject source folders for a different plugin.
+
 ## 0.6.0.397 - 2026-11-06
 
 - Wait quietly when a local repository root is missing, relative or unavailable. Check paths in a worker, pause transfers without repeated download errors, and resume with current paths after repository configuration is applied.

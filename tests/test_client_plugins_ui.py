@@ -254,12 +254,15 @@ Window {{ width: 800; height: 640; visible: true
                             pending.extend(item.childItems())
                     self.assertFalse(warnings,warnings)
                     pump(lambda:find('clientPluginEnabled_fixture_plugin') is not None)
+                    # Packaging belongs to an explicitly selected catalogue row.
+                    self.assertFalse(find('clientPluginBuild').isEnabled())
                     # Catalogue selection is inert; only explicit launch actions call the loader.
                     with patch.object(controller,'_run') as launch:
                         item=find('clientPluginSelect_fixture_plugin')
                         point=item.mapToScene(QPointF(item.width()/2,item.height()/2)).toPoint()
                         QTest.mouseClick(window,Qt.MouseButton.LeftButton,pos=point)
                         self.assertTrue(item.property('selected'))
+                        self.assertTrue(find('clientPluginBuild').isEnabled())
                         item.forceActiveFocus()
                         QTest.keyClick(window,Qt.Key.Key_Return)
                         launch.assert_not_called()
@@ -321,6 +324,9 @@ Window {{ width: 800; height: 640; visible: true
                         QTest.mouseClick(window,Qt.MouseButton.LeftButton,pos=button.mapToScene(QPointF(button.width()/2,button.height()/2)).toPoint())
                         pump(lambda:dialog.property('opened'))
                         self.assertEqual(dialog.property('title'),'Сборка пакета плагина')
+                        self.assertEqual(dialog.property('pluginCode'),'fixture_plugin')
+                        target=window.findChild(QObject,'clientPluginBuildTarget')
+                        self.assertEqual(target.property('text'),'Плагин: Fixture plugin')
                         confirm=window.findChild(QObject,'clientPluginBuildConfirm')
                         cancel=window.findChild(QObject,'clientPluginBuildCancel')
                         self.assertFalse(confirm.isEnabled())
@@ -338,7 +344,14 @@ Window {{ width: 800; height: 640; visible: true
                         pump(lambda:dialog.property('opened'))
                         QTest.mouseClick(window,Qt.MouseButton.LeftButton,pos=confirm.mapToScene(QPointF(confirm.width()/2,confirm.height()/2)).toPoint())
                         pump(lambda:not dialog.property('visible'))
-                        build.assert_called_once_with('1.2.1')
+                        build.assert_called_once_with('1.2.1','fixture_plugin')
+                    # A refresh that removes the selected row invalidates Build.
+                    previous_rows=controller._rows
+                    controller._rows=[]
+                    controller.stateChanged.emit();self.app.processEvents()
+                    self.assertFalse(find('clientPluginBuild').isEnabled())
+                    controller._rows=previous_rows
+                    controller.stateChanged.emit();self.app.processEvents()
                     controller._admin=False;controller.stateChanged.emit()
                     self.app.processEvents()
                     self.assertFalse(find('clientPluginBuild').isVisible())

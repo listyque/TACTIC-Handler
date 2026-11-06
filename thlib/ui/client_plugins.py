@@ -234,7 +234,8 @@ class ClientPluginsController(QObject):
         self._run('publish', '', lambda: remote.publish(self._server(context), context[1], Path(path)))
 
     @Slot(str)
-    def build(self, version):
+    @Slot(str, str)
+    def build(self, version, code=None):
         if self._busy or not self._admin:
             return
         source = QFileDialog.getExistingDirectory(None, self.tr('Plugin source folder'))
@@ -242,7 +243,7 @@ class ClientPluginsController(QObject):
             return
         output = QFileDialog.getExistingDirectory(None, self.tr('Release output folder'))
         if output:
-            self._run('build', '', lambda: str(build_package(Path(source), version, Path(output))))
+            self._run('build', '', lambda: str(build_package(Path(source), version, Path(output), expected_code=code)))
 
     def _run(self, kind, code, function):
         self._busy, self._error, self._message = True, '', ''

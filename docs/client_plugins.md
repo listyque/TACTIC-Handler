@@ -138,3 +138,8 @@ loader as the main-window actions. Enablement controls availability only. Each
 automatic-start checkbox includes the plugin title and applies only to that
 plugin in the current server/project; unrelated enabled tools are not started.
 There is no TS counterpart to this desktop plugin management page.
+
+The Configuration package builder requires a selected catalogue row. Its dialog
+shows that plugin, passes its code to the worker and verifies the source
+`plugin.json` before creating output. Removing the selected row disables Build.
+The standalone builder may still package new plugins without a catalogue entry.

@@ -36,6 +36,14 @@ class ClientPluginPackageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'modified'):
             install_payload(payload, package['metadata'], self.root / 'cache')
 
+    def test_selected_plugin_must_match_the_source_manifest(self):
+        output = self.root / 'releases'
+        with self.assertRaisesRegex(ValueError, 'another plugin'):
+            build_package(self.source, '1.0.0', output, expected_code='another_tool')
+        self.assertFalse(output.exists())
+        archive = build_package(self.source, '1.0.0', output, expected_code='test_tool')
+        self.assertEqual(read_package(archive)['metadata']['code'], 'test_tool')
+
     def test_versions_have_separate_paths_and_releases_are_not_overwritten(self):
         first = build_package(self.source, '1.0.0', self.root / 'releases')
         second = build_package(self.source, '1.0.1', self.root / 'releases')

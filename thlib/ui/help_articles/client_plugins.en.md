@@ -39,13 +39,16 @@ If you already have a ready-to-publish ZIP, skip building and publish it directl
 1. Edit the Batch Render sources at `plugins/batch_render` in the Handler source
    checkout. Do not edit the managed installed copy in a client profile;
    it belongs to the updater and is not the development source folder.
-2. Open **Configuration -> Client plugins** and click **Build plugin package…**.
+2. Open **Configuration -> Client plugins**, select the plugin row and click
+   **Build plugin package…**. Without a selection the button is disabled; the
+   dialog shows the selected plugin name.
 3. Enter a new three-part version of the plugin, for example **1.3.1**.
    This is not the Handler application version. The field starts empty.
 4. Click **Build ZIP**. In the first folder dialog choose `plugins/batch_render`
    itself: the source folder with `plugin.json` directly inside it. Do not select
    the whole Handler checkout, the installed plugin copy or a ZIP file.
-   Selecting a plugin row in the catalogue does not select its build sources.
+   Choose sources manually; the code in their `plugin.json` must match
+   the selected plugin. A different plugin source folder is rejected.
 5. In the second dialog choose an output folder outside the source folder,
    for example `plugin_releases` beside the checkout. Do not save packages
    inside the plugin sources: their files would enter subsequent builds.

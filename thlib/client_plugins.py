@@ -117,10 +117,14 @@ def installation_root(root: Path, server: str, project: str) -> Path:
     return root / 'plugins'
 
 
-def build_package(source: Path, version: str, output: Path) -> Path:
+def build_package(
+    source: Path, version: str, output: Path, expected_code: str | None = None,
+) -> Path:
     """Build a legacy-installable release without importing any plugin code."""
     source = source.resolve()
     values = json.loads((source / 'plugin.json').read_text(encoding='utf-8-sig'))
+    if expected_code is not None and values.get('code') != expected_code:
+        raise ValueError('Selected source folder belongs to another plugin')
     files = {}
     for path in source.rglob('*'):
         relative = path.relative_to(source)
