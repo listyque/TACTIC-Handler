@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.401 - 2026-11-06
+
+- Deep-copy server-cache inputs before native snapshot objects can mutate them, preventing later repository discovery from failing before selected child textures are collected. Preserve complete cached snapshot/file metadata.
+
 ## 0.6.0.400 - 2026-11-06
 
 - Exclude live snapshot-detail flags from task, parent and target cache records during serialization and hydration. Avoid set serialization errors after viewing object details and let restored native objects fetch their details normally.

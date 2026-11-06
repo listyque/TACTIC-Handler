@@ -5,6 +5,10 @@ server query payloads. Domain controllers still own query meaning, native
 TACTIC object construction, presentation state, and mutation behavior. The
 cache never stores live `SObject`, `Task`, `Snapshot`, or `File` instances;
 controllers rehydrate those objects from copied server dictionaries.
+The store deep-copies payloads on both write and read: native constructors may
+consume fields or attach UI detail state without changing another cached entry.
+Disk-backed regression tests construct a native `Snapshot`, mutate its detail
+state, then write another key and verify the original snapshot/file metadata.
 
 ## Identity and storage
 

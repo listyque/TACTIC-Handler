@@ -51,3 +51,8 @@ Create and save stores the selected process tree as a server preset. Save
 updates the selected preset; it does not create a second record. Delete asks
 for confirmation and removes that preset. Partial scope and chunk size control
 the current run and are not written into the preset's process tree.
+
+Selected child types (for example Texture) include their linked records and the
+checked processes below them. Discovery must finish successfully before these
+files reach the queue; an earlier completed download does not mean discovery
+succeeded. After a discovery error, correct its cause and start Repository Sync again.

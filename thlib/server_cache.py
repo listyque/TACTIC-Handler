@@ -431,7 +431,7 @@ def write_entry(
             "domainEpoch": cache_token.domain_epoch,
             "revision": cache_token.revision,
             "updatedAt": time.time(),
-            "value": value,
+            "value": copy.deepcopy(value),
         }
         maximum = max(1, DOMAIN_LIMITS[domain])
         if len(entries) > maximum:

@@ -465,6 +465,26 @@ class ServerCacheFileTests(unittest.TestCase):
         self.assertEqual(payload["parents"][0]["__details_processes__"], ["model"])
         self.assertTrue(payload["parents"][0]["__details__"])
 
+    def test_snapshot_cache_owns_payload_before_native_objects_mutate_it(self):
+        import json
+        import thlib.tactic_classes as tc
+
+        raw = [{"code": "SNAP001", "process": "publish",
+                "snapshot": "<snapshot/>", "__files__": []}]
+        self.assertTrue(server_cache.write_entry("snapshots", "first", raw, "project"))
+        snapshot = tc.Snapshot(raw[0])
+        snapshot.info["__details_processes__"] = {"publish"}
+        self.assertTrue(server_cache.write_entry("snapshots", "second", [], "project"))
+        cached = server_cache.read_entry("snapshots", "first", "project")
+        self.assertEqual(cached[0]["__files__"], [])
+        self.assertEqual(cached[0]["snapshot"], "<snapshot/>")
+        self.assertNotIn("__details_processes__", cached[0])
+        cached[0]["__details_processes__"] = {"model"}
+        again = server_cache.read_entry("snapshots", "first", "project")
+        self.assertNotIn("__details_processes__", again[0])
+        path, = self.directory.rglob("snapshots.json")
+        self.assertTrue(json.loads(path.read_text(encoding="utf-8"))["entries"])
+
     def test_concurrent_cache_writes_keep_each_entry(self):
         token = server_cache.token("tasks", "project")
         with ThreadPoolExecutor(max_workers=4) as executor:
