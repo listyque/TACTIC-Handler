@@ -416,6 +416,9 @@ class SObjectLinkController(QObject):
         if repository_sync is not None:
             repository_sync.task_finished.connect(self._preview_ready)
             repository_sync.task_failed.connect(self._preview_failed)
+            deferred = getattr(repository_sync, "preview_deferred", None)
+            if deferred is not None:
+                deferred.connect(self._preview_failed, Qt.ConnectionType.QueuedConnection)
 
     def attach_script_triggers(self, triggers) -> None:
         self._script_triggers = triggers

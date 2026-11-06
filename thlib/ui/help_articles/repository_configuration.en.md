@@ -52,3 +52,19 @@ is applied, previews are requested using the current paths and transfers waiting
 in the sync queue resume with their existing file identity. Repeated refreshes
 or Retry do not retry an unavailable root until repository configuration is
 applied. Real transfer errors with an available root remain visible.
+
+## Local paths and saving
+
+The server's `/opt/...` path is server metadata, not a Windows repository folder.
+Handler keeps valid local mappings on reload and leaves an incompatible server
+default unset. A missing local folder shows a static preview placeholder, not an
+endless loading animation, while it waits for configuration.
+
+On Windows, edit **Windows path** in Repository Editor, select the intended
+**Default**, and click **Save**. Saving checks and creates the entered folder in
+a background worker; the UI stays responsive. Only changed/enabled paths and the
+default location need checking. An unrelated unchanged unavailable mapping does
+not prevent saving the folder you are configuring. If creation/access fails, the
+previous mapping remains in use and the editor displays the reason. Settings
+are written after validation and remain saved after restarting/reloading.
+The separate **Check paths** action is optional.

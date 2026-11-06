@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
+from PySide6.QtCore import QObject, Property, QTimer, Qt, Signal, Slot
 
 from thlib.environment import env_read_config, env_write_config
 
@@ -427,6 +427,9 @@ class ApplicationController(
         )
         self.repository_sync.task_failed.connect(
             self._repository_preview_failed
+        )
+        self.repository_sync.preview_deferred.connect(
+            self._repository_preview_failed, Qt.ConnectionType.QueuedConnection
         )
         self.project_model.preview_ready.connect(
             self._project_preview_ready

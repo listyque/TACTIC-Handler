@@ -205,3 +205,21 @@ Verify against an isolated project and repository:
 - first attachment check-in with built-in processes disabled, followed by
   closing and reopening the same object's tree; the Attachment process remains
   visible unless it was explicitly hidden in the process filter.
+
+## Unconfigured desktop repositories
+
+Server defaults stay separate from native absolute client paths. A POSIX server
+root cannot become a Windows UNC path through File formatting; missing native
+paths remain empty until mapped. Explicit transfers may retain a waiting handle
+without a destination until configuration supplies it.
+
+The repository queue emits a neutral `preview_deferred` signal for unavailable
+preview roots. Preview owners consume it as a queued fallback, so a cached-root
+request cannot arrive before its pending token is stored. ProjectModel publishes
+its empty preview through `preview_ready`, updating the selected-project header
+and stopping animation. No task_failed notification or error log is produced.
+
+Repository Editor Save uses the existing local pool and path checker for selected
+default/changed paths before persisting local mappings. Save completion, not
+request acceptance, owns the optional TEAM server-path confirmation. No server
+path is changed by saving the local mapping.

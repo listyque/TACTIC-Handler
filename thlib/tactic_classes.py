@@ -2306,19 +2306,14 @@ class File(SObject, object):
         if not repo_name or not env_tactic.get_base_dir(repo_name)['value'][4]:
             repo_name = 'base'
 
-        asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
-
-        return gf.form_path(asset_dir)
+        from thlib.environment import local_repository_path
+        asset_dir = local_repository_path(env_tactic.get_base_dir(repo_name)['value'][0])
+        return gf.form_path(asset_dir) if asset_dir else ""
 
     def get_abs_path(self):
-        snapshot = self.__snapshot.get_snapshot()
-        repo_name = snapshot.get('repo')
-
-        # if repo not explicitly written in snapshot or disabled in config we choose base repo
-        if not repo_name or not env_tactic.get_base_dir(repo_name)['value'][4]:
-            repo_name = 'base'
-
-        asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
+        asset_dir = self.get_repo_path()
+        if not asset_dir:
+            return ""
 
         abs_path = gf.form_path(
             '{0}/{1}'.format(asset_dir, self.info['relative_dir']))
@@ -2326,7 +2321,10 @@ class File(SObject, object):
         return abs_path
 
     def get_full_abs_path(self):
-        return gf.form_path('{0}/{1}'.format(self.get_abs_path(), self.info['file_name']))
+        directory = self.get_abs_path()
+        if not directory:
+            return ""
+        return gf.form_path('{0}/{1}'.format(directory, self.info['file_name']))
 
     def get_web_path(self):
         server_address = env_server.get_server()

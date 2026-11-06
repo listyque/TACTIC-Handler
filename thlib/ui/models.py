@@ -767,12 +767,20 @@ class ProjectModel(QAbstractListModel):
                     index, index, [self.PreviewRole, self.DetailsRole]
                 )
 
+    @Slot(str)
     def fail_preview(self, task_id: str) -> None:
         token = f"pending-preview:{task_id}"
         self._pending_preview_paths.pop(token, None)
         for code, value in tuple(self._preview_cache.items()):
             if value == token:
                 self._preview_cache[code] = ""
+                self.preview_ready.emit(code, "")
+                for row, project in enumerate(self._entries):
+                    if project.get_code() == code:
+                        index = self.index(row, 0)
+                        self.dataChanged.emit(
+                            index, index, [self.PreviewRole, self.DetailsRole]
+                        )
 
     def values(self, project) -> dict:
         info = project.get_info()

@@ -1,12 +1,13 @@
 """An unavailable local repository is a paused prerequisite, not a failed transfer."""
 import io
+import threading
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QObject, Signal, QElapsedTimer
+from PySide6.QtCore import QObject, Signal, QElapsedTimer, QCoreApplication
 from PySide6.QtTest import QTest
 
 from tests.qt_application import gui_test_application
@@ -78,7 +79,9 @@ class RepositoryWaitingTests(unittest.TestCase):
         timer = QElapsedTimer()
         timer.start()
         while not condition() and timer.elapsed() < 2000:
-            QTest.qWait(5)
+            # qWait can hold the GIL and starve Python runnables in this test.
+            threading.Event().wait(.005)
+            QCoreApplication.processEvents()
         self.assertTrue(condition())
 
     def schedule(self, file, preview=True):

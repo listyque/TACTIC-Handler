@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.399 - 2026-11-06
+
+- Finish deferred repository previews with a neutral placeholder and notify the selected-project header, stopping its endless loading animation and idle render-thread CPU usage.
+- Keep POSIX server roots separate from Windows client paths, preserve valid mappings on reload and avoid formatting missing repository roots as network file paths.
+- Validate/create edited repository folders in a worker before saving, preserve previous mappings on validation failure and keep the explicitly chosen default repository selected.
+
 ## 0.6.0.398 - 2026-11-06
 
 - Require an existing selected client-plugin row before enabling package build, show the selected plugin in the build dialog and reject source folders for a different plugin.

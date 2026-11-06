@@ -6222,5 +6222,8 @@
   "This plugin folder is not a managed installation; its files were preserved": "Эта папка не является установленным плагином; её файлы сохранены.",
   "Batch Render": "Батч-рендер",
   "Plugin: %1": "Плагин: %1",
-  "Selected source folder belongs to another plugin": "Выбранная папка исходников относится к другому плагину"
+  "Selected source folder belongs to another plugin": "Выбранная папка исходников относится к другому плагину",
+  "Enter an absolute repository folder: %1": "Укажите абсолютный путь к папке репозитория: %1",
+  "Repository settings changed. Save again.": "Настройки репозитория изменились. Сохраните ещё раз.",
+  "Repository path must be absolute": "Путь к репозиторию должен быть абсолютным"
 }

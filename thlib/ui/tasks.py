@@ -296,6 +296,9 @@ class TasksController(QObject):
             repository_sync.task_failed.connect(
                 self._repository_preview_failed
             )
+            deferred = getattr(repository_sync, "preview_deferred", None)
+            if deferred is not None:
+                deferred.connect(self._repository_preview_failed, Qt.ConnectionType.QueuedConnection)
         self._filters = {
             "text": "", "process": "", "status": "", "assigned": "",
             "due": "", "hasNotes": False, "day": "", "priority": "",

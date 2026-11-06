@@ -53,6 +53,7 @@ class RepositoryEditorController(QObject):
         self._busy = False
         self._message = ""
         self._worker = None
+        self._save_snapshot = None
         self._configuration_loaded = False
         self._configuration_required = False
         self._current_title = ""
@@ -114,7 +115,11 @@ class RepositoryEditorController(QObject):
             (record for record in destinations if record.get("isDefault")),
             destinations[0] if destinations else {},
         )
-        path = str(current.get(platform_role) or "").strip()
+        from thlib.environment import local_repository_path
+        path = local_repository_path(
+            current.get(platform_role),
+            "Windows" if platform_role == "windowsPath" else "Linux",
+        )
         return {
             "configured": bool(path),
             "title": str(current.get("title") or ""),
@@ -178,8 +183,11 @@ class RepositoryEditorController(QObject):
             if record.get("isDefault") and record.get("active")
         ]
         if len(defaults) > 1:
-            keep = defaults[-1]
-            for row in defaults[:-1]:
+            changed_row = _args[0].row() if _args else -1
+            keep = changed_row if changed_row in defaults else defaults[-1]
+            for row in defaults:
+                if row == keep:
+                    continue
                 self.model._records[row]["isDefault"] = False
                 index = self.model.index(row, 0)
                 self.model.dataChanged.emit(index, index)
@@ -387,7 +395,10 @@ class RepositoryEditorController(QObject):
             if not str(raw_path or "").strip():
                 result[key] = {"ok": False, "text": "Repository path is empty"}
                 continue
-            path = Path(str(raw_path)).expanduser()
+            path = Path(str(raw_path).strip()).expanduser()
+            if not path.is_absolute():
+                result[key] = {"ok": False, "text": "Repository path must be absolute"}
+                continue
             try:
                 path.mkdir(parents=True, exist_ok=True)
             except OSError as error:
@@ -442,6 +453,7 @@ class RepositoryEditorController(QObject):
 
     @Slot(object)
     def _path_check_failed(self, error):
+        self._save_snapshot = None
         self._busy = False
         self._worker = None
         self._set_message(str(error or "Path check failed"))
@@ -469,25 +481,66 @@ class RepositoryEditorController(QObject):
 
     @Slot(result=bool)
     def save(self):
-        from thlib.environment import env_tactic
-
-        current_role = "windowsPath" if os.name == "nt" else "linuxPath"
-        active_records = [
-            record for record in self.model._records if record.get("active")
-        ]
-        if not active_records:
+        if self._busy:
+            return False
+        from thlib.environment import env_inst, local_repository_path
+        role = "windowsPath" if os.name == "nt" else "linuxPath"
+        active = [record for record in self.model._records if record.get("active")]
+        if not active:
             self._set_message("Enable at least one repository.")
             return False
-        invalid = [
-            record["title"] for record in active_records
-            if not Path(str(record.get(current_role) or "")).expanduser().is_dir()
+        previous = {record["alias"]: record for record in self._original_records}
+        required = [
+            record for record in active
+            if record.get("isDefault")
+            or record.get(role) != previous.get(record["alias"], {}).get(role)
+            or not previous.get(record["alias"], {}).get("active")
         ]
-        if invalid:
-            self._set_message(
-                "Unavailable repository path: " + ", ".join(invalid)
-            )
-            return False
+        for record in required:
+            if not local_repository_path(record.get(role)):
+                self._set_message(
+                    self.tr("Enter an absolute repository folder: %1").replace(
+                        "%1", record["title"],
+                    )
+                )
+                return False
+        self._save_snapshot = self._snapshot()
+        self._busy = True
+        self.busyChanged.emit()
+        self._worker = env_inst.local_pool.add_task(
+            self._check_paths,
+            {record["alias"]: record[role] for record in required},
+        )
+        self._worker.result.connect(self._save_paths_checked)
+        self._worker.error.connect(self._path_check_failed)
+        self._worker.start()
+        return True
 
+    @Slot(object)
+    def _save_paths_checked(self, result):
+        snapshot = self._save_snapshot
+        self._save_snapshot = None
+        self._paths_checked(result)
+        failures = [key for key, value in result.items() if not value["ok"]]
+        if failures:
+            details = []
+            for record in self.model._records:
+                if record["alias"] in failures:
+                    status = result[record["alias"]]
+                    detail = self.tr(status["text"])
+                    if status.get("details"):
+                        detail += ": " + status["details"]
+                    details.append(record["title"] + ": " + detail)
+            self._set_message("\n".join(details))
+            return
+        if self._snapshot() != snapshot:
+            self._set_message(self.tr("Repository settings changed. Save again."))
+            return
+        self._persist_repository_settings()
+
+    def _persist_repository_settings(self):
+        from thlib.environment import env_tactic
+        current_role = "windowsPath" if os.name == "nt" else "linuxPath"
         base_dirs = copy.deepcopy(
             env_tactic.base_dirs or _empty_base_dirs()
         )

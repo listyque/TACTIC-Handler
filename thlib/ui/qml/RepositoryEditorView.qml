@@ -39,6 +39,13 @@ Item {
             root.modelRevision++;
         }
     }
+    Connections {
+        target: repositoryEditorController
+        function onSaved() {
+            if (repositoryEditorController.team_local_repository)
+                root.askTeamRepository();
+        }
+    }
     function askTeamRepository() {
         if (repositoryEditorController.busy)
             return;
@@ -67,10 +74,8 @@ Item {
             repositoryEditorController.check_paths();
         else if (action.type === "sync")
             askTeamRepository();
-        else if (action.type === "save") {
-            if (repositoryEditorController.save() && repositoryEditorController.team_local_repository)
-                askTeamRepository();
-        } else if (action.type === "close" && !repositoryEditorController.busy)
+        else if (action.type === "save")
+            repositoryEditorController.save(); else if (action.type === "close" && !repositoryEditorController.busy)
             windowModel.close_window("repository_editor");
         else if (action.type === "back")
             editing = false;

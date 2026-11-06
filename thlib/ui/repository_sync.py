@@ -265,6 +265,7 @@ class RepositorySyncController(QObject):
     downloads_finished = Signal()
     file_download_done = Signal(object)
     task_failed = Signal(str)
+    preview_deferred = Signal(str)
     aggregate_changed = Signal()
     configuration_changed = Signal()
     activeRowChanged = Signal()
@@ -663,7 +664,7 @@ class RepositorySyncController(QObject):
     ) -> PreparedSyncEntry:
         local_path = str(file_object.get_full_abs_path() or "")
         web_path = str(file_object.get_full_web_path() or "")
-        if not local_path:
+        if not local_path and file_object.get_repo_path():
             raise ValueError("Local repository path is not configured")
         if not web_path.startswith(("http://", "https://")):
             raise ValueError("HTTP source is not available for this file")
@@ -1022,8 +1023,12 @@ class RepositorySyncController(QObject):
         ))
 
     def _wait_for_repository(self, task: SyncTask) -> None:
+        if task.state == "waiting_repository":
+            return
         task.state = "waiting_repository"
-        if not task.is_ui_preview:
+        if task.is_ui_preview:
+            self.preview_deferred.emit(task.task_id)
+        else:
             self.model.update(
                 task.task_id, status=task.state, active=False, progress="Waiting",
                 error="", phase="queued", speed="", speedValue=0.0,

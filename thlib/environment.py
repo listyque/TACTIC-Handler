@@ -13,6 +13,15 @@ import platform
 import json
 import tempfile
 import threading
+from pathlib import PurePosixPath, PureWindowsPath
+
+
+def local_repository_path(value, platform_name=None):
+    """Keep server paths separate from absolute paths usable by this client OS."""
+    path = str(value or "").strip()
+    platform_name = platform_name or env_mode.get_platform()
+    native = PureWindowsPath if platform_name == "Windows" else PurePosixPath
+    return path if path and native(path).is_absolute() else ""
 
 
 CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
@@ -1058,7 +1067,7 @@ class Tactic(object):
             tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
             self.base_dirs = env_read_config(filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_BASE_DIRS')
 
-            if not self.base_dirs or force:
+            if not self.base_dirs:
                 base_dirs = self.get_default_base_dirs(force)
 
                 if base_dirs.get('win32_local_base_dir'):
@@ -1069,7 +1078,7 @@ class Tactic(object):
                     linux_local_dir = 'linux_local_repo_dir'
 
                 self.base_dirs = {
-                        'asset_base_dir': [base_dirs['asset_base_dir'], 'General', (128, 128, 128), 'base', True],
+                        'asset_base_dir': [local_repository_path(base_dirs['asset_base_dir']), 'General', (128, 128, 128), 'base', True],
                         'web_base_dir': [base_dirs['web_base_dir'], 'Web', (128, 128, 128), 'web', False],
                         'win32_sandbox_dir': [base_dirs['win32_sandbox_dir'], 'Sandbox', (128, 64, 64), 'sandbox', False],
                         'linux_sandbox_dir': [base_dirs['linux_sandbox_dir'], 'Sandbox', (128, 64, 64), 'sandbox', False],
@@ -1086,6 +1095,9 @@ class Tactic(object):
                     # Saving only first time, when forced we just read from configs
                     self.save_base_dirs()
 
+        base = self.base_dirs.get('asset_base_dir')
+        if base:
+            self.base_dirs['asset_base_dir'] = [local_repository_path(base[0]), *base[1:]]
         return self.base_dirs
 
     def save_base_dirs(self):
