@@ -447,11 +447,19 @@ class TaskWorkspaceStore(QObject):
         return result
 
     @staticmethod
-    def _object_info(value):
+    def _cache_info(info):
+        # Detail flags describe live task/note objects, which are not cached here.
+        return copy.deepcopy({
+            key: value for key, value in dict(info or {}).items()
+            if key not in {"__details__", "__details_processes__"}
+        })
+
+    @classmethod
+    def _object_info(cls, value):
         if value is None:
             return None
         try:
-            return copy.deepcopy(dict(value.get_info() or {}))
+            return cls._cache_info(value.get_info())
         except (AttributeError, TypeError, ValueError):
             return None
 
@@ -482,12 +490,13 @@ class TaskWorkspaceStore(QObject):
         except (AttributeError, TypeError):
             return None
 
-    @staticmethod
-    def _hydrate_cache_payload(payload, project):
+    @classmethod
+    def _hydrate_cache_payload(cls, payload, project):
         import thlib.tactic_classes as tc
 
         tasks = []
-        for info in copy.deepcopy(list(payload.get("tasks") or [])):
+        for info in payload.get("tasks") or []:
+            info = cls._cache_info(info)
             task = tc.Task(info, project)
             task.set_notes_count(
                 str(info.get("process") or "publish"),
@@ -495,10 +504,10 @@ class TaskWorkspaceStore(QObject):
             )
             tasks.append(task)
         parents = [
-            tc.SObject(info, project)
-            for info in copy.deepcopy(list(payload.get("parents") or []))
+            tc.SObject(cls._cache_info(info), project)
+            for info in payload.get("parents") or []
         ]
-        target_info = copy.deepcopy(payload.get("target"))
+        target_info = cls._cache_info(payload["target"]) if payload.get("target") else None
         target = tc.SObject(target_info, project) if target_info else None
         return {
             "tasks": tasks,

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.400 - 2026-11-06
+
+- Exclude live snapshot-detail flags from task, parent and target cache records during serialization and hydration. Avoid set serialization errors after viewing object details and let restored native objects fetch their details normally.
+
 ## 0.6.0.399 - 2026-11-06
 
 - Finish deferred repository previews with a neutral placeholder and notify the selected-project header, stopping its endless loading animation and idle render-thread CPU usage.

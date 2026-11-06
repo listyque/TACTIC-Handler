@@ -230,3 +230,14 @@ generations, draft retention and presentation. The guarded read-only
 parent ordering and contextual note matching on the configured test project.
 The note-presence correlation uses the deployed PostgreSQL TACTIC schema; SQLite
 tests supply `split_part` for logic checks and do not certify another SQL backend.
+
+## Task cache payload
+
+Task scope caching serializes native object information through one cleaning
+boundary for task rows, parents and target. Exclude `__details__` and
+`__details_processes__`: they mark task/note objects held only by the live detail
+controller, and the process marker is a Python set. Apply the same exclusion
+when hydrating earlier cache entries, so new native objects fetch details normally.
+Keep server fields, metadata and computed note counts; never mutate live object
+information while preparing a cache entry. Real-file regressions cover cache
+write/read, old payload hydration and unchanged live flags.

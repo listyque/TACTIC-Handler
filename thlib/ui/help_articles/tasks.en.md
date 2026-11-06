@@ -137,3 +137,5 @@ separate migration block.
 Permissions remain those of the existing executors. Stream's current task
 workspace API requires an administrator; this UI migration does not grant native
 Handler users additional server permissions or change its existing task ACL path.
+
+Opening Task Manager after viewing object details does not require clearing the task cache. Restored task rows load object details again when needed.

@@ -401,6 +401,70 @@ class ServerCacheFileTests(unittest.TestCase):
         ):
             self.enterContext(current)
 
+    def test_task_cache_omits_live_snapshot_detail_flags(self):
+        import json
+        import thlib.tactic_classes as tc
+        from thlib.environment import env_inst
+        from thlib.ui.task_workspace import TaskWorkspaceStore
+
+        project = SimpleNamespace(info={"code": "project"})
+        loaded = {"model", "publish"}
+        info = {
+            "code": "ASSET001", "project_code": "project",
+            "__search_type__": "demo/asset",
+            "__search_key__": "demo/asset?project=project&code=ASSET001",
+            "__details__": True, "__details_processes__": loaded,
+            "metadata": {"labels": ["hero"]},
+        }
+        parent = tc.SObject(info, project)
+        task = tc.Task({
+            "code": "TASK001", "process": "model", "__notes_count__": 3,
+            "__details__": True, "__details_processes__": {"model"},
+        }, project)
+        result = {"tasks": [task], "parents": [parent], "target": parent,
+                  "page": {"total": 1}}
+        with patch.object(env_inst, "get_project_by_code", return_value=project), patch.object(
+            TaskWorkspaceStore, "_load_scope_server", return_value=result
+        ) as query:
+            first = TaskWorkspaceStore.load_scope(
+                "object", "artist", "project", parent, info["__search_key__"], [],
+            )
+            second = TaskWorkspaceStore.load_scope(
+                "object", "artist", "project", parent, info["__search_key__"], [],
+            )
+        query.assert_called_once()
+        self.assertFalse(first["page"]["cacheHit"])
+        self.assertTrue(second["page"]["cacheHit"])
+        for value in [*second["tasks"], *second["parents"], second["target"]]:
+            self.assertNotIn("__details__", value.get_info())
+            self.assertNotIn("__details_processes__", value.get_info())
+        self.assertEqual(second["tasks"][0].get_info()["__notes_count__"], 3)
+        self.assertEqual(second["parents"][0].get_info()["metadata"], {"labels": ["hero"]})
+        self.assertIs(parent.get_info()["__details_processes__"], loaded)
+        self.assertTrue(parent.get_info()["__details__"])
+        files = list(self.directory.rglob("tasks.json"))
+        self.assertEqual(len(files), 1)
+        document = json.loads(files[0].read_text(encoding="utf-8"))
+        self.assertTrue(document["entries"])
+        self.assertEqual(list(self.directory.rglob("*.tmp")), [])
+
+    def test_task_cache_ignores_detail_flags_from_older_cache_entries(self):
+        from thlib.ui.task_workspace import TaskWorkspaceStore
+
+        info = {"code": "ASSET001", "__details__": True,
+                "__details_processes__": ["model"], "description": "keep"}
+        payload = {"tasks": [dict(info, process="model", __notes_count__=2)],
+                   "parents": [info], "target": info, "page": {"total": 1}}
+        restored = TaskWorkspaceStore._hydrate_cache_payload(
+            payload, SimpleNamespace(info={"code": "project"}),
+        )
+        for value in [*restored["tasks"], *restored["parents"], restored["target"]]:
+            self.assertNotIn("__details__", value.get_info())
+            self.assertNotIn("__details_processes__", value.get_info())
+            self.assertEqual(value.get_info()["description"], "keep")
+        self.assertEqual(payload["parents"][0]["__details_processes__"], ["model"])
+        self.assertTrue(payload["parents"][0]["__details__"])
+
     def test_concurrent_cache_writes_keep_each_entry(self):
         token = server_cache.token("tasks", "project")
         with ThreadPoolExecutor(max_workers=4) as executor:

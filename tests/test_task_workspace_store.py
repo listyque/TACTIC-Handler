@@ -1,5 +1,6 @@
 import os
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -253,7 +254,8 @@ class TaskWorkspaceStoreTests(unittest.TestCase):
             second.get_search_key(): second,
         }
 
-        with patch(
+        server = SimpleNamespace(build_search_type=lambda search_type, _project: search_type)
+        with patch.object(tc, "server_start", return_value=server), patch(
                 "thlib.ui.task_workspace.store."
                 "_resolve_target_from_search_key",
                 side_effect=lambda _tc, key, _project: targets_by_key[key],
