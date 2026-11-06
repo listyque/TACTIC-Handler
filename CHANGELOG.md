@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.402 - 2026-11-06
+
+- Replace snapshot thumbnail hover zoom with a subtle three-pixel lift and eased return, keeping image size, row geometry and hit areas stable. Respect disabled hover animations and transient-motion suppression.
+
 ## 0.6.0.401 - 2026-11-06
 
 - Deep-copy server-cache inputs before native snapshot objects can mutate them, preventing later repository discovery from failing before selected child textures are collected. Preserve complete cached snapshot/file metadata.

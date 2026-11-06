@@ -1653,7 +1653,7 @@ QtObject {
             surface.property("cornerRadius"),
         )
         self.assertFalse(snapshot_surface.property("elevated"))
-        self.assertNotIn("transform: Translate", self.source)
+        self.assertNotIn("transform: Translate", self.source[:self.source.index("id: preview")])
 
         snapshot_disclosure = snapshot.findChild(
             QObject, "workspaceDisclosureArea"
@@ -2413,6 +2413,77 @@ Item {{
         item.deleteLater()
         theme.deleteLater()
         engine.deleteLater()
+
+    def test_snapshot_hover_lifts_preview_without_scaling_or_moving_row(self):
+        qml_dir = ROOT / "thlib" / "ui" / "qml"
+        engine = QQmlEngine()
+        controller = _WorkspaceAppController()
+        engine.rootContext().setContextProperty("appController", controller)
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "WorkspaceResultItem.qml"))
+        )
+        item = component.createWithInitialProperties(self.item_properties(
+            theme, nodeId="snapshot:hover", nodeType="snapshot",
+            title="Baby_Shark.Default", compactMode=False, depth=0,
+            width=420, transientAnimationsSuppressed=False,
+        ))
+        self.assertIsNotNone(item, str(component.errors()))
+        window = QQuickWindow()
+        window.resize(440, 180)
+        item.setParentItem(window.contentItem())
+        item.setY(12)
+        window.show()
+        self.assertTrue(QTest.qWaitForWindowExposed(window))
+        preview = _visual_child(item, "workspaceItemPreview")
+        self.assertIsNotNone(preview)
+        wait = int(theme.property("hoverMotionMedium")) + 50
+        try:
+            for width in (360, 720):
+                with self.subTest(width=width):
+                    window.resize(width + 20, 180)
+                    item.setWidth(width)
+                    QTest.mouseMove(window, QPoint(width + 10, 150))
+                    QTest.qWait(wait)
+                    resting = preview.mapToScene(QPointF(0, 0))
+                    row_geometry = (item.x(), item.y(), item.width(), item.height())
+                    preview_size = (preview.width(), preview.height())
+                    point = preview.mapToScene(QPointF(20, 20)).toPoint()
+                    for _ in range(2):
+                        QTest.mouseMove(window, point)
+                        QTest.qWait(wait)
+                        self.assertTrue(item.property("interactiveHovered"))
+                        self.assertEqual(preview.scale(), 1)
+                        self.assertAlmostEqual(preview.mapToScene(QPointF(0, 0)).x(), resting.x())
+                        self.assertAlmostEqual(preview.mapToScene(QPointF(0, 0)).y(), resting.y() - 3)
+                        self.assertEqual((preview.width(), preview.height()), preview_size)
+                        self.assertEqual((item.x(), item.y(), item.width(), item.height()), row_geometry)
+                        QTest.mouseMove(window, QPoint(width + 10, 150))
+                        QTest.qWait(wait)
+                        self.assertAlmostEqual(preview.mapToScene(QPointF(0, 0)).y(), resting.y())
+                    theme.setProperty("suppressTransientMotion", True)
+                    QTest.mouseMove(window, point)
+                    QTest.qWait(wait)
+                    self.assertAlmostEqual(preview.mapToScene(QPointF(0, 0)).y(), resting.y())
+                    theme.setProperty("suppressTransientMotion", False)
+                    theme.setProperty("hoverAnimationsEnabled", False)
+                    QTest.qWait(wait)
+                    self.assertAlmostEqual(preview.mapToScene(QPointF(0, 0)).y(), resting.y())
+                    theme.setProperty("hoverAnimationsEnabled", True)
+                    item.setProperty("compactMode", True)
+                    QTest.qWait(wait)
+                    self.assertEqual(preview.scale(), 1)
+                    item.setProperty("compactMode", False)
+        finally:
+            window.close()
+            item.setParentItem(None)
+            item.deleteLater()
+            window.deleteLater()
+            theme.deleteLater()
+            engine.deleteLater()
 
     def test_persistent_knowledge_button_does_not_move_on_hover(self):
         qml_dir = ROOT / "thlib" / "ui" / "qml"

@@ -438,3 +438,8 @@ OpenGL measurements still exposed a presentation wait, rather than expensive
 row drawing; they did not establish an instant first-frame guarantee. The popup
 change does not alter global renderer/VSync settings, and software measurements
 must not be presented as an all-backend latency guarantee.
+
+Snapshot hover feedback translates only the preview by -3 DIP; it never scales
+the image or changes row geometry/hit areas. Native QML and browser CSS use the
+same enter/leave curves and medium hover timing, with no loop or idle animation.
+Compact rows, disabled hover motion and reduced/transient motion stay still.

@@ -372,12 +372,21 @@ Item {
         width: root.cardLayout.preview.width
         height: width
         z: root.interactiveHovered && root.largeItem ? 6 : 1
-        scale: !root.fullObjectCard && !root.compactMode && root.interactiveHovered && root.largeItem ? 1.15 : 1
-        Behavior on scale {
-            enabled: !root.theme.suppressTransientMotion
-            NumberAnimation {
-                duration: theme.hoverMotionFast
-                easing.type: Easing.OutCubic
+        transform: Translate {
+            y: !root.fullObjectCard && !root.compactMode
+                && root.interactiveHovered && root.largeItem
+                && root.theme.hoverAnimationsEnabled
+                && !root.theme.suppressTransientMotion ? -3 : 0
+            Behavior on y {
+                enabled: root.theme.hoverAnimationsEnabled
+                    && !root.theme.suppressTransientMotion
+                NumberAnimation {
+                    duration: root.theme.hoverMotionMedium
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: root.interactiveHovered
+                        ? [0.34, 1.2, 0.64, 1, 1, 1]
+                        : [0.215, 0.61, 0.355, 1, 1, 1]
+                }
             }
         }
         visible: !root.configured && root.nodeType !== "file" && !root.canFilterChildren

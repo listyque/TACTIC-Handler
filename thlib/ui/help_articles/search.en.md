@@ -456,3 +456,5 @@ Quick-filter icons are configurable. Open Quick filters → Edit, then use **Fil
 Quick-filter group menus open below the selected group button, aligned to its left edge and clamped to the available screen. The full filter menu keeps its main trigger. The same placement applies on the first opening and keyboard reopening.
 
 Handler retains the clicked button position before loading filter settings and values. A first-use header refresh does not move the menu to a screen corner.
+
+Snapshot thumbnails lift slightly on hover and ease back when the pointer leaves; their size and row layout stay fixed. Compact rows and disabled hover animations remain still.
