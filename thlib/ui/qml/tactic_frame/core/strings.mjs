@@ -1765,6 +1765,9 @@ const russian = {
     'No related Search Type configured for this progress':
         'Для прогресса не задан связанный тип объектов',
     'No related objects': 'Нет связанных объектов',
+    'No configured relationships.': 'Связи не настроены.',
+    'This relationship is read-only.': 'Эта связь доступна только для чтения.',
+    'You do not have access to this relationship.': 'У вас нет доступа к этой связи.',
     'No schema relationship to this Search Type':
         'В схеме нет связи с этим типом объектов',
     'No task for {process}': 'Нет задачи для {process}',

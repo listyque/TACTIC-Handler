@@ -59,7 +59,7 @@ export function bar(model, width, language) {
         'Delete selected tasks',
         'delete',
         'delete',
-        !model.blocked && !model.busy,
+        !model.blocked && !model.busy && model.canDelete !== false,
         { destructive: true, iconColor: 'error' }
     );
     const applyWidth = width < 380 ? 32 : 96;

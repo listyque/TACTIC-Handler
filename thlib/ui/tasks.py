@@ -1246,6 +1246,11 @@ class TasksController(QObject):
         return len(self._advanced_checked)
 
     @Property(bool, notify=advancedChanged)
+    def canDeleteCheckedTasks(self) -> bool:
+        return all((self._advanced_tasks[code].get_info().get('__permissions__') or {}).get('delete') is not False
+                   for code in self._advanced_checked if code in self._advanced_tasks)
+
+    @Property(bool, notify=advancedChanged)
     def advancedAllVisibleChecked(self):
         codes = {
             str(record.get("taskCode") or "")

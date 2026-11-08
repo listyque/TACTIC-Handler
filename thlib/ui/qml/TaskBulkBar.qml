@@ -26,6 +26,7 @@ Frame.FrameView {
         })
     scene: BulkUI.bar({
         count: tasksController.advancedCheckedCount,
+        canDelete: tasksController.canDeleteCheckedTasks,
         busy: tasksController.bulkBusy,
         blocked: tasksController.advancedDirtyCount > 0 || tasksController.advancedDeleting,
         enabled: enabledFields,

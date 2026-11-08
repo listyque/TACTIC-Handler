@@ -32,6 +32,7 @@ Frame.FrameView {
         blocked: controller.advancedBusy || controller.advancedSaving,
         busy: controller.advancedBusy || controller.advancedSaving,
         canCreate: controller.canCreateAdvancedTask && !controller.advancedBusy && !controller.advancedSaving,
+        canManageMilestones: typeof appController === "undefined" || appController.can_manage_tools,
         canRefresh: !controller.advancedBusy && !controller.advancedSaving && controller.advancedDirtyCount === 0,
         filtersActive: controller.advancedFiltersActive,
         sort: controller.sortMode,

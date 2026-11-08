@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.406 - 2026-11-08
+
+- Read the Stream relationship catalog through the typed endpoint. Distinguish missing and read-only relationships, and use task permissions to disable unavailable row actions.
+
 ## 0.6.0.405 - 2026-11-08
 
 - Compare two image snapshots in Snapshot Browser using separate A and B choices and a side-by-side or divider view.

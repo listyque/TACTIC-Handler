@@ -33,6 +33,28 @@ def read_related_types(parent_key: str) -> list[dict]:
     return result
 
 
+def read_stream_relations(server, parent_key: str, project: str) -> list[dict]:
+    import json
+    from urllib.error import HTTPError
+    from urllib.request import Request
+    from .server_address import normalize_tactic_server_url
+    from .configuration_server import configuration_error_message
+
+    url = normalize_tactic_server_url(server.get_server_name()) + '/admin/object-relations'
+    payload = dict(ticket=server.login_ticket, project=project,
+                   search_type=parent_key.split('?', 1)[0], search_key=parent_key)
+    try:
+        with server.transport.open(Request(url, json.dumps(payload).encode(), {'Content-Type': 'application/json'}), timeout=15) as response:
+            relations = json.load(response)['result']['relations']
+    except HTTPError as error:
+        message = configuration_error_message(error)
+        if error.code == 403:
+            raise PermissionError('You do not have access to this relationship.') from None
+        raise RuntimeError(message) from None
+    return [dict(title=row['title'], command='related:child:' + row['search_type'],
+                 expression='', canCreate=row['can_create']) for row in relations if row['available']]
+
+
 class RelatedObjectsController(QObject):
     changed = Signal()
 
@@ -54,11 +76,18 @@ class RelatedObjectsController(QObject):
 
     @Property('QVariantMap', notify=changed)
     def model(self):
+        can_create = bool(self._scope and self._selected.startswith('related:child:') and self.application.can_manage_tools
+                          and next((r.get('canCreate', False) for r in self._relations if r['command'] == self._selected), False))
+        busy = self._worker is not None or bool(self._scope and self._scope.model.get('busy'))
+        notice = ''
+        if self._node and not busy and not self._error:
+            if not self._relations:
+                notice = 'No configured relationships.'
+            elif self._scope and not can_create:
+                notice = 'This relationship is read-only.'
         return dict(parentTitle=self._node.title if self._node else '',
                     relations=[dict(value=r['command'], label=r['title'] + ' · ' + r['command'].split(':', 2)[2]) for r in self._relations],
-                    selectedType=self._selected, busy=bool(self._scope and self._scope.model.get('busy')), error=self._error,
-                    canCreate=bool(self._scope and self._selected.startswith('related:child:') and self.application.can_manage_tools
-                                   and next((r.get('canCreate', False) for r in self._relations if r['command'] == self._selected), False)))
+                    selectedType=self._selected, busy=busy, error=self._error, notice=notice, canCreate=can_create)
 
     @Property(QObject, notify=changed)
     def scope(self):
@@ -81,7 +110,6 @@ class RelatedObjectsController(QObject):
         if selected:
             self.select_relation(selected)
         else:
-            self._error = 'No related objects'
             self.changed.emit()
         self._load_relations()
 
@@ -94,6 +122,7 @@ class RelatedObjectsController(QObject):
         generation, key, project = self._generation, self._node.search_key, self.application._current_project_code
         if self._worker is not None:
             self._worker.cancel()
+            self._worker = None
         try:
             server = tc.server_start(project=project)
         except PermissionError as error:
@@ -102,13 +131,17 @@ class RelatedObjectsController(QObject):
             return
         if env_inst.server_pool.is_stopped:
             env_inst.server_pool.start()
-        worker = env_inst.server_pool.add_task(lambda: tc.execute_procedure_serverside(
-            read_related_types, dict(parent_key=key), project=project, server=server))
+        if getattr(self.application, 'is_stream_server', False):
+            worker = env_inst.server_pool.add_task(read_stream_relations, server, key, project)
+        else:
+            worker = env_inst.server_pool.add_task(lambda: tc.execute_procedure_serverside(
+                read_related_types, dict(parent_key=key), project=project, server=server))
         if worker is None:
             self._error = 'Server worker is unavailable'
             self.changed.emit()
             return
         self._worker = worker
+        self.changed.emit()
         def loaded(result):
             if generation != self._generation or self._node is None:
                 return
@@ -122,11 +155,13 @@ class RelatedObjectsController(QObject):
                 else:
                     merged[item['command']] = item
             self._relations = list(merged.values())
+            self._worker = None
             self.changed.emit()
             if not self._selected and self._relations:
                 self.select_relation(self._relations[0]['command'])
         def failed(error):
             if generation == self._generation:
+                self._worker = None
                 self._error = str(error[0].get('exception') or error)
                 self.changed.emit()
         worker.result.connect(loaded, Qt.QueuedConnection)

@@ -509,6 +509,9 @@ Item {
             pending: tasksController.advancedDirtyCount > 0,
             creating: root.menuIsNew,
             conflict: root.menuConflict,
+            canEdit: advancedTaskTableModel.lookup("taskCode", root.menuTaskCode).permissions?.edit !== false,
+            canDelete: advancedTaskTableModel.lookup("taskCode", root.menuTaskCode).permissions?.delete !== false,
+            canDeleteChecked: tasksController.canDeleteCheckedTasks,
             busy: tasksController.advancedDeleting,
             checked: tasksController.advancedCheckedCount
         })

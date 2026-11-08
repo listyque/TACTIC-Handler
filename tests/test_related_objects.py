@@ -115,7 +115,7 @@ class RelatedObjectsTests(unittest.TestCase):
         app, services, related = self.prepare()
         original = related.scope
         worker = CatalogWorker()
-        pool = SimpleNamespace(is_stopped=False, add_task=lambda operation: worker)
+        pool = SimpleNamespace(is_stopped=False, add_task=lambda *arguments: worker)
         with patch('thlib.tactic_classes.server_start', return_value=object()), \
              patch('thlib.environment.env_inst.server_pool', pool):
             RelatedObjectsController._load_relations(related)
@@ -131,11 +131,36 @@ class RelatedObjectsTests(unittest.TestCase):
             self.app.processEvents()
             self.assertEqual(related.model['relations'], [])
             self.assertIsNone(related.scope)
-            worker.cancel.assert_called()
+            worker.cancel.assert_not_called()
+
+    def test_stream_relation_catalog_uses_existing_http_read(self):
+        import io
+        import json
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from thlib.ui.related_objects import read_stream_relations
+
+        transport = Mock()
+        transport.open.return_value = io.BytesIO(json.dumps({'result': {'relations': [
+            dict(search_type='demo/asset', title='Assets', available=True, can_create=False),
+            dict(search_type='sthpw/file', title='Files', available=False, can_create=False)
+        ]}}).encode())
+        server = SimpleNamespace(get_server_name=lambda: 'http://127.0.0.1:1', login_ticket='fixture', transport=transport)
+        rows = read_stream_relations(server, 'demo/shot?code=SHOT1', 'demo')
+        self.assertEqual(rows, [dict(title='Assets', command='related:child:demo/asset', expression='', canCreate=False)])
+        request = transport.open.call_args.args[0]
+        self.assertTrue(request.full_url.endswith('/admin/object-relations'))
+        self.assertEqual(json.loads(request.data)['search_type'], 'demo/shot')
 
     def test_real_qml_toolbar_reflows_translates_and_creates_in_own_scope(self):
         app, services, related = self.prepare()
         scope = related.scope
+        class Columns(_TableColumns):
+            def shutdown(self):
+                pass
+        self.enterContext(patch('thlib.ui.table.nested_columns.NestedColumnsController', side_effect=lambda _scope: Columns()))
+        from thlib.ui.workspace_models.results_types import WorkspaceNode
+        scope.tableModel.replace_nodes([WorkspaceNode('nested:SHOT01', 'sobject', 'demo/shot?code=SHOT01', 'SHOT01', 'SH010')])
         scope._model.update(columns=[dict(name='name', title='Name', width=240, cell=dict(kind='text'))],
             rows=[dict(key='SHOT01', nodeId='nested:SHOT01', record=dict(name='SH010'), cells=dict(name=dict(text='SH010')))], loaded=True)
         locale = Locale()
@@ -151,10 +176,12 @@ class RelatedObjectsTests(unittest.TestCase):
         with patch.object(scope, '_edit') as edit:
             self.click(window, self.item(view, 'relatedCreate'))
             edit.assert_called_once_with(None)
-        from PySide6.QtCore import Qt
+        from PySide6.QtCore import QPointF, Qt
         from PySide6.QtTest import QTest
-        self.click(window, self.item(view, 'nestedMenu'))
-        menu = view.findChild(QObject, 'relatedObjectsRowMenu')
+        row = self.item(view, 'searchResultTableRow')
+        QTest.mouseClick(window, Qt.RightButton, pos=row.mapToScene(QPointF(20, row.height() / 2)).toPoint())
+        frames.frame(window)
+        menu = view.findChild(QObject, 'nestedRowMenu')
         self.assertTrue(menu.property('visible'))
         self.assertTrue(menu.property('actions'))
         from PySide6.QtGui import QGuiApplication

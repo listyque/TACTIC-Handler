@@ -62,7 +62,7 @@ export function row(model) {
             title: model.recordEditor ? 'Edit sObject' : 'Edit task',
             icon: 'edit',
             command: 'edit',
-            enabled: !model.busy && !model.deleting
+            enabled: !model.busy && !model.deleting && model.canEdit !== false
         }
     ];
     if (model.inspector)
@@ -118,7 +118,11 @@ export function row(model) {
             title: 'Delete task',
             icon: 'delete',
             command: 'delete',
-            enabled: !model.busy && !model.pending && !model.creating
+            enabled:
+                !model.busy &&
+                !model.pending &&
+                !model.creating &&
+                model.canDelete !== false
         }
     );
     if (model.checked)
@@ -126,7 +130,10 @@ export function row(model) {
             title: 'Delete selected tasks',
             icon: 'delete-sweep',
             command: 'delete-checked',
-            enabled: !model.busy && !model.pending
+            enabled:
+                !model.busy &&
+                !model.pending &&
+                model.canDeleteChecked !== false
         });
     return actions;
 }

@@ -42,9 +42,9 @@ Item {
             right: parent.right
             top: header.bottom
         }
-        height: root.relatedController.model.error ? 56 : 0
+        height: root.relatedController.model.error || root.relatedController.model.notice ? 56 : 0
         theme: root.theme
         visible: height > 0
-        scene: UI.message(root.relatedController.model.error || "", width, root.language)
+        scene: UI.message(root.relatedController.model.error || root.relatedController.model.notice || "", width, root.language)
     }
 }

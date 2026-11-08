@@ -229,7 +229,7 @@ export function toolbar(model, width, language) {
         );
         x += size + gap;
     }
-    if (!phone && !compact) {
+    if (!phone && !compact && model.canManageMilestones !== false) {
         action(
             'taskMilestoneManagerButton',
             x,
@@ -692,6 +692,8 @@ export function options(model, width, language) {
         ['calendar', 'Calendar', 'calendar-month', !model.busy]
     ]) {
         if (type === 'columns' && model.phone) continue;
+        if (type === 'milestones' && model.canManageMilestones === false)
+            continue;
         nodes.push(
             button(
                 'taskOptions_' + type,
