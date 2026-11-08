@@ -1147,7 +1147,9 @@ class TasksController(QObject):
     @Property(bool, notify=advancedChanged)
     def canCreateAdvancedTask(self):
         target = self._advanced_creation_target()
-        return bool(target and self._process_choices_for(target))
+        catalog = self._task_field_catalogs.get(self._application._current_project_code) or {}
+        return bool(target and self._process_choices_for(target)
+                    and (catalog.get('permissions') or {}).get('create', True))
 
     @Property("QVariantList", notify=advancedChanged)
     def teamOptions(self):
@@ -4617,6 +4619,8 @@ class TasksController(QObject):
                 process_info["label"], process_info["color"], status_color,
                 self._login_label(assigned), assigned_override=assigned,
             )
+            record['permissions'] = info.get('__permissions__')
+            record['editableFields'] = info.get('__editable_fields__')
             record["parentSearchTypeLabel"] = (
                 self._parent_search_type_label(
                     parent, record.get("parentSearchType")
@@ -5620,6 +5624,9 @@ class TasksController(QObject):
         ), None)
         if source is None:
             return False
+        editable_fields = source.get('editableFields')
+        if isinstance(editable_fields, list) and any(self._advanced_task_field(key) not in editable_fields for key in values):
+            return False
         before = dict(self._advanced_drafts.get(task_code) or {})
         draft = self._advanced_drafts.setdefault(task_code, {})
         for key, value in values.items():
@@ -6607,6 +6614,10 @@ class TasksController(QObject):
                 codes.append(code)
                 seen.add(code)
         if not codes:
+            return False
+        if any((self._advanced_tasks[code].get_info().get('__permissions__') or {}).get('delete') is False for code in codes):
+            self._advanced_error = 'Task write access denied'
+            self._rebuild_advanced_models()
             return False
         dirty = set(codes).intersection(self._advanced_drafts)
         if dirty:

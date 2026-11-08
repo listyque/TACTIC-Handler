@@ -15,6 +15,7 @@ from PySide6.QtQuick import QQuickWindow
 from thlib.environment import env_mode
 from thlib.ui.tasks import TasksController
 from thlib.ui.workspace_models.records import RecordListModel
+from tests.test_columns_table_view import _visual_items
 
 
 class TaskSurfacePresentationTests(unittest.TestCase):
@@ -63,6 +64,19 @@ class TaskSurfacePresentationTests(unittest.TestCase):
                 self.assertTrue(table.property("initialPresentationReady"))
                 rows = fixture.TasksQmlTests.visual_find(table, "taskBrowserList")
                 self.assertGreater(rows.property("liveDelegateCount"), 0)
+                for editable in ([], ["status", "assigned", "supervisor", "priority", "milestone_code"]):
+                    records = [dict(row, editableFields=editable) for row in controller.table_model._records]
+                    controller.table_model.replace(records)
+                    self.app.processEvents()
+                    cells = [item for item in _visual_items(table) if item.objectName() == "taskTableEditorCell"]
+                    self.assertTrue(cells)
+                    self.assertTrue(all(cell.property("editingAllowed") == bool(editable) for cell in cells),
+                                    (editable, [(cell.property("displayText"), cell.property("editingAllowed")) for cell in cells]))
+                    if not editable:
+                        cell = cells[0]
+                        point = cell.mapToScene(QPointF(cell.width() / 2, cell.height() / 2))
+                        fixture.QTest.mouseClick(window, Qt.LeftButton, pos=point.toPoint())
+                        self.assertFalse(cell.property("editRequested"))
                 gantt_button = fixture.TasksQmlTests.visual_find(view, "taskBrowserViewSwitcher_gantt")
                 self.assertIsNotNone(gantt_button)
                 point = gantt_button.mapToScene(QPointF(gantt_button.width() / 2, gantt_button.height() / 2))

@@ -71,6 +71,12 @@ def load_task_field_catalog(
         "errors": [],
         "tracebacks": [],
     }
+    from thlib.environment import get_server_api
+    if get_server_api() == 'stream':
+        result.update(tc.server_start(project=project_code).execute_cmd(
+            'tactic.ui.table.task_workspace.TaskWorkspaceCmd',
+            args=dict(action='catalog', search_key=parent_search_key))['info'])
+        return result
     try:
         edit = tc.execute_procedure_serverside(
             tq.query_EditWdg,

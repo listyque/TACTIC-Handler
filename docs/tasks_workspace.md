@@ -14,6 +14,11 @@ responsive rules take precedence over one-off mockup styling.
 
 ## User surfaces
 
+On confirmed Stream connections, `TaskWorkspaceCmd` loads pages and field
+catalogs. Project staff can use the workspace without a server Python grant.
+Legacy TACTIC keeps its existing procedure transport. Stream returns editable
+field names with each row for the QML cells. Server checks apply again on save.
+
 - Quick Tasks is the compact process-oriented editor.
 - Task Browser is the detailed table with scopes, filters, grouping, sorting,
   selection, bulk editing, Gantt and Calendar projections.

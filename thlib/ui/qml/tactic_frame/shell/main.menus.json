@@ -136,8 +136,7 @@
       "title": "Task Manager",
       "icon": "tasks",
       "command": "show_tasks",
-      "platform": "stream",
-      "admin": true
+      "platform": "stream"
     },
     {
       "title": "Create project",

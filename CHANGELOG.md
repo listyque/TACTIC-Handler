@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.403 - 2026-11-08
+
+- Use typed Stream commands to load Task Manager pages and field catalogs for project staff. Retain the Legacy TACTIC transport and respect native task field permissions in the desktop table.
+
 ## 0.6.0.402 - 2026-11-06
 
 - Replace snapshot thumbnail hover zoom with a subtle three-pixel lift and eased return, keeping image size, row geometry and hit areas stable. Respect disabled hover animations and transient-motion suppression.

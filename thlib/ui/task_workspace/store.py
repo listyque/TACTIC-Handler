@@ -29,7 +29,7 @@ TASK_ROLES = (
     "attachmentCount",
     "timestamp", "group", "groupKey", "groupCount", "groupFirst",
     "groupCollapsed", "groupColor", "selected", "checked", "dirty",
-    "loading", "error", "conflict",
+    "loading", "error", "conflict", "permissions", "editableFields",
 )
 
 

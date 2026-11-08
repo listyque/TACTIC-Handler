@@ -3,6 +3,25 @@ import { fontMetricHeight, textStyles } from '../../core/foundation.mjs';
 
 export const cardMetrics = { inset: 6, avatar: 16, gap: 8 };
 
+export function fieldEditable(record, name) {
+    const source = record.editableFields ?? record.__editable_fields__;
+    if (source == null) return true;
+    const fields = Array.from(source);
+    if (name === 'progress')
+        return fields.includes('progress') || fields.includes('completion');
+    const columns = {
+        assignee: ['assigned'],
+        dates: ['bid_start_date', 'bid_end_date'],
+        hours: ['bid_duration'],
+        plannedHours: ['bid_duration'],
+        milestone: ['milestone_code'],
+        milestoneCode: ['milestone_code'],
+        start: ['bid_start_date'],
+        end: ['bid_end_date']
+    };
+    return (columns[name] || [name]).every((column) => fields.includes(column));
+}
+
 export function initials(label) {
     const words = String(label || '')
         .trim()

@@ -229,6 +229,7 @@ Item {
             required property bool loading
             required property string error
             required property bool conflict
+            required property var editableFields
             property bool viewPooled: false
             ListView.onPooled: viewPooled = true
             ListView.onReused: viewPooled = false

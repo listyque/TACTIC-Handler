@@ -5,6 +5,9 @@ order: 16
 ---
 # Tasks and planning
 
+When connected to Stream, project staff can open Task Manager from the main
+menu. Task cells stay read-only wherever your role does not allow editing.
+
 > Task tools provide object-level task editing and project-wide table, Gantt, calendar, timesheet, and
 > reporting views.
 

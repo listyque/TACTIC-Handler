@@ -4,6 +4,7 @@ import "../../controls" as Controls
 import "../.."
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/tasks/table.ui.mjs" as UI
+import "../../tactic_frame/features/tasks/cells.ui.mjs" as Fields
 
 Item {
     id: taskRow
@@ -165,7 +166,7 @@ Item {
         Controls.PopupAction {
             id: inlineButton
             property var frameNode: ({})
-            enabled: !taskRow.controller.advancedBusy && !taskRow.controller.advancedSaving && (frameNode.view !== "progress" || taskRow.controller.progressSupported)
+            enabled: Fields.fieldEditable(taskRow.record, frameNode.view) && !taskRow.controller.advancedBusy && !taskRow.controller.advancedSaving && (frameNode.view !== "progress" || taskRow.controller.progressSupported)
             Accessible.name: qsTr("Edit %1: %2").arg(frameNode.view === "dates" ? qsTr("Start / Deadline") : frameNode.view === "hours" ? qsTr("Hours") : qsTr("Progress")).arg(taskRow.record.parentTitle)
             background: Item {}
             contentItem: Item {}
@@ -225,7 +226,7 @@ Item {
             theme: table.theme
             releaseCoordinator: taskRow.releaseCoordinator
             editorActive: record.editorsActive
-            editingAllowed: !controller.advancedSaving && !controller.advancedBusy
+            editingAllowed: Fields.fieldEditable(record, 'status') && !controller.advancedSaving && !controller.advancedBusy
             scrolling: viewport.interactionMoving
             actionField: true
             showAccent: true
@@ -263,7 +264,7 @@ Item {
             theme: table.theme
             releaseCoordinator: taskRow.releaseCoordinator
             editorActive: record.editorsActive
-            editingAllowed: !controller.advancedSaving && !controller.advancedBusy
+            editingAllowed: Fields.fieldEditable(record, 'assigned') && !controller.advancedSaving && !controller.advancedBusy
             scrolling: viewport.interactionMoving
             actionField: true
             showAvatar: true
@@ -303,7 +304,7 @@ Item {
             anchors.fill: parent
             theme: table.theme
             releaseCoordinator: taskRow.releaseCoordinator
-            editingAllowed: !controller.advancedSaving && !controller.advancedBusy
+            editingAllowed: Fields.fieldEditable(record, 'priority') && !controller.advancedSaving && !controller.advancedBusy
             editorActive: record.editorsActive
             scrolling: viewport.interactionMoving
             actionField: false
@@ -342,7 +343,7 @@ Item {
             anchors.fill: parent
             theme: table.theme
             releaseCoordinator: taskRow.releaseCoordinator
-            editingAllowed: !controller.advancedSaving && !controller.advancedBusy
+            editingAllowed: Fields.fieldEditable(record, 'milestone') && !controller.advancedSaving && !controller.advancedBusy
             editorActive: record.editorsActive
             scrolling: viewport.interactionMoving
             actionField: true
@@ -375,7 +376,7 @@ Item {
             anchors.fill: parent
             theme: table.theme
             releaseCoordinator: taskRow.releaseCoordinator
-            editingAllowed: !controller.advancedSaving && !controller.advancedBusy
+            editingAllowed: Fields.fieldEditable(record, 'supervisor') && !controller.advancedSaving && !controller.advancedBusy
             editorActive: record.editorsActive
             scrolling: viewport.interactionMoving
             actionField: true

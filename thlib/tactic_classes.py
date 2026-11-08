@@ -3161,18 +3161,21 @@ def get_notes_with_attachments(note_codes, project_code):
 def get_task_workspace_page(filters, order_bys, project_code,
                             limit=500, offset=0, query=None):
     """Return native Task/SObject instances from one batched RPC."""
-    payload = execute_procedure_serverside(
-        tq.query_task_workspace_page,
-        {
+    from thlib.environment import get_server_api
+    arguments = {
             'filters': list(filters or []),
             'order_bys': list(order_bys or []),
             'project_code': project_code,
             'limit': limit,
             'offset': offset,
             'query': dict(query or {}),
-        },
-        project=project_code,
-    ) or {}
+        }
+    if get_server_api() == 'stream':
+        payload = server_start(project=project_code).execute_cmd(
+            'tactic.ui.table.task_workspace.TaskWorkspaceCmd', args=dict(arguments, action='page'))['info']
+    else:
+        payload = execute_procedure_serverside(tq.query_task_workspace_page, arguments, project=project_code)
+    payload = payload or {}
     project = env_inst.get_project_by_code(project_code)
     tasks = []
     for info in payload.get('tasks') or []:
