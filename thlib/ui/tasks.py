@@ -740,7 +740,7 @@ class TasksController(QObject):
         try:
             year = int(state.get("calendarYear"))
             month = int(state.get("calendarMonth"))
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             year, month = self._calendar_year, self._calendar_month
         if 1900 <= year <= 3000 and 1 <= month <= 12:
             self._calendar_year, self._calendar_month = year, month

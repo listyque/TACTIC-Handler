@@ -62,6 +62,19 @@ class _InitializedSearchType:
 
 
 class ServerUpdateServiceTests(unittest.TestCase):
+    def test_start_stream_uses_saved_cache_cursor(self):
+        application = _Application()
+        service = ServerUpdateService(application)
+        with (
+            patch("thlib.server_cache.read_cursor", return_value="saved-cursor") as read,
+            patch("thlib.environment.env_server.get_proxy", return_value=None),
+            patch("thlib.ui.server_event_stream.ServerEventStream") as stream,
+        ):
+            service._start_stream(("server", "artist", "ticket"), "demo")
+        read.assert_called_once_with("server_changes", "demo")
+        self.assertEqual(stream.call_args.args[1]["cache_after"], "saved-cursor")
+        stream.return_value.start.assert_called_once()
+
     def test_new_install_defaults_to_30_second_updates(self):
         service = ServerUpdateService(_Application())
 

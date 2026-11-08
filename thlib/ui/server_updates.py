@@ -167,6 +167,7 @@ class ServerUpdateService(QObject):
             self._restart_stream()
 
     def _start_stream(self, session, project_code: str) -> None:
+        from thlib import server_cache
         from thlib.environment import env_server
         from .server_event_stream import ServerEventStream
 

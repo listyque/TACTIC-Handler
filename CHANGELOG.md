@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.408 - 2026-11-09
+
+- Restore the saved cache cursor when starting Stream event updates. Use compatible exception syntax when restoring the task calendar.
+
 ## 0.6.0.407 - 2026-11-09
 
 - Publish ordinary numbered check-ins and previews without replacing existing repository files. Stage DCC saves separately and keep Move originals until TACTIC confirms the snapshot.
