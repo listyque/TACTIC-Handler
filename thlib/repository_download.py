@@ -19,6 +19,14 @@ from thlib.proxy import UrllibTransport
 FILE_TIME_TOLERANCE_SECONDS = 2.0
 
 
+def publish_without_replacement(temporary: Path, destination: Path) -> None:
+    """Publish a complete sibling file atomically and fail on an occupied path."""
+    if os.name == "nt":
+        os.rename(temporary, destination)
+    else:
+        os.link(temporary, destination)
+
+
 @dataclass
 class SyncTask:
     task_id: str
@@ -212,11 +220,8 @@ class DownloadOperation:
                     if task.overwrite_policy in {"cancel", "skip"}:
                         try:
                             # Publish without clobbering a file created during the transfer.
-                            if os.name == "nt":
-                                os.rename(partial, destination)
-                            else:
-                                os.link(partial, destination)
-                                partial.unlink()
+                            publish_without_replacement(partial, destination)
+                            partial.unlink(missing_ok=True)
                         except FileExistsError:
                             if task.overwrite_policy == "cancel":
                                 raise InterruptedError("Download cancelled")

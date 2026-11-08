@@ -12,6 +12,12 @@ Ordinary check-ins refresh the destination name before transfer. When earlier qu
 items create new versions, the final filename can differ from its preview.
 Custom naming scripts receive the current values for each file.
 
+A collision stops an ordinary numbered check-in and preserves the existing file.
+Move removes the source only after TACTIC confirms the snapshot. If the reply is
+lost, verify the snapshot and repository before removing any staged file or retrying.
+For numbered DCC saves, the active scene stays in a separate working folder beside
+the destination. The snapshot points to the published path.
+
 ## Main controls
 
 Drop Plate accepts files and matches them to objects. Naming Editor controls templates.

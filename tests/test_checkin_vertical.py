@@ -41,7 +41,7 @@ class CheckinVerticalTests(unittest.TestCase):
             ) as prepare,
             patch(
                 "thlib.checkin_operation.stage_checkin",
-                return_value=True,
+                return_value={},
             ) as stage,
             patch.object(
                 tc, "checkin_snapshot",
@@ -88,11 +88,11 @@ class CheckinVerticalTests(unittest.TestCase):
                 ),
                 patch(
                     "thlib.checkin_operation.stage_checkin",
-                    return_value=True,
+                    return_value={},
                 ),
                 patch.object(
                     tc, "checkin_snapshot",
-                    return_value={"__search_key__": "skey://snapshot?code=S1"},
+                    return_value={"__search_key__": "skey://sthpw/snapshot?code=S1"},
                 ) as checkin,
             ):
                 execute_checkin_payload(payload, {"value": ["repo"]})
@@ -120,7 +120,7 @@ class CheckinVerticalTests(unittest.TestCase):
             ),
             patch(
                 "thlib.checkin_operation.stage_checkin",
-                return_value=True,
+                return_value={},
             ),
             patch.object(tc, "checkin_snapshot") as checkin,
         ):
@@ -149,7 +149,7 @@ class CheckinVerticalTests(unittest.TestCase):
             ),
             patch(
                 "thlib.checkin_operation.stage_checkin",
-                return_value=True,
+                return_value={},
             ),
             patch.object(tc, "checkin_snapshot", return_value={}),
         ):

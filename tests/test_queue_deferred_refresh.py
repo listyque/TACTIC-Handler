@@ -183,7 +183,6 @@ class DeferredQueueRefresh(unittest.TestCase):
         controller._operation_payload = dict(self.payload, _refreshTreeOnComplete=False)
         controller._operation_worker = None
         controller._worker_stages = {}
-        controller._operation_inputs = {}
         controller._operation_repository = {}
         controller._script_triggers = None
         controller._queue_operation = True
@@ -206,11 +205,18 @@ class DeferredQueueRefresh(unittest.TestCase):
         self.assertEqual(executor._application.refresh_checkin_result.call_args.args[1]['code'], 'SNAP-' + ids[1])
 
     def test_standalone_checkin_keeps_immediate_cache_invalidation(self):
+        inputs = {'payload': self.payload}
+        repository = {'value': ['repo']}
+        snapshot = {'__search_key__': 'sthpw/snapshot?code=SNAP'}
         for deferred in (False, True):
-            with self.subTest(deferred=deferred), patch('thlib.tactic_classes.checkin_snapshot', return_value={'code': 'SNAP'}) as checkin, patch('thlib.server_cache.invalidate_domains') as invalidate:
-                result = CheckinOutController._create_snapshot(defer_refresh=deferred, search_key=self.payload['searchKey'])
-                self.assertEqual(result, {'code': 'SNAP'})
-                checkin.assert_called_once_with(search_key=self.payload['searchKey'])
+            with (
+                self.subTest(deferred=deferred),
+                patch('thlib.checkin_operation.execute_prepared_checkin', return_value=snapshot) as checkin,
+                patch('thlib.server_cache.invalidate_domains') as invalidate,
+            ):
+                result = CheckinOutController._publish_checkin(inputs, repository, defer_refresh=deferred)
+                self.assertEqual(result, snapshot)
+                checkin.assert_called_once_with(inputs, repository, cancel_event=None, progress_signal=None)
                 self.assertEqual(invalidate.call_count, 0 if deferred else 1)
 
     def test_background_updates_wait_for_queue_and_keep_inflight_result(self):

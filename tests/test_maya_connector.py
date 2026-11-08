@@ -1104,11 +1104,10 @@ class MayaConnectorTests(unittest.TestCase):
         )
         self.assertEqual(client_id, "maya-42")
         self.assertEqual(action, "prepare_checkin")
-        self.assertEqual(
-            Path(dcc_payload["path"]),
-            Path(repository_root.name)
-            / "assets/versions/asset_model_v001.ma",
-        )
+        staged_path = Path(dcc_payload["path"])
+        self.assertEqual(staged_path.name, "asset_model_v001.ma")
+        self.assertTrue(staged_path.parent.name.startswith(".checkin-"))
+        self.assertEqual(staged_path.parent.parent, Path(repository_root.name) / "assets/versions")
         self.assertEqual(timeout, 120.0)
 
         request = controller._dcc_checkin_requests["save-request"]

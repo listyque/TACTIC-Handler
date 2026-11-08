@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from contextlib import ExitStack
 from copy import deepcopy
 import os
 from pathlib import Path
 import shutil
+from urllib.parse import parse_qs
 import uuid
+
+from thlib.repository_download import publish_without_replacement
 
 
 class CheckinCancelled(InterruptedError):
@@ -29,8 +33,34 @@ def _copy_file(source: Path, destination: Path, cancel_event) -> None:
     shutil.copystat(source, destination)
 
 
+def _discard_staged_file(path: Path, staged: os.stat_result) -> None:
+    try:
+        current = path.lstat()
+        if (os.path.samestat(current, staged)
+                and current.st_size == staged.st_size
+                and current.st_mtime_ns == staged.st_mtime_ns):
+            path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def _publish_staged_file(temporary: Path, destination: Path,
+                         rollback: ExitStack | None) -> None:
+    if rollback is None:
+        os.replace(temporary, destination)
+        return
+    staged = temporary.stat()
+    try:
+        publish_without_replacement(temporary, destination)
+    except FileExistsError as error:
+        raise FileExistsError(
+            f"Numbered check-in file already exists: {destination}"
+        ) from error
+    rollback.callback(_discard_staged_file, destination, staged)
+
+
 def _copy_file_atomically(source: Path, destination: Path, cancel_event,
-                          mode: str = "copy") -> None:
+                          mode: str = "copy", *, rollback: ExitStack | None) -> None:
     if os.path.normcase(str(source)) == os.path.normcase(str(destination)):
         return
     temporary = destination.with_name(
@@ -46,7 +76,7 @@ def _copy_file_atomically(source: Path, destination: Path, cancel_event,
         else:
             raise ValueError("Versionless files must use copy, symlink or hardlink")
         _check_cancel(cancel_event)
-        os.replace(temporary, destination)
+        _publish_staged_file(temporary, destination, rollback)
     finally:
         if os.path.lexists(temporary):
             temporary.unlink()
@@ -63,6 +93,8 @@ def _generate_previews_atomically(
     web_destination: Path,
     icon_destination: Path,
     cancel_event,
+    *,
+    rollback: ExitStack | None,
 ) -> None:
     import thlib.tactic_classes as tc
 
@@ -81,8 +113,8 @@ def _generate_previews_atomically(
                     f"TACTIC could not generate the {kind} preview for "
                     f"{source.name}"
                 )
-        os.replace(web_temporary, web_destination)
-        os.replace(icon_temporary, icon_destination)
+        _publish_staged_file(web_temporary, web_destination, rollback)
+        _publish_staged_file(icon_temporary, icon_destination, rollback)
     finally:
         for temporary in (web_temporary, icon_temporary):
             try:
@@ -231,8 +263,9 @@ def prepare_checkin(payload: dict, progress_signal=None, cancel_event=None,
 
 
 def stage_checkin(
-    inputs: dict, repository: dict, progress_signal=None, cancel_event=None
-) -> bool:
+    inputs: dict, repository: dict, progress_signal=None, cancel_event=None,
+    *, rollback: ExitStack,
+) -> dict[Path, os.stat_result]:
     import thlib.global_functions as gf
 
     payload = inputs["payload"]
@@ -248,22 +281,33 @@ def stage_checkin(
         versions.append("versionless")
     if payload.get("onlyVersionless"):
         versions = ["versionless"]
-    mode = str(payload.get("mode") or "upload")
-    move_sources = mode == "move"
+    _check_cancel(cancel_event)
+    sources_by_file = [
+        [Path(path).resolve(strict=True) for path in paths]
+        for paths in inputs["filePaths"]
+    ]
+    move_sources = (
+        {source: source.stat() for sources in sources_by_file for source in sources}
+        if payload.get("mode") == "move" else {}
+    )
     copied_destinations = set()
-    source_paths = set()
     preview_cache = {}
+    versioned_files = {}
     total = max(1, sum(len(paths) for paths in inputs["filePaths"]) * len(versions))
     completed = 0
 
-    for index, (_key, snapshot) in enumerate(inputs["virtualSnapshot"]):
-        _check_cancel(cancel_event)
-        file_object = inputs["filesObjects"][index]
-        sources = [Path(path).resolve(strict=True) for path in inputs["filePaths"][index]]
-        source_paths.update(os.path.normcase(str(path)) for path in sources)
-        versioned_files = []
-        for version_name in versions:
+    # A collision in any numbered file must be detected before changing latest aliases.
+    for version_name in versions:
+        if version_name == "versionless":
+            # A latest alias may now point to a numbered file. Keep its target.
+            rollback.pop_all()
+        numbered_rollback = (
+            rollback if version_name == "versioned" and not payload.get("isRevision") else None
+        )
+        for index, (_key, snapshot) in enumerate(inputs["virtualSnapshot"]):
             _check_cancel(cancel_event)
+            file_object = inputs["filesObjects"][index]
+            sources = sources_by_file[index]
             version = snapshot.get(version_name) or {}
             names = list(version.get("names") or [])
             paths = list(version.get("paths") or [])
@@ -281,15 +325,18 @@ def stage_checkin(
                     "TACTIC naming returned a different number of destination files"
                 )
             destination_dir.mkdir(parents=True, exist_ok=True)
-            alias_mode = link_mode if version_name == "versionless" and versioned_files else "copy"
-            file_sources = versioned_files if alias_mode != "copy" else sources
+            numbered = versioned_files.get(index)
+            alias_mode = link_mode if version_name == "versionless" and numbered else "copy"
+            file_sources = numbered if alias_mode != "copy" else sources
             for source, destination in zip(file_sources, destinations):
                 _check_cancel(cancel_event)
                 # Resolve the parent only: following yesterday's alias would
                 # overwrite the numbered version instead of replacing its link.
                 destination = destination.parent.resolve() / destination.name
                 if os.path.normcase(str(source)) != os.path.normcase(str(destination)):
-                    _copy_file_atomically(source, destination, cancel_event, alias_mode)
+                    _copy_file_atomically(
+                        source, destination, cancel_event, alias_mode, rollback=numbered_rollback
+                    )
                 if not destination.is_file():
                     raise OSError(f"Repository file was not created: {destination}")
                 copied_destinations.add(os.path.normcase(str(destination)))
@@ -299,7 +346,9 @@ def stage_checkin(
                 }, progress_signal)
                 completed += 1
             if version_name == "versioned":
-                versioned_files = [path.parent.resolve() / path.name for path in destinations]
+                versioned_files[index] = [
+                    path.parent.resolve() / path.name for path in destinations
+                ]
 
             if payload.get("generatePreviews") and len(paths) > 2 and len(names) > 2:
                 web_dir = repository_root / str(paths[1])
@@ -313,50 +362,86 @@ def stage_checkin(
                     source_key = os.path.normcase(str(source))
                     web_file = Path(web_file).parent.resolve() / Path(web_file).name
                     icon_file = Path(icon_file).parent.resolve() / Path(icon_file).name
+                    copied_destinations.update(
+                        os.path.normcase(str(path)) for path in (web_file, icon_file)
+                    )
                     cached = preview_cache.get(source_key)
                     if cached:
-                        _copy_file_atomically(cached[0], web_file, cancel_event, alias_mode)
-                        _copy_file_atomically(cached[1], icon_file, cancel_event, alias_mode)
+                        _copy_file_atomically(
+                            cached[0], web_file, cancel_event, alias_mode, rollback=numbered_rollback
+                        )
+                        _copy_file_atomically(
+                            cached[1], icon_file, cancel_event, alias_mode, rollback=numbered_rollback
+                        )
                     else:
                         _generate_previews_atomically(
                             source, web_file, icon_file, cancel_event,
+                            rollback=numbered_rollback,
                         )
                         preview_cache[source_key] = (web_file, icon_file)
 
-    if move_sources:
-        for source in source_paths:
-            _check_cancel(cancel_event)
-            if source not in copied_destinations:
-                try:
-                    Path(source).unlink()
-                except FileNotFoundError:
-                    pass
-    return True
+    return {
+        source: original for source, original in move_sources.items()
+        if os.path.normcase(str(source)) not in copied_destinations
+    }
+
+
+def _remove_confirmed_move_sources(sources: dict[Path, os.stat_result]) -> None:
+    from thlib.environment import dl
+
+    for source, original in sources.items():
+        try:
+            current = source.lstat()
+            if (
+                os.path.samestat(current, original)
+                and current.st_mtime_ns == original.st_mtime_ns
+                and current.st_ctime_ns == original.st_ctime_ns
+                and current.st_size == original.st_size
+            ):
+                source.unlink()
+            else:
+                dl.warning(f"Check-in succeeded. Changed source kept: {source}",
+                           group_id="checkin/move")
+        except FileNotFoundError:
+            pass
+        except OSError as error:
+            dl.warning(f"Check-in succeeded. Could not remove source {source}: {error}",
+                       group_id="checkin/move")
 
 
 def execute_checkin_payload(
     payload: dict, repository: dict, progress_signal=None, cancel_event=None
 ) -> dict:
-    import thlib.tactic_classes as tc
-
     inputs = prepare_checkin(
         payload, progress_signal=progress_signal, cancel_event=cancel_event,
         refresh_naming=not bool(payload.get("dccScene")),
     )
+    return execute_prepared_checkin(inputs, repository, progress_signal, cancel_event)
+
+
+def execute_prepared_checkin(
+    inputs: dict, repository: dict, progress_signal=None, cancel_event=None,
+) -> dict:
+    import thlib.global_functions as gf
+    import thlib.tactic_classes as tc
+
     payload = inputs["payload"]
-    copied = stage_checkin(
-        inputs, repository, progress_signal=progress_signal,
-        cancel_event=cancel_event,
-    )
-    if copied is False:
-        raise OSError("One or more files could not be copied to repository")
     mode = str(payload.get("mode") or "upload")
     snapshot_mode = (
         "upload" if mode == "upload"
         else "preallocate" if mode == "preallocate"
         else "inplace"
     )
-    _check_cancel(cancel_event)
+    with ExitStack() as rollback:
+        move_sources = stage_checkin(
+            inputs, repository, progress_signal=progress_signal,
+            cancel_event=cancel_event, rollback=rollback,
+        )
+        _check_cancel(cancel_event)
+        gf.emit_progress(-1, {"snapshot_mode": snapshot_mode}, progress_signal)
+        _check_cancel(cancel_event)
+        # Once submitted, a lost reply can mean the files are registered.
+        rollback.pop_all()
     result = tc.checkin_snapshot(
         search_key=payload["searchKey"],
         context=payload["context"],
@@ -375,6 +460,13 @@ def execute_checkin_payload(
         files_objects=inputs["filesObjects"],
         progress_signal=progress_signal,
     )
-    if not isinstance(result, dict) or not result.get("__search_key__"):
+    search_key = result.get("__search_key__") if isinstance(result, dict) else None
+    if not isinstance(search_key, str):
         raise RuntimeError("TACTIC did not return the created snapshot")
+    search_type, _, locator = search_key.removeprefix("skey://").partition("?")
+    identity = parse_qs(locator)
+    if search_type != "sthpw/snapshot" or not (identity.get("code") or identity.get("id")):
+        raise RuntimeError("TACTIC did not return the created snapshot")
+    if move_sources and (cancel_event is None or not cancel_event.is_set()):
+        _remove_confirmed_move_sources(move_sources)
     return result

@@ -1,16 +1,19 @@
+from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 import tempfile
+import threading
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QEventLoop, QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
 
 from thlib.ui.commit_queue import CommitQueueController
-from thlib.checkin_operation import stage_checkin
+from thlib.checkin_operation import CheckinCancelled, execute_checkin_payload
+from thlib.ui.checkin_out import CheckinOutController
 from thlib.ui.workspace_models.windows import FloatingWindowModel
 
 
@@ -591,42 +594,154 @@ class FakeFileObject:
 
 
 class CheckinStagingTest(unittest.TestCase):
-    def test_move_stages_both_versions_before_removing_source(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / "scene.ma"
-            source.write_text("scene", encoding="utf-8")
-            repository_root = root / "repository"
-            inputs = {
-                "payload": {
-                    "mode": "move",
-                    "updateVersionless": True,
-                    "onlyVersionless": False,
-                    "generatePreviews": False,
-                    "sequencePadding": 3,
-                },
-                "filePaths": [[str(source)]],
-                "filesObjects": [FakeFileObject()],
-                "virtualSnapshot": [("scene", {
-                    "versioned": {
-                        "paths": ["asset/versions"],
-                        "names": [["scene_v001.ma"]],
-                    },
-                    "versionless": {
-                        "paths": ["asset"],
-                        "names": [["scene.ma"]],
-                    },
-                })],
-            }
-            repository = {
-                "value": [str(repository_root), "Repository", "", "repo", True]
-            }
-            self.assertTrue(stage_checkin(inputs, repository))
-            self.assertFalse(source.exists())
-            self.assertTrue(
-                (repository_root / "asset/versions/scene_v001.ma").is_file()
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QGuiApplication.instance() or QGuiApplication([])
+
+    def setUp(self):
+        directory = self.enterContext(tempfile.TemporaryDirectory())
+        self.root = Path(directory)
+        self.source = self.root / "scene.ma"
+        self.source.write_bytes(b"scene")
+        repository_root = self.root / "repository"
+        self.repository = {"value": [str(repository_root), "Repository", "", "repo", True]}
+        self.numbered = repository_root / "asset/versions/scene_v001.ma"
+        self.latest = repository_root / "asset/scene.ma"
+        self.inputs = self.prepare(self.source)
+        self.snapshot = {"__search_key__": "sthpw/snapshot?code=SNAP001"}
+
+    def prepare(self, source, *, mode="move", latest=True):
+        return {
+            "payload": {
+                "searchKey": "demo/asset?project=demo&code=ASSET001",
+                "context": "publish", "mode": mode, "updateVersionless": latest,
+                "generatePreviews": False,
+            },
+            "filePaths": [[str(source)]],
+            "filesObjects": [FakeFileObject()],
+            "filesDict": [],
+            "virtualSnapshot": [("scene", {
+                "versioned": {"paths": ["asset/versions"], "names": [["scene_v001.ma"]]},
+                "versionless": {"paths": ["asset"], "names": [["scene.ma"]]},
+            })],
+        }
+
+    def test_desktop_move_removes_source_after_server_confirmation(self):
+        from thlib.environment import env_inst
+        from thlib.pool import ThreadsPool
+
+        def confirm(**_kwargs):
+            self.assertEqual(self.source.read_bytes(), b"scene")
+            self.assertEqual(self.numbered.read_bytes(), b"scene")
+            self.assertEqual(self.latest.read_bytes(), b"scene")
+            return self.snapshot
+
+        pool = ThreadsPool()
+        pool.start()
+        self.addCleanup(pool.exit)
+        with (
+            patch("thlib.ui.checkin_out.env_read_config", return_value={}),
+            patch.object(CheckinOutController, "_load_checkin_options"),
+            patch.object(CheckinOutController, "_selection_changed"),
+            patch.object(CheckinOutController, "_rebuild_checkout_models"),
+        ):
+            controller = CheckinOutController(Mock())
+        results = []
+        controller.operationResult.connect(results.append)
+        loop = QEventLoop()
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(loop.quit)
+        controller.operationFinished.connect(loop.quit)
+
+        with (
+            patch.object(env_inst, "commit_pool", pool),
+            patch("thlib.checkin_operation.prepare_checkin", return_value=self.inputs),
+            patch("thlib.tactic_classes.checkin_snapshot", side_effect=confirm),
+        ):
+            controller._start_operation(self.inputs["payload"], self.repository, queued=True)
+            timer.start(5000)
+            loop.exec()
+            timer.stop()
+
+        self.assertEqual(results, [self.snapshot], controller.operationError)
+        self.assertEqual(controller.operationStage, "completed")
+        self.assertFalse(self.source.exists())
+
+    def test_headless_move_keeps_source_when_the_server_rejects_or_reply_is_lost(self):
+        for reply in (PermissionError("denied"), TimeoutError("reply lost"), {},
+                      {"__search_key__": "demo/asset?code=ASSET001"}):
+            with (
+                self.subTest(reply=reply),
+                patch("thlib.checkin_operation.prepare_checkin", return_value=self.inputs),
+                patch("thlib.tactic_classes.checkin_snapshot") as checkin,
+            ):
+                checkin.side_effect = reply if isinstance(reply, Exception) else None
+                checkin.return_value = reply
+                with self.assertRaises(type(reply) if isinstance(reply, Exception) else RuntimeError):
+                    execute_checkin_payload(self.inputs["payload"], self.repository)
+                self.assertEqual(self.source.read_bytes(), b"scene")
+                self.assertEqual(self.numbered.read_bytes(), b"scene")
+                self.numbered.unlink()
+
+    def test_move_keeps_a_source_replaced_during_commit(self):
+        def confirm(**_kwargs):
+            replacement = self.root / "replacement"
+            replacement.write_bytes(b"new edit")
+            replacement.replace(self.source)
+            return self.snapshot
+
+        with (
+            patch("thlib.tactic_classes.checkin_snapshot", side_effect=confirm),
+            patch("thlib.environment.dl.warning") as warning,
+        ):
+            result = CheckinOutController._publish_checkin(
+                self.inputs, self.repository, defer_refresh=True
             )
-            self.assertTrue((repository_root / "asset/scene.ma").is_file())
+        self.assertEqual(result, self.snapshot)
+        self.assertEqual(self.source.read_bytes(), b"new edit")
+        warning.assert_called_once()
+
+    def test_cancellation_before_submission_keeps_move_source_and_releases_number(self):
+        self.inputs["payload"]["updateVersionless"] = False
+        cancel = threading.Event()
+        progress = Mock()
+        progress.emit.side_effect = lambda value: cancel.set() if value[1].get("snapshot_mode") else None
+        with patch("thlib.tactic_classes.checkin_snapshot") as checkin:
+            with self.assertRaises(CheckinCancelled):
+                CheckinOutController._publish_checkin(
+                    self.inputs, self.repository, cancel_event=cancel, progress_signal=progress
+                )
+        checkin.assert_not_called()
+        self.assertEqual(self.source.read_bytes(), b"scene")
+        self.assertFalse(self.numbered.exists())
+
+    def test_concurrent_checkins_cannot_replace_the_numbered_file(self):
+        second = self.root / "other.ma"
+        second.write_bytes(b"other scene")
+        barrier = threading.Barrier(2, timeout=10)
+
+        def publish(source):
+            barrier.wait()
+            try:
+                CheckinOutController._publish_checkin(
+                    self.prepare(source, mode="copy"), self.repository, defer_refresh=True
+                )
+            except FileExistsError:
+                return None
+            return source
+
+        with (
+            patch("thlib.tactic_classes.checkin_snapshot", return_value=self.snapshot) as checkin,
+            ThreadPoolExecutor(max_workers=2) as workers,
+        ):
+            results = list(workers.map(publish, (self.source, second)))
+        self.assertEqual(results.count(None), 1)
+        winner = next(result for result in results if result is not None)
+        self.assertEqual(self.numbered.read_bytes(), winner.read_bytes())
+        self.assertEqual(self.latest.read_bytes(), winner.read_bytes())
+        self.assertFalse(list(self.numbered.parent.glob("*.part")))
+        checkin.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -169,7 +169,6 @@ class CheckinOutController(QObject):
         self._operation_file = ""
         self._operation_progress = 0.0
         self._operation_error = ""
-        self._operation_inputs = None
         self._operation_repository = {}
         self._operation_payload = None
         self._operation_cancel_requested = False
@@ -1538,6 +1537,10 @@ class CheckinOutController(QObject):
             Path(str(repository_values[0])) / path
             for path in relative_paths
         ]
+        if destination == "versioned" and not payload.get("isRevision"):
+            # Maya and playblast can overwrite their save targets.
+            staging_name = ".checkin-" + uuid.uuid4().hex
+            paths = [path.parent / staging_name / path.name for path in paths]
         dcc_payload = {
             "search_key": str(payload.get("searchKey") or ""),
             "context": str(payload.get("context") or "publish"),
@@ -1741,7 +1744,6 @@ class CheckinOutController(QObject):
         self._operation_file = ""
         self._operation_progress = 0.0
         self._operation_error = ""
-        self._operation_inputs = None
         self._operation_payload = dict(payload)
         self._operation_repository = repository
         self._operation_cancel_requested = False
@@ -1821,6 +1823,16 @@ class CheckinOutController(QObject):
             return
         try:
             progress, info = value
+            snapshot_mode = info.get("snapshot_mode")
+            if snapshot_mode:
+                self._operation_stage = "snapshot"
+                self._operation_message = (
+                    "Uploading and creating snapshot"
+                    if snapshot_mode == "upload" else "Creating snapshot"
+                )
+                self._operation_progress = 0.0
+                self.preparationChanged.emit()
+                return
             total = max(1, int(info.get("total_count") or 1))
             self._operation_progress = min(
                 1.0, max(0.0, (int(progress) + 1) / total)
@@ -1828,7 +1840,8 @@ class CheckinOutController(QObject):
             self._operation_file = str(info.get("status_text") or "")
         except (AttributeError, TypeError, ValueError):
             return
-        self._operation_stage = stage
+        if self._operation_stage != "snapshot":
+            self._operation_stage = stage
         self.preparationChanged.emit()
 
     def _checkin_prepared(self, operation_id: int, inputs) -> None:
@@ -1837,72 +1850,15 @@ class CheckinOutController(QObject):
         if self._operation_cancel_requested:
             self._operation_cancelled(operation_id)
             return
-        self._operation_inputs = inputs
         self._operation_message = "Copying files to repository"
         self._operation_progress = 0.0
-        from thlib.checkin_operation import stage_checkin
         from thlib.environment import env_inst
 
         worker = env_inst.commit_pool.add_task(
-            stage_checkin,
+            self._publish_checkin,
             inputs,
             self._operation_repository,
             cancel_event=self._operation_cancel_event,
-        )
-        if worker is None:
-            self._operation_failed(
-                operation_id, RuntimeError("Check-in worker pool is unavailable")
-            )
-            return
-        self._connect_operation_worker(
-            worker, operation_id, "copying", self._files_copied
-        )
-        worker.start()
-
-    def _files_copied(self, operation_id: int, result) -> None:
-        if operation_id != self._operation_id or not self._operation_inputs:
-            return
-        if result is False:
-            self._operation_failed(
-                operation_id,
-                OSError("One or more files could not be copied to repository"),
-            )
-            return
-        if self._operation_cancel_requested:
-            self._operation_cancelled(operation_id)
-            return
-        inputs = self._operation_inputs
-        payload = inputs["payload"]
-        mode = payload["mode"]
-        snapshot_mode = (
-            "upload" if mode == "upload"
-            else "preallocate" if mode == "preallocate"
-            else "inplace"
-        )
-        self._operation_message = (
-            "Uploading and creating snapshot"
-            if snapshot_mode == "upload" else "Creating snapshot"
-        )
-        self._operation_progress = 0.0
-        from thlib.environment import env_inst
-
-        worker = env_inst.commit_pool.add_task(
-            self._create_snapshot,
-            search_key=payload["searchKey"],
-            context=payload["context"],
-            snapshot_type=payload.get("snapshotType") or "file",
-            is_revision=payload["isRevision"],
-            description=payload["description"],
-            version=payload["version"],
-            update_versionless=payload["updateVersionless"],
-            only_versionless=payload.get("onlyVersionless", False),
-            keep_file_name=payload["keepFileName"],
-            repo_name=self._operation_repository,
-            virtual_snapshot=inputs["virtualSnapshot"],
-            files_dict=inputs["filesDict"],
-            mode=snapshot_mode,
-            create_icon=payload["generatePreviews"],
-            files_objects=inputs["filesObjects"],
             defer_refresh=self._queue_operation,
         )
         if worker is None:
@@ -1911,23 +1867,25 @@ class CheckinOutController(QObject):
             )
             return
         self._connect_operation_worker(
-            worker, operation_id, "snapshot", self._checkin_finished
+            worker, operation_id, "copying", self._checkin_finished
         )
         worker.start()
 
     @staticmethod
-    def _create_snapshot(*, defer_refresh=False, **kwargs):
+    def _publish_checkin(inputs, repository, *, defer_refresh=False,
+                         cancel_event=None, progress_signal=None):
         from thlib import server_cache
+        from thlib.checkin_operation import execute_prepared_checkin
         import thlib.tactic_classes as tc
 
-        result = tc.checkin_snapshot(**kwargs)
-        if result is None:
-            raise RuntimeError("TACTIC did not return the created snapshot")
+        result = execute_prepared_checkin(
+            inputs, repository, cancel_event=cancel_event, progress_signal=progress_signal
+        )
         if defer_refresh:
             return result
         try:
             project_code = str(
-                tc.split_search_key(kwargs.get("search_key") or "").get(
+                tc.split_search_key(inputs["payload"]["searchKey"]).get(
                     "project_code"
                 ) or ""
             )
@@ -1948,7 +1906,6 @@ class CheckinOutController(QObject):
         ))
         self._operation_worker = None
         self._worker_stages.clear()
-        self._operation_inputs = None
         self._operation_payload = None
         self._operation_repository = {}
         self._operation_state = "completed"
@@ -2042,7 +1999,6 @@ class CheckinOutController(QObject):
             self._operation_worker.dispose()
         self._operation_worker = None
         self._worker_stages.clear()
-        self._operation_inputs = None
         self._operation_state = "cancelled"
         self._operation_stage = "cancelled"
         self._operation_message = "Check-in cancelled"

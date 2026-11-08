@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.407 - 2026-11-09
+
+- Publish ordinary numbered check-ins and previews without replacing existing repository files. Stage DCC saves separately and keep Move originals until TACTIC confirms the snapshot.
+
 ## 0.6.0.406 - 2026-11-08
 
 - Read the Stream relationship catalog through the typed endpoint. Distinguish missing and read-only relationships, and use task permissions to disable unavailable row actions.

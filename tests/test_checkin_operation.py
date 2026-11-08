@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 import json
 import sys
 import tempfile
@@ -21,6 +22,10 @@ from thlib.ui.checkin_out import (
 
 class CheckinOperationTest(unittest.TestCase):
 
+    def stage(self, inputs, repository):
+        with ExitStack() as rollback:
+            stage_checkin(inputs, repository, rollback=rollback)
+            rollback.pop_all()
 
     def test_file_sizes_preserve_empty_files_and_sequence_order(self):
         from thlib.global_functions import FileObject
@@ -74,7 +79,7 @@ class CheckinOperationTest(unittest.TestCase):
                 patch.object(tc, "get_virtual_snapshot", return_value=[]) as naming,
                 patch(
                     "thlib.checkin_operation.stage_checkin",
-                    return_value=True,
+                    return_value={},
                 ),
                 patch.object(
                     tc, "checkin_snapshot", return_value=snapshot,
@@ -324,7 +329,7 @@ class CheckinOperationTest(unittest.TestCase):
                 "name": "asset_base_dir",
                 "value": [str(repository_root), "", "", "base"],
             }
-            self.assertTrue(stage_checkin(inputs, repository))
+            self.stage(inputs, repository)
             staged = repository_root / "assets/versions/aid_kit_model_v001"
             self.assertTrue(staged.is_file())
             self.assertEqual(staged.name, "aid_kit_model_v001")
@@ -555,7 +560,7 @@ class CheckinOperationTest(unittest.TestCase):
                         Path(icon).write_bytes(b"icon" + bytes([version]))
                     with patch("thlib.tactic_classes.generate_web_and_icon", side_effect=generate):
                         try:
-                            stage_checkin(inputs, {"value": [str(repository)]})
+                            self.stage(inputs, {"value": [str(repository)]})
                         except OSError as error:
                             if mode == "symlink" and getattr(error, "winerror", None) == 1314:
                                 break
@@ -569,7 +574,7 @@ class CheckinOperationTest(unittest.TestCase):
                 inputs["payload"]["onlyVersionless"] = True
                 inputs["payload"]["generatePreviews"] = False
                 source.write_bytes(b"only versionless")
-                stage_checkin(inputs, {"value": [str(repository)]})
+                self.stage(inputs, {"value": [str(repository)]})
                 self.assertEqual(latest.read_bytes(), b"only versionless")
                 self.assertFalse(latest.is_symlink())
                 self.assertFalse(list(repository.rglob("*.part")))
@@ -613,10 +618,10 @@ class CheckinOperationTest(unittest.TestCase):
                 "thlib.tactic_classes.generate_web_and_icon",
                 side_effect=generate,
             ) as generator:
-                self.assertTrue(stage_checkin(
+                self.stage(
                     inputs,
                     {"value": [str(root / "repository")]},
-                ))
+                )
 
             self.assertEqual(generator.call_count, 1)
             self.assertTrue((root / "repository/web/latest/source.jpg").is_file())
@@ -672,13 +677,28 @@ class CheckinOperationTest(unittest.TestCase):
                 with self.assertRaisesRegex(
                     OSError, "could not generate the web preview"
                 ):
-                    stage_checkin(
+                    self.stage(
                         inputs,
                         {"value": [str(repository_root)]},
                     )
 
             self.assertEqual(old_web.read_bytes(), b"old-web")
             self.assertEqual(old_icon.read_bytes(), b"old-icon")
+            self.assertEqual(list(repository_root.rglob("*.part.*")), [])
+
+            # A collision in the second derivative rolls back the new main and web files.
+            old_web.unlink()
+
+            def generate(_source, web, icon):
+                Path(web).write_bytes(b"new-web")
+                Path(icon).write_bytes(b"new-icon")
+
+            with patch("thlib.tactic_classes.generate_web_and_icon", side_effect=generate):
+                with self.assertRaisesRegex(FileExistsError, "Numbered check-in file already exists"):
+                    self.stage(inputs, {"value": [str(repository_root)]})
+            self.assertEqual(old_icon.read_bytes(), b"old-icon")
+            self.assertFalse(old_web.exists())
+            self.assertFalse((repository_root / "versions/source_v002.png").exists())
             self.assertEqual(list(repository_root.rglob("*.part.*")), [])
 
     def test_native_preview_generation_reports_an_unreadable_image(self):
