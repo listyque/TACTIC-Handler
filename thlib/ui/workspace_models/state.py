@@ -94,7 +94,7 @@ class WorkspaceState(
         ))
         self.snapshot_preview_model = RecordListModel((
             "token", "title", "url", "qualityUrl", "qualityRequested",
-            "kind", "snapshotNodeId",
+            "kind", "snapshotNodeId", "snapshotId", "version", "context",
         ))
         self.snapshot_file_model = RecordListModel((
             "rowType", "token", "title", "fileType", "size", "path",

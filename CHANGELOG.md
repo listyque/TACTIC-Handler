@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.405 - 2026-11-08
+
+- Compare two image snapshots in Snapshot Browser using separate A and B choices and a side-by-side or divider view.
+
 ## 0.6.0.404 - 2026-11-08
 
 - Preserve uncertain server check-in results after reopening the queue and block retry when the server cannot confirm a rollback.

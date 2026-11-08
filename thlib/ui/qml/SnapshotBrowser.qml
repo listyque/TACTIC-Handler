@@ -22,6 +22,8 @@ Item {
     property string contextFileToken: ""
     property int selectedFileRow: -1
     property int displayedFileCount: 0
+    property bool comparing: false
+    property var comparisonChoices: []
     readonly property var fileColumns: UI.fileColumns(showMoreInfo, filesPanel.width)
     readonly property bool showFileSize: fileColumns.size
     readonly property bool showFilePath: fileColumns.path
@@ -38,6 +40,17 @@ Item {
     }
     function fileIcon(rowType, fileType, baseType, title) {
         return UI.fileIcon(rowType, fileType, baseType, title);
+    }
+
+    function refreshComparisonChoices() {
+        comparisonChoices = UI.comparisonChoices(snapshotPreviewModel.records());
+        if (!UI.comparisonPair(comparisonChoices)[1])
+            comparing = false;
+    }
+
+    onVisibleChanged: {
+        if (!visible)
+            comparing = false;
     }
 
     function updateDisplayedFileCount() {
@@ -81,7 +94,10 @@ Item {
         theme: root.theme
         controller: appController
         onOptionsPressed: settingsMenu.sourceWasOpen = settingsMenu.opened
-        onOptionsRequested: sourceItem => settingsMenu.refreshAndToggleBelow(sourceItem)
+        onOptionsRequested: sourceItem => {
+            root.refreshComparisonChoices();
+            settingsMenu.refreshAndToggleBelow(sourceItem);
+        }
     }
 
     Item {
@@ -90,12 +106,12 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: root.showFilesPanel ? 10 : 0
+        anchors.margins: root.showFilesPanel && !root.comparing ? 10 : 0
 
         Item {
             id: previewArea
             objectName: "snapshotPreviewArea"
-            visible: root.showPreviewPanel
+            visible: root.showPreviewPanel && !root.comparing
             property string currentUrl: ""
             property string currentTitle: "Preview"
             property string currentToken: ""
@@ -357,16 +373,20 @@ Item {
 
             Connections {
                 target: snapshotPreviewModel
-                enabled: root.showPreviewPanel
+                enabled: root.showPreviewPanel || root.comparing
                 function onModelReset() {
+                    root.comparing = false;
                     previewArea.showPreview(0, 0, false);
                 }
                 function onContentReplaced() {
+                    root.comparing = false;
                     Qt.callLater(function () {
                         previewArea.showPreview(0, 0, false);
                     });
                 }
                 function onDataChanged() {
+                    if (root.comparing)
+                        root.refreshComparisonChoices();
                     Qt.callLater(function () {
                         previewArea.showPreview(previewArea.currentIndex, 0, false);
                     });
@@ -381,7 +401,7 @@ Item {
         Rectangle {
             id: filesPanel
             objectName: "snapshotFilesPanel"
-            visible: root.showFilesPanel
+            visible: root.showFilesPanel && !root.comparing
             x: root.panelLayout.files.x
             y: root.panelLayout.files.y
             width: root.panelLayout.files.width
@@ -613,7 +633,7 @@ Item {
         Item {
             id: splitterHandle
             objectName: "snapshotSplitterHandle"
-            visible: root.showPreviewPanel && root.showFilesPanel
+            visible: root.showPreviewPanel && root.showFilesPanel && !root.comparing
             z: 20
             x: root.panelLayout.splitter.x
             y: root.panelLayout.splitter.y
@@ -655,12 +675,26 @@ Item {
         }
     }
 
+    Loader {
+        anchors.fill: browserArea
+        active: root.comparing
+        sourceComponent: SnapshotComparison {
+            theme: root.theme
+            choices: root.comparisonChoices
+            imageMode: appController.snapshot_browser_image_mode
+            onCloseRequested: root.comparing = false
+            onQualityRequested: token => appController.request_snapshot_preview_quality(token)
+        }
+    }
+
     SnapshotBrowserOptionsMenu {
         id: settingsMenu
         objectName: "snapshotBrowserOptionsMenu"
         parent: Overlay.overlay
         theme: root.theme
         controller: appController
+        canCompare: !!UI.comparisonPair(root.comparisonChoices)[1]
+        onCompareRequested: root.comparing = canCompare
     }
 
     ActionMenu {

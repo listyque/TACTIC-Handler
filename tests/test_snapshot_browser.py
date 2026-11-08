@@ -300,6 +300,49 @@ class SnapshotBrowserModelTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QGuiApplication.instance() or QGuiApplication([])
 
+    def test_comparison_pickers_and_divider_accept_native_input(self):
+        from PySide6.QtCore import QPointF
+        from PySide6.QtQuick import QQuickWindow
+        from tests.test_columns_table_view import _visual_items
+
+        qml = Path(__file__).resolve().parents[1] / "thlib/ui/qml"
+        engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(lambda messages: warnings.extend(msg.toString() for msg in messages))
+        theme_type = QQmlComponent(engine, QUrl.fromLocalFile(str(qml / "Theme.qml")))
+        theme = theme_type.createWithInitialProperties({"dark": True})
+        pane_type = QQmlComponent(engine, QUrl.fromLocalFile(str(qml / "features/objects/SnapshotComparison.qml")))
+        choices = [dict(value=str(i), token=str(i), snapshotId=str(i), label=f"v{i} · publish · image.png") for i in (3, 2, 1)]
+        pane = pane_type.createWithInitialProperties(dict(theme=theme, choices=choices, imageMode="fit", width=440, height=430))
+        self.assertIsNotNone(pane, [error.toString() for error in pane_type.errors()])
+        window = QQuickWindow()
+        pane.setParentItem(window.contentItem())
+        window.resize(440, 430)
+        try:
+            window.show()
+            QTest.qWait(30)
+            picker = next(item for item in _visual_items(pane) if item.objectName() == "snapshotCompareB")
+            self.assertEqual(picker.property("currentValue"), "2")
+            picker.forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_Down)
+            self.assertEqual(picker.property("currentValue"), "1")
+            button = next(item for item in _visual_items(pane) if item.objectName() == "snapshotCompareDivider")
+            point = button.mapToScene(QPointF(button.width() / 2, button.height() / 2)).toPoint()
+            QTest.mouseClick(window, Qt.LeftButton, pos=point)
+            self.assertEqual(pane.property("mode"), "divider")
+            slider = pane.findChild(QObject, "snapshotCompareSlider")
+            slider.forceActiveFocus()
+            QTest.keyClick(window, Qt.Key_Right)
+            self.assertEqual(pane.property("position"), 51)
+            self.assertEqual(warnings, [])
+        finally:
+            window.close()
+            pane.setParentItem(None)
+            pane.deleteLater()
+            window.deleteLater()
+            engine.deleteLater()
+            self.app.processEvents()
+
     def test_snapshot_card_renders_resolved_web_preview(self):
         qml_path = (
             Path(__file__).resolve().parents[1]

@@ -103,6 +103,7 @@ class SnapshotStateMixin:
                 continue
             if snapshot_code:
                 seen_snapshots.add(snapshot_code)
+            info = snapshot.get_snapshot() or {}
             try:
                 grouped = snapshot.get_files_objects(group_by="type") or {}
                 preview_objects = list(
@@ -153,6 +154,9 @@ class SnapshotStateMixin:
                     "qualityRequested": using_original,
                     "kind": kind,
                     "snapshotNodeId": node.node_id,
+                    "snapshotId": snapshot_code or node.node_id,
+                    "version": info.get("version"),
+                    "context": info.get("context") or "",
                 })
         return records
 

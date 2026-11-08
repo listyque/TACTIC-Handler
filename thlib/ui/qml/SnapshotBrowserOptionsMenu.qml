@@ -4,6 +4,8 @@ import "tactic_frame/features/objects/snapshot.ui.mjs" as UI
 ActionMenu {
     id: root
     required property var controller
+    property bool canCompare: false
+    signal compareRequested
 
     readonly property string contentMode: controller.snapshot_browser_content_mode
     readonly property bool showPreviewPanel: contentMode !== "files"
@@ -15,7 +17,8 @@ ActionMenu {
             imageMode: controller.snapshot_browser_image_mode,
             orientation: controller.snapshot_browser_orientation,
             showAll: controller.snapshot_browser_show_all,
-            showMore: controller.snapshot_browser_show_more
+            showMore: controller.snapshot_browser_show_more,
+            canCompare: root.canCompare
         });
     }
     actions: currentActions()
@@ -26,7 +29,9 @@ ActionMenu {
     }
 
     onTriggered: command => {
-        if (command === "show_all")
+        if (command === "compare")
+            root.compareRequested();
+        else if (command === "show_all")
             controller.toggle_snapshot_browser_option("all");
         else if (command === "show_more")
             controller.toggle_snapshot_browser_option("more");

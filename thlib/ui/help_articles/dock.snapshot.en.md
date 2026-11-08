@@ -5,6 +5,11 @@ order: 27
 ---
 # Snapshot Browser dock
 
+Choose **Compare snapshots** in the options menu when two snapshots have image
+previews. Select A and B by version, context and filename. **Side by side** shows
+both images at once. **Image divider** aligns them in one viewport. Use the
+slider or its arrow keys to reveal either side.
+
 > Snapshot Browser follows the selected sObject and process, showing published versions, previews,
 > files and repository state without making the DCC responsible for synchronization.
 
