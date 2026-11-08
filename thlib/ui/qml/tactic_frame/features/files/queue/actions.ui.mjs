@@ -103,13 +103,16 @@ export function operation(model, record) {
             title: 'Cancel',
             command: 'cancelOperation',
             icon: 'close',
-            enabled: !model.busy && !!record.canEdit
+            enabled: !model.busy && !!(record.canCancel ?? record.canEdit)
         });
     result.push({
         title: 'Remove operation',
         command: 'remove',
         icon: 'delete',
-        enabled: !model.busy && record.status !== 'Running'
+        enabled:
+            !model.busy &&
+            record.status !== 'Running' &&
+            record.canRemove !== false
     });
     return result;
 }

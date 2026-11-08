@@ -1123,7 +1123,8 @@ class CommitQueueController(QObject):
             return
         for operation_id in operation_ids:
             payload = self._operations.get(operation_id) or {}
-            if self.serverQueueAvailable and (payload.get('_serverQueue') or {}).get('state') in ('error','terminated'):
+            reference = payload.get('_serverQueue') or {}
+            if self.serverQueueAvailable and not reference.get('uncertain') and reference.get('state') in ('error','terminated'):
                 payload.pop('_serverQueue',None)
                 self._set_record(operation_id,canCommit=True,canEdit=True)
         if self.serverQueue:
@@ -1384,8 +1385,9 @@ class CommitQueueController(QObject):
             ), "")
             if payload.get('_serverQueue'):
                 state = payload['_serverQueue'].get('state','pending')
-                record.update(status={'complete':'Completed','error':'Failed','terminated':'Cancelled'}.get(state,'Queued'),
-                              stage='server ' + state,canCommit=state in ('error','terminated'),canEdit=False)
+                uncertain = payload['_serverQueue'].get('uncertain', False)
+                record.update(status='Result unknown' if uncertain else {'complete':'Completed','error':'Failed','terminated':'Cancelled'}.get(state,'Queued'),
+                              stage='server ' + state,canCommit=not uncertain and state in ('error','terminated'),canEdit=False)
             elif missing:
                 record["status"] = "Missing files"
                 record["error"] = f"Source file is unavailable: {missing}"
@@ -1696,11 +1698,14 @@ class CommitQueueController(QObject):
                 continue
             state = event['state']
             status = {'staging':'Queued','pending':'Queued','locked':'Running','complete':'Completed','error':'Failed','terminated':'Cancelled'}.get(state,'Queued')
+            uncertain = bool(event.get('uncertain'))
             row = self._row_for_id(operation_id)
             was_complete = row >= 0 and self.model._records[row]['status'] == 'Completed'
             payload['_serverQueue']['state'] = state
-            self._set_record(operation_id,status=status,stage='server ' + state,error=event.get('error',''),
-                             progress=1.0 if state == 'complete' else 0.0,canCommit=state in ('error','terminated'),canEdit=False)
+            if uncertain:
+                payload['_serverQueue']['uncertain'] = True
+            self._set_record(operation_id,status='Result unknown' if uncertain else status,stage='server ' + state,error=event.get('error',''),
+                             progress=1.0 if state == 'complete' else 0.0,canCommit=not uncertain and state in ('error','terminated'),canEdit=False)
             if state == 'complete' and not was_complete:
                 payload['_serverSnapshot'] = event['snapshot']
                 payload['_serverSourceHashes'] = event.get('source_checksums') or {}
@@ -1730,7 +1735,7 @@ class CommitQueueController(QObject):
                             self._finish_server_move(operation['operation_id'])
                         elif self._auto_clean:
                             self.remove_row(row)
-                if all(self._row_for_id(operation['operation_id']) < 0 or self.model._records[self._row_for_id(operation['operation_id'])]['status'] in ('Completed','Failed','Cancelled') for operation in batch['operations']):
+                if all(self._row_for_id(operation['operation_id']) < 0 or self.model._records[self._row_for_id(operation['operation_id'])]['status'] in ('Completed','Failed','Cancelled','Result unknown') for operation in batch['operations']):
                     self._server_batches.pop(batch_id)
                     self._server_cursors.pop(batch_id,None)
         self._flush_refreshes()

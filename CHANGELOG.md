@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.404 - 2026-11-08
+
+- Preserve uncertain server check-in results after reopening the queue and block retry when the server cannot confirm a rollback.
+
 ## 0.6.0.403 - 2026-11-08
 
 - Use typed Stream commands to load Task Manager pages and field catalogs for project staff. Retain the Legacy TACTIC transport and respect native task field permissions in the desktop table.

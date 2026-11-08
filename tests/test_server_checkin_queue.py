@@ -129,6 +129,16 @@ class ServerCheckinQueue(unittest.TestCase):
         self.queue._server_updates_failed('late reply')
         self.assertFalse(self.queue._server_timer.isActive())
 
+    def test_uncertain_server_result_cannot_be_retried(self):
+        operation_id = self.add()
+        self.queue._server_batches['batch'] = dict(submitted=True, operations=[dict(operation_id=operation_id)])
+        self.queue._server_updates(dict(checkins=[dict(batch_id='batch', operation_id=operation_id,
+            state='error', uncertain=True, error='Worker stopped')], checkinCursors={'batch': 1}))
+        self.assertEqual(self.queue.selectedRecord['status'], 'Result unknown')
+        self.queue.commit_all()
+        self.assertFalse(self.queue.selectedRecord['canCommit'])
+        self.assertTrue(self.queue.operation(operation_id)['_serverQueue']['uncertain'])
+
     def test_explicit_clear_resets_finished_progress_even_after_auto_clean(self):
         self.queue._server_progress['finished'] = dict(totalOperations=2, completed=2)
         self.queue._server_progress_error = 'old error'

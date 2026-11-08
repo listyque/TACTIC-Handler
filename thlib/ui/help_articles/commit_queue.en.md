@@ -10,6 +10,10 @@ current connection. Legacy uses client check-in. Previously saved remote batches
 remain stored until you reconnect to their Stream server; switching to Legacy
 does not resubmit or cancel them.
 
+An interrupted server worker can report **Result unknown**. Check the target
+in Snapshot Browser before preparing a new publication. Retry is unavailable
+for this result.
+
 > Commit Queue is the final review and execution point for prepared check-ins. Nothing is submitted
 > merely by adding it: select an operation, verify its files and destination, then choose a commit
 > action.
