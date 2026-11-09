@@ -3,6 +3,9 @@
 Handler is the native desktop client. Its Python objects, GUI thread, local files,
 check-in queue and DCC router are distinct from Stream's server runtime.
 
+The product handbook covers setup, workflows, and operational notes.
+[English](handbook.en.md) · [Русский](handbook.ru.md)
+
 ## Client APIs and execution
 
 - [Unified Handler API](handler_api.md): client objects, background operations and UI commands.

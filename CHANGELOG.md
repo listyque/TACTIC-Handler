@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.411 - 2026-11-09
+
+- Add concise English and Russian repository guides, retain the full handbook, and add a GitHub bug report template.
+
 ## 0.6.0.410 - 2026-11-09
 
 - Safely discard a deferred tooltip open when its control has already been destroyed.
