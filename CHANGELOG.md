@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.412 - 2026-11-09
+
+- Expand the repository guides with current workspace screenshots, a publication walkthrough, and a standalone Python API example.
+
 ## 0.6.0.411 - 2026-11-09
 
 - Add concise English and Russian repository guides, retain the full handbook, and add a GitHub bug report template.
