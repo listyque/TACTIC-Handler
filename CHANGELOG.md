@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.414 - 2026-11-10
+
+- Reshape the English/Russian README into a visual presentation, retain the full product tour separately, and add a Maya/plugin/shelf guide with fresh native Item View, shelf-editor and Maya captures.
+
 ## 0.6.0.413 - 2026-11-09
 
 - Replace the English/Russian product presentations with a detailed workflow and workspace tour, fresh application captures, and separate guides to the project assistant and custom dashboards.
