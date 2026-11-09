@@ -16,13 +16,13 @@ Item {
     property alias reviewWindow: reviewDialog
     required property var theme
     required property var controller
-    readonly property var state: controller.view_data
+    readonly property var workspaceState: controller.view_data
     readonly property bool busy: controller.busy
-    readonly property bool pending: root.state.change.state === "pending"
-    readonly property bool transferring: Boolean(root.state.change.active_transfer)
-    readonly property bool integrating: Boolean(root.state.change.integration)
+    readonly property bool pending: root.workspaceState.change.state === "pending"
+    readonly property bool transferring: Boolean(root.workspaceState.change.active_transfer)
+    readonly property bool integrating: Boolean(root.workspaceState.change.integration)
     readonly property bool narrow: width < 800
-    readonly property var activeTab: (root.state.tabs || []).find(tab => tab.id === root.state.active_tab) || ({
+    readonly property var activeTab: (root.workspaceState.tabs || []).find(tab => tab.id === root.workspaceState.active_tab) || ({
             kind: "",
             title: ""
         })
@@ -45,9 +45,9 @@ Item {
     function pickTarget(operation, mode) {
         targetDialog.operation = operation;
         targetDialog.mode = mode || "ordinary";
-        targetDialog.sourceChange = ["move_files", "bulk_move", "unshelve_begin"].indexOf(operation) >= 0 ? root.state.change.code : "";
-        targetDialog.target = ["move_files", "bulk_move", "bulk_checkout"].indexOf(operation) >= 0 ? "" : root.state.change.state === "pending" ? root.state.change.code : "";
-        targetDialog.creating = !targetDialog.target && !root.state.targets.length;
+        targetDialog.sourceChange = ["move_files", "bulk_move", "unshelve_begin"].indexOf(operation) >= 0 ? root.workspaceState.change.code : "";
+        targetDialog.target = ["move_files", "bulk_move", "bulk_checkout"].indexOf(operation) >= 0 ? "" : root.workspaceState.change.state === "pending" ? root.workspaceState.change.code : "";
+        targetDialog.creating = !targetDialog.target && !root.workspaceState.targets.length;
         targetDialog.open();
     }
     function contextMenu(scope, row, item, x, y) {
@@ -58,7 +58,7 @@ Item {
         actionMenu.openAt(item, x, y);
     }
     function stageDrop(target, payload, urls) {
-        const targetRow = root.state.changes.find(row => row.code === target);
+        const targetRow = root.workspaceState.changes.find(row => row.code === target);
         if (!targetRow || Menus.dropReason(root, Object.assign({
             kind: "change"
         }, targetRow), payload, urls))
@@ -73,7 +73,7 @@ Item {
                 return;
             }
         }
-        const change = root.state.changes.find(row => row.code === target);
+        const change = root.workspaceState.changes.find(row => row.code === target);
         dropDraft = {
             target: target,
             number: change ? change.number : target,
@@ -82,7 +82,7 @@ Item {
             payload: payload || "",
             urls: urls || [],
             project: "",
-            prefix: root.state.view === "local" ? root.state.prefix : ""
+            prefix: root.workspaceState.view === "local" ? root.workspaceState.prefix : ""
         };
         if (origin === "local" || origin === "explorer")
             root.act("drop_files", dropDraft);
@@ -93,15 +93,15 @@ Item {
         revertDialog.operation = operation;
         if (operation === "revert") {
             revertDialog.request = {
-                change: root.state.change.code,
-                edit_revision: root.state.change.edit_revision
+                change: root.workspaceState.change.code,
+                edit_revision: root.workspaceState.change.edit_revision
             };
-            revertDialog.caption = qsTr("Changelist #%1").arg(root.state.change.number || root.state.change.code);
+            revertDialog.caption = qsTr("Changelist #%1").arg(root.workspaceState.change.number || root.workspaceState.change.code);
         } else {
-            const rows = Object.values(root.state.selection_records || {});
+            const rows = Object.values(root.workspaceState.selection_records || {});
             revertDialog.request = {
                 files: rows.map(row => Object.assign({
-                        stream: row.stream || root.state.stream,
+                        stream: row.stream || root.workspaceState.stream,
                         path: row.source_path || row.path
                     }, row.parent ? {
                         change: row.parent
@@ -121,8 +121,8 @@ Item {
         }, ListView.Contain);
     }
 
-    readonly property real columnWidth: root.state.columns.filter(column => column.visible).reduce((sum, column) => sum + column.width, 81 + 6 * root.state.columns.filter(column => column.visible).length + (root.activeTab.kind === "changes" ? 24 : 0))
-    readonly property bool editable: root.state.change.owner === root.controller.current_user && root.state.change.workspace === root.state.workspace && pending && root.state.change.depot_writable !== false && !transferring && !integrating && !root.state.change.active_bulk && !busy
+    readonly property real columnWidth: root.workspaceState.columns.filter(column => column.visible).reduce((sum, column) => sum + column.width, 81 + 6 * root.workspaceState.columns.filter(column => column.visible).length + (root.activeTab.kind === "changes" ? 24 : 0))
+    readonly property bool editable: root.workspaceState.change.owner === root.controller.current_user && root.workspaceState.change.workspace === root.workspaceState.workspace && pending && root.workspaceState.change.depot_writable !== false && !transferring && !integrating && !root.workspaceState.change.active_bulk && !busy
     property bool treeOpen: false
     property string editKind: ""
     property string draft: ""
@@ -150,7 +150,7 @@ Item {
             });
         else if (row.kind === "file")
             return;
-        else if (root.state.tree_selection !== row.id || root.state.selection_scope !== "depot")
+        else if (root.workspaceState.tree_selection !== row.id || root.workspaceState.selection_scope !== "depot")
             controller.select_row("depot", row.id, 0);
     }
     function changeActivated(row) {
@@ -193,14 +193,14 @@ Item {
             });
         else if (row.kind === "file")
             return;
-        else if (root.state.tree_selection !== row.id || root.state.selection_scope !== "workspace")
+        else if (root.workspaceState.tree_selection !== row.id || root.workspaceState.selection_scope !== "workspace")
             controller.select_row("workspace", row.id, 0);
     }
     function integration() {
         return {
-            change: root.state.change.code,
-            edit_revision: root.state.change.edit_revision,
-            integration: root.state.change.integration.code
+            change: root.workspaceState.change.code,
+            edit_revision: root.workspaceState.change.edit_revision,
+            integration: root.workspaceState.change.integration.code
         };
     }
     Component {
@@ -232,8 +232,8 @@ Item {
         controller: root.controller
     }
     function holders(row) {
-        const stream = row.stream || root.state.change.stream || root.state.stream;
-        const paths = root.state.locks[stream + "\0" + (row.source_path || row.path)] || [];
+        const stream = row.stream || root.workspaceState.change.stream || root.workspaceState.stream;
+        const paths = root.workspaceState.locks[stream + "\0" + (row.source_path || row.path)] || [];
         return paths.map(h => h.owner + " · " + (h.mode === "exclusive" ? qsTr("Exclusive checkout") : qsTr("Ordinary checkout"))).join("; ") || qsTr("No active checkout");
     }
     function localStatus(value) {
@@ -267,7 +267,7 @@ Item {
     function entry(title, command, icon, enabled) {
         const invalid = Menus.selectionReason(root, command);
         enabled = enabled && !invalid;
-        const reason = invalid || (enabled ? "" : busy ? qsTr("An operation is running") : !root.state.selected.length && kindForCommand(command) === "files" ? qsTr("Select files first") : !editable ? qsTr("Choose an owned pending changelist") : qsTr("Unavailable for this selection"));
+        const reason = invalid || (enabled ? "" : busy ? qsTr("An operation is running") : !root.workspaceState.selected.length && kindForCommand(command) === "files" ? qsTr("Select files first") : !editable ? qsTr("Choose an owned pending changelist") : qsTr("Unavailable for this selection"));
         return {
             title: title,
             command: command,
@@ -346,24 +346,24 @@ Item {
     Connections {
         target: root.controller
         function onStateChanged() {
-            const historyIdentity = root.state.history_stream + "/" + root.state.history_path;
+            const historyIdentity = root.workspaceState.history_stream + "/" + root.workspaceState.history_path;
             if (historyIdentity !== root.historyIdentity) {
                 root.historyIdentity = historyIdentity;
                 if (root.detailsView === "history")
                     root.detail = {};
             }
             if (root.activeTab.kind === "history")
-                root.detail = root.state.history.find(row => row.code === root.state.focus_id) || root.state.history.find(row => row.code === root.detail.code) || root.state.history[0] || ({});
+                root.detail = root.workspaceState.history.find(row => row.code === root.workspaceState.focus_id) || root.workspaceState.history.find(row => row.code === root.detail.code) || root.workspaceState.history[0] || ({});
             if (root.detailsView === "conflicts") {
-                const rows = root.showResolved ? root.state.resolved_conflicts : root.state.conflicts;
+                const rows = root.showResolved ? root.workspaceState.resolved_conflicts : root.workspaceState.conflicts;
                 root.detail = rows.find(row => row.path === root.detail.path) || rows[0] || ({});
             }
-            const switching = root.state.switch_preview.token;
+            const switching = root.workspaceState.switch_preview.token;
             if (switching && switching !== root.switchToken) {
                 root.switchToken = switching;
                 switchDialog.open();
             }
-            const token = root.state.comparison.token;
+            const token = root.workspaceState.comparison.token;
             if (token && token !== root.comparisonToken) {
                 root.comparisonToken = token;
                 comparisonDialog.open();
@@ -383,7 +383,7 @@ Item {
                 return;
             }
             reviewDialog.operation = shelfDialog.operation;
-            reviewDialog.paths = shelfDialog.operation === "update_shelf" ? root.state.selected.slice() : [];
+            reviewDialog.paths = shelfDialog.operation === "update_shelf" ? root.workspaceState.selected.slice() : [];
             reviewDialog.request = values;
             root.act("review_change", Object.assign({
                 operation: shelfDialog.operation
@@ -463,7 +463,7 @@ Item {
                     id: tree
                     workspace: root
                     visible: !root.narrow || root.treeOpen
-                    SplitView.preferredWidth: root.state.tree_width
+                    SplitView.preferredWidth: root.workspaceState.tree_width
                     SplitView.minimumWidth: root.narrow ? 0 : 200
                     SplitView.maximumWidth: root.narrow ? root.width : root.width * .5
                     SplitView.preferredHeight: 240
@@ -481,7 +481,7 @@ Item {
                     }
                     Label {
                         Layout.fillWidth: true
-                        visible: !root.state.active_tab
+                        visible: !root.workspaceState.active_tab
                         text: qsTr("Open a view from the View menu")
                         color: root.theme.secondaryText
                     }
@@ -523,9 +523,9 @@ Item {
                                         height: 28
                                         theme: root.theme
                                         scene: Rows.fileHeader({
-                                            columns: root.state.columns,
-                                            sortColumn: root.state.sort_column,
-                                            sortDesc: root.state.sort_desc
+                                            columns: root.workspaceState.columns,
+                                            sortColumn: root.workspaceState.sort_column,
+                                            sortDesc: root.workspaceState.sort_desc
                                         }, width, root.language)
                                         onEvent: action => root.controller.sort_files(action.key)
                                     }
@@ -542,7 +542,7 @@ Item {
                                     clip: true
                                     onContentYChanged: if (moving || changeBar.pressed)
                                         root.controller.remember_scroll("changes", contentY)
-                                    onModelChanged: Qt.callLater(() => contentY = root.state.scroll.changes || 0)
+                                    onModelChanged: Qt.callLater(() => contentY = root.workspaceState.scroll.changes || 0)
                                     model: root.controller.change_model
                                     ScrollBar.vertical: Controls.ScrollBar {
                                         id: changeBar
@@ -569,7 +569,7 @@ Item {
                                         width: changes.contentWidth - changeBar.reservedExtent
                                         enabled: true
                                         sourceComponent: node.kind === "file" ? changeFile : changeBranch
-                                        height: item ? item.implicitHeight : 0
+                                        height: (item as Item)?.implicitHeight ?? 0
                                     }
                                     Label {
                                         anchors.centerIn: parent
@@ -591,19 +591,19 @@ Item {
                                     onContentYChanged: if (moving || fileBar.pressed)
                                         root.controller.remember_scroll("files", contentY)
                                     onModelChanged: Qt.callLater(() => {
-                                        contentY = root.state.scroll.files || 0;
+                                        contentY = root.workspaceState.scroll.files || 0;
                                         revealTreeSelection();
                                     })
                                     model: {
-                                        const state = root.state;
+                                        const state = root.workspaceState;
                                         const name = state.name_filter;
                                         const status = state.status_filter;
                                         return state.rows.filter(row => Presentation.matches(row, name, status));
                                     }
                                     function revealTreeSelection() {
-                                        if (!visible || root.activeTab.source !== "selection" || ["depot", "workspace"].indexOf(root.state.selection_scope) < 0)
+                                        if (!visible || root.activeTab.source !== "selection" || ["depot", "workspace"].indexOf(root.workspaceState.selection_scope) < 0)
                                             return;
-                                        const index = model.findIndex(row => (row.stream || root.state.stream) === root.state.file_focus.stream && (row.source_path || row.path) === root.state.file_focus.path);
+                                        const index = model.findIndex(row => (row.stream || root.workspaceState.stream) === root.workspaceState.file_focus.stream && (row.source_path || row.path) === root.workspaceState.file_focus.path);
                                         if (index >= 0) {
                                             currentIndex = index;
                                             positionViewAtIndex(index, ListView.Contain);
@@ -639,15 +639,15 @@ Item {
                                         theme: root.theme
                                         row: modelData
                                         narrow: root.narrow
-                                        selected: root.state.selection_scope === "files" ? root.state.selection_ids.indexOf(root.controller.row_identity(modelData)) >= 0 : root.activeTab.source === "selection" && ["depot", "workspace"].indexOf(root.state.selection_scope) >= 0 && root.state.files_selection.some(item => root.controller.row_identity(item) === root.controller.row_identity(modelData))
+                                        selected: root.workspaceState.selection_scope === "files" ? root.workspaceState.selection_ids.indexOf(root.controller.row_identity(modelData)) >= 0 : root.activeTab.source === "selection" && ["depot", "workspace"].indexOf(root.workspaceState.selection_scope) >= 0 && root.workspaceState.files_selection.some(item => root.controller.row_identity(item) === root.controller.row_identity(modelData))
                                         enabled: true
                                         objectName: "workspaceFile_" + modelData.path
                                         localLabel: root.localStatus(modelData.local_status)
                                         serverLabel: modelData.change_state === "submitted" ? qsTr("Submitted") : modelData.change_state === "shelved" ? qsTr("Shelved") : root.serverStatus(modelData.server_status || modelData.action)
                                         checkoutLabel: root.holders(modelData)
                                         currentUser: root.controller.current_user
-                                        checkoutHolders: root.state.locks[(modelData.stream || root.state.change.stream || root.state.stream) + "\0" + (modelData.source_path || modelData.path)] || []
-                                        columns: root.state.columns
+                                        checkoutHolders: root.workspaceState.locks[(modelData.stream || root.workspaceState.change.stream || root.workspaceState.stream) + "\0" + (modelData.source_path || modelData.path)] || []
+                                        columns: root.workspaceState.columns
                                         onSelectedByUser: modifiers => root.controller.select_row("files", root.controller.row_identity(modelData), modifiers)
                                         onDragRequested: dragData = root.controller.drag_payload("files", root.controller.row_identity(modelData))
                                         onSelectedChangedByUser: checked => root.controller.select_file(modelData.path, checked)
@@ -668,7 +668,7 @@ Item {
                                     Label {
                                         Layout.fillWidth: true
                                         Layout.minimumWidth: 0
-                                        text: (root.state.view === "change" ? root.state.change_file_count : root.state.rows.length) + " " + qsTr("files")
+                                        text: (root.workspaceState.view === "change" ? root.workspaceState.change_file_count : root.workspaceState.rows.length) + " " + qsTr("files")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
                                     }
@@ -677,7 +677,7 @@ Item {
                                         iconName: "chevron-right"
                                         toolTip: qsTr("Next changelists")
                                         Accessible.name: toolTip
-                                        visible: root.activeTab.kind === "changes" && Boolean(root.state.changes_after)
+                                        visible: root.activeTab.kind === "changes" && Boolean(root.workspaceState.changes_after)
                                         enabled: !root.busy
                                         onClicked: root.act("next_changes")
                                     }
@@ -686,8 +686,8 @@ Item {
                                         iconName: "chevron-left"
                                         toolTip: qsTr("Previous page")
                                         Accessible.name: toolTip
-                                        visible: root.state.view !== "change"
-                                        enabled: !root.busy && root.state.cursors.length > 0
+                                        visible: root.workspaceState.view !== "change"
+                                        enabled: !root.busy && root.workspaceState.cursors.length > 0
                                         onClicked: root.act("previous_files")
                                     }
                                     Controls.CompactIconButton {
@@ -695,8 +695,8 @@ Item {
                                         iconName: "chevron-right"
                                         toolTip: qsTr("Next page")
                                         Accessible.name: toolTip
-                                        visible: root.state.view !== "change"
-                                        enabled: !root.busy && Boolean(root.state.after)
+                                        visible: root.workspaceState.view !== "change"
+                                        enabled: !root.busy && Boolean(root.workspaceState.after)
                                         onClicked: root.act("next_files")
                                     }
                                 }
@@ -712,14 +712,14 @@ Item {
                         FileWorkspaceInspector {
                             id: fileInspector
                             theme: root.theme
-                            info: root.state.inspection || ({})
-                            preview: root.state.inspection.preview || ({})
-                            currentTab: root.state.inspector_tab
-                            busy: root.state.inspection_busy
-                            error: root.state.inspection_error
+                            info: root.workspaceState.inspection || ({})
+                            preview: root.workspaceState.inspection.preview || ({})
+                            currentTab: root.workspaceState.inspector_tab
+                            busy: root.workspaceState.inspection_busy
+                            error: root.workspaceState.inspection_error
                             onTabSelected: tab => root.controller.set_value("inspector_tab", tab)
                             visible: root.activeTab.kind === "files"
-                            SplitView.preferredHeight: Math.min(root.state.details_height, rightSplit.height * 0.4)
+                            SplitView.preferredHeight: Math.min(root.workspaceState.details_height, rightSplit.height * 0.4)
                             SplitView.minimumHeight: Math.min(100, rightSplit.height * 0.35)
                         }
                         FileWorkspaceHistory {
@@ -745,7 +745,7 @@ Item {
                             workspace: root
                             visible: ["conflicts", "tasks"].includes(root.activeTab.kind)
                             SplitView.fillHeight: true
-                            SplitView.preferredHeight: root.state.details_height
+                            SplitView.preferredHeight: root.workspaceState.details_height
                             SplitView.minimumHeight: 120
                             SplitView.maximumHeight: rightSplit.height
                         }
@@ -756,8 +756,8 @@ Item {
                 id: workspaceLog
                 theme: root.theme
                 controller: root.controller
-                visible: root.state.log_visible
-                SplitView.preferredHeight: Math.min(root.state.log_height, logSplit.height * 0.45)
+                visible: root.workspaceState.log_visible
+                SplitView.preferredHeight: Math.min(root.workspaceState.log_height, logSplit.height * 0.45)
                 SplitView.minimumHeight: Math.min(80, logSplit.height * 0.2)
                 SplitView.maximumHeight: logSplit.height * 0.6
             }

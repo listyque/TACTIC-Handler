@@ -11,18 +11,18 @@ Item {
     property real mobileExtent: -1
     readonly property var frameModel: ({
             draft: editing ? draft : null,
-            selected: state.catalog_detail,
-            administrator: state.administrator,
+            selected: workspaceState.catalog_detail,
+            administrator: workspaceState.administrator,
             busy: controller.busy,
-            repositories: state.catalog_capabilities.repositories || [],
+            repositories: workspaceState.catalog_capabilities.repositories || [],
             notice: notice,
-            after: state.catalog_after,
+            after: workspaceState.catalog_after,
             extent: width < 600 ? (mobileExtent < 0 ? undefined : mobileExtent) : (desktopExtent < 0 ? undefined : desktopExtent)
         })
-    readonly property var state: controller.view_data
-    readonly property var draft: state.depot_draft || ({})
+    readonly property var workspaceState: controller.view_data
+    readonly property var draft: workspaceState.depot_draft || ({})
     readonly property bool editing: draft.creating !== undefined
-    readonly property bool dirty: JSON.stringify(draft) !== JSON.stringify(state.depot_original || {})
+    readonly property bool dirty: JSON.stringify(draft) !== JSON.stringify(workspaceState.depot_original || {})
     property string notice: ""
     function change(key, value) {
         const next = Object.assign({}, draft);
@@ -40,7 +40,7 @@ Item {
         } : {});
     }
     function reset() {
-        controller.set_value("depot_draft", state.depot_original);
+        controller.set_value("depot_draft", workspaceState.depot_original);
         notice = "";
     }
 
@@ -73,7 +73,7 @@ Item {
             else if (action.type === "new")
                 root.edit(null);
             else if (action.type === "edit")
-                root.edit(root.state.catalog_detail);
+                root.edit(root.workspaceState.catalog_detail);
             else if (action.type === "reset")
                 root.reset();
             else if (action.type === "cancel") {

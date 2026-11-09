@@ -1094,8 +1094,7 @@ Item {
                         function applyCodeCommand(cmd) {
                             if (editor.readOnly)
                                 return;
-                            const result = areaCodeService.apply_editor_command(
-                                cmd, editor.text, editor.selectionStart, editor.selectionEnd);
+                            const result = areaCodeService.apply_editor_command(cmd, editor.text, editor.selectionStart, editor.selectionEnd);
                             editor.text = result.text;
                             editor.select(result.start, result.end);
                         }

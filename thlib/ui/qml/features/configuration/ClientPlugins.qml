@@ -10,8 +10,7 @@ Item {
     required property var controller
     property string pendingArchive: ""
     property string selectedPlugin: ""
-    readonly property var selectedPluginData: root.controller.rows.find(
-        row => row.code === root.selectedPlugin) || null
+    readonly property var selectedPluginData: root.controller.rows.find(row => row.code === root.selectedPlugin) || null
     ColumnLayout {
         anchors.fill: parent
         spacing: Foundation.spacing.compact
@@ -38,8 +37,13 @@ Item {
                 enabled: !root.controller.busy
                 onClicked: root.controller.choose_publish()
             }
-            Item { Layout.fillWidth: true }
-            Controls.BusyIndicator { uiTheme: root.theme; running: root.controller.busy }
+            Item {
+                Layout.fillWidth: true
+            }
+            Controls.BusyIndicator {
+                uiTheme: root.theme
+                running: root.controller.busy
+            }
         }
         ListView {
             id: plugins
@@ -76,8 +80,8 @@ Item {
                         enabled: !root.controller.busy && modelData.allowed && modelData.enabled && !modelData.error
                         Accessible.name: (modelData.running ? qsTr("Show %1") : qsTr("Launch %1")).arg(modelData.title)
                         onClicked: {
-                            root.selectedPlugin = modelData.code
-                            root.controller.open_plugin(modelData.code)
+                            root.selectedPlugin = modelData.code;
+                            root.controller.open_plugin(modelData.code);
                         }
                     }
                     Controls.CheckBox {
@@ -107,11 +111,13 @@ Item {
                 }
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 1
+                    Layout.preferredHeight: 1
                     color: root.theme.outlineVariant
                 }
             }
-            QQC.ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
+            QQC.ScrollBar.vertical: Controls.ScrollBar {
+                theme: root.theme
+            }
             Controls.SectionLabel {
                 anchors.centerIn: parent
                 width: Math.max(0, parent.width - 24)
@@ -179,7 +185,9 @@ Item {
                 Layout.fillWidth: true
                 theme: root.theme
                 placeholderText: qsTr("For example, 1.2.1")
-                validator: RegularExpressionValidator { regularExpression: /\d+\.\d+\.\d+/ }
+                validator: RegularExpressionValidator {
+                    regularExpression: /\d+\.\d+\.\d+/
+                }
                 Accessible.name: qsTr("New plugin version")
             }
             Controls.SectionLabel {
@@ -201,8 +209,7 @@ Item {
                 objectName: "clientPluginBuildConfirm"
                 theme: root.theme
                 text: qsTr("Build ZIP")
-                enabled: root.controller.canPublish && !root.controller.busy && !!root.selectedPluginData
-                    && root.selectedPlugin === buildDialog.pluginCode && version.acceptableInput
+                enabled: root.controller.canPublish && !root.controller.busy && !!root.selectedPluginData && root.selectedPlugin === buildDialog.pluginCode && version.acceptableInput
                 onClicked: buildDialog.accept()
             }
         }

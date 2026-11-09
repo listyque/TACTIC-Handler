@@ -21,8 +21,9 @@ Controls.ScrollablePopup {
     }
     onOpened: {
         closingFromOwner = false;
-        if (body.item)
-            Qt.callLater(body.item.focusQuery);
+        const view = body.item as ParentGroupView;
+        if (view)
+            Qt.callLater(view.focusQuery);
     }
     Loader {
         id: body

@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import "../.."
 import "../../controls" as Controls
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/tasks/scope.ui.mjs" as UI

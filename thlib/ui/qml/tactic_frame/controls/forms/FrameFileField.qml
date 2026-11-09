@@ -1,6 +1,5 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import "../../../controls" as Controls
 
 Loader {
     id: root

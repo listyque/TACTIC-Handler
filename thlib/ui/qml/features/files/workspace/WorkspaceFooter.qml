@@ -15,11 +15,11 @@ Controls.DockWorkspaceFooter {
         anchors.fill: parent
         theme: root.theme
         scene: UI.describe({
-            progress: workspace.state.progress,
+            progress: workspace.workspaceState.progress,
             busy: workspace.busy,
-            workspace: workspace.state.workspace,
-            selected: workspace.state.selected.length,
-            logVisible: workspace.state.log_visible
+            workspace: workspace.workspaceState.workspace,
+            selected: workspace.workspaceState.selected.length,
+            logVisible: workspace.workspaceState.log_visible
         }, width, height, workspace.language)
         views: ({
                 busy: {
@@ -31,7 +31,7 @@ Controls.DockWorkspaceFooter {
             })
         onEvent: action => {
             if (action.type === "log")
-                workspace.set("log_visible", !workspace.state.log_visible);
+                workspace.set("log_visible", !workspace.workspaceState.log_visible);
             else if (action.type === "stop")
                 workspace.controller.stop();
         }

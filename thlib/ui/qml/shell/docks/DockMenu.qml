@@ -19,7 +19,7 @@ ActionMenu {
         const tasks = [];
         const tools = [];
         for (let index = 0; index < panels.count; ++index) {
-            const panel = panels.objectAt(index);
+            const panel = panels.objectAt(index) as DockMenuPanel;
             if (!panel)
                 continue;
             const action = {
@@ -84,14 +84,7 @@ ActionMenu {
         model: root.panelModel
         onObjectAdded: ++root.panelRevision
         onObjectRemoved: ++root.panelRevision
-        delegate: QtObject {
-            required property string panelId
-            required property string title
-            required property string kind
-            required property bool panelVisible
-            required property bool closable
-            readonly property string iconName: kind === "snapshot" ? "movie" : kind === "tasks" ? "task_alt" : kind === "task_calendar" ? "calendar_month" : kind === "drop_plate" ? "publish" : kind === "notes" ? "comment" : kind === "knowledge" ? "book-open" : kind === "description" ? "description" : kind === "advanced_search" ? "search" : kind === "repo_sync_queue" ? "repository-sync" : kind === "commit_queue" ? "publish" : kind === "watch_folders" ? "folder" : kind === "db_table" ? "table" : "view_kanban"
-        }
+        delegate: DockMenuPanel {}
     }
 
     Controls.Menu {
@@ -134,5 +127,14 @@ ActionMenu {
                 flickableTarget: presetFlickable
             }
         }
+    }
+
+    component DockMenuPanel: QtObject {
+        required property string panelId
+        required property string title
+        required property string kind
+        required property bool panelVisible
+        required property bool closable
+        readonly property string iconName: kind === "snapshot" ? "movie" : kind === "tasks" ? "task_alt" : kind === "task_calendar" ? "calendar_month" : kind === "drop_plate" ? "publish" : kind === "notes" ? "comment" : kind === "knowledge" ? "book-open" : kind === "description" ? "description" : kind === "advanced_search" ? "search" : kind === "repo_sync_queue" ? "repository-sync" : kind === "commit_queue" ? "publish" : kind === "watch_folders" ? "folder" : kind === "db_table" ? "table" : "view_kanban"
     }
 }

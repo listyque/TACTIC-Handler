@@ -731,75 +731,57 @@ function content(model, ui, width, height, language, edit, navigate) {
                 : Math.max(1, width - addPad * 2),
             exampleW = Math.max(
                 40,
-                width -
-                    addPad * 2 -
-                    28 -
-                    (inlineAdd ? addBtnW + 14 : 0)
+                width - addPad * 2 - 28 - (inlineAdd ? addBtnW + 14 : 0)
             ),
             addCardH = inlineAdd ? 62 : 104;
         nodes.push(
-            node(
-                'Box',
-                'typeAddFieldFooterCard',
-                rect(0, y, width, addCardH),
-                {
-                    background: 'surfaceContainer',
-                    border: 'outlineVariant',
-                    radius: 10,
-                    children: [
-                        node(
-                            'Icon',
-                            'typeAddFieldExampleIcon',
-                            rect(addPad, inlineAdd ? 22 : 14, 18, 18),
+            node('Box', 'typeAddFieldFooterCard', rect(0, y, width, addCardH), {
+                background: 'surfaceContainer',
+                border: 'outlineVariant',
+                radius: 10,
+                children: [
+                    node(
+                        'Icon',
+                        'typeAddFieldExampleIcon',
+                        rect(addPad, inlineAdd ? 22 : 14, 18, 18),
+                        {
+                            icon: 'code',
+                            color: 'action'
+                        }
+                    ),
+                    label(
+                        'adminNewColumnExample',
+                        rect(addPad + 26, inlineAdd ? 10 : 8, exampleW, 42),
+                        tr('Example: {name} = {value}', {
+                            name: ui.fieldName.trim() || field.name,
+                            value: tr(field.example)
+                        }) +
+                            ' · ' +
+                            tr('Database type: {type}', {
+                                type: ui.fieldType
+                            }),
+                        Object.assign(
                             {
-                                icon: 'code',
-                                color: 'action'
-                            }
-                        ),
-                        label(
-                            'adminNewColumnExample',
-                            rect(
-                                addPad + 26,
-                                inlineAdd ? 10 : 8,
-                                exampleW,
-                                42
-                            ),
-                            tr('Example: {name} = {value}', {
-                                name: ui.fieldName.trim() || field.name,
-                                value: tr(field.example)
-                            }) +
-                                ' · ' +
-                                tr('Database type: {type}', {
-                                    type: ui.fieldType
-                                }),
-                            Object.assign(
-                                {
-                                    wrap: true,
-                                    monospace: true
-                                },
-                                muted
-                            )
-                        ),
-                        button(
-                            'adminStageColumn',
-                            inlineAdd
-                                ? rect(
-                                      width - addPad - addBtnW,
-                                      12,
-                                      addBtnW,
-                                      38
-                                  )
-                                : rect(addPad, 54, addBtnW, 38),
-                            tr('Add field'),
-                            'add',
-                            {
-                                type: 'addField'
+                                wrap: true,
+                                monospace: true
                             },
-                            edit && !!ui.fieldName.trim()
+                            muted
                         )
-                    ]
-                }
-            )
+                    ),
+                    button(
+                        'adminStageColumn',
+                        inlineAdd
+                            ? rect(width - addPad - addBtnW, 12, addBtnW, 38)
+                            : rect(addPad, 54, addBtnW, 38),
+                        tr('Add field'),
+                        'add',
+                        {
+                            type: 'addField'
+                        },
+                        edit && !!ui.fieldName.trim()
+                    )
+                ]
+            })
         );
         y += addCardH + 14;
         if ((doc.columns || []).length) {
@@ -1256,8 +1238,7 @@ function content(model, ui, width, height, language, edit, navigate) {
                           : 1,
                 tileGap = 10,
                 tileW =
-                    (innerW - (tileCols - 1) * tileGap) /
-                    Math.max(1, tileCols),
+                    (innerW - (tileCols - 1) * tileGap) / Math.max(1, tileCols),
                 tileRows = Math.ceil(tiles.length / Math.max(1, tileCols)),
                 manyNote = edge.manyToMany
                     ? tr(
@@ -1547,12 +1528,10 @@ function content(model, ui, width, height, language, edit, navigate) {
                         false
                     ]
                 ],
-                tileCols =
-                    innerW >= 580 ? 3 : innerW >= 380 ? 2 : 1,
+                tileCols = innerW >= 580 ? 3 : innerW >= 380 ? 2 : 1,
                 tileGap = 10,
                 tileW =
-                    (innerW - (tileCols - 1) * tileGap) /
-                    Math.max(1, tileCols),
+                    (innerW - (tileCols - 1) * tileGap) / Math.max(1, tileCols),
                 tileRows = Math.ceil(tiles.length / Math.max(1, tileCols)),
                 descText = String(row.description || '').trim(),
                 descH = descText
@@ -1566,12 +1545,12 @@ function content(model, ui, width, height, language, edit, navigate) {
                     : 0,
                 tilesTop = 54,
                 tilesBottom =
-                    tilesTop +
-                    tileRows * 52 +
-                    Math.max(0, tileRows - 1) * 8,
+                    tilesTop + tileRows * 52 + Math.max(0, tileRows - 1) * 8,
                 descTop = descH ? tilesBottom + 10 : tilesBottom,
                 bottomBtnTop = !inlineAction
-                    ? (descH ? descTop + descH + 10 : tilesBottom + 10)
+                    ? descH
+                        ? descTop + descH + 10
+                        : tilesBottom + 10
                     : 0,
                 cardH =
                     (!inlineAction
@@ -2335,7 +2314,12 @@ export function row(listNode, record, model, ui, language) {
         button(
             'adminDeleteColumn_' + record.name,
             narrow
-                ? rect(cardPad, cardH - 46, Math.max(1, width - cardPad * 2), 36)
+                ? rect(
+                      cardPad,
+                      cardH - 46,
+                      Math.max(1, width - cardPad * 2),
+                      36
+                  )
                 : rect(width - cardPad - btnW, 6, btnW, 32),
             tr(marked ? 'Undo deletion' : 'Delete field'),
             marked ? 'undo' : 'delete',

@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
 import "features/tasks" as Tasks
 
@@ -12,7 +10,7 @@ Tasks.TaskCellDisplay {
     property Component editorComponent
     property bool editorActive: false
     property bool editingAllowed: true
-    property bool actionField: true
+    actionField: true
     property bool cardField: false
     property bool showIndicator: !actionField
     property bool showAccent: false

@@ -588,7 +588,8 @@ export function describe(model, ui, width, height, language) {
             })
         );
         const headerAvatarSize = 48;
-        const headerTitle = headerProfile.displayName || headerProfile.login || '';
+        const headerTitle =
+            headerProfile.displayName || headerProfile.login || '';
         const headerSecondary =
             headerProfile.subtitle ||
             (headerProfile.login && headerProfile.login !== headerTitle
@@ -669,7 +670,9 @@ export function describe(model, ui, width, height, language) {
                                 {
                                     fontRole: 'secondary',
                                     weight: 600,
-                                    color: retired ? 'secondaryText' : 'primaryText'
+                                    color: retired
+                                        ? 'secondaryText'
+                                        : 'primaryText'
                                 }
                             )
                         ]
@@ -1056,7 +1059,12 @@ export function describe(model, ui, width, height, language) {
                     node(
                         'Box',
                         'adminUserPasswordBadge',
-                        box(formWidth - cardPad - pwdBadgeW, y + 8, pwdBadgeW, 26),
+                        box(
+                            formWidth - cardPad - pwdBadgeW,
+                            y + 8,
+                            pwdBadgeW,
+                            26
+                        ),
                         {
                             background: 'surfaceContainerHigh',
                             border: 'outlineVariant',
@@ -1146,7 +1154,12 @@ export function describe(model, ui, width, height, language) {
                 ),
                 label(
                     'adminUserLabel_password_confirm',
-                    box(confirmX + 22, confirmY, Math.max(0, confirmW - 22), 22),
+                    box(
+                        confirmX + 22,
+                        confirmY,
+                        Math.max(0, confirmW - 22),
+                        22
+                    ),
                     tr('Confirm password'),
                     {
                         weight: 600
@@ -1199,8 +1212,7 @@ export function describe(model, ui, width, height, language) {
                     {
                         text: tr('Clear password'),
                         icon: 'close',
-                        enabled:
-                            allow.editable && !!(pwdValue || confirmValue),
+                        enabled: allow.editable && !!(pwdValue || confirmValue),
                         action: {
                             type: 'clearPassword'
                         }
@@ -1209,8 +1221,7 @@ export function describe(model, ui, width, height, language) {
             );
             const pwdMismatch =
                     Boolean(confirmValue) && confirmValue !== pwdValue,
-                pwdMatched =
-                    Boolean(confirmValue) && confirmValue === pwdValue,
+                pwdMatched = Boolean(confirmValue) && confirmValue === pwdValue,
                 hintIcon = pwdMismatch
                     ? 'warning'
                     : pwdMatched
@@ -1310,12 +1321,7 @@ export function describe(model, ui, width, height, language) {
                         node(
                             'Button',
                             'adminUserUpnFromLogin',
-                            box(
-                                cardPad + cell - upnBtnW,
-                                y + 50,
-                                upnBtnW,
-                                24
-                            ),
+                            box(cardPad + cell - upnBtnW, y + 50, upnBtnW, 24),
                             {
                                 text: tr('Use login'),
                                 enabled:
@@ -1606,7 +1612,12 @@ export function row(list, record, model, ui, language) {
                         ),
                         label(
                             'userGroupDescription_' + record.name,
-                            box(58, info ? 24 : 31, Math.max(0, width - 68), 18),
+                            box(
+                                58,
+                                info ? 24 : 31,
+                                Math.max(0, width - 68),
+                                18
+                            ),
                             record.description || '',
                             muted
                         ),

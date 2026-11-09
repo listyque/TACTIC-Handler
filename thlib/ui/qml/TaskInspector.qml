@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "controls" as Controls
 import "tactic_frame" as Frame
 import "features/objects" as Objects
 import "tactic_frame/features/objects/inspector.ui.mjs" as UI

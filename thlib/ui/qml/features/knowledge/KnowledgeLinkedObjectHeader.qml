@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../../controls" as Controls
-import "../.."
 
 Rectangle {
     id: root

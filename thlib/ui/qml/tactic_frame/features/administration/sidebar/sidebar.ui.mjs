@@ -288,9 +288,7 @@ function tree(nodes, model, ui, bounds, language, edit, split = false) {
                 'sidebarTreeTitle',
                 rect(12, 10, Math.max(0, width - (split ? 62 : 24)), 34),
                 tr(
-                    model.source === 'handler'
-                        ? 'TH sidebar'
-                        : 'TACTIC sidebar'
+                    model.source === 'handler' ? 'TH sidebar' : 'TACTIC sidebar'
                 ),
                 {
                     weight: 600
@@ -381,12 +379,7 @@ function tree(nodes, model, ui, bounds, language, edit, split = false) {
         children.push(
             button(
                 'sidebarToggleTree',
-                rect(
-                    treeVisible ? width - 46 : (width - 34) / 2,
-                    10,
-                    34,
-                    34
-                ),
+                rect(treeVisible ? width - 46 : (width - 34) / 2, 10, 34, 34),
                 tr(treeVisible ? 'Hide sidebar tree' : 'Show sidebar tree'),
                 treeVisible ? 'chevron-left' : 'chevron-right',
                 {

@@ -138,11 +138,7 @@ export function treePanel(model, ui, bounds, language, enabled, narrow) {
                 collapsed ? 28 : 34,
                 34
             ),
-            tr(
-                ui.layersHidden
-                    ? 'Show page blocks'
-                    : 'Hide page blocks'
-            ),
+            tr(ui.layersHidden ? 'Show page blocks' : 'Hide page blocks'),
             ui.layersHidden ? 'chevron-right' : 'chevron-left',
             { type: 'togglePanel', panel: 'layers' },
             true,
@@ -208,11 +204,7 @@ export function propertiesHeader(ui, width, language, narrow) {
                     collapsed ? 28 : 34,
                     34
                 ),
-                tr(
-                    ui.propertiesHidden
-                        ? 'Show properties'
-                        : 'Hide properties'
-                ),
+                tr(ui.propertiesHidden ? 'Show properties' : 'Hide properties'),
                 ui.propertiesHidden ? 'chevron-left' : 'chevron-right',
                 { type: 'togglePanel', panel: 'properties' },
                 true,

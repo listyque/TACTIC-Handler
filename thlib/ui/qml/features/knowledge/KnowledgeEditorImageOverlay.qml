@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import "../../controls" as Controls
-import "../.."
 
 Item {
     id: root

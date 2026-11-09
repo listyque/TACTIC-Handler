@@ -598,7 +598,6 @@ export function sizing(document, key, field, value) {
     return result;
 }
 
-
 const SCALAR_DEFAULTS = [
     ['region', 'content', 'str'],
     ['title', '', 'str'],
@@ -691,12 +690,15 @@ function filterAttrs(item) {
     const val = item.value;
     if (val !== undefined && val !== null) {
         if (typeof val === 'boolean') {
-            pairs.push(['value', val ? 'true' : 'false'], ['value_type', 'bool']);
+            pairs.push(
+                ['value', val ? 'true' : 'false'],
+                ['value_type', 'bool']
+            );
         } else if (typeof val === 'number') {
-            pairs.push([
-                'value',
-                String(val)
-            ], ['value_type', Number.isInteger(val) ? 'int' : 'float']);
+            pairs.push(
+                ['value', String(val)],
+                ['value_type', Number.isInteger(val) ? 'int' : 'float']
+            );
         } else {
             pairs.push(['value', String(val)]);
         }
@@ -725,9 +727,7 @@ export function toXml(document) {
             ...filterAttrs(pf)
         ];
         if (pf.enabled) pairs.push(['enabled', 'true']);
-        const attrs = pairs
-            .map(([k, v]) => ` ${k}="${escAttr(v)}"`)
-            .join('');
+        const attrs = pairs.map(([k, v]) => ` ${k}="${escAttr(v)}"`).join('');
         lines.push(`      <filter${attrs} />`);
     }
     function emitBlock(blk, depth) {
@@ -770,9 +770,7 @@ export function toXml(document) {
             const val = sz[key] !== undefined ? sz[key] : def;
             if (val !== def && val !== null) pairs.push([key, String(val)]);
         }
-        const attrs = pairs
-            .map(([k, v]) => ` ${k}="${escAttr(v)}"`)
-            .join('');
+        const attrs = pairs.map(([k, v]) => ` ${k}="${escAttr(v)}"`).join('');
         const childLines = [];
         const cPad = '  '.repeat(depth + 1);
         if (multiline)
@@ -785,7 +783,8 @@ export function toXml(document) {
         }
         if (blk.page_filters !== undefined && blk.page_filters !== null) {
             const keys = Object.keys(blk.page_filters);
-            if (!keys.length) childLines.push(`${cPad}<page_filters none="true" />`);
+            if (!keys.length)
+                childLines.push(`${cPad}<page_filters none="true" />`);
             else
                 for (const k of keys)
                     childLines.push(
@@ -837,7 +836,8 @@ function parseXmlTree(xml) {
         .trim();
     if (!s.startsWith('<')) throw Error('Invalid dashboard XML');
     const stack = [{ tag: '#root', children: [] }];
-    const tagRe = /<\/?([A-Za-z_][\w.-]*)((?:\s+[A-Za-z_][\w.-]*\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)/g;
+    const tagRe =
+        /<\/?([A-Za-z_][\w.-]*)((?:\s+[A-Za-z_][\w.-]*\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)/g;
     const attrRe = /([A-Za-z_][\w.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
     let match,
         lastIndex = 0;
@@ -874,7 +874,11 @@ function parseXmlTree(xml) {
         stack[stack.length - 1].children.push(node);
         if (!selfClosing) stack.push(node);
     }
-    if (lastIndex !== s.length || stack.length !== 1 || stack[0].children.length !== 1)
+    if (
+        lastIndex !== s.length ||
+        stack.length !== 1 ||
+        stack[0].children.length !== 1
+    )
         throw Error('Invalid dashboard XML');
     return stack[0].children[0];
 }
@@ -889,7 +893,8 @@ function readFilterValue(attrib) {
         return raw === 'true';
     }
     if (vtype === 'int') {
-        if (!/^-?\d+$/.test(raw)) throw Error('Filter integer value is invalid');
+        if (!/^-?\d+$/.test(raw))
+            throw Error('Filter integer value is invalid');
         return Number(raw);
     }
     if (vtype === 'float') {

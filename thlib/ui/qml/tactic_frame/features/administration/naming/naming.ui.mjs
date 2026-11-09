@@ -550,7 +550,12 @@ export function describe(model, ui, width, height, language) {
                     node(
                         'Box',
                         'namingCheckinInfoBanner',
-                        rect(cardPad, checkinExplainTop, innerW, checkinExplainH),
+                        rect(
+                            cardPad,
+                            checkinExplainTop,
+                            innerW,
+                            checkinExplainH
+                        ),
                         {
                             background: 'surfaceContainerHigh',
                             border: 'outlineVariant',
@@ -741,7 +746,8 @@ export function describe(model, ui, width, height, language) {
                 dirTokenRow = layoutButtonRows(
                     dirTokens.map(([key, token]) => ({
                         id: 'namingDirToken_' + key,
-                        label: '+ ' + (token.length > 26 ? '{@CASE(...)}' : token),
+                        label:
+                            '+ ' + (token.length > 26 ? '{@CASE(...)}' : token),
                         action: {
                             type: 'insertToken',
                             field: 'dir_naming',
@@ -987,8 +993,7 @@ export function describe(model, ui, width, height, language) {
                                 'Active mode: Standard versioned rule (TACTIC numbers versions automatically: v001, v002, v003…).'
                             ),
                 flagCols = innerW >= 680 ? 3 : 1,
-                flagW =
-                    (innerW - (flagCols - 1) * 10) / Math.max(1, flagCols),
+                flagW = (innerW - (flagCols - 1) * 10) / Math.max(1, flagCols),
                 flagTileH = flagCols === 3 ? 108 : 88,
                 flagGridRows = Math.ceil(
                     flagRows.length / Math.max(1, flagCols)
@@ -1071,12 +1076,7 @@ export function describe(model, ui, width, height, language) {
                                 ),
                                 label(
                                     'namingFlagLabel_' + fKey,
-                                    rect(
-                                        64,
-                                        8,
-                                        Math.max(1, flagW - 76),
-                                        28
-                                    ),
+                                    rect(64, 8, Math.max(1, flagW - 76), 28),
                                     titleText,
                                     {
                                         weight: 600
@@ -1116,7 +1116,12 @@ export function describe(model, ui, width, height, language) {
                             node(
                                 'Icon',
                                 'namingFlagsModeIcon',
-                                rect(12, Math.floor((statusH - 16) / 2), 16, 16),
+                                rect(
+                                    12,
+                                    Math.floor((statusH - 16) / 2),
+                                    16,
+                                    16
+                                ),
                                 {
                                     icon: hasConflict ? 'warning' : 'info',
                                     color: hasConflict ? 'warning' : 'action'
@@ -1124,7 +1129,12 @@ export function describe(model, ui, width, height, language) {
                             ),
                             label(
                                 'namingFlagsModeText',
-                                rect(36, 4, Math.max(1, innerW - 48), statusH - 8),
+                                rect(
+                                    36,
+                                    4,
+                                    Math.max(1, innerW - 48),
+                                    statusH - 8
+                                ),
                                 modeStatusText,
                                 Object.assign(
                                     {
@@ -1476,7 +1486,12 @@ export function describe(model, ui, width, height, language) {
                     ),
                     label(
                         'namingFieldLabel_' + fKey,
-                        rect(cardPad + 22, startY, Math.max(0, innerW - 22), 20),
+                        rect(
+                            cardPad + 22,
+                            startY,
+                            Math.max(0, innerW - 22),
+                            20
+                        ),
                         tr(fTitle),
                         {
                             weight: 600
@@ -1513,15 +1528,10 @@ export function describe(model, ui, width, height, language) {
 
             // Card 7: Snapshot, repository aliases & ingest rule
             const repoChildren = [
-                node(
-                    'Icon',
-                    'namingRepoCardIcon',
-                    rect(cardPad, 13, 18, 18),
-                    {
-                        icon: 'layers',
-                        color: 'action'
-                    }
-                ),
+                node('Icon', 'namingRepoCardIcon', rect(cardPad, 13, 18, 18), {
+                    icon: 'layers',
+                    color: 'action'
+                }),
                 label(
                     'namingRepoCardTitle',
                     rect(cardPad + 26, 10, innerW - 26, 24),
@@ -1617,15 +1627,10 @@ export function describe(model, ui, width, height, language) {
 
             // Card 8: Custom script & naming class
             const codeChildren = [
-                node(
-                    'Icon',
-                    'namingCodeCardIcon',
-                    rect(cardPad, 13, 18, 18),
-                    {
-                        icon: 'code',
-                        color: 'action'
-                    }
-                ),
+                node('Icon', 'namingCodeCardIcon', rect(cardPad, 13, 18, 18), {
+                    icon: 'code',
+                    color: 'action'
+                }),
                 label(
                     'namingAdvancedHeading',
                     rect(cardPad + 26, 10, innerW - 26, 24),
@@ -1676,7 +1681,11 @@ export function describe(model, ui, width, height, language) {
                 'pyasm.biz.FileNaming, pyasm.biz.CustomFileNaming...',
                 [
                     ['none', tr('Default'), ''],
-                    ['file_naming', 'pyasm.biz.FileNaming', 'pyasm.biz.FileNaming'],
+                    [
+                        'file_naming',
+                        'pyasm.biz.FileNaming',
+                        'pyasm.biz.FileNaming'
+                    ],
                     [
                         'custom_naming',
                         'pyasm.biz.CustomFileNaming',

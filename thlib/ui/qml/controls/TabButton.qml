@@ -1,7 +1,6 @@
 import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls.Basic as Basic
-import "." as Controls
 
 Basic.TabButton {
     id: control

@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import "../../controls" as Controls
 import "../.."
 import "../../tactic_frame" as Frame

@@ -1,8 +1,5 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import "../../controls" as Controls
-import "../.."
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/workhours/reports.ui.mjs" as UI
 

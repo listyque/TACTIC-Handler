@@ -8,8 +8,8 @@ Item {
     required property var theme
     required property var controller
     signal editStream(var row, bool child)
-    readonly property var state: controller.view_data
-    readonly property var nodes: state.graph_nodes || []
+    readonly property var workspaceState: controller.view_data
+    readonly property var nodes: workspaceState.graph_nodes || []
     readonly property string language: typeof localizationController === "undefined" ? (Qt.uiLanguage || "en") : localizationController.current_language
     function menu(row, item, x, y) {
         if (row)
@@ -44,7 +44,7 @@ Item {
     TH.ActionMenu {
         id: context
         theme: root.theme
-        onTriggered: command => root.editStream(command === "new" ? ({}) : root.state.catalog_detail, command === "child")
+        onTriggered: command => root.editStream(command === "new" ? ({}) : root.workspaceState.catalog_detail, command === "child")
     }
     Frame.FrameView {
         anchors.fill: parent
@@ -52,12 +52,12 @@ Item {
         scene: UI.describe({
             native: true,
             nodes: root.nodes,
-            edges: root.state.graph_edges || [],
-            zoom: root.state.graph_zoom || 1,
-            selected: root.state.catalog_detail?.code,
+            edges: root.workspaceState.graph_edges || [],
+            zoom: root.workspaceState.graph_zoom || 1,
+            selected: root.workspaceState.catalog_detail?.code,
             busy: root.controller.busy,
-            after: root.state.catalog_after,
-            edgesAfter: root.state.graph_after
+            after: root.workspaceState.catalog_after,
+            edgesAfter: root.workspaceState.graph_after
         }, width, height, root.language)
         views: ({
                 streamGraphEdges: {
@@ -109,7 +109,7 @@ Item {
             onPaint: {
                 const context = getContext("2d");
                 context.reset();
-                UI.paint(context, root.nodes, root.state.graph_edges || [], root.state.graph_zoom || 1, role => root.theme[role]);
+                UI.paint(context, root.nodes, root.workspaceState.graph_edges || [], root.workspaceState.graph_zoom || 1, role => root.theme[role]);
             }
         }
     }

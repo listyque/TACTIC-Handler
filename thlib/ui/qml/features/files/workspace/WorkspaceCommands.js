@@ -39,20 +39,22 @@ function command(ctx, name, ui) {
             name === 'revision_history'
                 ? {
                       history: {
-                          path: ctx.state.history_path,
-                          stream: ctx.state.history_stream
+                          path: ctx.workspaceState.history_path,
+                          stream: ctx.workspaceState.history_stream
                       }
                   }
                 : {};
-        const row = ctx.state.context_row;
+        const row = ctx.workspaceState.context_row;
         ui.revisionDialog.target =
             name === 'revision_history'
-                ? ctx.state.history_path
+                ? ctx.workspaceState.history_path
                 : ui.revisionDialog.scope === 'workspace'
-                  ? ctx.state.workspace
+                  ? ctx.workspaceState.workspace
                   : ui.revisionDialog.scope === 'folder'
-                    ? row.directory || row.name || ctx.state.workspace
-                    : qsTr('Selected files: %1').arg(ctx.state.selected.length);
+                    ? row.directory || row.name || ctx.workspaceState.workspace
+                    : qsTr('Selected files: %1').arg(
+                          ctx.workspaceState.selected.length
+                      );
         ui.revisionDialog.open();
         return;
     }
@@ -69,7 +71,7 @@ function command(ctx, name, ui) {
         return;
     }
     if (name === 'close_tab') {
-        ctx.controller.close_tab(ctx.state.active_tab);
+        ctx.controller.close_tab(ctx.workspaceState.active_tab);
         return;
     }
     if (name === 'tab_left' || name === 'tab_right') {
@@ -175,7 +177,7 @@ function command(ctx, name, ui) {
         return;
     }
     if (name === 'unshelve_begin') {
-        if (ctx.state.change.state === 'shelved') ctx.pickTarget(name);
+        if (ctx.workspaceState.change.state === 'shelved') ctx.pickTarget(name);
         else {
             ui.shelfDialog.operation = name;
             ui.shelfDialog.shelf = {};
@@ -200,8 +202,8 @@ function command(ctx, name, ui) {
     }
     if (name === 'accept_change') {
         ctx.act(name, {
-            workspace: ctx.state.workspace,
-            handoff: ctx.state.change.handoff.code
+            workspace: ctx.workspaceState.workspace,
+            handoff: ctx.workspaceState.change.handoff.code
         });
         return;
     }
@@ -215,7 +217,7 @@ function command(ctx, name, ui) {
         return;
     }
     if (name === 'toggle_log') {
-        ctx.set('log_visible', !ctx.state.log_visible);
+        ctx.set('log_visible', !ctx.workspaceState.log_visible);
         return;
     }
     if (name === 'change_details') {
@@ -257,21 +259,24 @@ function command(ctx, name, ui) {
         return;
     }
     if (name === 'file_history') {
-        const row = ctx.state.context_row;
+        const row = ctx.workspaceState.context_row;
         ctx.controller.open_view('history');
         return;
     }
     if (name === 'rename_file') {
         ctx.editKind = name;
         ctx.draft =
-            ctx.state.context_row.source_path || ctx.state.context_row.path;
+            ctx.workspaceState.context_row.source_path ||
+            ctx.workspaceState.context_row.path;
         ui.editor.open();
         return;
     }
     if (['shelve', 'shelve_selected', 'shelve_revert'].indexOf(name) >= 0) {
         ui.reviewDialog.operation = name;
         ui.reviewDialog.paths =
-            name === 'shelve_selected' ? ctx.state.selected.slice() : [];
+            name === 'shelve_selected'
+                ? ctx.workspaceState.selected.slice()
+                : [];
         ui.reviewDialog.request = {};
         ctx.act(
             'review_change',
@@ -290,7 +295,7 @@ function command(ctx, name, ui) {
         ['unshelve_begin', 'merge_begin', 'local_root'].indexOf(name) >= 0
     ) {
         ctx.editKind = name;
-        ctx.draft = name === 'local_root' ? ctx.state.root : '';
+        ctx.draft = name === 'local_root' ? ctx.workspaceState.root : '';
         ui.editor.open();
     } else if (name === 'workspace_setup') {
         ctx.set('editing_workspace', false);
@@ -311,12 +316,14 @@ function command(ctx, name, ui) {
         ui.mergedDialog.open();
     } else if (name === 'ours' || name === 'theirs') {
         const selected =
-            ctx.state.conflict_selected.length && !ctx.showResolved
-                ? ctx.state.conflict_selected
+            ctx.workspaceState.conflict_selected.length && !ctx.showResolved
+                ? ctx.workspaceState.conflict_selected
                 : [ctx.detail.path];
         const paths = new Set(selected);
         for (const path of selected) {
-            const row = ctx.state.conflicts.find((row) => row.path === path);
+            const row = ctx.workspaceState.conflicts.find(
+                (row) => row.path === path
+            );
             if (row?.rename_partner) paths.add(row.rename_partner);
         }
         ctx.act('resolve', {
@@ -372,14 +379,14 @@ function fileKey(ctx, event, scope, views, contain) {
         );
         const rows =
             scope === 'files'
-                ? ctx.state.rows.filter((row) =>
+                ? ctx.workspaceState.rows.filter((row) =>
                       Presentation.matches(
                           row,
-                          ctx.state.name_filter,
-                          ctx.state.status_filter
+                          ctx.workspaceState.name_filter,
+                          ctx.workspaceState.status_filter
                       )
                   )
-                : ctx.state.history;
+                : ctx.workspaceState.history;
         const model =
             scope === 'changes'
                 ? ctx.controller.change_model
@@ -391,7 +398,7 @@ function fileKey(ctx, event, scope, views, contain) {
         let index = -1;
         if (model) {
             for (let i = 0; i < model.count(); i++) {
-                if (model.get(i).id === ctx.state.focus_id) {
+                if (model.get(i).id === ctx.workspaceState.focus_id) {
                     index = i;
                     break;
                 }
@@ -401,7 +408,7 @@ function fileKey(ctx, event, scope, views, contain) {
                 (row) =>
                     (scope === 'files'
                         ? ctx.controller.row_identity(row)
-                        : row.id || row.code) === ctx.state.focus_id
+                        : row.id || row.code) === ctx.workspaceState.focus_id
             );
         if (index >= 0) {
             views[scope].currentIndex = index;
@@ -411,8 +418,9 @@ function fileKey(ctx, event, scope, views, contain) {
     } else if (event.key === Qt.Key_Delete) {
         const headers =
             scope === 'changes' &&
-            Object.values(ctx.state.selection_records || {}).length > 0 &&
-            Object.values(ctx.state.selection_records).every(
+            Object.values(ctx.workspaceState.selection_records || {}).length >
+                0 &&
+            Object.values(ctx.workspaceState.selection_records).every(
                 (row) => row.kind === 'change'
             );
         const action = headers ? 'delete_change' : 'mark_delete';

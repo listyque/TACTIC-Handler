@@ -22,7 +22,7 @@ Item {
         scene: UI.views({
             style: root.theme.style,
             narrow: workspace.narrow,
-            workspace: workspace.state.workspace,
+            workspace: workspace.workspaceState.workspace,
             busy: workspace.busy,
             canCreate: true,
             canMaximize: root.canMaximize,
@@ -65,7 +65,7 @@ Item {
                 spacing: 4
                 width: implicitWidth
                 Repeater {
-                    model: workspace.state.tabs
+                    model: workspace.workspaceState.tabs
                     delegate: Item {
                         id: tabItem
                         required property var modelData
@@ -85,7 +85,7 @@ Item {
                             theme: workspace.theme
                             title: tabItem.modelData.custom ? tabItem.modelData.title : qsTr(tabItem.modelData.title)
                             iconName: tabItem.modelData.icon
-                            current: workspace.state.active_tab === tabItem.modelData.id
+                            current: workspace.workspaceState.active_tab === tabItem.modelData.id
                             closable: true
                             hovered: tabHover.hovered
                             pressed: tabActivate.pressed

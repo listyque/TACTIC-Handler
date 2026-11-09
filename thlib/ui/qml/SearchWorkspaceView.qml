@@ -165,8 +165,8 @@ Item {
             onEvent: action => {
                 if (action.type === "refresh") {
                     appController.refresh_current();
-                    if (root.quickFilterEditorController)
-                        root.quickFilterEditorController.reload_current();
+                    if (quickFilterPopup.editorController)
+                        quickFilterPopup.editorController.reload_current();
                 } else if (action.type === "help")
                     windowModel.open_help("search");
                 else if (action.type === "shelf") {

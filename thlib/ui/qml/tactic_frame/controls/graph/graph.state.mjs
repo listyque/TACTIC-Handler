@@ -176,8 +176,7 @@ export function curves(ui, model) {
                     ? -36
                     : 36
                 : 0;
-        const backward =
-            !!model.readOnly && !selfLoop && a.x >= b.x + b.width;
+        const backward = !!model.readOnly && !selfLoop && a.x >= b.x + b.width;
         const x1 = backward ? a.x : a.x + a.width,
             y1 = a.y + a.height / 2,
             x2 = backward ? b.x + b.width : b.x,
@@ -185,8 +184,7 @@ export function curves(ui, model) {
             dx = x2 - x1,
             dy = y2 - y1,
             tBack = clamp((80 - dx) / 160, 0, 1),
-            backW =
-                backward || selfLoop ? 0 : tBack * tBack * (3 - 2 * tBack),
+            backW = backward || selfLoop ? 0 : tBack * tBack * (3 - 2 * tBack),
             tVert = clamp((Math.abs(dy) - 48) / 48, 0, 1),
             vertW = tVert * tVert * (3 - 2 * tVert),
             corrPull = dy * 0.64 * vertW,
@@ -248,9 +246,7 @@ function curve(x1, y1, x2, y2, data) {
         backSpan = Math.max(96, Math.max(0, x1 - x2) * 0.55),
         w = data && data.backW !== undefined ? data.backW : 0,
         span =
-            data && data.selfLoop
-                ? 70
-                : forwardSpan * (1 - w) + backSpan * w;
+            data && data.selfLoop ? 70 : forwardSpan * (1 - w) + backSpan * w;
     return Object.assign(
         {
             x1,
@@ -434,9 +430,7 @@ export function reduce(previous, event, model, viewport) {
         const start = point(ui, event.x, event.y),
             rawTarget = hit(ui, model, start),
             target =
-                rawTarget.kind === 'selection'
-                    ? { kind: 'canvas' }
-                    : rawTarget;
+                rawTarget.kind === 'selection' ? { kind: 'canvas' } : rawTarget;
         if (target.kind === 'node') {
             const names =
                 (model.selectedNodes || []).indexOf(target.identity) >= 0

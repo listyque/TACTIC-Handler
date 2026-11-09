@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "../.."
 import QtQuick.Controls
-import QtQuick.Layouts
 import QtQuick.Window
 import QtQml.Models
 import "../../controls" as Controls
@@ -32,18 +31,8 @@ Item {
     property string draggingPanelId: ""
     property string activeSnapZone: ""
     property string activeSnapTargetId: ""
-    property var activeSnapRect: ({
-            "x": 0,
-            "y": 0,
-            "width": 0,
-            "height": 0
-        })
-    property var activeTargetRect: ({
-            "x": 0,
-            "y": 0,
-            "width": 0,
-            "height": 0
-        })
+    property var activeSnapRect: Qt.rect(0, 0, 0, 0)
+    property var activeTargetRect: Qt.rect(0, 0, 0, 0)
     readonly property string descriptionDockTitle: {
         const target = workspaceState ? String(workspaceState.descriptionTargetTitle || "").trim() : "";
         return target.length ? "Description · " + target : "Description";
@@ -139,7 +128,7 @@ Item {
 
     function targetAt(pointerX, pointerY, excludedPanelId) {
         for (let index = dockRepeater.count - 1; index >= 0; --index) {
-            const item = dockRepeater.itemAt(index);
+            const item = dockRepeater.itemAt(index) as DockDelegate;
             if (!item || item.panelId === excludedPanelId || !item.panelVisible || item.detached || !item.stackActive || item.dockArea === "floating" || item.dockArea === "slide_left" || item.dockArea === "slide_right")
                 continue;
             const rect = {
@@ -287,7 +276,7 @@ Item {
         if (rootZone.length) {
             activeSnapZone = rootZone;
             activeSnapTargetId = "";
-            activeTargetRect = ({ "x": 0, "y": 0, "width": width, "height": height });
+            activeTargetRect = Qt.rect(0, 0, width, height);
             activeSnapRect = rootSnapRectFor(rootZone);
             return;
         }
@@ -301,8 +290,8 @@ Item {
         }
         activeSnapZone = "";
         activeSnapTargetId = "";
-        activeTargetRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 });
-        activeSnapRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 });
+        activeTargetRect = Qt.rect(0, 0, 0, 0);
+        activeSnapRect = Qt.rect(0, 0, 0, 0);
     }
 
     function finishDockDrag(panelId, panelX, panelY, panelWidth, panelHeight, wasFloating) {
@@ -319,8 +308,8 @@ Item {
         draggingPanelId = "";
         activeSnapZone = "";
         activeSnapTargetId = "";
-        activeTargetRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 });
-        activeSnapRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 });
+        activeTargetRect = Qt.rect(0, 0, 0, 0);
+        activeSnapRect = Qt.rect(0, 0, 0, 0);
     }
 
     function slidePanelContains(pointerX, pointerY) {
@@ -348,7 +337,7 @@ Item {
             enabled: dockModel.slideOpenPanelId.length > 0
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             gesturePolicy: TapHandler.DragThreshold
-            onTapped: (eventPoint) => {
+            onTapped: eventPoint => {
                 if (Controls.PopupCoordinator.activeMenu || Date.now() - Controls.PopupCoordinator.lastClosedAt < 220)
                     return;
                 if (!root.slidePanelContains(eventPoint.position.x, eventPoint.position.y))

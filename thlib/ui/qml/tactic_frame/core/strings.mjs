@@ -376,7 +376,8 @@ const russian = {
     'none — No default access': 'none — Без базового доступа',
     'min — Minimal access': 'min — Минимальный доступ',
     'low — Basic artist access': 'low — Базовый доступ артиста',
-    'medium — Standard production access': 'medium — Стандартный рабочий доступ',
+    'medium — Standard production access':
+        'medium — Стандартный рабочий доступ',
     'high — Extended project access': 'high — Расширенный доступ к проекту',
     'admin — Full administrator access': 'admin — Полный доступ администратора',
 
@@ -1767,7 +1768,8 @@ const russian = {
     'No related objects': 'Нет связанных объектов',
     'No configured relationships.': 'Связи не настроены.',
     'This relationship is read-only.': 'Эта связь доступна только для чтения.',
-    'You do not have access to this relationship.': 'У вас нет доступа к этой связи.',
+    'You do not have access to this relationship.':
+        'У вас нет доступа к этой связи.',
     'No schema relationship to this Search Type':
         'В схеме нет связи с этим типом объектов',
     'No task for {process}': 'Нет задачи для {process}',
@@ -5770,8 +5772,7 @@ const russian = {
     'Parent / Child & M:N': 'Parent / Child и M:N',
     'Tables & codes': 'Таблицы и коды',
     Legend: 'Легенда',
-    'Schema Legend & Relationship Guide':
-        'Легенда схемы и справочник связей',
+    'Schema Legend & Relationship Guide': 'Легенда схемы и справочник связей',
     'Arrow direction: Child → Parent (from_col → to_col)':
         'Направление стрелки: Child → Parent (from_col → to_col)',
     'The arrow starts at the table storing the foreign key (from_col, e.g. Shot.episode_code) and points to the referenced parent table (to_col, e.g. Episode.code).':
@@ -5792,8 +5793,7 @@ const russian = {
     'Create & register Search Type…':
         '+ Создать и зарегистрировать Search Type…',
     'Add existing Search Type…': 'Добавить существующий Search Type…',
-    'New Many-to-Many (M:N) relation…':
-        'Создать связь Many-to-Many (M:N)…',
+    'New Many-to-Many (M:N) relation…': 'Создать связь Many-to-Many (M:N)…',
     'Register Search Type in DB now':
         'Зарегистрировать Search Type в БД сейчас',
     'Open full Search Type creator…':
@@ -5804,8 +5804,7 @@ const russian = {
         'Связать Many-to-Many (M:N) отсюда…',
     'Connect Many-to-Many (M:N)…': 'Связать Many-to-Many (M:N)…',
     'Convert to Many-to-Many (M:N)': 'Преобразовать в Many-to-Many (M:N)',
-    'Set as Hierarchy (Child → Parent)':
-        'Сделать иерархией (Child → Parent)',
+    'Set as Hierarchy (Child → Parent)': 'Сделать иерархией (Child → Parent)',
     'Set as Direct key (code)': 'Сделать прямой связью по ключу (code)',
     'Reverse direction (from ↔ to)': 'Развернуть направление (from ↔ to)',
     'Remove connection': 'Удалить связь',
@@ -5818,21 +5817,18 @@ const russian = {
         'Многие-ко-многим · M:N (связующая таблица)',
     'Direct key · code': 'Прямой ключ · code',
     'Direct key · id': 'Прямой ключ · id',
-    'Hierarchy · Child → Parent (code)':
-        'Иерархия · Child → Parent (code)',
+    'Hierarchy · Child → Parent (code)': 'Иерархия · Child → Parent (code)',
     'Many-to-many · via existing link table':
         'Многие-ко-многим · через существующую связующую таблицу',
     'Many-to-many · create new link table':
         'Многие-ко-многим · создать новую связующую таблицу',
     'Connect Many-to-Many (M:N)': 'Связать Many-to-Many (M:N)',
-    'Draft Search Type ("skeleton")':
-        'Черновик Search Type («рыба»)',
+    'Draft Search Type ("skeleton")': 'Черновик Search Type («рыба»)',
     'This node exists only in your schema draft. You can rename it, wire connections, and register it in the database now or when saving the schema.':
         'Этот узел пока существует только в черновике схемы. Вы можете переименовать его, протянуть связи и зарегистрировать таблицу в БД сейчас либо при сохранении схемы.',
     'Table code (lowercase SQL)': 'Код таблицы (SQL в нижнем регистре)',
     'Apply table code': 'Применить код таблицы',
-    'Pipeline support (pipeline_code)':
-        'Поддержка пайплайнов (pipeline_code)',
+    'Pipeline support (pipeline_code)': 'Поддержка пайплайнов (pipeline_code)',
     'Creates a pipeline_code column on registration so items can use Workflows.':
         'Создаёт колонку pipeline_code при регистрации таблицы, чтобы к объектам можно было привязывать Workflow.',
     'Many-to-many creates a separate instance Search Type with two key connections, or links through an existing intermediate table.':
@@ -5841,27 +5837,27 @@ const russian = {
     'Intermediate Search Type storing foreign keys to both endpoints.':
         'Промежуточный Search Type, хранящий внешние ключи к обеим связываемым таблицам.',
     'Manual · Task': 'Ручной · Задача (manual)',
-    'Manual': 'Ручной',
+    Manual: 'Ручной',
     'Standard human task stage (rectangular card). Creates an artist task and advances when its status reaches complete.':
         'Стандартный пользовательский этап (прямоугольный узел). Создаёт задачу для исполнителя и завершается при переводе её статуса в complete.',
     'Action · Auto script': 'Действие · Автоскрипт (action)',
-    'Action': 'Действие',
+    Action: 'Действие',
     'Automated process (rounded pill). Runs a server script or command class automatically when triggered by upstream stages.':
         'Автоматический процесс (скруглённая капсула). Запускает серверный скрипт или класс команды автоматически при срабатывании предыдущего этапа.',
     'Condition · Branching': 'Условие · Ветвление (condition)',
-    'Condition': 'Условие',
+    Condition: 'Условие',
     'Conditional branch (diamond markers). Evaluates a script condition and routes flow to success or failure output streams.':
         'Условное ветвление (маркеры ромба). Вычисляет условие в скрипте и направляет поток по ветке успеха или отказа.',
     'Approval · Sign-off': 'Согласование · Приёмка (approval)',
-    'Approval': 'Согласование',
+    Approval: 'Согласование',
     'Review gate (double-ring stadium). Requires supervisor approval; rejecting sends status back to upstream stages.':
         'Этап проверки и утверждения (двойной контур). Требует приёмки супервайзером; при отклонении возвращает работу на предыдущие этапы.',
     'Hierarchy · Sub-workflow': 'Иерархия · Подпайплайн (hierarchy)',
-    'Hierarchy': 'Иерархия',
+    Hierarchy: 'Иерархия',
     'Nested sub-pipeline container. Expands into child workflow processes and can create parent and child tasks.':
         'Контейнер вложенного подпайплайна. Раскрывается в дочерний Workflow и позволяет создавать родительские и дочерние задачи.',
     'Dependency · External wait': 'Зависимость · Ожидание (dependency)',
-    'Dependency': 'Зависимость',
+    Dependency: 'Зависимость',
     'Cross-object dependency node. Waits for or triggers a process on a related Search Type (parent, child, or expression).':
         'Межобъектная зависимость. Ожидает завершения или запускает процесс у связанного Search Type (родителя, потомка или по выражению).',
     'Progress · Tracker': 'Прогресс · Сводка (progress)',
@@ -5872,7 +5868,7 @@ const russian = {
         'Состояние статуса задачи (используется в пайплайнах sthpw/task). Задаёт имя статуса, цвет и признак завершения.',
     'Choose how this stage behaves in the workflow and how it is drawn on the canvas:':
         'Выберите, как этот этап работает в пайплайне и как он отображается на схеме:',
-    'DRAFT': 'РЫБА',
+    DRAFT: 'РЫБА',
     'Config table · config': 'Таблица конфигурации · config',
     'System table · sthpw': 'Системная таблица · sthpw',
     'External · {ns}': 'Внешний проект · {ns}'

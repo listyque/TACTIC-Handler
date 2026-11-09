@@ -514,7 +514,11 @@ Item {
         sourceComponent: Display.FrameShadow {
             theme: root.theme
             surfaceRadius: panelSurface.radius
-            shadow: ({ blur: 16, y: 6, opacity: 1.4 })
+            shadow: ({
+                    blur: 16,
+                    y: 6,
+                    opacity: 1.4
+                })
         }
     }
 

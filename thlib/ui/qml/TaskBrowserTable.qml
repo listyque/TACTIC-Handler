@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
 import "features/tasks" as Tasks
 import "tactic_frame" as Frame
@@ -329,7 +328,7 @@ Item {
                 Loader {
                     id: expandedDetails
                     objectName: "taskExpandedDetails_" + taskDelegate.taskCode
-                    readonly property real detailImplicitHeight: item ? item.implicitHeight : 0
+                    readonly property real detailImplicitHeight: (item as Item)?.implicitHeight ?? 0
                     active: !taskDelegate.groupCollapsed && taskDelegate.detailsExpanded
                     visible: active
                     x: 0

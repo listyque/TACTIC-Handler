@@ -10,11 +10,11 @@ Item {
     required property var theme
     required property string windowId
     property var controller: fileWorkspaceController
-    readonly property var state: controller.view_data
+    readonly property var workspaceState: controller.view_data
     property var openedChange: ({})
     property string changeCode: ""
-    readonly property var change: state.change.code === changeCode || !changeCode ? Object.assign({}, details.info || {}, state.change) : openedChange
-    readonly property var details: state.change_details?.change === changeCode ? state.change_details : ({})
+    readonly property var change: workspaceState.change.code === changeCode || !changeCode ? Object.assign({}, details.info || {}, workspaceState.change) : openedChange
+    readonly property var details: workspaceState.change_details?.change === changeCode ? workspaceState.change_details : ({})
     readonly property string windowTitle: qsTr("Changelist #%1").arg(change.number || changeCode)
     property string requestId: ""
     property int requestNumber: 0
@@ -24,8 +24,8 @@ Item {
     property bool showFiles: true
     property bool showShelves: true
     property bool showTasks: true
-    readonly property bool sameChange: state.change.code === changeCode
-    readonly property bool editable: sameChange && change.state === "pending" && change.owner === controller.current_user && change.workspace === state.workspace && change.depot_writable !== false && change.editable !== false && !change.active_transfer && !change.active_bulk && !change.integration && !controller.busy
+    readonly property bool sameChange: workspaceState.change.code === changeCode
+    readonly property bool editable: sameChange && change.state === "pending" && change.owner === controller.current_user && change.workspace === workspaceState.workspace && change.depot_writable !== false && change.editable !== false && !change.active_transfer && !change.active_bulk && !change.integration && !controller.busy
     readonly property bool dirty: draft !== String(change.description || "")
     Component.onCompleted: {
         openedChange = change;
@@ -79,7 +79,7 @@ Item {
             editing: root.editing,
             loading: root.loading,
             sameChange: root.sameChange,
-            error: root.state.error,
+            error: root.workspaceState.error,
             showFiles: root.showFiles,
             showShelves: root.showShelves,
             showTasks: root.showTasks

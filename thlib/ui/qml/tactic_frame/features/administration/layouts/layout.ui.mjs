@@ -1285,17 +1285,8 @@ export function describe(model, ui, width, height, language) {
             children.push(
                 button(
                     'layoutToggleElements',
-                    rect(
-                        catalogVisible ? w - 46 : (w - 34) / 2,
-                        10,
-                        34,
-                        34
-                    ),
-                    tr(
-                        catalogVisible
-                            ? 'Hide elements'
-                            : 'Show elements'
-                    ),
+                    rect(catalogVisible ? w - 46 : (w - 34) / 2, 10, 34, 34),
+                    tr(catalogVisible ? 'Hide elements' : 'Show elements'),
                     catalogVisible ? 'chevron-left' : 'chevron-right',
                     {
                         type: 'catalogVisible'
@@ -1394,12 +1385,7 @@ export function describe(model, ui, width, height, language) {
             settingsChildren.push(
                 button(
                     'layoutToggleSettings',
-                    rect(
-                        propertiesVisible ? w - 46 : (w - 34) / 2,
-                        10,
-                        34,
-                        34
-                    ),
+                    rect(propertiesVisible ? w - 46 : (w - 34) / 2, 10, 34, 34),
                     tr(
                         propertiesVisible
                             ? 'Hide element settings'

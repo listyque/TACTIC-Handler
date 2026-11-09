@@ -703,7 +703,7 @@ Item {
         x: 12
         y: 12
         width: Math.max(1, root.width - 24)
-        height: item ? item.implicitHeight : 0
+        height: (item as Item)?.implicitHeight ?? 0
         active: root.configured
         z: 5
         sourceComponent: Search.ConfiguredItem {

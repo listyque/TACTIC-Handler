@@ -75,7 +75,8 @@ Item {
         else if (action.type === "sync")
             askTeamRepository();
         else if (action.type === "save")
-            repositoryEditorController.save(); else if (action.type === "close" && !repositoryEditorController.busy)
+            repositoryEditorController.save();
+        else if (action.type === "close" && !repositoryEditorController.busy)
             windowModel.close_window("repository_editor");
         else if (action.type === "back")
             editing = false;

@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Dialogs
-import "../../.."
 import "../../../tactic_frame" as Frame
 import "../../../controls" as Controls
 import "../../.." as Shell

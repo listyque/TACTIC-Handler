@@ -8,45 +8,45 @@ Frame.FrameView {
     id: root
     objectName: "tableParentGroupView"
     required property var owner
-    property var state: State.create({})
-    property bool ready: false
+    property var viewState: State.create({})
+    property bool viewInitialized: false
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
-    readonly property var records: State.rows(state)
+    readonly property var records: State.rows(viewState)
     Accessible.role: Accessible.Dialog
     Accessible.name: Strings.translate("Change parent", language)
     function apply(change) {
-        state = change.state;
+        viewState = change.state;
         if (change.request)
             owner.request(change.request);
         else if (change.close)
             owner.finish(!!change.saved);
     }
     function reset() {
-        if (ready && owner.isOpen)
+        if (viewInitialized && owner.isOpen)
             apply(State.begin(State.create(owner.seed), "prepare"));
     }
     function focusQuery() {
-        if (state.ready && owner.isOpen)
+        if (viewState.ready && owner.isOpen)
             focusControl("parentQuery");
     }
-    scene: UI.describe(state, width, height, language)
+    scene: UI.describe(viewState, width, height, language)
     models: ({
             parentRows: records
         })
     describeRow: (list, record) => UI.row(record, Math.max(0, list.width - 16), language)
-    onEvent: action => apply(State.dispatch(state, action))
+    onEvent: action => apply(State.dispatch(viewState, action))
     Keys.onShortcutOverride: event => {
         if (event.key === Qt.Key_Escape)
             event.accepted = true;
     }
     Keys.onEscapePressed: event => {
-        apply(State.dispatch(state, {
+        apply(State.dispatch(viewState, {
             type: "cancel"
         }));
         event.accepted = true;
     }
     Component.onCompleted: {
-        ready = true;
+        viewInitialized = true;
         reset();
     }
     Connections {
@@ -55,7 +55,7 @@ Frame.FrameView {
             root.reset();
         }
         function onReceived(operation, result, error, uncertain) {
-            root.apply(State.accept(root.state, operation, result, error, uncertain));
+            root.apply(State.accept(root.viewState, operation, result, error, uncertain));
             if (operation === "prepare" && !error)
                 Qt.callLater(root.focusQuery);
         }

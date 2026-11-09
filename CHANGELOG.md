@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.409 - 2026-11-09
+
+- Separate QML view data from inherited Qt properties, type menu and dock delegates, and use the shared Frame formatting. Refresh quick-filter settings with the search workspace.
+
 ## 0.6.0.408 - 2026-11-09
 
 - Restore the saved cache cursor when starting Stream event updates. Use compatible exception syntax when restoring the task calendar.

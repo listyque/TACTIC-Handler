@@ -165,12 +165,12 @@ Item {
         contentItem: Frame.FrameView {
             theme: workspace.theme
             scene: UI.columns({
-                columns: workspace.state.columns,
+                columns: workspace.workspaceState.columns,
                 widths: columnsDialog.drafts,
                 notice: columnsDialog.notice
             }, width, height, host.language)
             onEvent: action => {
-                const row = workspace.state.columns.find(row => row.key === action.key);
+                const row = workspace.workspaceState.columns.find(row => row.key === action.key);
                 if (action.type === "close") {
                     columnsDialog.close();
                     return;
@@ -374,20 +374,20 @@ Item {
         function onStateChanged() {
             if (workspace.movingWholeChange && !workspace.busy) {
                 workspace.movingWholeChange = false;
-                if (!workspace.state.error && workspace.state.selection_query)
+                if (!workspace.workspaceState.error && workspace.workspaceState.selection_query)
                     workspace.pickTarget("bulk_move");
             }
             if (workspace.pendingFileMenu && !workspace.busy) {
                 const pending = workspace.pendingFileMenu;
                 workspace.pendingFileMenu = null;
-                if (!workspace.state.error && workspace.state.change.code === pending.change) {
+                if (!workspace.workspaceState.error && workspace.workspaceState.change.code === pending.change) {
                     actionMenu.actions = workspace.actions("files");
                     actionMenu.openAt(workspace, pending.x, pending.y);
                 }
             }
-            if (workspace.state.setup && !workspace.busy && !setupDialog.opened)
+            if (workspace.workspaceState.setup && !workspace.busy && !setupDialog.opened)
                 setupDialog.open();
-            if (!workspace.state.setup && setupDialog.opened)
+            if (!workspace.workspaceState.setup && setupDialog.opened)
                 setupDialog.close();
         }
     }
@@ -404,8 +404,8 @@ Item {
         contentItem: Frame.FrameView {
             id: switchDialogForm
             readonly property var model: host.promptModel("switch", {
-                previous: workspace.state.switch_preview.previous,
-                workspace: workspace.state.switch_preview.workspace,
+                previous: workspace.workspaceState.switch_preview.previous,
+                workspace: workspace.workspaceState.switch_preview.workspace,
                 busy: workspace.busy
             })
             theme: workspace.theme
@@ -419,8 +419,8 @@ Item {
             }
         }
         onAccepted: workspace.act("choose_workspace", {
-            workspace: workspace.state.switch_preview.workspace,
-            revision: workspace.state.switch_preview.revision
+            workspace: workspace.workspaceState.switch_preview.workspace,
+            revision: workspace.workspaceState.switch_preview.revision
         })
     }
     Controls.Dialog {
@@ -430,25 +430,25 @@ Item {
         anchors.centerIn: parent
         width: Math.min(620, workspace.width - 24)
         height: Math.min(580, workspace.height - 24)
-        title: workspace.state.editing_workspace ? qsTr("Edit workspace") : qsTr("Workspace setup")
+        title: workspace.workspaceState.editing_workspace ? qsTr("Edit workspace") : qsTr("Workspace setup")
         onRejected: workspace.set("setup", false)
         footer: null
         contentItem: Frame.FrameView {
             readonly property var values: ({
-                    editing: workspace.state.editing_workspace,
-                    kind: workspace.state.setup_kind,
-                    code: workspace.state.code,
-                    stream: workspace.state.stream,
-                    root: workspace.state.root,
-                    case_sensitive: workspace.state.case_sensitive,
-                    depot: workspace.state.depot,
-                    source: workspace.state.source,
+                    editing: workspace.workspaceState.editing_workspace,
+                    kind: workspace.workspaceState.setup_kind,
+                    code: workspace.workspaceState.code,
+                    stream: workspace.workspaceState.stream,
+                    root: workspace.workspaceState.root,
+                    case_sensitive: workspace.workspaceState.case_sensitive,
+                    depot: workspace.workspaceState.depot,
+                    source: workspace.workspaceState.source,
                     previewPath: workspace.previewPath,
                     mappingHeight: host.mappingHeight,
-                    mappingPreview: workspace.state.mapping_preview.items || [],
+                    mappingPreview: workspace.workspaceState.mapping_preview.items || [],
                     busy: workspace.busy,
-                    progress: workspace.phase(workspace.state.progress.phase || workspace.state.progress.state),
-                    error: workspace.state.error
+                    progress: workspace.phase(workspace.workspaceState.progress.phase || workspace.workspaceState.progress.state),
+                    error: workspace.workspaceState.error
                 })
             readonly property var model: Object.assign({}, values, {
                 buttonWidths: host.actionWidths(Editors.actions("workspaceSetup", values, host.language))
@@ -480,7 +480,7 @@ Item {
                     workspace.act("workspace_preview", {
                         paths: workspace.previewPath ? [
                             {
-                                stream: workspace.state.stream,
+                                stream: workspace.workspaceState.stream,
                                 path: workspace.previewPath
                             }
                         ] : []
@@ -493,7 +493,7 @@ Item {
                         setupDialog.close();
                     }
                 } else if (action.type === "accept" && !workspace.busy)
-                    workspace.act(workspace.state.editing_workspace ? "update_workspace" : "create_" + workspace.state.setup_kind);
+                    workspace.act(workspace.workspaceState.editing_workspace ? "update_workspace" : "create_" + workspace.workspaceState.setup_kind);
             }
         }
     }
@@ -502,8 +502,8 @@ Item {
         id: mappingsPort
         FileWorkspaceMappings {
             theme: workspace.theme
-            value: workspace.state.mappings
-            primaryStream: workspace.state.stream
+            value: workspace.workspaceState.mappings
+            primaryStream: workspace.workspaceState.stream
             enabledEditing: !workspace.busy
             onImplicitHeightChanged: host.mappingHeight = implicitHeight
             Component.onCompleted: host.mappingHeight = implicitHeight

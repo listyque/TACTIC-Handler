@@ -20,7 +20,7 @@ Item {
     readonly property bool hasIndicator: !!root.model.indicator
     readonly property bool cellEnabled: !!root.model.enabled
     readonly property bool cellHovered: !!root.model.hovered
-    readonly property bool actionField: root.model.actionField !== false
+    property bool actionField: root.model.actionField !== false
     readonly property bool isCardField: !!root.model.cardField
     readonly property var layout: UI.choiceLayout({
         avatar: root.hasAvatar,

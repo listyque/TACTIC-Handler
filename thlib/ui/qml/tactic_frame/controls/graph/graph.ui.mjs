@@ -271,12 +271,7 @@ export function describe(definition, ui, language) {
                 node(
                     'Action',
                     'graphEdge_' + edge.index,
-                    rect(
-                        p.x - ui.world.x - 18,
-                        p.y - ui.world.y - 18,
-                        36,
-                        36
-                    ),
+                    rect(p.x - ui.world.x - 18, p.y - ui.world.y - 18, 36, 36),
                     {
                         text: title,
                         enabled: definition.selectionEnabled !== false,
@@ -315,16 +310,16 @@ export function describe(definition, ui, language) {
                         : /^(sthpw|config)\//i.test(record.identity || '')
                           ? 'system'
                           : [
-                                'manual',
-                                'action',
-                                'condition',
-                                'approval',
-                                'hierarchy',
-                                'dependency',
-                                'progress',
-                                'status',
-                                'search_type'
-                            ].indexOf(rawKind) >= 0
+                                  'manual',
+                                  'action',
+                                  'condition',
+                                  'approval',
+                                  'hierarchy',
+                                  'dependency',
+                                  'progress',
+                                  'status',
+                                  'search_type'
+                              ].indexOf(rawKind) >= 0
                             ? rawKind
                             : String(record.identity || '').indexOf('/') >= 0
                               ? 'search_type'
@@ -484,12 +479,7 @@ export function describe(definition, ui, language) {
                 node(
                     'Box',
                     'graphNodeDiamondBottom_' + record.identity,
-                    rect(
-                        Math.round(box.width / 2) - 18,
-                        box.height - 3,
-                        36,
-                        3
-                    ),
+                    rect(Math.round(box.width / 2) - 18, box.height - 3, 36, 3),
                     {
                         background: accent,
                         radius: 2
@@ -594,7 +584,12 @@ export function describe(definition, ui, language) {
                 ),
                 label(
                     'graphNodeTitle_' + record.identity,
-                    rect(8, Math.round((box.height - 24) / 2), box.width - 16, 24),
+                    rect(
+                        8,
+                        Math.round((box.height - 24) / 2),
+                        box.width - 16,
+                        24
+                    ),
                     record.label || record.identity,
                     {
                         weight: 600,
@@ -616,7 +611,10 @@ export function describe(definition, ui, language) {
         } else {
             const topY = (hasSecondary ? 6 : 11) + (box.height - 72) / 2,
                 badgeW = badgeText
-                    ? Math.max(32, Math.round(String(badgeText).length * 6.5 + 12))
+                    ? Math.max(
+                          32,
+                          Math.round(String(badgeText).length * 6.5 + 12)
+                      )
                     : 0;
             content.push(
                 node(
@@ -1102,10 +1100,7 @@ export function describe(definition, ui, language) {
                 ),
                 my = Math.max(
                     8,
-                    Math.min(
-                        Math.max(8, vp.height - menuH - 8),
-                        ui.menu.y || 0
-                    )
+                    Math.min(Math.max(8, vp.height - menuH - 8), ui.menu.y || 0)
                 ),
                 worldX = ui.x + mx / ui.zoom - ui.world.x,
                 worldY = ui.y + my / ui.zoom - ui.world.y;
@@ -1234,8 +1229,7 @@ export function paint(context, definition, ui, viewportSize, color, selection) {
         const cy1 = edge.cy1 === undefined ? edge.y1 : edge.cy1,
             cy2 = edge.cy2 === undefined ? edge.y2 : edge.cy2,
             hasBadge =
-                Array.isArray(edge.badgeLines) &&
-                edge.badgeLines.some(Boolean),
+                Array.isArray(edge.badgeLines) && edge.badgeLines.some(Boolean),
             arrowT = hasBadge && !edge.selfLoop ? 0.78 : 0.6;
         context.strokeStyle = color(
             definition.selectedEdge === edge.index ? 'primaryText' : edge.color

@@ -141,13 +141,7 @@ export function describe(model, ui, width, height, language) {
                 'showCodes',
                 148
             ],
-            [
-                'adminSchemaToggleLegend',
-                tr('Legend'),
-                'info',
-                'showLegend',
-                118
-            ]
+            ['adminSchemaToggleLegend', tr('Legend'), 'info', 'showLegend', 118]
         ];
         if (width >= 980) {
             let bx = 332;
@@ -443,9 +437,10 @@ export function describe(model, ui, width, height, language) {
             }
         }
     }
-    const primaryNamespace = Object.keys(namespaceCounts).sort(
-        (a, b) => namespaceCounts[b] - namespaceCounts[a]
-    )[0] || '';
+    const primaryNamespace =
+        Object.keys(namespaceCounts).sort(
+            (a, b) => namespaceCounts[b] - namespaceCounts[a]
+        )[0] || '';
     const nodeShortLabel = (identity) => {
         const found = (model.nodes || []).find((n) => n.identity === identity),
             meta = searchTypeMap[identity] || {},
@@ -453,7 +448,9 @@ export function describe(model, ui, width, height, language) {
                 (found && found.label) ||
                 meta.label ||
                 meta.table ||
-                String(identity || '').split('/').pop() ||
+                String(identity || '')
+                    .split('/')
+                    .pop() ||
                 String(identity || '');
         return String(raw).length > 18
             ? String(raw).slice(0, 16) + '…'
@@ -483,16 +480,17 @@ export function describe(model, ui, width, height, language) {
             icon = row.referenceOnly ? 'warning' : wfMeta.icon;
             badgeText = row.referenceOnly ? '!' : wfMeta.badge;
             nodeColor = row.color || (row.referenceOnly ? '' : wfMeta.color);
-            subtitle = row.referenceOnly
-                ? tr('Missing process')
-                : wfMeta.label;
+            subtitle = row.referenceOnly ? tr('Missing process') : wfMeta.label;
         } else {
             const isLink = linkTableSet.has(row.identity) || pendingCreation,
                 allEdges = model.edges || [],
                 linkTargetSet = new Set(),
                 meta = searchTypeMap[row.identity] || {},
                 table =
-                    meta.table || String(row.identity || '').split('/').pop(),
+                    meta.table ||
+                    String(row.identity || '')
+                        .split('/')
+                        .pop(),
                 ns = String(row.identity || '').includes('/')
                     ? String(row.identity || '').split('/')[0]
                     : '',
@@ -507,7 +505,11 @@ export function describe(model, ui, width, height, language) {
                     Object.keys(namespaceCounts).length > 1;
             if (isLink) {
                 for (const e of allEdges) {
-                    if (e.from === row.identity && e.to && e.to !== row.identity)
+                    if (
+                        e.from === row.identity &&
+                        e.to &&
+                        e.to !== row.identity
+                    )
                         linkTargetSet.add(e.to);
                     const inst =
                         e.instance_type ||
@@ -703,9 +705,15 @@ export function describe(model, ui, width, height, language) {
             const toMeta = searchTypeMap[row.to] || {},
                 fromMeta = searchTypeMap[row.from] || {},
                 toTable =
-                    toMeta.table || String(row.to || '').split('/').pop(),
+                    toMeta.table ||
+                    String(row.to || '')
+                        .split('/')
+                        .pop(),
                 fromTable =
-                    fromMeta.table || String(row.from || '').split('/').pop(),
+                    fromMeta.table ||
+                    String(row.from || '')
+                        .split('/')
+                        .pop(),
                 rel = row.relationship || 'code',
                 isVirtualInstance =
                     (rel === 'instance' || !!row.instance_type) &&
@@ -829,8 +837,7 @@ export function describe(model, ui, width, height, language) {
             ),
             cellH = legCols === 3 ? 98 : 82,
             legH =
-                legPad * 2 +
-                (legCols === 3 ? cellH : cellH * 3 + legGap * 2),
+                legPad * 2 + (legCols === 3 ? cellH : cellH * 3 + legGap * 2),
             items = [
                 [
                     'ports',
@@ -913,17 +920,12 @@ export function describe(model, ui, width, height, language) {
             );
         });
         nodes.push(
-            node(
-                'Box',
-                'adminSchemaLegendCard',
-                rect(x, y, graphWidth, legH),
-                {
-                    background: 'surfaceContainerLow',
-                    border: 'outlineVariant',
-                    radius: 10,
-                    children: legChildren
-                }
-            )
+            node('Box', 'adminSchemaLegendCard', rect(x, y, graphWidth, legH), {
+                background: 'surfaceContainerLow',
+                border: 'outlineVariant',
+                radius: 10,
+                children: legChildren
+            })
         );
         canvasY = y + legH + 8;
         canvasH = Math.max(1, h - legH - 8);

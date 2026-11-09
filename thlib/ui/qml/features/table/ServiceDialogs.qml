@@ -95,7 +95,7 @@ Item {
         onClosed: root.controller.cancel_preference()
         Loader {
             width: parent.width
-            height: item ? item.implicitHeight : 0
+            height: (item as Item)?.implicitHeight ?? 0
             active: !!root.controller.preference.preferenceKey
             sourceComponent: ValueEditor {
                 width: parent.width

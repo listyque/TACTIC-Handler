@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
 import "tactic_frame" as Frame
 import "tactic_frame/features/activity/event.ui.mjs" as UI

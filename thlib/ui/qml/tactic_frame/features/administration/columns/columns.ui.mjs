@@ -176,8 +176,7 @@ const WIDGET_SPECS = [
         kind: 'gantt',
         title: 'Gantt',
         icon: 'calendar',
-        summary:
-            'Shows a schedule timeline bar from task start and end dates.',
+        summary: 'Shows a schedule timeline bar from task start and end dates.',
         optionsHint:
             'XML options: <options>[{"start_date_col":"bid_start_date","end_date_col":"bid_end_date"}]</options>, <range_start_date>, <range_end_date>.'
     },
@@ -223,8 +222,7 @@ const WIDGET_SPECS = [
         actionIcon: 'play',
         summary:
             'Runs a custom server Python script or client action when clicked.',
-        optionsHint:
-            'XML options: <script_path>, <icon>, <hint>, <color>.'
+        optionsHint: 'XML options: <script_path>, <icon>, <hint>, <color>.'
     },
     {
         values: [
@@ -326,7 +324,8 @@ const WIDGET_SPECS = [
         title: 'Raw value',
         icon: 'database',
         summary: 'Displays the unformatted raw database column value.',
-        optionsHint: 'XML options: <column> (optional database column override).'
+        optionsHint:
+            'XML options: <column> (optional database column override).'
     }
 ];
 
@@ -358,32 +357,27 @@ function previewCellNodes(spec, element, cellW, cellH, headingText, tr) {
         bodyH = cellH - bodyY,
         align = element.valueAlign || '';
     const children = [
-        node(
-            'Box',
-            'definitionWidgetPreviewHeader',
-            rect(0, 0, cellW, bodyY),
-            {
-                background: 'surfaceContainerHigh',
-                radius: 7,
-                children: [
-                    label(
-                        'definitionWidgetPreviewHeaderLabel',
-                        rect(8, 0, cellW - 16, bodyY),
-                        String(
-                            headingText || element.title || element.name || 'COLUMN'
-                        )
-                            .slice(0, 22)
-                            .toUpperCase(),
-                        {
-                            fontRole: 'caption',
-                            weight: 600,
-                            align: 'center',
-                            color: 'secondaryText'
-                        }
+        node('Box', 'definitionWidgetPreviewHeader', rect(0, 0, cellW, bodyY), {
+            background: 'surfaceContainerHigh',
+            radius: 7,
+            children: [
+                label(
+                    'definitionWidgetPreviewHeaderLabel',
+                    rect(8, 0, cellW - 16, bodyY),
+                    String(
+                        headingText || element.title || element.name || 'COLUMN'
                     )
-                ]
-            }
-        )
+                        .slice(0, 22)
+                        .toUpperCase(),
+                    {
+                        fontRole: 'caption',
+                        weight: 600,
+                        align: 'center',
+                        color: 'secondaryText'
+                    }
+                )
+            ]
+        })
     ];
     if (spec.kind === 'preview') {
         const x = alignOffset(cellW, 30, align || 'center', 10);
@@ -783,9 +777,7 @@ function widgetPreviewField(element, headingText, formWidth, tr) {
             ? Math.max(18, captionHeight(optionsHint, textW))
             : 0,
         textTotalH = 34 + descH + (optH ? optH + 6 : 0),
-        boxH = wide
-            ? Math.max(92, textTotalH + 10)
-            : textTotalH + cellH + 18,
+        boxH = wide ? Math.max(92, textTotalH + 10) : textTotalH + cellH + 18,
         cellX = 12,
         cellY = wide ? Math.round((boxH - cellH) / 2) : textTotalH + 6;
     const previewChildren = [
@@ -807,15 +799,10 @@ function widgetPreviewField(element, headingText, formWidth, tr) {
                 )
             }
         ),
-        node(
-            'Icon',
-            'definitionWidgetPreviewIcon',
-            rect(textX, 12, 16, 16),
-            {
-                icon: spec.icon,
-                color: 'primary'
-            }
-        ),
+        node('Icon', 'definitionWidgetPreviewIcon', rect(textX, 12, 16, 16), {
+            icon: spec.icon,
+            color: 'primary'
+        }),
         label(
             'definitionWidgetPreviewTitle',
             rect(textX + 22, 10, textW - 22, 20),
@@ -928,15 +915,7 @@ function sanitizeId(raw) {
     return String(raw || '').replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
-function buildOptionFields(
-    specs,
-    optionsMap,
-    prefix,
-    ui,
-    text,
-    tr,
-    idPrefix
-) {
+function buildOptionFields(specs, optionsMap, prefix, ui, text, tr, idPrefix) {
     const fields = [];
     const knownNames = {};
     const groups = [];
@@ -1182,15 +1161,10 @@ function colorsSectionField(element, ui, formWidth, tr) {
                 section: 'colors'
             },
             children: [
-                node(
-                    'Icon',
-                    'definitionColorsToggleIcon',
-                    rect(8, 9, 16, 16),
-                    {
-                        icon: open ? 'chevron-down' : 'chevron-right',
-                        color: 'primary'
-                    }
-                ),
+                node('Icon', 'definitionColorsToggleIcon', rect(8, 9, 16, 16), {
+                    icon: open ? 'chevron-down' : 'chevron-right',
+                    color: 'primary'
+                }),
                 label(
                     'definitionColorsToggleLabel',
                     rect(28, 0, rowWidth - 80, 34),
@@ -1234,12 +1208,7 @@ function colorsSectionField(element, ui, formWidth, tr) {
                     ),
                     label(
                         'definitionColorItemValue_' + i,
-                        rect(
-                            Math.max(80, rowWidth - 130),
-                            ry,
-                            116,
-                            24
-                        ),
+                        rect(Math.max(80, rowWidth - 130), ry, 116, 24),
                         String(entry.color || ''),
                         Object.assign(
                             { fontRole: 'caption', align: 'right' },
@@ -1331,19 +1300,14 @@ function configsSectionField(layers, ui, formWidth, tr) {
                             key: layer.key
                         },
                         children: [
-                            node(
-                                'Icon',
-                                lid + '_Arrow',
-                                rect(8, 7, 15, 15),
-                                {
-                                    icon: layerOpen
-                                        ? 'chevron-down'
-                                        : 'chevron-right',
-                                    color: layer.defined
-                                        ? 'primaryText'
-                                        : 'secondaryText'
-                                }
-                            ),
+                            node('Icon', lid + '_Arrow', rect(8, 7, 15, 15), {
+                                icon: layerOpen
+                                    ? 'chevron-down'
+                                    : 'chevron-right',
+                                color: layer.defined
+                                    ? 'primaryText'
+                                    : 'secondaryText'
+                            }),
                             label(
                                 lid + '_Label',
                                 rect(28, 0, rowWidth - 64, 30),
@@ -1647,7 +1611,9 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
             viewEditTabsW = compactHeader
                 ? width - 32 - modeTabsW
                 : Math.min(240, Math.max(180, width - 380)),
-            tabsX = compactHeader ? 12 + viewEditTabsW + 8 : width - modeTabsW - 12,
+            tabsX = compactHeader
+                ? 12 + viewEditTabsW + 8
+                : width - modeTabsW - 12,
             viewEditX = compactHeader ? 12 : tabsX - viewEditTabsW - 8,
             metaText = [
                 selected.searchType,
@@ -1659,7 +1625,12 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
         children.push(
             label(
                 'definitionViewTitle',
-                rect(12, y, compactHeader ? inner : Math.max(80, viewEditX - 20), 24),
+                rect(
+                    12,
+                    y,
+                    compactHeader ? inner : Math.max(80, viewEditX - 20),
+                    24
+                ),
                 selected.view,
                 {
                     fontRole: 'section',
@@ -1760,10 +1731,7 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                     ? width - 24
                     : Math.min(ui.columnWidth, width * 0.4),
                 columnHeight = stacked
-                    ? Math.min(
-                          ui.columnHeight,
-                          (bounds.height - y - 42) * 0.48
-                      )
+                    ? Math.min(ui.columnHeight, (bounds.height - y - 42) * 0.48)
                     : bounds.height - y - 42,
                 selectedIndex = model.elements.findIndex(
                     (row) => row.path === model.element.path
@@ -1778,9 +1746,11 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                     !pending(ui) &&
                     model.elements.length > 1 &&
                     selectedIndex >= 0 &&
-                    ['definition', 'default_definition', 'edit_definition'].indexOf(
-                        selected.view
-                    ) < 0;
+                    [
+                        'definition',
+                        'default_definition',
+                        'edit_definition'
+                    ].indexOf(selected.view) < 0;
             children.push(
                 label(
                     'definitionColumnsLabel',
@@ -1850,7 +1820,12 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                 children.push(
                     label(
                         'definitionAllColumnsHeading',
-                        rect(12, defHeaderY, Math.max(40, columnWidth - 52), 24),
+                        rect(
+                            12,
+                            defHeaderY,
+                            Math.max(40, columnWidth - 52),
+                            24
+                        ),
                         tr('Definition'),
                         {
                             fontRole: 'secondary',
@@ -1885,7 +1860,12 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                         node(
                             'Action',
                             'definitionAllColumn_' + itemKey,
-                            rect(0, i * defRowH, canAdd ? rowW - 34 : rowW, defRowH - 2),
+                            rect(
+                                0,
+                                i * defRowH,
+                                canAdd ? rowW - 34 : rowW,
+                                defRowH - 2
+                            ),
                             {
                                 text: item.name,
                                 selected: isSelected,
@@ -1970,7 +1950,12 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                                 node(
                                     'Scroll',
                                     'definitionAllColumnsScroll',
-                                    rect(2, 2, columnWidth - 4, Math.max(1, defListH - 4)),
+                                    rect(
+                                        2,
+                                        2,
+                                        columnWidth - 4,
+                                        Math.max(1, defListH - 4)
+                                    ),
                                     {
                                         contentHeight: Math.max(
                                             defListH - 4,
@@ -2154,7 +2139,8 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                         kind: 'Switch',
                         id: 'definitionCatalogVisible',
                         title: 'Show in table',
-                        description: 'Keep the column visible in this saved view.',
+                        description:
+                            'Keep the column visible in this saved view.',
                         field: 'visible',
                         props: {
                             checked: element.visible !== false
@@ -2311,12 +2297,12 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                 const editSpecs = editWidgetArgs(
                     element.editWidget || element.editClass
                 );
-                const editChoices = editWidgetOptionsFor(element.editWidget).map(
-                    (row) => ({
-                        value: row.value,
-                        label: tr(row.label)
-                    })
-                );
+                const editChoices = editWidgetOptionsFor(
+                    element.editWidget
+                ).map((row) => ({
+                    value: row.value,
+                    label: tr(row.label)
+                }));
                 fields = fields.concat([
                     {
                         kind: 'Label',

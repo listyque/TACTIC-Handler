@@ -16,7 +16,7 @@ Item {
     property string separatorText: "/"
     signal externalLinkOpened(string url)
 
-    implicitWidth: valuesLoader.item ? valuesLoader.item.implicitWidth : 0
+    implicitWidth: (valuesLoader.item as Item)?.implicitWidth ?? 0
     implicitHeight: 16
     clip: true
 

@@ -12,7 +12,7 @@ Rectangle {
     objectName: "workspaceStreams"
     required property var theme
     required property var controller
-    readonly property var state: controller.view_data
+    readonly property var workspaceState: controller.view_data
     property var expanded: []
     property string selectedCode: ""
     property bool treeMode: true
@@ -113,7 +113,7 @@ Rectangle {
             if (command === "refresh")
                 root.controller.action("catalog_page", {});
             else
-                root.editStream(command === "new" ? ({}) : root.state.catalog_detail, command === "child");
+                root.editStream(command === "new" ? ({}) : root.workspaceState.catalog_detail, command === "child");
         }
     }
     ColumnLayout {
@@ -272,7 +272,7 @@ Rectangle {
             Controls.Button {
                 theme: root.theme
                 text: qsTr("Load more")
-                visible: Boolean(root.state.catalog_after)
+                visible: Boolean(root.workspaceState.catalog_after)
                 enabled: root.records.length < 2000
                 onClicked: root.controller.action("catalog_page", {
                     more: true

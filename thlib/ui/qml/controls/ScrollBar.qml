@@ -2,7 +2,6 @@ import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls as QtControls
-import "." as Controls
 
 QtControls.ScrollBar {
     id: root

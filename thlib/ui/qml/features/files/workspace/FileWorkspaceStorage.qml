@@ -8,9 +8,9 @@ Item {
     id: root
     required property var theme
     required property var controller
-    readonly property var state: controller.view_data
-    readonly property var status: state.storage_info || ({})
-    readonly property var draft: state.storage_draft || ({})
+    readonly property var workspaceState: controller.view_data
+    readonly property var status: workspaceState.storage_info || ({})
+    readonly property var draft: workspaceState.storage_draft || ({})
     readonly property var gcTask: status.gc || ({})
     readonly property bool gcActive: ["queued", "running"].includes(gcTask.state)
     readonly property var fields: UI.fields
@@ -21,7 +21,7 @@ Item {
     function reset() {
         if (resetting || !status.policy_values)
             return;
-        if (draft.revision === status.policy_revision && JSON.stringify(draft.policy) === JSON.stringify(status.policy_values) && JSON.stringify(state.storage_original) === JSON.stringify(status.policy_values)) {
+        if (draft.revision === status.policy_revision && JSON.stringify(draft.policy) === JSON.stringify(status.policy_values) && JSON.stringify(workspaceState.storage_original) === JSON.stringify(status.policy_values)) {
             notice = "";
             return;
         }
@@ -61,7 +61,7 @@ Item {
         act("storage_policy");
     }
     function syncDraft() {
-        if (!draft.policy || JSON.stringify(draft.policy) === JSON.stringify(state.storage_original || {}))
+        if (!draft.policy || JSON.stringify(draft.policy) === JSON.stringify(workspaceState.storage_original || {}))
             reset();
     }
 
@@ -94,7 +94,7 @@ Item {
             draft: root.draft,
             indexing: root.indexing,
             busy: root.controller.busy,
-            filesService: root.state.catalog_capabilities.files_service_configured,
+            filesService: root.workspaceState.catalog_capabilities.files_service_configured,
             notice: root.notice
         }, width, height, root.language)
         onEvent: action => {
@@ -124,12 +124,12 @@ Item {
             theme: root.theme
             implicitHeight: confirmGc.width < 420 ? 250 : 200
             scene: UI.confirm({
-                busy: root.controller.busy || root.gcActive || !root.status.indexed || !root.state.catalog_capabilities.files_service_configured
+                busy: root.controller.busy || root.gcActive || !root.status.indexed || !root.workspaceState.catalog_capabilities.files_service_configured
             }, width, height, root.language)
             onEvent: action => {
                 if (action.type === "reject")
                     confirmGc.close();
-                else if (action.type === "accept" && !root.controller.busy && !root.gcActive && root.status.indexed && root.state.catalog_capabilities.files_service_configured) {
+                else if (action.type === "accept" && !root.controller.busy && !root.gcActive && root.status.indexed && root.workspaceState.catalog_capabilities.files_service_configured) {
                     confirmGc.close();
                     root.act("gc_begin", false);
                 }

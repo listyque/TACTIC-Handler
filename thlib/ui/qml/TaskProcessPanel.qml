@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
 import "features/tasks" as Tasks
 import "tactic_frame" as Frame

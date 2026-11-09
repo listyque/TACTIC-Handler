@@ -8,11 +8,11 @@ Item {
     id: root
     required property var theme
     required property var controller
-    readonly property var state: controller.view_data
+    readonly property var workspaceState: controller.view_data
     readonly property string language: typeof localizationController === "undefined" ? (Qt.uiLanguage || "en") : localizationController.current_language
     signal menuRequested(string kind, var anchor)
     property var pathDraft: null
-    readonly property string currentPath: "//" + state.stream + "/" + state.prefix
+    readonly property string currentPath: "//" + workspaceState.stream + "/" + workspaceState.prefix
     onCurrentPathChanged: pathDraft = null
     FontMetrics {
         id: fontMetrics
@@ -25,14 +25,14 @@ Item {
     }
     readonly property var presentation: UI.describe({
         style: theme.style,
-        workspaces: state.workspaces,
-        workspace: state.workspace,
+        workspaces: workspaceState.workspaces,
+        workspace: workspaceState.workspace,
         busy: controller.busy,
-        navigationIndex: state.navigation_index,
-        navigationCount: state.navigation.length,
+        navigationIndex: workspaceState.navigation_index,
+        navigationCount: workspaceState.navigation.length,
         path: pathDraft === null ? currentPath : pathDraft,
-        recovery: state.recovery.available || state.recovery.action,
-        connectionState: state.connection_state,
+        recovery: workspaceState.recovery.available || workspaceState.recovery.action,
+        connectionState: workspaceState.connection_state,
         actionWidths: [ButtonMetrics.buttonWidth(fontMetrics.advanceWidth(qsTr("Actions")), true), ButtonMetrics.buttonWidth(fontMetrics.advanceWidth(qsTr("Tools")), true)]
     }, width, language)
     implicitHeight: presentation.height
@@ -53,7 +53,7 @@ Item {
                 root.controller.set_navigation(action.type === "back" ? -1 : 1);
             else if (action.type === "parent")
                 root.controller.action("navigate", {
-                    path: "//" + root.state.stream + "/" + root.state.prefix.replace(/\/?[^/]+\/?$/, "")
+                    path: "//" + root.workspaceState.stream + "/" + root.workspaceState.prefix.replace(/\/?[^/]+\/?$/, "")
                 });
             else if (action.type === "path")
                 root.pathDraft = action.value;

@@ -70,7 +70,7 @@ Item {
                 active: inPreview
                 visible: inPreview
                 Layout.fillWidth: true
-                Layout.preferredHeight: item ? item.implicitHeight : 0
+                Layout.preferredHeight: (item as Item)?.implicitHeight ?? 0
 
                 sourceComponent: TH.ActivityEventCard {
                     id: activityCard

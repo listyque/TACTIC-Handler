@@ -8,16 +8,16 @@ FileWorkspaceFileRow {
     narrow: workspace.narrow
     leftPadding: 24
     objectName: "workspaceChangeFile:" + modelData.parent + "/" + modelData.path
-    columns: workspace.state.columns
-    selected: workspace.state.selection_scope === "changes" && workspace.state.selection_ids.indexOf(modelData.id) >= 0
-    focused: workspace.state.focus_id === modelData.id
+    columns: workspace.workspaceState.columns
+    selected: workspace.workspaceState.selection_scope === "changes" && workspace.workspaceState.selection_ids.indexOf(modelData.id) >= 0
+    focused: workspace.workspaceState.focus_id === modelData.id
     onSelectedByUser: modifiers => workspace.controller.select_row("changes", modelData.id, modifiers)
     onDragRequested: dragData = workspace.controller.drag_payload("changes", modelData.id)
     localLabel: workspace.localStatus(modelData.local_status)
     serverLabel: modelData.change_state === "submitted" ? qsTr("Submitted") : modelData.change_state === "shelved" ? qsTr("Shelved") : workspace.serverStatus(modelData.server_status || modelData.action)
     checkoutLabel: workspace.holders(modelData)
     currentUser: workspace.controller.current_user
-    checkoutHolders: workspace.state.locks[(modelData.stream || workspace.state.change.stream || workspace.state.stream) + "\0" + (modelData.source_path || modelData.path)] || []
+    checkoutHolders: workspace.workspaceState.locks[(modelData.stream || workspace.workspaceState.change.stream || workspace.workspaceState.stream) + "\0" + (modelData.source_path || modelData.path)] || []
     onSelectedChangedByUser: checked => workspace.controller.select_file_row("changes", modelData.id, checked)
     onActivated: {
         if (modelData.change_state === "pending") {

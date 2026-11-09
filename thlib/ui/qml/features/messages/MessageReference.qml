@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/messages/message.ui.mjs" as UI
 

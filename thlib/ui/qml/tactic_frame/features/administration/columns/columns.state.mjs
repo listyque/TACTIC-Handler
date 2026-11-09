@@ -39,8 +39,7 @@ export function elementFieldValue(element, field) {
         );
     if (field.indexOf('actionOption:') === 0)
         return String(
-            (element.actionOptions &&
-                element.actionOptions[field.slice(13)]) ||
+            (element.actionOptions && element.actionOptions[field.slice(13)]) ||
                 ''
         );
     return String(element[field] ?? '');

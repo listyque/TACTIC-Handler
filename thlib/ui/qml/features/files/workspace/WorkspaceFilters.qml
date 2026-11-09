@@ -8,7 +8,7 @@ Item {
     id: root
     required property var workspace
     readonly property var theme: workspace.theme
-    readonly property var workspaceState: workspace.state
+    readonly property var workspaceState: workspace.workspaceState
     readonly property string language: workspace.language
     FontMetrics {
         id: fontMetrics

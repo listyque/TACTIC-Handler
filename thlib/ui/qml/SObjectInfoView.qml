@@ -69,7 +69,7 @@ Item {
         required property int generation
         property bool requested: false
         property int observedGeneration: -1
-        implicitHeight: pageLoader.item ? pageLoader.item.implicitHeight : 0
+        implicitHeight: (pageLoader.item as Item)?.implicitHeight ?? 0
 
         function synchronizeRequest() {
             if (observedGeneration !== generation) {
@@ -88,7 +88,7 @@ Item {
         Loader {
             id: pageLoader
             width: pageHost.width
-            height: item ? item.implicitHeight : 0
+            height: (item as Item)?.implicitHeight ?? 0
             active: pageHost.requested
             sourceComponent: pageHost.pageComponent
         }

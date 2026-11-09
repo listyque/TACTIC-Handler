@@ -12,10 +12,10 @@ Item {
     required property var theme
     required property var controller
     property var revision: ({})
-    readonly property var state: controller.view_data
-    readonly property var rows: state.history
-    readonly property string filePath: state.history_path ? "//" + state.history_stream + "/" + state.history_path : ""
-    readonly property var preview: state.history_preview?.revision === revision.code ? state.history_preview : ({})
+    readonly property var workspaceState: controller.view_data
+    readonly property var rows: workspaceState.history
+    readonly property string filePath: workspaceState.history_path ? "//" + workspaceState.history_stream + "/" + workspaceState.history_path : ""
+    readonly property var preview: workspaceState.history_preview?.revision === revision.code ? workspaceState.history_preview : ({})
     property string inspectorTab: "details"
     property bool expanded: true
     property string previewRequest: ""
@@ -186,7 +186,7 @@ Item {
                     width: revisions.contentWidth
                     height: 32
                     hoverEnabled: true
-                    readonly property bool selected: root.revision.code === modelData.code || root.state.selection_scope === "history" && root.state.selection_ids.indexOf(modelData.code) >= 0
+                    readonly property bool selected: root.revision.code === modelData.code || root.workspaceState.selection_scope === "history" && root.workspaceState.selection_ids.indexOf(modelData.code) >= 0
                     Accessible.name: qsTr("Revision") + " #" + modelData.number + ", " + modelData.action
                     background: Controls.ItemSurface {
                         theme: root.theme
@@ -235,7 +235,7 @@ Item {
             }
             Label {
                 Layout.fillWidth: true
-                visible: Boolean(root.state.history_more)
+                visible: Boolean(root.workspaceState.history_more)
                 text: qsTr("Showing latest %1 revisions").arg(root.rows.length)
                 color: root.theme.secondaryText
                 leftPadding: 8
@@ -253,7 +253,7 @@ Item {
             currentTab: root.inspectorTab
             busy: root.inspectorTab === "preview" && Boolean(root.revision.code) && !root.revision.deleted && !root.preview.kind && !root.preview.error
             onTabSelected: tab => root.inspectorTab = tab
-            SplitView.preferredHeight: Math.min(root.state.history_details_height, split.height * 0.55)
+            SplitView.preferredHeight: Math.min(root.workspaceState.history_details_height, split.height * 0.55)
             SplitView.minimumHeight: Math.min(110, split.height * 0.35)
         }
     }

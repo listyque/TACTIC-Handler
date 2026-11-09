@@ -394,7 +394,9 @@ export function transition(ui, model, event) {
                     to: event.to || next.target,
                     mode:
                         event.mode ||
-                        (event.from ? 'hierarchy' : next.connectMode || 'hierarchy')
+                        (event.from
+                            ? 'hierarchy'
+                            : next.connectMode || 'hierarchy')
                 });
             break;
         case 'field':

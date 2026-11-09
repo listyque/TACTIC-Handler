@@ -8,7 +8,7 @@ Item {
     id: root
     required property var theme
     required property var controller
-    readonly property var state: controller.view_data
+    readonly property var workspaceState: controller.view_data
     readonly property string language: typeof localizationController === "undefined" ? (Qt.uiLanguage || "en") : localizationController.current_language
     property real desktopExtent: -1
     property real mobileExtent: -1
@@ -23,12 +23,12 @@ Item {
     }
     readonly property var frameModel: ({
             native: true,
-            source: state.catalog_source,
-            selected: state.catalog_detail,
+            source: workspaceState.catalog_source,
+            selected: workspaceState.catalog_detail,
             count: controller.catalog_model.count(),
             busy: controller.busy,
-            workspace: state.workspace,
-            after: state.catalog_after,
+            workspace: workspaceState.workspace,
+            after: workspaceState.catalog_after,
             buttonWidths: UI.workspaceActions({}, language).map(action => ButtonMetrics.buttonWidth(fontMetrics.advanceWidth(action.text), true)),
             extent: width < 600 ? (mobileExtent < 0 ? undefined : mobileExtent) : (desktopExtent < 0 ? undefined : desktopExtent)
         })
@@ -36,18 +36,18 @@ Item {
         anchors.fill: parent
         theme: root.theme
         controller: root.controller
-        visible: root.state.catalog_source === "depots"
+        visible: root.workspaceState.catalog_source === "depots"
     }
     FileWorkspaceStorage {
         anchors.fill: parent
         theme: root.theme
         controller: root.controller
-        visible: root.state.catalog_source === "storage"
+        visible: root.workspaceState.catalog_source === "storage"
     }
     Frame.FrameView {
         anchors.fill: parent
         theme: root.theme
-        visible: !["depots", "storage"].includes(root.state.catalog_source)
+        visible: !["depots", "storage"].includes(root.workspaceState.catalog_source)
         scene: UI.describe(root.frameModel, width, height, root.language)
         models: ({
                 catalog: root.controller.catalog_model
@@ -71,7 +71,7 @@ Item {
                 });
             else if (action.type === "switch")
                 root.controller.action("preview_workspace_switch", {
-                    workspace: root.state.catalog_detail.code
+                    workspace: root.workspaceState.catalog_detail.code
                 });
             else if (action.type === "edit")
                 root.controller.action("edit_workspace", {});

@@ -1,5 +1,4 @@
 import QtQuick
-import "../.."
 import "../../tactic_frame" as Frame
 import "../../tactic_frame/features/knowledge/commands.ui.mjs" as UI
 

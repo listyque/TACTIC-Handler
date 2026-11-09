@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 
 DropArea {
     id: root

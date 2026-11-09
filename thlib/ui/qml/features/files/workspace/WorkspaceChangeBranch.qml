@@ -9,8 +9,8 @@ FileWorkspaceTreeRow {
     row: modelData
     caption: workspace.treeTitle(modelData)
     subtitle: Rows.treeSubtitle(modelData, workspace.language)
-    selected: workspace.state.selection_scope === "changes" && workspace.state.selection_ids.indexOf(modelData.id) >= 0
-    focused: workspace.state.focus_id === modelData.id
+    selected: workspace.workspaceState.selection_scope === "changes" && workspace.workspaceState.selection_ids.indexOf(modelData.id) >= 0
+    focused: workspace.workspaceState.focus_id === modelData.id
     onSelectedByUser: modifiers => workspace.controller.select_row("changes", modelData.id, modifiers)
     onMenuRequested: (source, x, y) => workspace.contextMenu("changes", modelData, source, x, y)
     onDragRequested: dragData = workspace.controller.drag_payload("changes", modelData.id)

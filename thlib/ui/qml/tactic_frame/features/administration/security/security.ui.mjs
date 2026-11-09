@@ -1370,7 +1370,9 @@ function groupSettings(nodes, model, ui, bounds, language, edit) {
     }
     const headerHeight = Math.min(
         contentHeight,
-        ui.scope === 'technical' ? Math.max(96, bounds.height * 0.28) : bounds.height * 0.58
+        ui.scope === 'technical'
+            ? Math.max(96, bounds.height * 0.28)
+            : bounds.height * 0.58
     );
     nodes.push(
         node(
@@ -1388,7 +1390,9 @@ function groupSettings(nodes, model, ui, bounds, language, edit) {
         rulesHeight = Math.max(1, bounds.y + bounds.height - listY);
     if (ui.scope === 'technical') {
         const split = width >= 780,
-            editorWidth = split ? Math.max(320, Math.round(width * 0.42)) : width,
+            editorWidth = split
+                ? Math.max(320, Math.round(width * 0.42))
+                : width,
             listWidth = split ? width - editorWidth - 12 : width;
         if (split || !ui.editing) {
             nodes.push(

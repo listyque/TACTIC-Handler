@@ -1,6 +1,5 @@
 import QtQuick
 import "../../.."
-import QtQuick.Controls
 import QtQuick.Layouts
 import "../../../controls" as Controls
 

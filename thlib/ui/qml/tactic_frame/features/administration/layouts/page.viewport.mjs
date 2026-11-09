@@ -26,7 +26,9 @@ function step(settings, width, direction) {
 export function describe(scene, settings, width, height) {
     const merged = combineRegions(scene);
     const size = dimensions(settings, width, height);
-    const scroll = merged.nodes.find((item) => item.id === 'customLayoutScroll');
+    const scroll = merged.nodes.find(
+        (item) => item.id === 'customLayoutScroll'
+    );
     const sourceChildren = scroll ? scroll.children : merged.nodes;
     const pageHeight = Math.max(size.height, (scroll?.contentHeight || 0) + 24);
     const children = sourceChildren.map((child) =>

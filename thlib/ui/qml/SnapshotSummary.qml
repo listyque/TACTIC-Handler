@@ -1,7 +1,5 @@
 import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import "tactic_frame" as Frame
 import "tactic_frame/features/objects/snapshot.ui.mjs" as UI
 

@@ -268,7 +268,7 @@ Item {
         x: root.indent + 44
         y: 8
         width: Math.max(1, root.width - x - 14)
-        height: item ? item.implicitHeight : 0
+        height: (item as Item)?.implicitHeight ?? 0
         z: 5
         visible: root.configured
         active: root.configured
@@ -373,19 +373,13 @@ Item {
         height: width
         z: root.interactiveHovered && root.largeItem ? 6 : 1
         transform: Translate {
-            y: !root.fullObjectCard && !root.compactMode
-                && root.interactiveHovered && root.largeItem
-                && root.theme.hoverAnimationsEnabled
-                && !root.theme.suppressTransientMotion ? -3 : 0
+            y: !root.fullObjectCard && !root.compactMode && root.interactiveHovered && root.largeItem && root.theme.hoverAnimationsEnabled && !root.theme.suppressTransientMotion ? -3 : 0
             Behavior on y {
-                enabled: root.theme.hoverAnimationsEnabled
-                    && !root.theme.suppressTransientMotion
+                enabled: root.theme.hoverAnimationsEnabled && !root.theme.suppressTransientMotion
                 NumberAnimation {
                     duration: root.theme.hoverMotionMedium
                     easing.type: Easing.BezierSpline
-                    easing.bezierCurve: root.interactiveHovered
-                        ? [0.34, 1.2, 0.64, 1, 1, 1]
-                        : [0.215, 0.61, 0.355, 1, 1, 1]
+                    easing.bezierCurve: root.interactiveHovered ? [0.34, 1.2, 0.64, 1, 1, 1] : [0.215, 0.61, 0.355, 1, 1, 1]
                 }
             }
         }
@@ -1070,8 +1064,8 @@ Item {
         id: communicationControls
         anchors.right: parent.right
         anchors.rightMargin: root.fullObjectCard ? 12 : root.compactObjectCard ? 8 : 7
-        width: item ? item.implicitWidth : 0
-        height: item ? item.implicitHeight : 0
+        width: (item as Item)?.implicitWidth ?? 0
+        height: (item as Item)?.implicitHeight ?? 0
         y: Math.round((root.height - height) / 2)
         active: !root.configured && (root.nodeType === "sobject" || root.nodeType === "process")
         enabled: !root.presentationReadOnly

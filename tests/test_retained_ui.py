@@ -127,6 +127,22 @@ class RetainedUiTests(TestCase):
         window, view = self._show(component, {"theme": self.theme, "pageTitle": "Search", "shelfController": None})
         return controller, state, groups, window, view, (users, filters, editor)
 
+    def test_search_refresh_reloads_quick_filter_settings(self):
+        controller, _state, _groups, window, view, resources = self._show_search_workspace()
+        editor = resources[2]
+        button = process_menus.visual_control(view, "searchRefreshButton")
+        self.assertIsNotNone(button)
+        context = {
+            "project_code": "test", "search_type": "test/assets", "scope_key": "test/assets",
+        }
+        with (
+            patch.object(controller, "_load_tab"),
+            patch.object(editor, "_context", return_value=context),
+            patch.object(editor, "ensure_current") as ensure_current,
+        ):
+            self._click(window, button)
+        ensure_current.assert_called_once_with()
+
     def test_closed_quick_filters_do_not_read_or_build_the_catalog(self):
         (
             controller, _state, groups, window, view, _resources,

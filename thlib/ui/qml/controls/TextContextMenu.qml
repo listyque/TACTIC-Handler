@@ -115,7 +115,7 @@ Controls.Popup {
     function focusFirstAction() {
         focusedActionIndex = -1
         for (let index = 0; index < actionRepeater.count; ++index) {
-            const row = actionRepeater.itemAt(index)
+            const row = actionRepeater.itemAt(index) as TextMenuAction
             if (row && row.actionTarget && row.actionTarget.enabled) {
                 focusedActionIndex = index
                 row.actionTarget.forceActiveFocus(Qt.PopupFocusReason)
@@ -131,7 +131,7 @@ Controls.Popup {
         for (let offset = 0; offset < actionRepeater.count; ++offset) {
             index = (index + step + actionRepeater.count)
                 % actionRepeater.count
-            const row = actionRepeater.itemAt(index)
+            const row = actionRepeater.itemAt(index) as TextMenuAction
             if (row && row.actionTarget && row.actionTarget.enabled) {
                 focusedActionIndex = index
                 row.actionTarget.forceActiveFocus(Qt.TabFocusReason)
@@ -141,7 +141,7 @@ Controls.Popup {
     }
 
     function activateFocusedAction() {
-        const row = actionRepeater.itemAt(focusedActionIndex)
+        const row = actionRepeater.itemAt(focusedActionIndex) as TextMenuAction
         if (row && row.actionTarget && row.actionTarget.enabled)
             Qt.callLater(row.actionTarget.click)
     }
@@ -191,71 +191,73 @@ Controls.Popup {
         Repeater {
             id: actionRepeater
             model: root.actions
-            delegate: Item {
-                id: actionRow
-                required property var modelData
-                required property int index
-                readonly property alias actionTarget: actionActivation
-                width: actionsColumn.width
-                height: modelData.separator ? 7 : 32
+            delegate: TextMenuAction {}
+        }
+    }
 
-                Rectangle {
-                    visible: !!actionRow.modelData.separator
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width
-                    height: 1
-                    color: root.theme.separator
-                }
-                Rectangle {
-                    visible: !actionRow.modelData.separator
-                    anchors.fill: parent
-                    radius: root.theme.itemRadius
-                    color: root.theme.primaryText
-                    opacity: actionActivation.pressed ? 0.12
-                        : actionActivation.activeFocus ? 0.10
-                        : actionHover.hovered ? 0.08 : 0
-                }
-                RowLayout {
-                    visible: !actionRow.modelData.separator
-                    anchors.fill: parent
-                    anchors.leftMargin: 9
-                    anchors.rightMargin: 8
-                    spacing: 8
-                    Controls.MaterialIcon {
-                        name: actionRow.modelData.icon || "info"
-                        size: 16
-                        color: actionRow.modelData.enabled === false
-                            ? root.theme.disabledText : root.theme.secondaryText
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: actionRow.modelData.title || ""
-                        color: actionRow.modelData.enabled === false
-                            ? root.theme.disabledText : root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Typography.bodyLarge
-                    }
-                }
-                Controls.PopupAction {
-                    id: actionActivation
-                    anchors.fill: parent
-                    enabled: !actionRow.modelData.separator
-                        && actionRow.modelData.enabled !== false
-                    hoverEnabled: true
-                    focusPolicy: Qt.StrongFocus
-                    background: null
-                    contentItem: null
-                    onActiveFocusChanged: {
-                        if (activeFocus)
-                            root.focusedActionIndex = actionRow.index
-                    }
-                    onClicked: root.trigger(actionRow.modelData.command)
-                    HoverHandler {
-                        id: actionHover
-                        enabled: actionActivation.enabled
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                }
+    component TextMenuAction: Item {
+        id: actionRow
+        required property var modelData
+        required property int index
+        readonly property alias actionTarget: actionActivation
+        width: actionsColumn.width
+        height: modelData.separator ? 7 : 32
+
+        Rectangle {
+            visible: !!actionRow.modelData.separator
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width
+            height: 1
+            color: root.theme.separator
+        }
+        Rectangle {
+            visible: !actionRow.modelData.separator
+            anchors.fill: parent
+            radius: root.theme.itemRadius
+            color: root.theme.primaryText
+            opacity: actionActivation.pressed ? 0.12
+                : actionActivation.activeFocus ? 0.10
+                : actionHover.hovered ? 0.08 : 0
+        }
+        RowLayout {
+            visible: !actionRow.modelData.separator
+            anchors.fill: parent
+            anchors.leftMargin: 9
+            anchors.rightMargin: 8
+            spacing: 8
+            Controls.MaterialIcon {
+                name: actionRow.modelData.icon || "info"
+                size: 16
+                color: actionRow.modelData.enabled === false
+                    ? root.theme.disabledText : root.theme.secondaryText
+            }
+            Label {
+                Layout.fillWidth: true
+                text: actionRow.modelData.title || ""
+                color: actionRow.modelData.enabled === false
+                    ? root.theme.disabledText : root.theme.primaryText
+                font.family: root.theme.fontFamily
+                font.pointSize: Typography.bodyLarge
+            }
+        }
+        Controls.PopupAction {
+            id: actionActivation
+            anchors.fill: parent
+            enabled: !actionRow.modelData.separator
+                && actionRow.modelData.enabled !== false
+            hoverEnabled: true
+            focusPolicy: Qt.StrongFocus
+            background: null
+            contentItem: null
+            onActiveFocusChanged: {
+                if (activeFocus)
+                    root.focusedActionIndex = actionRow.index
+            }
+            onClicked: root.trigger(actionRow.modelData.command)
+            HoverHandler {
+                id: actionHover
+                enabled: actionActivation.enabled
+                cursorShape: Qt.PointingHandCursor
             }
         }
     }

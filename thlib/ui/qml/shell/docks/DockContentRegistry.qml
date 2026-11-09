@@ -1,10 +1,6 @@
 import QtQuick
 import "../.."
-import QtQuick.Controls
-import QtQuick.Layouts
 import QtQuick.Window
-import QtQml.Models
-import "../../controls" as Controls
 import "../../features/table" as Table
 
 Item {

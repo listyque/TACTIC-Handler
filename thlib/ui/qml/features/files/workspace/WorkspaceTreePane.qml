@@ -21,7 +21,7 @@ Rectangle {
         scene: UI.describe({
             native: true,
             style: root.theme.style,
-            treeView: workspace.state.tree_view,
+            treeView: workspace.workspaceState.tree_view,
             navigationHeight: root.navigationHeight
         }, width, height, workspace.language)
         views: ({
@@ -81,7 +81,7 @@ Rectangle {
                 row: node
                 enabled: true
                 caption: workspace.treeTitle(node)
-                selected: workspace.state.selection_scope === "workspace" && workspace.state.selection_ids.indexOf(node.id) >= 0
+                selected: workspace.workspaceState.selection_scope === "workspace" && workspace.workspaceState.selection_ids.indexOf(node.id) >= 0
                 onSelectedByUser: modifiers => workspace.controller.select_row("workspace", node.id, modifiers)
                 onMenuRequested: (source, x, y) => workspace.contextMenu("workspace", node, source, x, y)
                 onDragRequested: dragData = workspace.controller.drag_payload("workspace", node.id)
@@ -124,7 +124,7 @@ Rectangle {
                 row: modelData
                 enabled: true
                 caption: workspace.treeTitle(modelData)
-                selected: workspace.state.selection_scope === "depot" && workspace.state.selection_ids.indexOf(modelData.id) >= 0
+                selected: workspace.workspaceState.selection_scope === "depot" && workspace.workspaceState.selection_ids.indexOf(modelData.id) >= 0
                 onSelectedByUser: modifiers => workspace.controller.select_row("depot", modelData.id, modifiers)
                 onMenuRequested: (source, x, y) => workspace.contextMenu("depot", modelData, source, x, y)
                 onDragRequested: dragData = workspace.controller.drag_payload("depot", modelData.id)

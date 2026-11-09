@@ -15,7 +15,7 @@ Item {
     required property bool readOnlyField
     default property alias editorData: editorHost.data
     readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
-    readonly property var fieldModel: ({
+    readonly property var frameFieldModel: ({
             name: fieldName,
             title: title,
             description: description,
@@ -25,8 +25,8 @@ Item {
             readOnly: readOnlyField,
             minimumHeight: theme.controlHeight
         })
-    readonly property var columns: UI.columns(fieldModel, width)
-    readonly property var scene: UI.field(fieldModel, width, editorHost.childrenRect.height, language)
+    readonly property var columns: UI.columns(frameFieldModel, width)
+    readonly property var scene: UI.field(frameFieldModel, width, editorHost.childrenRect.height, language)
     readonly property bool compact: scene.compact
     implicitHeight: scene.height
     Frame.FrameView {

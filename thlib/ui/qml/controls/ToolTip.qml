@@ -4,7 +4,6 @@ import QtQuick.Controls
 import QtQuick.Controls as QtControls
 import QtQuick.Window
 import Qt5Compat.GraphicalEffects
-import "." as Controls
 
 Loader {
     id: root
