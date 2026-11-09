@@ -6,6 +6,12 @@ check-in queue and DCC router are distinct from Stream's server runtime.
 The product handbook covers setup, workflows, and operational notes.
 [English](handbook.en.md) · [Русский](handbook.ru.md)
 
+## Product presentations
+
+- [Product and workspace tour](../README.md) · [Русский](../README.ru.md).
+- Built-in project assistant: [English](presentations/assistant.en.md) · [Русский](presentations/assistant.ru.md).
+- Custom dashboards: [English](presentations/dashboards.en.md) · [Русский](presentations/dashboards.ru.md).
+
 ## Client APIs and execution
 
 - [Unified Handler API](handler_api.md): client objects, background operations and UI commands.
