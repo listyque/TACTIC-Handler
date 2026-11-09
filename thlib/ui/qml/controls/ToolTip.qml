@@ -18,7 +18,7 @@ Loader {
     visible: false
     active: visible
     onLoaded: Qt.callLater(function () {
-        if (root.visible && root.item)
+        if (root?.visible && root.item)
             root.item.visible = true;
     })
     sourceComponent: QtControls.ToolTip {

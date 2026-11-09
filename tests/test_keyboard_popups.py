@@ -6,7 +6,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QPoint, Qt, QUrl
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPoint, Qt, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem
@@ -62,6 +62,11 @@ Window {
         dark: true
         fadeAnimationsEnabled: false
         popupAnimationsEnabled: false
+    }
+    Controls.ToolTip {
+        objectName: "transientToolTip"
+        theme: theme
+        text: "Test tooltip"
     }
     Controls.ComboBox {
         id: combo
@@ -178,6 +183,21 @@ Window {
         ]
         self.assertEqual(len(windows), 1)
         return windows[0]
+
+    def test_tooltip_can_be_destroyed_before_deferred_open(self):
+        warnings = []
+        self.engine.warnings.connect(
+            lambda errors: warnings.extend(error.toString() for error in errors)
+        )
+        tooltip = self.owner.findChild(QQuickItem, "transientToolTip")
+        self.assertIsNotNone(tooltip)
+        tooltip.setVisible(True)
+        self.assertIsNotNone(tooltip.property("item"))
+        tooltip.deleteLater()
+        QCoreApplication.sendPostedEvents(tooltip, QEvent.DeferredDelete)
+        self.assertFalse(shiboken6.isValid(tooltip))
+        QCoreApplication.processEvents()
+        self.assertFalse(warnings, warnings)
 
     def test_combo_pointer_activation_toggles_the_same_popup(self):
         point = QPoint(100, 48)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.410 - 2026-11-09
+
+- Safely discard a deferred tooltip open when its control has already been destroyed.
+
 ## 0.6.0.409 - 2026-11-09
 
 - Separate QML view data from inherited Qt properties, type menu and dock delegates, and use the shared Frame formatting. Refresh quick-filter settings with the search workspace.
