@@ -65,6 +65,13 @@ Drop Plate готовит файлы, Commit Queue показывает буду
 | ![Ассистент анализирует задачи и опубликованные версии](docs/assets/product-tour/assistant.png) | ![Производственный обзор с живыми метриками и объектами](docs/assets/product-tour/dashboard-overview.png) |
 | Задайте вопрос по выбранному объекту, изучите ответ и операции, на которых он основан. **[Презентация чат-бота →](docs/presentations/assistant.ru.md)** | Соберите страницу из метрик, диаграмм, Item View и действий. **[Презентация дашбордов →](docs/presentations/dashboards.ru.md)** |
 
+## Знания внутри рабочего пространства
+
+| Встроенная справка | База знаний проекта |
+| --- | --- |
+| ![Справка: каталог тем и инструкции к инструментам](docs/assets/product-tour/help.png) | ![База знаний: статья, связанный ассет и оглавление](docs/assets/product-tour/knowledge-base.png) |
+| Разберитесь в инструменте прямо в приложении: контекстные статьи, поиск по тексту, EN/RU и выгрузка Markdown. **[Посмотреть справку →](docs/presentations/help.ru.md)** | Соберите опыт команды в статьи с Visual / Markdown, вложениями, связями с объектами, черновиками и историей. **[Посмотреть базу знаний →](docs/presentations/knowledge-base.ru.md)** |
+
 ## Настраивается под вашу студию
 
 [Схема и администрирование](docs/presentations/product-tour.ru.md#administration-настройка-самого-проекта) · [Пользователи и права](docs/presentations/product-tour.ru.md#пользователи-группы-и-итоговые-права) · [Обзор объекта](docs/presentations/product-tour.ru.md#обзор-объекта-целостная-производственная-запись) · [История сервера](docs/presentations/product-tour.ru.md#история-на-сервере-понять-что-произошло) · [Tactic Frame](docs/presentations/product-tour.ru.md#tactic-frame-единое-описание-два-нативных-интерфейса) · [Конфигурация](docs/presentations/product-tour.ru.md#configuration-подключение-хранение-и-ежедневные-настройки)

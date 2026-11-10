@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.416 - 2026-11-10
+
+- Present built-in Help and project Knowledge Base in the English/Russian README and dedicated guides, with fresh native screenshots of reading, editing and article history.
+
 ## 0.6.0.415 - 2026-11-10
 
 - Replace presentation HTML anchors and line breaks with Markdown heading links and plain text so restricted Markdown viewers do not expose markup.

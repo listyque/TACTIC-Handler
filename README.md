@@ -65,6 +65,13 @@ Drop Plate prepares files. Commit Queue shows the pending publication. Naming Ed
 | ![Assistant analyzing tasks and published versions](docs/assets/product-tour/assistant.png) | ![Production overview with live metrics and objects](docs/assets/product-tour/dashboard-overview.png) |
 | Ask about the selected object, inspect the answer and see the operations behind it. **[Explore the assistant →](docs/presentations/assistant.en.md)** | Compose metrics, charts, Item View and actions into a working page. **[Explore dashboards →](docs/presentations/dashboards.en.md)** |
 
+## Knowledge inside the workspace
+
+| Built-in Help | Project Knowledge Base |
+| --- | --- |
+| ![Help: topic catalog and instructions for the working tools](docs/assets/product-tour/help.png) | ![Knowledge Base: article, linked asset and heading outline](docs/assets/product-tour/knowledge-base.png) |
+| Understand a tool inside the application: contextual articles, full-text search, EN/RU and Markdown download. **[Explore Help →](docs/presentations/help.en.md)** | Turn team experience into articles with Visual / Markdown, attachments, object links, drafts and history. **[Explore Knowledge Base →](docs/presentations/knowledge-base.en.md)** |
+
 ## Built around your studio
 
 [Schema and administration](docs/presentations/product-tour.en.md#administration-shape-the-project-itself) · [Users and access](docs/presentations/product-tour.en.md#users-groups-and-effective-access) · [Object overview](docs/presentations/product-tour.en.md#object-overview-the-complete-production-record) · [Server history](docs/presentations/product-tour.en.md#server-activity-understand-what-happened) · [Tactic Frame](docs/presentations/product-tour.en.md#tactic-frame-one-ui-description-two-native-renderers) · [Configuration](docs/presentations/product-tour.en.md#configuration-connection-storage-and-daily-behavior)

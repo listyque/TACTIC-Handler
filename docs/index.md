@@ -13,6 +13,8 @@ The product handbook covers setup, workflows, and operational notes.
 - Maya plugin and studio shelves: [English](presentations/maya.en.md) · [Русский](presentations/maya.ru.md).
 - Built-in project assistant: [English](presentations/assistant.en.md) · [Русский](presentations/assistant.ru.md).
 - Custom dashboards: [English](presentations/dashboards.en.md) · [Русский](presentations/dashboards.ru.md).
+- Built-in Help: [English](presentations/help.en.md) · [Русский](presentations/help.ru.md).
+- Project Knowledge Base: [English](presentations/knowledge-base.en.md) · [Русский](presentations/knowledge-base.ru.md).
 
 ## Client APIs and execution
 
