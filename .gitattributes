@@ -2,3 +2,4 @@
 *.qml text eol=lf
 thlib/ui/qml/tactic_frame/**/*.json text eol=lf
 plugins/batch_render/** text=auto eol=lf
+thlib/ui/qml/**/*.js text eol=lf

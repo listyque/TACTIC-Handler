@@ -32,13 +32,24 @@ internal static class Launcher
             start.WorkingDirectory = root;
             start.UseShellExecute = false;
             start.CreateNoWindow = true;
-            start.EnvironmentVariables["TACTIC_HANDLER_SETTINGS_DIR"] = application;
+            if (String.IsNullOrWhiteSpace(start.EnvironmentVariables["TACTIC_HANDLER_SETTINGS_DIR"]))
+            {
+                string profile = application;
+                if (File.Exists(Path.Combine(root, "TACTIC Stream.exe")))
+                {
+                    string edition = File.Exists(Path.Combine(root, "demo", "manifest.json"))
+                        ? "TACTIC Stream Demo" : "TACTIC Stream";
+                    profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), edition, "handler");
+                }
+                start.EnvironmentVariables["TACTIC_HANDLER_SETTINGS_DIR"] = profile;
+            }
             using (Process child = Process.Start(start))
             {
                 child.WaitForExit();
                 if (child.ExitCode != 0)
                     MessageBox.Show("TACTIC Handler exited with code " + child.ExitCode
-                        + ". Check the application log in TACTIC-Handler\\log.",
+                        + ". Check the application log in "
+                        + Path.Combine(start.EnvironmentVariables["TACTIC_HANDLER_SETTINGS_DIR"], "log") + ".",
                         "TACTIC Handler", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return child.ExitCode;
             }

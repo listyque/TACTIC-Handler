@@ -60,6 +60,8 @@ Handler работает с типами и связями, заданными �
 
 ## Установка и подключение
 
+**[Сборки Windows: Clean / Demo](https://github.com/listyque/TACTIC-Handler/releases)** · [Инструкция](docs/windows_downloads.ru.md) · [Комплекты TH + TS](https://github.com/listyque/TACTIC-Stream/releases)
+
 Для запуска исходников на Windows нужны Python 3.14 и работающий сервер TACTIC Stream или совместимый TACTIC:
 
 ```powershell

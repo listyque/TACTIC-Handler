@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.423 - 2026-11-10
+
+- Honor explicit Handler profile directories in Windows launchers and use separate clean/demo profiles in combined Stream bundles.
+- Start the bundled local Stream initializer after installing the Handler demo; retain the existing native setup flow for standalone Handler.
+- Document clean/demo Windows downloads and the shared server demonstration projects; verify native launcher and installer behavior in isolated directories.
+
 ## 0.6.0.422 - 2026-11-10
 
 - Link the English/Russian product presentations and documentation entry points to the GitHub Wiki.

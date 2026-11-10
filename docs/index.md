@@ -8,6 +8,9 @@ check-in queue and DCC router are distinct from Stream's server runtime.
 The product handbook covers setup, workflows, and operational notes.
 [English](handbook.en.md) · [Русский](handbook.ru.md)
 
+Windows Clean/Demo downloads and combined bundles:
+[English](windows_downloads.en.md) · [Русский](windows_downloads.ru.md).
+
 ## Product presentations
 
 - Visual presentation: [English](../README.md) · [Русский](../README.ru.md).

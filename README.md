@@ -60,6 +60,8 @@ The current delivery target is Windows. Maya is the documented DCC integration; 
 
 ## Installation and connection
 
+**[Windows downloads: Clean / Demo](https://github.com/listyque/TACTIC-Handler/releases)** · [Installation guide](docs/windows_downloads.en.md) · [TH + TS bundles](https://github.com/listyque/TACTIC-Stream/releases)
+
 For a Windows source checkout, use Python 3.14 and a running TACTIC Stream or compatible TACTIC server:
 
 ```powershell

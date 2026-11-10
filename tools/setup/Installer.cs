@@ -193,7 +193,9 @@ internal static class Installer
                     else
                     {
                         string root = (string)args.Result;
-                        Process.Start(new ProcessStartInfo(Path.Combine(root, "TH Setup.exe")) { WorkingDirectory = root });
+                        string first = File.Exists(Path.Combine(root, "demo", "manifest.json"))
+                            && File.Exists(Path.Combine(root, "TACTIC Stream.exe")) ? "TACTIC Stream.exe" : "TH Setup.exe";
+                        Process.Start(new ProcessStartInfo(Path.Combine(root, first)) { WorkingDirectory = root });
                     }
                     window.Close();
                 };
