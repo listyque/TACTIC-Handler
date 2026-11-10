@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.417 - 2026-11-10
+
+- Rebuild the English/Russian GitHub front pages with a product wordmark, early setup instructions, full-width feature screenshots and a structured guide to configuration and extension.
+
 ## 0.6.0.416 - 2026-11-10
 
 - Present built-in Help and project Knowledge Base in the English/Russian README and dedicated guides, with fresh native screenshots of reading, editing and article history.

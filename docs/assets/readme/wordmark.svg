@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="204" viewBox="0 0 1200 204" role="img" aria-labelledby="title description">
+  <title id="title">TACTIC Handler</title>
+  <desc id="description">Native production workspace. Project objects, people and published files.</desc>
+  <rect width="1200" height="204" rx="12" fill="#141a20"/>
+  <path d="M32 172H1168" stroke="#35414d"/>
+  <path d="M32 172H280" stroke="#d3a17b" stroke-width="3"/>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <text x="36" y="51" fill="#d3a17b" font-size="22" font-weight="600" letter-spacing="7">TACTIC</text>
+    <text x="32" y="134" fill="#f1f4f7" font-size="78" font-weight="650" letter-spacing="-2">Handler</text>
+    <text x="1165" y="53" fill="#9daebd" text-anchor="end" font-size="14" letter-spacing="2">NATIVE PRODUCTION WORKSPACE</text>
+    <text x="1165" y="137" fill="#d3a17b" text-anchor="end" font-size="22" letter-spacing="1">Objects. People. Process.</text>
+  </g>
+</svg>
