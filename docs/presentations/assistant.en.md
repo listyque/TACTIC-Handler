@@ -1,12 +1,12 @@
 # The project assistant
 
-**Ask about the work. Inspect the evidence. Prepare the next action.**
+**A way to work through what is happening in your project.**
 
 [TACTIC Handler](../../README.md) · [Русский](assistant.ru.md) · [Custom dashboards](dashboards.en.md)
 
-The native Handler conversation connects to **TACTIC Stream**. Stream owns project operations and conversation records; Handler supplies the desktop window and can host the explicitly selected executor.
+Before a review, you want to know what is ready and what is still missing. The assistant can read related tasks, notes and publications and explain the picture they form. The conversation opens in Handler; **TACTIC Stream** stores its history and handles project operations. A selected Handler computer can also run the model requests.
 
-The built-in chat window is called **External agent** because a separate executor runs the model and its tools. The conversation stays inside the production application, next to the records being discussed. The current feature requires an administrator account and a configured executor/provider.
+The window is called **External agent**. The conversation lives inside the application, while a separate executor runs the model and its tools on the selected machine. Setup currently requires an administrator account, a provider and a connected executor.
 
 ![Actual assistant response: Survey Drone production handoff](../assets/product-tour/assistant.png)
 
@@ -14,7 +14,7 @@ The built-in chat window is called **External agent** because a separate executo
 
 ## From selected asset to useful handoff
 
-The request was concrete: **read the selected Survey Drone's tasks, assignees, planned dates, notes and published versions; describe current state and next actions without changing anything.**
+For this demonstration, we selected Survey Drone and asked the assistant to **read its tasks, assignees, planned dates, notes and published versions, then describe its state and next actions without changing the project**. Here is what those records established.
 
 | Evidence in the project | What the assistant reported |
 | --- | --- |
@@ -24,13 +24,13 @@ The request was concrete: **read the selected Survey Drone's tasks, assignees, p
 | No model or rig publication | A completed modeling task is not proof that the model was delivered. |
 | Notes approve the silhouette but request clearance checks | The comments do not prove those checks passed or that v002 was approved. |
 
-That distinction is the point: a useful project assistant brings related records together and explains what they establish. It should preserve uncertainty where the records do not provide an answer.
+This is an easy distinction to miss during a handoff. A task status describes progress; a published file tells the next person what they can actually pick up. The assistant brought both parts together and pointed out where the records still left a question unanswered.
 
 ![The same conversation's operation details in the Stream browser](../assets/product-tour/assistant-tools.png)
 
 ## What it can work with
 
-The assistant discovers the tools available for its session. Requests remain subject to the account's permissions, selected project and enabled change mode.
+Beyond answering questions, the assistant can help prepare tasks, records or a project page. Available actions depend on the session’s tools, the account’s permissions, the chosen project and whether changes are enabled.
 
 | Area | Example request | Available work |
 | --- | --- | --- |
@@ -43,13 +43,13 @@ The assistant discovers the tools available for its session. Requests remain sub
 | Files | “Attach these references to this object's review context.” | Upload attachments through native check-in, inspect history and prepare supported downloads. |
 | Scripts | “Draft a tool to validate this naming setup.” | Prepare an inactive script draft, inspect it and use the separate trial/activation flow. |
 
-These are supported tool families, not a promise that an arbitrary natural-language instruction will succeed. The handoff above is the scenario executed for this presentation; the other capabilities are described from their implemented contracts.
+The table describes implemented tools and examples of how to ask for them. The Survey Drone report is the scenario run for this presentation; the other capabilities follow the current implementation contracts. A complex request may need clarification or a review of the proposed result.
 
 ## Context is captured, not guessed
 
-Open the assistant from the current workspace or an object. Before the first Send, inspect the captured **project, page, Search Type, view and exact selection**. The first request fixes that scope for the conversation. Moving to another project or selecting another asset does not silently redirect an existing conversation; start a new one for a new scope.
+Before the first message, check the captured **project, page, Search Type, view and objects**. That first request fixes the conversation’s scope. You can then look at another asset without redirecting work already under way. Start a new conversation when you want to change that scope.
 
-Continue a conversation, steer an active request, review its operation details or cancel further work. Closing the window does not cancel the request. A disconnected executor does not automatically rerun a possibly completed action. History, per-conversation drafts and project filtering let work resume without losing its original context.
+Continue the conversation, add guidance to a running request or cancel further work. Operation details show what has already happened. Closing the window does not stop a request; after a disconnect, an action with an uncertain result is not automatically repeated. History, drafts and project filters help you return to the right conversation.
 
 Project rules add studio instructions to subsequent turns. They guide behavior within the existing permissions; they cannot grant access to another project or enable a missing operation.
 
@@ -64,9 +64,9 @@ flowchart LR
     Check --> Apply["Apply through\nnative commands"]
 ```
 
-Read-only is the default. **Allow changes** is a separate choice; a prompt alone does not bypass the tool restrictions. Native commands retain their permission, validation and transaction behavior. Revision checks protect supported edits from overwriting intervening changes.
+Start by reading and asking questions. Writing requires a separate **Allow changes** choice. Operations still go through native commands, with permission and data checks and, for supported edits, source-revision checks. A record changed by someone else cannot simply be overwritten with the earlier state.
 
-Cancellation stops further work; it does not reverse already committed operations. Undo is deliberately narrower: the supported entity-field undo checks that the current values still match the saved after-image. It is not a global rollback for files, workflow edits or arbitrary scripts.
+Cancel stops the next actions; changes already saved remain in place. Undo covers supported field edits and first checks that the current values still match what that operation wrote. It does not provide a general rollback of files, workflow changes or arbitrary scripts.
 
 ### Generated scripts have their own approval path
 
@@ -84,7 +84,7 @@ A generated script starts inactive. Review its source, run the supported trial f
 | Anthropic | Provider profile and available models. |
 | Gemini | Provider profile and available models. |
 
-Models are discovered from the configured provider rather than promised by a fixed marketing list. Reasoning controls, images, tool use and web search depend on that provider and model. Checking a profile or obtaining its model list does not send project context; sending a conversation does.
+The model list comes from the configured provider, so reasoning controls, image support, tools and web search can differ. Checking a profile or loading the model list does not send project data. Sending a message does send the conversation context to the selected provider.
 
 Choose a connected **Handler computer** or the **TACTIC server** as executor and connect it explicitly. The selection determines where provider sign-in and local endpoint addresses are resolved. Sending a prompt does not silently start a different executor or fall back to another machine. Provider secrets are protected by the server's encrypted storage; they are not plain-text Handler preferences.
 
@@ -98,7 +98,7 @@ Web access is a separate opt-in for a new conversation. Supported downloads use 
 
 External administrator clients can also connect through the implemented MCP interface. Access is scoped to project and tool permissions, with revocation and expiration. This does not give a model an unrestricted terminal, the application source tree or control over unrelated desktop applications.
 
-For artists and supervisors, the important result is a conversation grounded in their project. For administrators, it is a visible sequence of operations with explicit scope and controlled writes.
+A useful first step is a small question about a selected object, followed by comparing the answer with its tasks and publications. Operation details show what the assistant read or did. Once that is familiar, you can move on to preparing changes with the tools available to the session.
 
 **[Continue with custom dashboards →](dashboards.en.md)** · [External agent Help](../../thlib/ui/help_articles/external_agent.en.md)
 

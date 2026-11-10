@@ -1,10 +1,10 @@
 # Maya and studio tools
 
-**The scene lives in Maya. Its production context lives in Handler.**
+**From a published version in the project to a scene you can work on.**
 
 [TACTIC Handler](../../README.md) · [Русский](maya.ru.md) · [Full feature tour](product-tour.en.md)
 
-The Maya plugin connects a selected Maya session to standalone Handler through the local Handler Server. Open a published scene, import a file, create a reference or prepare a scene for publication from the production workspace. A native shelf provides Handler launch and project tools.
+The job starts before opening a scene: you need the right object, process and version. Handler helps you find that publication and pass it to Maya. The plugin connects the selected session through the local Handler Server; its shelf provides Handler launch and project tools.
 
 ![Maya 2023: demonstration blockout and native Orbit Studio shelf created by the TH connector](../assets/product-tour/maya-shelf.png)
 
@@ -12,7 +12,7 @@ The Maya plugin connects a selected Maya session to standalone Handler through t
 
 ## From a project version to an open scene
 
-Select the object, process and required publication in standard Item View or Snapshot Browser. Handler resolves the file through the local repository and routes the action to the selected Maya session.
+Find the object and publication in standard Item View or Snapshot Browser, then choose how to use the file: open the scene, import its contents or create a reference. Handler resolves the path through the local repository and sends the action to the selected Maya session.
 
 | Action | Result |
 | --- | --- |
@@ -21,7 +21,7 @@ Select the object, process and required publication in standard Item View or Sna
 | **Reference** | Creates a file reference in the current scene. |
 | **Save / check-in preparation** | Maya prepares the scene; Handler continues publication through Commit Queue. |
 
-When several sessions are connected, select the intended client. Each command targets a particular Maya session rather than whichever process happens to be nearby.
+When several Maya sessions are open, choose the intended one first. The command addresses that client, so you can work with several scenes while knowing where the action will go.
 
 ## From a working scene to a publication
 
@@ -36,7 +36,7 @@ Maya owns its native scene operations. TACTIC authentication, naming, repository
 
 ## Shelf: turn a script into an everyday tool
 
-The shelf sits beside Search. A familiar button runs in the context of the project and selection; its editor retains the saved-script reference, label, tooltip, icon and order.
+A small script becomes an everyday tool when people can find it and understand what it does. The shelf beside Search gives it a button, label, icon and tooltip. Behind the button is the saved script, working with the project and selection context.
 
 ![Standard Item View and the project's shared shelf](../assets/product-tour/item-view-shelf.png)
 
@@ -44,7 +44,7 @@ A **personal shelf** belongs to the signed-in user. A **shared shelf** provides 
 
 ![Shared shelf editor: three saved read-only project scripts](../assets/product-tour/shelf-editor.png)
 
-Create a tool in Script Editor, save it and add it to the shelf. A short label helps people find it; the tooltip explains its purpose. The saved script determines its runtime: local Python, the server and a selected DCC session have different data and capabilities. Named script access rules also apply to its shelf button.
+Develop and save the tool in Script Editor, then add it to the shelf. Users need a clear label and tooltip; the author also chooses where it runs—local Python, the server or a selected DCC session. Those environments have different data and capabilities. The button retains the named script’s access rules.
 
 ### The same shelf in Maya
 
@@ -52,7 +52,7 @@ When a connected Maya client advertises `create_script_shelf`, the editor can cr
 
 ![Native Maya buttons: Handler and Assets, Tasks, Versions tools](../assets/product-tour/maya-shelf-strip.png)
 
-A Maya shelf is a saved export. Update it through the editor after changing buttons or access; saving a Handler shelf does not continuously synchronize every Maya session.
+Once exported, the shelf is saved in Maya. Update it through the editor when its buttons or access change. Saving a shelf in Handler does not automatically refresh every connected Maya session.
 
 [Complete Script Shelf Help](../../thlib/ui/help_articles/script_shelf.en.md) · [Script Editor](../../thlib/ui/help_articles/script_editor.en.md)
 

@@ -1,10 +1,10 @@
 # ![TACTIC Handler](docs/assets/readme/wordmark.svg)
 
-**The native workspace for assets, tasks, files and Maya.**
+**A desktop workspace for the assets, tasks and files you work with every day.**
 
 [Русский](README.ru.md) · **[Get started](#get-started)** · [Feature tour](docs/presentations/product-tour.en.md) · [Maya integration](docs/presentations/maya.en.md) · [Documentation](docs/index.md)
 
-Handler brings a studio's production context to the desktop. Browse an asset, follow its tasks, review published versions and send a scene to Maya from the same workspace. Connect to TACTIC Stream, or to original TACTIC within the supported compatibility scope.
+Picking up an asset means finding the scene, reading the review notes and understanding what the next department needs. Handler brings those pieces together around the asset itself. Follow its record to a published version, open it in Maya, then hand back a new version when the work is done. Handler connects to TACTIC Stream and compatible original TACTIC installations.
 
 ![Standard Item View: Survey Drone, production processes and published versions](docs/assets/product-tour/item-view-standard.png)
 
@@ -12,9 +12,9 @@ Handler brings a studio's production context to the desktop. Browse an asset, fo
 
 ## Why Handler
 
-- **Start with the object.** Ordinary Item View expands assets into related records, processes, tasks and file versions. Cards and tables offer additional views of the same data.
-- **Keep the handoff connected.** Review notes, naming rules, publications, local repository files and Maya actions retain their project context.
-- **Build the workspace around the job.** Arrange docks, save layouts and put department tools on a personal or shared script shelf.
+Standard Item View expands an asset into its processes, tasks and published versions. You can see what has been done and decide which file to work from. Cards help you find things visually; tables are useful for reading and editing fields. Each view works with the same records.
+
+Artists, supervisors and technical staff need different things on screen. Panels can be rearranged, stacked into tabs and saved as layouts, while recurring actions can become script-shelf buttons.
 
 ## Get started
 
@@ -34,7 +34,7 @@ Open **Configuration → Server**, connect and sign in. Select a project, then c
 
 ### Your layout, your tools
 
-Split areas, stack tabs and detach panels onto another monitor. Keep Item View beside tasks, notes and a publication preview. Sidebar Editor turns saved searches, pages and layouts into department navigation.
+A review needs a large preview and its notes. Planning needs objects and tasks side by side. Docks let you build either workspace from the same panels: split the window, stack tools into tabs or move some onto another monitor. Sidebar Editor gives a department a useful starting point with its own search, page and layout.
 
 ![Dock workspace: project objects, tasks and publication previews together](docs/assets/product-tour/docks-planning.png)
 
@@ -42,7 +42,7 @@ Split areas, stack tabs and detach panels onto another monitor. Keep Item View b
 
 ### From an assignment to a delivery
 
-Task Manager, Gantt and the calendar connect work to people and dates. Notes keep feedback on the object; Messages carries the team conversation. Workflow defines the route through production and review.
+An artist starts the day with assigned tasks; a supervisor looks for the next handoff. Task Manager supports both views, and Gantt puts the work on a timeline. Review feedback stays in the object’s Notes, day-to-day coordination happens in Messages, and Workflow defines how production stages connect.
 
 ![Gantt: production stages, assignees and dates](docs/assets/product-tour/gantt.png)
 
@@ -50,7 +50,7 @@ Task Manager, Gantt and the calendar connect work to people and dates. Notes kee
 
 ### Publish a version. Find it again.
 
-Prepare files in Drop Plate, inspect names and destinations, then publish through Commit Queue. Return to a specific snapshot or synchronize selected publications into the local repository. Naming Editor makes the project's filename and path rules visible.
+Before handing over a file, you should be able to see its name, destination and version. Drop Plate and Commit Queue take you through that preparation. The resulting snapshot connects the file to its object and process, while Repository Sync brings the required versions onto your machine. Naming Editor is where the studio defines those names and paths.
 
 ![Commit Queue: a prepared publication with its version and resolved destination](docs/assets/product-tour/commit-queue.png)
 
@@ -58,11 +58,11 @@ Prepare files in Drop Plate, inspect names and destinations, then publish throug
 
 ### Maya belongs in the workflow
 
-The plugin connects the selected Maya session to Handler. Open a publication, import a file, create a reference or prepare the current scene for check-in. Maya handles scene operations; Handler handles publication and transfers.
+Once you have found the right publication, the plugin can open it in the selected Maya session, import it or create a reference. The return trip stays connected too: Maya prepares the current scene, then Handler continues check-in, transfers the files and records the publication.
 
 ![Native Maya shelf created by the Handler connector](docs/assets/product-tour/maya-shelf-strip.png)
 
-Save a script as a personal, shared or project-tab shelf button. Choose its icon, label and order; create or update the corresponding shelf in connected Maya.
+Small studio tools tend to become part of everyday work. Put a saved script on a personal or shared shelf, give it a clear label and icon, or assign it to a project tab. The editor can also create or update that shelf in connected Maya.
 
 ![Script Shelf editor: saved project tools, icons and button order](docs/assets/product-tour/shelf-editor.png)
 
@@ -70,7 +70,7 @@ Save a script as a personal, shared or project-tab shelf button. Choose its icon
 
 ### Ask the project assistant
 
-Ask about the selected object, inspect records behind the answer and review the operations used to prepare a change. The assistant works with the project's context and available tools.
+“Can this asset go to the next department?” Answering that means reading tasks, notes and publications together. The assistant can inspect those records for the selected object and show the work behind its answer. In the example below, it noticed that modeling was marked complete even though no model had been published.
 
 ![Project assistant working with assets, tasks and published versions](docs/assets/product-tour/assistant.png)
 
@@ -78,7 +78,7 @@ Ask about the selected object, inspect records behind the answer and review the 
 
 ### Build a page for your team
 
-Combine live metrics, charts, Item View and actions into a production overview or review desk. Dashboard Editor, page layouts and Tactic Frame connect custom interfaces to project data.
+A supervisor needs workload and status; a reviewer needs a list of assets and the details of the selected one. Dashboard Editor lets you build either page from project data. Put Item View and actions beside the figures so a useful overview also gives you somewhere to go next.
 
 ![Custom dashboard: project metrics, workload and visual assets](docs/assets/product-tour/dashboard-overview.png)
 
@@ -86,13 +86,13 @@ Combine live metrics, charts, Item View and actions into a production overview o
 
 ### Keep knowledge beside the work
 
-Write the team's handbook in Visual or Markdown, attach files and link articles to actual objects. Sections, search, drafts and article history support onboarding and repeatable production procedures.
+Delivery requirements are easy to explain repeatedly and hard to keep consistent. Write them once in Knowledge Base, attach examples and link the article to the relevant assets or shots. Readers get a searchable handbook; authors get Visual / Markdown editing, drafts and article history.
 
 ![Knowledge Base: delivery guide linked to Survey Drone](docs/assets/product-tour/knowledge-base.png)
 
 [Knowledge Base: reading, editing and publishing →](docs/presentations/knowledge-base.en.md)
 
-The built-in Help explains the application itself. Open a tool's contextual article, search across topics, read in English or Russian and save a Markdown copy.
+For questions about the application itself, use built-in Help. A tool’s Help action opens the relevant topic, and search finds articles by their text. Read in English or Russian, or save a Markdown copy to keep nearby.
 
 ![Built-in Help: searchable topics and a contextual article](docs/assets/product-tour/help.png)
 

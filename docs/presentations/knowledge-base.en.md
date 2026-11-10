@@ -1,16 +1,16 @@
 # Knowledge Base
 
-**The team's handbook, connected to the work it describes.**
+**Give recurring production questions a useful, lasting answer.**
 
 [TACTIC Handler](../../README.md) · [Русский](knowledge-base.ru.md) · [Built-in Help](help.en.md) · [Full feature tour](product-tour.en.md)
 
-Keep onboarding, delivery standards and technical decisions inside the project. Knowledge Base combines a searchable article tree, a formatted reader, Visual and Markdown editing, attachments and object links. Open it as a dock beside Item View, or maximize it for reading and writing.
+A team collects useful knowledge: how to hand over a scene, what to include in a review, why a technical decision was made. Knowledge Base gives that material a home in the project. Open an article beside Item View, link it to an object and send a colleague the link.
 
 ![TACTIC Handler: project handbook, linked Survey Drone asset and article outline](../assets/product-tour/knowledge-base.png)
 
 ## A guide that opens where it is needed
 
-The example above links **Asset review and delivery** to Survey Drone. An artist can move between the guide and its object, keep the article beside the asset, and share its article link in Notes or Messages. Published linked articles are discoverable from the associated objects; one article can describe several records.
+Survey Drone has an **Asset review and delivery** guide in the example above. An artist can read it beside the asset, check the delivery requirements and share the same article in Notes or Messages. Published linked articles are also available from their objects. A common guide can cover several records without needing a separate copy for each asset.
 
 | Material | Where it helps |
 | --- | --- |
@@ -21,19 +21,19 @@ The example above links **Asset review and delivery** to Survey Drone. An artist
 
 ## Read, search and navigate
 
-Sections and articles form a compact tree. Search covers titles, summaries and article text. The reader supplies a heading outline, estimated reading time, author and creation/update dates. Open a section to browse its contents, or follow a linked object back into production.
+A newcomer can work through a whole section; someone returning to a familiar rule can search by title, summary or body text. Long articles have a heading outline to help readers jump to the relevant part. The author, creation/update dates and estimated reading time accompany the article.
 
-Authors can move pages between sections and reorder the tree. Organization changes have explicit save and discard actions, so the shared catalog is updated deliberately.
+As the handbook grows, authors can move articles between sections and change their order. Arrange the tree first, then save it or discard the changes. Readers see the saved organization.
 
 ## Write visually. Keep ordinary Markdown.
 
 ![TACTIC Handler article editor: formatting tools and Visual / Markdown modes](../assets/product-tour/knowledge-editor.png)
 
-Start with a title and summary, then write the body. **Visual** provides formatting controls; **Markdown** edits the same document directly. Headings, emphasis, lists, links, images, quotes, tables and code blocks turn a procedure into readable documentation. There is one Markdown source behind both editing modes.
+Some authors prefer to select text and use formatting buttons; others are quicker with Markdown. **Visual** and **Markdown** edit the same document, so both approaches work. Headings, lists, tables, quotes, images, links and code blocks give a procedure the structure it needs.
 
 ![The same article in Handler's Markdown editor](../assets/product-tour/knowledge-markdown.png)
 
-Attach reference files and media to the article, insert an image or file link into the text, and copy a permanent attachment URL when needed. The library belongs to the article and uses the project's publication storage. Object links add production context without copying the object into the document.
+An instruction often needs an example: a scene, an image or a supporting file. Upload it to the article’s library, insert it into the text or copy its permanent link. Files use the project’s publication storage. A linked asset remains a separate object you can return to from the article.
 
 ## From a draft to a shared reference
 
@@ -42,7 +42,7 @@ Attach reference files and media to the article, insert an image or file link in
 3. Continue locally or **Save as draft** to keep an unpublished server copy owned by the author.
 4. **Publish** when readers should see it; use **Save** to update an existing publication.
 
-Local checkpoints retain unfinished edits when navigating between articles. Server drafts are private to their author; published pages remain subject to project and record access rules. Saving checks the server revision and reports a concurrent edit instead of silently overwriting it.
+You do not have to finish an article in one sitting. Local checkpoints keep unfinished text while you move between articles; **Save as draft** stores a private copy on the server. Published pages are visible to readers with the required access. If another author has changed the article in the meantime, saving reports a revision conflict.
 
 Handler keeps local article checkpoints in its own application profile. A local checkpoint and a saved server draft serve different purposes: the first recovers work on this machine; the second stores an unpublished article on the project server.
 
@@ -50,7 +50,7 @@ Handler keeps local article checkpoints in its own application profile. A local 
 
 ![TACTIC Handler: reading an earlier revision with the historical-preview banner](../assets/product-tour/knowledge-history.png)
 
-**Change history** shows native transaction events, their authors, dates and changed fields. Select an earlier revision to preview its title, summary and body, then return to the current article. This is a historical preview; opening it does not restore or republish that version.
+When requirements change, **Change history** lets you read the earlier wording. The list shows authors, dates and changed fields from native transactions. Open a revision to inspect its title, summary and body, then return to the current article. Reading an older version does not restore or republish it.
 
 ## Set it up once, use it across the project
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.418 - 2026-11-10
+
+- Rewrite the English/Russian product presentations around everyday studio work and the reasons behind the tools; restore the original application logo in the README masthead and derive its colors from that identity.
+
 ## 0.6.0.417 - 2026-11-10
 
 - Rebuild the English/Russian GitHub front pages with a product wordmark, early setup instructions, full-width feature screenshots and a structured guide to configuration and extension.

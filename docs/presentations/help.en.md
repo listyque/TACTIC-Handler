@@ -1,16 +1,16 @@
 # Built-in Help
 
-**Find the next step without leaving the workspace.**
+**A guide to the tool you are using, available while you work.**
 
 [TACTIC Handler](../../README.md) · [Русский](help.ru.md) · [Knowledge Base](knowledge-base.en.md) · [Full feature tour](product-tour.en.md)
 
-Help puts the application's instructions beside the work: how a panel behaves, what a setting changes, and how to complete a workflow. Open it from the application menu, or use a window's Help action to go straight to the relevant topic.
+What happens after check-in? Where do you change a naming rule? How do you bring a panel back? These questions come up while you are working. Open Help from the main menu, or use a tool’s Help action to go straight to its article.
 
 ![TACTIC Handler Help: topic catalog, article search and the Knowledge Base guide](../assets/product-tour/help.png)
 
 ## Start with the screen you are using
 
-A question about check-in should lead to check-in instructions. Contextual Help actions select an article for the current tool; the topic catalog remains available for exploring the wider workflow. Configuration, administration, search, publishing, scripting and workspace panels have their own explanations.
+Start with the immediate task, such as understanding the publication queue, then follow the article’s links to the surrounding workflow. The catalog gives you the bigger picture; search finds explanations by words in their titles or text. Search, configuration, administration, scripting and workspace panels have their own topics.
 
 | When you need to… | Help provides… |
 | --- | --- |
@@ -24,7 +24,7 @@ A question about check-in should lead to check-in instructions. Contextual Help 
 
 Handler ships its Help articles as local Markdown files and displays them in a native Qt reader. Reading these bundled instructions does not require a server connection. You can also open the current source file externally or reload the catalog.
 
-Help is the product's reference library. The **Knowledge Base** is where the team writes its own production handbook: onboarding, naming rules, delivery checklists and technical decisions, linked to actual project objects.
+Help explains application behavior: what a command does and how to use a tool. The team’s own agreements—such as which views to include in a review—belong in **Knowledge Base**. That keeps product instructions and project requirements in places where people can find them.
 
 [Explore the Knowledge Base →](knowledge-base.en.md)
 

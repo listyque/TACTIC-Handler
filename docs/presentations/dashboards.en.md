@@ -1,12 +1,12 @@
 # Custom dashboards
 
-**A project page designed around the work your team actually does.**
+**A useful place for your team to start work.**
 
 [TACTIC Handler](../../README.md) · [Русский](dashboards.ru.md) · [Project assistant](assistant.en.md)
 
 The overview and editor below run in **native Qt Quick in Handler**, connected to Stream. The Asset desk example is shown in Stream's browser. Saved page definitions belong to the server.
 
-A dashboard combines information and action: a supervisor's production overview, an artist's asset desk or a review page with selected-object details. It lives in normal project navigation and uses the same records and permissions as the rest of the application.
+A supervisor and an artist ask different questions of the same data. One needs workload and delays; the other needs an asset and its review notes. Build a page for each by choosing the figures, objects and actions they need. It appears in ordinary project navigation and uses the project’s records and permissions.
 
 ![Production overview with four metrics, grouped reports, a status chart and an asset navigator](../assets/product-tour/dashboard-overview.png)
 
@@ -14,21 +14,21 @@ A dashboard combines information and action: a supervisor's production overview,
 
 ## One page for the production overview
 
-The example brings together **6 assets, 18 tasks, 6 in progress and 2 complete**. The status chart shows the distribution; grouped reports show work by process and planned hours by artist. Item View beneath them gives the overview an entrance into actual production objects.
+This page gives a supervisor a view of the current work: **6 assets and 18 tasks, with 6 in progress and 2 complete**. The chart breaks down statuses; reports show processes and planned hours by artist. Item View sits below them, so the overview leads into individual assets.
 
-Those numbers are data bindings, not manually typed labels. Change the underlying tasks and refresh the page to obtain a new report. Filtered metrics and aggregates retain the current user's data access.
+The figures are calculated from project records. When tasks change, refreshing the page updates the report. Metrics and aggregates respect the current user’s access to the underlying data.
 
 ## Another page for working with an asset
 
-The **Asset desk** starts with the same records but organizes them differently: an object navigator on the left and a selection-driven detail area on the right. Pick an asset, inspect its preview and description, then open native details, editing or notes.
+An artist may find the **Asset desk** more useful: objects on the left and details of the selection on the right. Inspect the preview and description, then open editing or notes. It uses the same records as the production overview, with a different focus for the page.
 
 ![Asset desk with Item View, selected-object information and native actions](../assets/product-tour/dashboard-desk.png)
 
-The details region follows the selected identity. Its buttons act on that record through existing operations; the page does not reconstruct an object from a visible label. Type-specific detail groups allow a mixed object tree to show the appropriate content for its selection.
+Select another object and the detail area follows it; the buttons act on that exact record. A tree containing several object types can use a different group of details for each type.
 
 ## Compose the page in the visual editor
 
-**Administration → Page layouts** combines the block tree, a preview using project data and the selected block's properties. Add and arrange blocks, tune size and spacing, inspect the page at another viewport width and use a clean preview before saving. Undo/redo, snapping and alignment tools support iterative layout work. The XML view exposes the saved definition for technical authors.
+Build the page in **Administration → Page layouts**. The block tree sits alongside a preview using project data and the selected block’s properties. Move things around, try sizes and spacing, undo a change and check a narrower window. Snapping and alignment help with placement; the XML view exposes the saved definition.
 
 ![Page layouts editor with block structure, production-data preview and properties](../assets/product-tour/dashboard-editor.png)
 
@@ -49,9 +49,9 @@ Header, content and footer regions establish a page hierarchy. Width/height rule
 
 ## Connect the blocks to real data
 
-Choose the Search Type, supported fields, filters and view for each data block. Reports can group by up to three fields and compute supported aggregates. Shared page filters map a common condition to participating blocks, so a project-wide selection can affect several reports without rewriting their definitions.
+Each data block needs a source: its Search Type, fields, filters and view. Several reports can use a shared page filter so they change together. Grouping supports up to three fields and the available aggregate calculations.
 
-An embedded table reuses a configured table view. Item View reuses an item layout. The page editor can take an author to those editors and return to the page; the studio maintains reusable definitions rather than a separate copy of every component's settings.
+If the project already has a useful table or object card, reuse it on the page: Table takes a configured table view, and Item View takes an item layout. Open their settings from the page editor and return when done. The object keeps its familiar presentation on the dashboard.
 
 There is currently **one Items workspace per dashboard**. Use it as the selection source for the page's details. Multiple metrics, reports and tables can accompany it. Reports read data; forms and native action blocks provide explicit write operations where permitted.
 
@@ -67,7 +67,7 @@ The saved page uses native `config/widget_config` definitions, sidebar configura
 
 ## Visual editing and assistant authoring use the same page
 
-Ask the [project assistant](assistant.en.md) to prepare a layout from supported blocks, then inspect its preview and open the saved result in the visual editor. An assistant-created page remains editable project configuration; it is not a generated screenshot or a separate application.
+Ask the [project assistant](assistant.en.md) to prepare a layout from supported blocks, then inspect its preview and open the saved result in the visual editor. An assistant-created page remains editable project configuration.
 
 For example: “Create a production overview with task counts by status, planned hours by assignee and an asset navigator. Use existing project records.” The request still needs the corresponding project permissions and enabled change tools.
 
