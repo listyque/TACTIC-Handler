@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.420 - 2026-11-10
+
+- Edit the English/Russian product presentations for direct descriptions, concise headings and captions; remove repetitive promotional framing and update section links.
+
 ## 0.6.0.419 - 2026-11-10
 
 - Rewrite English/Russian presentation headings around concrete studio tasks and update navigation links to their new Markdown anchors.

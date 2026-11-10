@@ -1,22 +1,22 @@
 # ![TACTIC Handler](docs/assets/readme/wordmark.svg)
 
-**A desktop workspace for the assets, tasks and files you work with every day.**
+**Desktop client for TACTIC and TACTIC Stream.**
 
-[Русский](README.ru.md) · **[Get started](#connect-handler-to-your-project)** · [Feature tour](docs/presentations/product-tour.en.md) · [Maya integration](docs/presentations/maya.en.md) · [Documentation](docs/index.md)
+[Русский](README.ru.md) · **[Get started](#installation-and-connection)** · [Feature tour](docs/presentations/product-tour.en.md) · [Maya integration](docs/presentations/maya.en.md) · [Documentation](docs/index.md)
 
-Picking up an asset means finding the scene, reading the review notes and understanding what the next department needs. Handler brings those pieces together around the asset itself. Follow its record to a published version, open it in Maya, then hand back a new version when the work is done. Handler connects to TACTIC Stream and compatible original TACTIC installations.
+Handler lets you find an asset, read its tasks and review notes, open a published scene in Maya and check in a new version. It works with local files and repositories while the server stores project records. It connects to TACTIC Stream and compatible original TACTIC installations.
 
 ![Standard Item View: Survey Drone, production processes and published versions](docs/assets/product-tour/item-view-standard.png)
 
-> **Development prototype.** Handler is under active development. The Perforce-like File Workspace is also a prototype.
+> **Development prototype**, including the Perforce-like File Workspace.
 
-## The asset, its tasks and its files
+## Item View
 
-Standard Item View expands an asset into its processes, tasks and published versions. You can see what has been done and decide which file to work from. Cards help you find things visually; tables are useful for reading and editing fields. Each view works with the same records.
+Item View is Handler’s main view. Expand an object to see its processes, tasks and publications, with file versions directly in the search results. Cards provide a visual view; tables support editing fields across many records.
 
-Artists, supervisors and technical staff need different things on screen. Panels can be rearranged, stacked into tabs and saved as layouts, while recurring actions can become script-shelf buttons.
+Tasks, notes and file previews can sit beside the results. Save the arrangement as a layout and put project scripts on a personal or shared shelf.
 
-## Connect Handler to your project
+## Installation and connection
 
 For a Windows source checkout, use Python 3.14 and a running TACTIC Stream or compatible TACTIC server:
 
@@ -28,87 +28,87 @@ py -3.14 -m venv .venv
 
 Open **Configuration → Server**, connect and sign in. Select a project, then configure repository mappings before working with files.
 
-[Installation and first connection](docs/handbook.en.md#installation) · [Maya setup](docs/presentations/maya.en.md#install-the-connector-and-connect-maya) · [Original TACTIC compatibility](docs/tactic_compatibility/README.md)
+[Installation and first connection](docs/handbook.en.md#installation) · [Maya setup](docs/presentations/maya.en.md#connector-installation) · [Original TACTIC compatibility](docs/tactic_compatibility/README.md)
 
-## Working in Handler
+## Handler tools
 
-### Keep the tools you need in view
+### Docks and workspace layouts
 
-A review needs a large preview and its notes. Planning needs objects and tasks side by side. Docks let you build either workspace from the same panels: split the window, stack tools into tabs or move some onto another monitor. Sidebar Editor gives a department a useful starting point with its own search, page and layout.
+Docks divide the window into panels that can be rearranged, stacked into tabs or moved to a second monitor. Save a review or planning layout and assign it to a sidebar entry, along with the search and view the department needs.
 
 ![Dock workspace: project objects, tasks and publication previews together](docs/assets/product-tour/docks-planning.png)
 
-[Docks and saved layouts →](docs/presentations/product-tour.en.md#docks-for-review-planning-and-publishing) · [Sidebar Editor →](docs/presentations/product-tour.en.md#sidebar-editor-a-starting-screen-for-each-department)
+[Docks and saved layouts →](docs/presentations/product-tour.en.md#docks-and-layouts) · [Sidebar Editor →](docs/presentations/product-tour.en.md#sidebar-editor)
 
-### Tasks, dates and review decisions
+### Tasks and scheduling
 
-An artist starts the day with assigned tasks; a supervisor looks for the next handoff. Task Manager supports both views, and Gantt puts the work on a timeline. Review feedback stays in the object’s Notes, day-to-day coordination happens in Messages, and Workflow defines how production stages connect.
+Task Manager shows personal assignments, a department’s work or the whole project. Gantt lets you edit dates and progress and see overlapping assignments. Object feedback stays in Notes, team conversations in Messages. Workflow defines the transitions between production stages.
 
 ![Gantt: production stages, assignees and dates](docs/assets/product-tour/gantt.png)
 
-[Tasks and Gantt →](docs/presentations/product-tour.en.md#assign-the-work-and-keep-track-of-dates) · [Workflow →](docs/presentations/product-tour.en.md#workflow-what-runs-when-a-stage-is-complete) · [Notes and Messages →](docs/presentations/product-tour.en.md#messages-and-notes-discuss-the-work-and-keep-decisions)
+[Tasks and Gantt →](docs/presentations/product-tour.en.md#planning) · [Workflow →](docs/presentations/product-tour.en.md#workflow-graph-and-execution) · [Notes and Messages →](docs/presentations/product-tour.en.md#messages-and-notes)
 
-### Publish a version you can find again
+### Check-in, versions and synchronization
 
-Before handing over a file, you should be able to see its name, destination and version. Drop Plate and Commit Queue take you through that preparation. The resulting snapshot connects the file to its object and process, while Repository Sync brings the required versions onto your machine. Naming Editor is where the studio defines those names and paths.
+Add files through Drop Plate, then review the version, description and resolved path in Commit Queue. Check-in saves a snapshot against the object. Repository Sync downloads selected versions to a local repository; Naming Editor defines the file and directory rules.
 
 ![Commit Queue: a prepared publication with its version and resolved destination](docs/assets/product-tour/commit-queue.png)
 
-[Check-in, check-out, naming and Repository Sync →](docs/presentations/product-tour.en.md#check-in-and-check-out-hand-files-to-the-next-person)
+[Check-in, check-out, naming and Repository Sync →](docs/presentations/product-tour.en.md#check-in-and-check-out)
 
-### Open a scene in Maya and publish the result
+### Maya and script shelves
 
-Once you have found the right publication, the plugin can open it in the selected Maya session, import it or create a reference. The return trip stays connected too: Maya prepares the current scene, then Handler continues check-in, transfers the files and records the publication.
+The plugin opens, imports or references a file in the selected Maya session. To publish, Maya saves the scene and Handler performs check-in: transferring the files and recording the publication on the server.
 
 ![Native Maya shelf created by the Handler connector](docs/assets/product-tour/maya-shelf-strip.png)
 
-Small studio tools tend to become part of everyday work. Put a saved script on a personal or shared shelf, give it a clear label and icon, or assign it to a project tab. The editor can also create or update that shelf in connected Maya.
+Script Shelf holds saved scripts with labels, icons and tooltips. Shelves can be personal, shared or assigned to a project tab. The editor can export a shelf to Maya and update it there when the tools change.
 
 ![Script Shelf editor: saved project tools, icons and button order](docs/assets/product-tour/shelf-editor.png)
 
 [Maya plugin, shelves and scene workflow →](docs/presentations/maya.en.md)
 
-### Make sense of the project with an assistant
+### Project assistant
 
-“Can this asset go to the next department?” Answering that means reading tasks, notes and publications together. The assistant can inspect those records for the selected object and show the work behind its answer. In the example below, it noticed that modeling was marked complete even though no model had been published.
+Ask the assistant to read an asset’s tasks, notes and publications and prepare a report. The screenshot shows that request for Survey Drone. Modeling is marked complete, but there is no published model file; the assistant called out the missing delivery.
 
 ![Project assistant working with assets, tasks and published versions](docs/assets/product-tour/assistant.png)
 
 [Assistant: providers, tools and capabilities →](docs/presentations/assistant.en.md)
 
-### A dashboard for your department
+### Custom dashboards
 
-A supervisor needs workload and status; a reviewer needs a list of assets and the details of the selected one. Dashboard Editor lets you build either page from project data. Put Item View and actions beside the figures so a useful overview also gives you somewhere to go next.
+Dashboard Editor builds pages from metrics, charts, Item View and object actions. The example below shows workload and project statuses. Pages open from the sidebar and can be configured for each department.
 
 ![Custom dashboard: project metrics, workload and visual assets](docs/assets/product-tour/dashboard-overview.png)
 
 [Custom dashboards and visual authoring →](docs/presentations/dashboards.en.md)
 
-### Keep the team’s knowledge in the project
+### Help and Knowledge Base
 
-Delivery requirements are easy to explain repeatedly and hard to keep consistent. Write them once in Knowledge Base, attach examples and link the article to the relevant assets or shots. Readers get a searchable handbook; authors get Visual / Markdown editing, drafts and article history.
+Knowledge Base stores studio instructions: delivery requirements, onboarding material and technical notes. Articles can link to assets and shots, contain attachments and be found through search. Authors have Visual / Markdown editing, drafts and revision history.
 
 ![Knowledge Base: delivery guide linked to Survey Drone](docs/assets/product-tour/knowledge-base.png)
 
 [Knowledge Base: reading, editing and publishing →](docs/presentations/knowledge-base.en.md)
 
-For questions about the application itself, use built-in Help. A tool’s Help action opens the relevant topic, and search finds articles by their text. Read in English or Russian, or save a Markdown copy to keep nearby.
+Built-in Help opens from working tools and the main menu. It covers commands, settings and procedures in English and Russian, with full-text search and Markdown export.
 
 ![Built-in Help: searchable topics and a contextual article](docs/assets/product-tour/help.png)
 
 [Explore built-in Help →](docs/presentations/help.en.md)
 
-## Configure the project and add your own tools
+## Configuration and APIs
 
 | Area | Explore |
 | --- | --- |
-| **Project authoring** | [Schema and administration](docs/presentations/product-tour.en.md#administration-define-your-projects-objects-and-relationships), [users and access](docs/presentations/product-tour.en.md#bring-people-into-the-project-and-set-their-access), [configuration](docs/presentations/product-tour.en.md#configuration-server-repositories-and-personal-settings). |
-| **Context and activity** | [Object overview](docs/presentations/product-tour.en.md#the-work-and-history-behind-an-asset) and [server history](docs/presentations/product-tour.en.md#activity-feed-who-changed-what-in-the-project). |
-| **Automation** | [Script Editor and runtimes](docs/presentations/product-tour.en.md#script-editor-turn-a-script-into-a-team-tool), [Python API](docs/handler_api.md), [DCC API](docs/dcc_api.md). |
-| **Interface development** | [Tactic Frame](docs/presentations/product-tour.en.md#tactic-frame-a-shared-ui-language-for-handler-and-stream): shared descriptions rendered by native Qt Quick and Vue. |
+| **Project authoring** | [Schema and administration](docs/presentations/product-tour.en.md#project-administration), [users and access](docs/presentations/product-tour.en.md#users-and-permissions), [configuration](docs/presentations/product-tour.en.md#configuration). |
+| **Context and activity** | [Object overview](docs/presentations/product-tour.en.md#object-overview) and [server history](docs/presentations/product-tour.en.md#activity-feed-and-project-history). |
+| **Automation** | [Script Editor and runtimes](docs/presentations/product-tour.en.md#script-editor-and-automation), [Python API](docs/handler_api.md), [DCC API](docs/dcc_api.md). |
+| **Interface development** | [Tactic Frame](docs/presentations/product-tour.en.md#tactic-frame): shared descriptions rendered by native Qt Quick and Vue. |
 
 **[Full product tour →](docs/presentations/product-tour.en.md)** · [All documentation](docs/index.md)
 
-The modern tools shown here run against TACTIC Stream; consult the compatibility map for an original TACTIC deployment. Screenshots are current application captures on isolated Orbit Studio data; records and artwork are illustrative.
+Project editors, dashboards and the assistant are shown here with a TACTIC Stream server. Use the compatibility map for original TACTIC. Screenshots were captured in the current application using the Orbit Studio demonstration project.
 
 Built on the [Southpaw TACTIC](https://github.com/Southpaw-TACTIC/TACTIC) ecosystem. [Eclipse Public License 1.0](LICENSE).

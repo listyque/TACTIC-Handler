@@ -1,20 +1,18 @@
-# An assistant that can read your project
-
-**A way to work through what is happening in your project.**
+# Project assistant
 
 [TACTIC Handler](../../README.md) · [Русский](assistant.ru.md) · [Custom dashboards](dashboards.en.md)
 
-Before a review, you want to know what is ready and what is still missing. The assistant can read related tasks, notes and publications and explain the picture they form. The conversation opens in Handler; **TACTIC Stream** stores its history and handles project operations. A selected Handler computer can also run the model requests.
+The assistant reads project records, answers questions and prepares changes. Conversations open in Handler; **TACTIC Stream** stores their context and history and handles project operations. A Handler computer can also serve as the executor.
 
-The window is called **External agent**. The conversation lives inside the application, while a separate executor runs the model and its tools on the selected machine. Setup currently requires an administrator account, a provider and a connected executor.
+The window is called **External agent**. It requires an administrator account, an AI provider profile and a connected executor. The executor runs model requests and tools on the selected machine.
 
-![Actual assistant response: Survey Drone production handoff](../assets/product-tour/assistant.png)
+![Assistant report on Survey Drone](../assets/product-tour/assistant.png)
 
-*A real completed read-only request in the disposable Orbit Studio project. The model read tasks, notes and publication history; the response was not written into the screenshot.*
+*Survey Drone in the Orbit Studio demonstration project. This request made no changes to project data.*
 
-## Survey Drone: the task is done, but the model is missing
+## Example: Survey Drone report
 
-For this demonstration, we selected Survey Drone and asked the assistant to **read its tasks, assignees, planned dates, notes and published versions, then describe its state and next actions without changing the project**. Here is what those records established.
+The request was to **read Survey Drone’s tasks, assignees, planned dates, notes and publications, then describe its state and next actions without changing the project**.
 
 | Evidence in the project | What the assistant reported |
 | --- | --- |
@@ -24,13 +22,13 @@ For this demonstration, we selected Survey Drone and asked the assistant to **re
 | No model or rig publication | A completed modeling task is not proof that the model was delivered. |
 | Notes approve the silhouette but request clearance checks | The comments do not prove those checks passed or that v002 was approved. |
 
-This is an easy distinction to miss during a handoff. A task status describes progress; a published file tells the next person what they can actually pick up. The assistant brought both parts together and pointed out where the records still left a question unanswered.
+The report distinguishes the completed task from the missing model publication. It also avoids treating the reviewer’s notes as approval of the latest version.
 
 ![The same conversation's operation details in the Stream browser](../assets/product-tour/assistant-tools.png)
 
-## Work you can ask the assistant to do
+## Available tools
 
-Beyond answering questions, the assistant can help prepare tasks, records or a project page. Available actions depend on the session’s tools, the account’s permissions, the chosen project and whether changes are enabled.
+The assistant uses the tools listed below. Available operations depend on the project, user permissions and whether changes are enabled.
 
 | Area | Example request | Available work |
 | --- | --- | --- |
@@ -43,17 +41,17 @@ Beyond answering questions, the assistant can help prepare tasks, records or a p
 | Files | “Attach these references to this object's review context.” | Upload attachments through native check-in, inspect history and prepare supported downloads. |
 | Scripts | “Draft a tool to validate this naming setup.” | Prepare an inactive script draft, inspect it and use the separate trial/activation flow. |
 
-The table describes implemented tools and examples of how to ask for them. The Survey Drone report is the scenario run for this presentation; the other capabilities follow the current implementation contracts. A complex request may need clarification or a review of the proposed result.
+The screenshots cover the Survey Drone report. The other examples describe requests supported by the tools; they were not part of this demonstration run.
 
-## One conversation about the selected project and objects
+## Conversation context
 
-Before the first message, check the captured **project, page, Search Type, view and objects**. That first request fixes the conversation’s scope. You can then look at another asset without redirecting work already under way. Start a new conversation when you want to change that scope.
+The first message captures the **project, page, Search Type, view and selected objects** for the conversation. Later selections in the workspace do not change that context. Start a new conversation for another project or set of objects.
 
-Continue the conversation, add guidance to a running request or cancel further work. Operation details show what has already happened. Closing the window does not stop a request; after a disconnect, an action with an uncertain result is not automatically repeated. History, drafts and project filters help you return to the right conversation.
+History, drafts and project filters let you return to a conversation. During execution you can add guidance or cancel further actions. Closing the window does not stop the request. An operation with an unknown result after an executor disconnect is not retried automatically.
 
-Project rules add studio instructions to subsequent turns. They guide behavior within the existing permissions; they cannot grant access to another project or enable a missing operation.
+Project rules supply studio instructions for subsequent messages. They leave permissions and available tools unchanged.
 
-## From a question to an authorized change
+## Changes and cancellation
 
 ```mermaid
 flowchart LR
@@ -64,15 +62,15 @@ flowchart LR
     Check --> Apply["Apply through\nnative commands"]
 ```
 
-Start by reading and asking questions. Writing requires a separate **Allow changes** choice. Operations still go through native commands, with permission and data checks and, for supported edits, source-revision checks. A record changed by someone else cannot simply be overwritten with the earlier state.
+Writing requires **Allow changes**. Commands check permissions and data; operations with revision checks also detect changes made after the record was read.
 
-Cancel stops the next actions; changes already saved remain in place. Undo covers supported field edits and first checks that the current values still match what that operation wrote. It does not provide a general rollback of files, workflow changes or arbitrary scripts.
+Cancel stops further actions. Changes already saved remain. Undo covers supported field edits when current values still match the operation’s result. There is no general rollback for files, workflows or arbitrary scripts.
 
-### Check a generated script before running it
+### Script review and trials
 
-A generated script starts inactive. Review its source, run the supported trial flow in verified isolation, inspect the result, then explicitly activate the exact reviewed version. The script's execution permission is checked separately. A database rollback or subprocess alone is not an execution sandbox, and a trial is not proof that arbitrary production data will be handled correctly.
+A script starts inactive. Review its source, run a trial in verified isolation and inspect the result before activation. The reviewed version is activated, with execution permission checked separately. Transaction rollback and a separate subprocess do not provide isolation on their own.
 
-## Choose a model and connect an executor
+## Models and executors
 
 ![AI provider configuration in the Stream browser interface](../assets/product-tour/assistant-providers.png)
 
@@ -84,24 +82,22 @@ A generated script starts inactive. Review its source, run the supported trial f
 | Anthropic | Provider profile and available models. |
 | Gemini | Provider profile and available models. |
 
-The model list comes from the configured provider, so reasoning controls, image support, tools and web search can differ. Checking a profile or loading the model list does not send project data. Sending a message does send the conversation context to the selected provider.
+The model list is requested from the configured provider. Images, reasoning controls, tools and web search depend on the adapter and model. Checking the profile and model list does not send project data. Sending a message sends the conversation context to the provider.
 
-Choose a connected **Handler computer** or the **TACTIC server** as executor and connect it explicitly. The selection determines where provider sign-in and local endpoint addresses are resolved. Sending a prompt does not silently start a different executor or fall back to another machine. Provider secrets are protected by the server's encrypted storage; they are not plain-text Handler preferences.
+The executor can be a **Handler computer** or the **TACTIC server**. Connect it explicitly; provider credentials and local service addresses are used on that machine. There is no automatic fallback to another executor. Secrets are encrypted in server storage.
 
-## Attach files and enable web search
+## Attachments and web access
 
-Attach files or paste an image into the conversation. The current limits are 20 attachments and 64 MB per file; model image input has a separate 20 MB limit. A file can be available for native check-in without the model being able to decode its contents.
+A conversation accepts up to 20 attachments of 64 MB each. Images sent to the model have a separate 20 MB limit. A file available for check-in may still have a format the model cannot read.
 
-Web access is a separate opt-in for a new conversation. Supported downloads use public HTTPS sources and retain source/hash information; private-network fetching is excluded. Web search is available through supported Codex, OpenAI and Anthropic adapters, while other adapters have different capabilities. Retrieved pages and file content are evidence to inspect, not instructions that override project permissions.
+Enable web access when creating the conversation. Downloads use public HTTPS and retain the source and hash; private networks are blocked. Codex, OpenAI and Anthropic adapters support web search. Text in retrieved pages and attachments cannot change the conversation’s permissions.
 
-## Connect an external assistant through MCP
+## MCP access
 
-External administrator clients can also connect through the implemented MCP interface. Access is scoped to project and tool permissions, with revocation and expiration. This does not give a model an unrestricted terminal, the application source tree or control over unrelated desktop applications.
-
-A useful first step is a small question about a selected object, followed by comparing the answer with its tasks and publications. Operation details show what the assistant read or did. Once that is familiar, you can move on to preparing changes with the tools available to the session.
+MCP connects external administrator clients to the same project tools. Access is limited to a project and a set of operations, expires and can be revoked. This interface does not expose a terminal, application source or control over unrelated programs.
 
 **[Continue with custom dashboards →](dashboards.en.md)** · [External agent Help](../../thlib/ui/help_articles/external_agent.en.md)
 
 [Product Help](../../thlib/ui/help_articles/external_agent.en.md) · [Frame contracts](../frame/index.md)
 
-> This assistant is part of the development prototype. Provider availability and model behavior vary; review consequential changes and validate studio-specific automation.
+> The assistant is part of the prototype. Review model answers and proposed changes.

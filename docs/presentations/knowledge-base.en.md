@@ -1,16 +1,14 @@
-# Your studio’s Knowledge Base
-
-**Give recurring production questions a useful, lasting answer.**
+# Project Knowledge Base
 
 [TACTIC Handler](../../README.md) · [Русский](knowledge-base.ru.md) · [Built-in Help](help.en.md) · [Full feature tour](product-tour.en.md)
 
-A team collects useful knowledge: how to hand over a scene, what to include in a review, why a technical decision was made. Knowledge Base gives that material a home in the project. Open an article beside Item View, link it to an object and send a colleague the link.
+Knowledge Base stores project articles: instructions, technical notes and delivery requirements. Articles have permanent links, attachments and links to project objects. Its panel can sit beside Item View.
 
 ![TACTIC Handler: project handbook, linked Survey Drone asset and article outline](../assets/product-tour/knowledge-base.png)
 
-## Link delivery requirements to an asset
+## Links to project objects
 
-Survey Drone has an **Asset review and delivery** guide in the example above. An artist can read it beside the asset, check the delivery requirements and share the same article in Notes or Messages. Published linked articles are also available from their objects. A common guide can cover several records without needing a separate copy for each asset.
+Survey Drone is linked to the **Asset review and delivery** article. It opens from the object, and its link can be shared in Notes or Messages. One guide can be linked to several assets or shots.
 
 | Material | Where it helps |
 | --- | --- |
@@ -19,45 +17,45 @@ Survey Drone has an **Asset review and delivery** guide in the example above. An
 | Department handbook | Nested sections for modeling, look development, rigging and review. |
 | Technical notes | Code examples, supporting files and decisions that remain easy to find. |
 
-## Find a rule or read the whole section
+## Sections and search
 
-A newcomer can work through a whole section; someone returning to a familiar rule can search by title, summary or body text. Long articles have a heading outline to help readers jump to the relevant part. The author, creation/update dates and estimated reading time accompany the article.
+Articles are organized in a section tree. Search covers titles, summaries and body text; an outline links to headings within an article. Each article shows its author, creation and update dates, and estimated reading time.
 
-As the handbook grows, authors can move articles between sections and change their order. Arrange the tree first, then save it or discard the changes. Readers see the saved organization.
+Move articles between sections or change their order. Readers see the new structure after it is saved; before that, the changes can be discarded.
 
-## One article, two editors: Visual and Markdown
+## Visual and Markdown
 
 ![TACTIC Handler article editor: formatting tools and Visual / Markdown modes](../assets/product-tour/knowledge-editor.png)
 
-Some authors prefer to select text and use formatting buttons; others are quicker with Markdown. **Visual** and **Markdown** edit the same document, so both approaches work. Headings, lists, tables, quotes, images, links and code blocks give a procedure the structure it needs.
+**Visual** mode formats text using editor controls. **Markdown** opens the same article’s source. Both support headings, lists, tables, quotes, images, links and code blocks.
 
 ![The same article in Handler's Markdown editor](../assets/product-tour/knowledge-markdown.png)
 
-An instruction often needs an example: a scene, an image or a supporting file. Upload it to the article’s library, insert it into the text or copy its permanent link. Files use the project’s publication storage. A linked asset remains a separate object you can return to from the article.
+Files upload to the article’s library and use the publication system for storage. Insert them in the text or share a permanent link. Asset links return to the project objects themselves.
 
-## Keep writing in a draft, then publish for the team
+## Drafts and publication
 
 1. Create an article in the appropriate section and add the instructions.
 2. Link the relevant objects and upload supporting files.
 3. Continue locally or **Save as draft** to keep an unpublished server copy owned by the author.
 4. **Publish** when readers should see it; use **Save** to update an existing publication.
 
-You do not have to finish an article in one sitting. Local checkpoints keep unfinished text while you move between articles; **Save as draft** stores a private copy on the server. Published pages are visible to readers with the required access. If another author has changed the article in the meantime, saving reports a revision conflict.
+Unfinished text is kept locally while switching articles. **Save as draft** stores a private server draft; publication makes it available to readers with access. Concurrent edits by another author are reported as a revision conflict when saving.
 
-Handler keeps local article checkpoints in its own application profile. A local checkpoint and a saved server draft serve different purposes: the first recovers work on this machine; the second stores an unpublished article on the project server.
+Local checkpoints are stored in the Handler profile on this computer. Server drafts are stored in the project.
 
-## Read an earlier version of the article
+## Revision history
 
 ![TACTIC Handler: reading an earlier revision with the historical-preview banner](../assets/product-tour/knowledge-history.png)
 
-When requirements change, **Change history** lets you read the earlier wording. The list shows authors, dates and changed fields from native transactions. Open a revision to inspect its title, summary and body, then return to the current article. Reading an older version does not restore or republish it.
+**Change history** lists authors, dates and changed fields. Open a revision to read its title, summary and body. Historical viewing does not restore or republish an earlier version.
 
-## Make the Knowledge Base available to the team
+## Setup and permissions
 
-An administrator explicitly initializes Knowledge Base in a project. Administrators and supervisors can author and organize pages, subject to server permissions; authorized readers browse published material. In TACTIC Handler, show the Knowledge Base workspace panel and arrange it with the other docks.
+A project administrator initializes Knowledge Base. Administrators and supervisors write articles and organize sections within their permissions; readers access published material. Open the Knowledge Base panel alongside the other docks.
 
-Use **Help** for the application's instructions and **Knowledge Base** for the team's own knowledge. The two meet naturally: a product guide explains how check-in works; a project article explains what this team expects in a delivery.
+A project article can supplement Help: the check-in guide describes the commands, while a department’s delivery requirements specify which files to submit.
 
-[Complete Knowledge Base guide](../../thlib/ui/help_articles/dock.knowledge.en.md) · [Built-in Help](help.en.md) · [Docks and workspace layouts](product-tour.en.md#docks-for-review-planning-and-publishing)
+[Complete Knowledge Base guide](../../thlib/ui/help_articles/dock.knowledge.en.md) · [Built-in Help](help.en.md) · [Docks and workspace layouts](product-tour.en.md#docks-and-layouts)
 
-*Fresh screenshots from the native Handler application on an isolated Orbit Studio project. The handbook content and assets are illustrative; the reader, editor and history are the actual application.*
+*Orbit Studio handbook in the Handler prototype.*

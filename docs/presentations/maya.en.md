@@ -1,18 +1,16 @@
-# Handler in Maya: scenes and studio tools
-
-**From a published version in the project to a scene you can work on.**
+# Maya plugin and Script Shelf
 
 [TACTIC Handler](../../README.md) · [Русский](maya.ru.md) · [Full feature tour](product-tour.en.md)
 
-The job starts before opening a scene: you need the right object, process and version. Handler helps you find that publication and pass it to Maya. The plugin connects the selected session through the local Handler Server; its shelf provides Handler launch and project tools.
+The Maya plugin runs Handler commands in an open Maya session. It opens, imports and references files and prepares scenes for check-in. The connection uses the local Handler Server.
 
 ![Maya 2023: demonstration blockout and native Orbit Studio shelf created by the TH connector](../assets/product-tour/maya-shelf.png)
 
-*Fresh capture of installed Maya 2023 with a separate profile. The actual connector created the shelf; the geometry is a demonstration blockout. This capture demonstrates shelf creation, not a complete Maya scene-publication acceptance run.*
+*Maya 2023 with the Orbit Studio shelf created by the Handler connector. The scene is a demonstration blockout.*
 
-## Open, import or reference the version you need
+## Open, import and reference
 
-Find the object and publication in standard Item View or Snapshot Browser, then choose how to use the file: open the scene, import its contents or create a reference. Handler resolves the path through the local repository and sends the action to the selected Maya session.
+Select a publication in Item View or Snapshot Browser and choose a file action. Handler resolves the local repository path and sends the command to the selected Maya session.
 
 | Action | Result |
 | --- | --- |
@@ -21,9 +19,9 @@ Find the object and publication in standard Item View or Snapshot Browser, then 
 | **Reference** | Creates a file reference in the current scene. |
 | **Save / check-in preparation** | Maya prepares the scene; Handler continues publication through Commit Queue. |
 
-When several Maya sessions are open, choose the intended one first. The command addresses that client, so you can work with several scenes while knowing where the action will go.
+With several Maya sessions open, select the one that should receive the action.
 
-## Save the scene and hand it over through check-in
+## Scene check-in
 
 1. Select the object and publication context in Handler.
 2. Prepare the scene through connected Maya; choose ASCII or Binary where needed.
@@ -32,11 +30,11 @@ When several Maya sessions are open, choose the intended one first. The command 
 
 Maya owns its native scene operations. TACTIC authentication, naming, repository work, transfers and publication records remain with Handler and the server. Maya Scene settings control the format, project-directory creation, playblast preparation where supported, and focus after native actions.
 
-[Publishing and files](product-tour.en.md#check-in-and-check-out-hand-files-to-the-next-person) · [Maya Scene Help](../../thlib/ui/help_articles/configuration.maya.en.md)
+[Publishing and files](product-tour.en.md#check-in-and-check-out) · [Maya Scene Help](../../thlib/ui/help_articles/configuration.maya.en.md)
 
-## Script Shelf: make studio scripts easy to find
+## Script Shelf
 
-A small script becomes an everyday tool when people can find it and understand what it does. The shelf beside Search gives it a button, label, icon and tooltip. Behind the button is the saved script, working with the project and selection context.
+Script Shelf runs saved scripts from buttons beside Search. Each button has a label, icon and tooltip; the script receives the project and current selection.
 
 ![Standard Item View and the project's shared shelf](../assets/product-tour/item-view-shelf.png)
 
@@ -44,19 +42,19 @@ A **personal shelf** belongs to the signed-in user. A **shared shelf** provides 
 
 ![Shared shelf editor: three saved read-only project scripts](../assets/product-tour/shelf-editor.png)
 
-Develop and save the tool in Script Editor, then add it to the shelf. Users need a clear label and tooltip; the author also chooses where it runs—local Python, the server or a selected DCC session. Those environments have different data and capabilities. The button retains the named script’s access rules.
+Save a script in Script Editor, then add it to the shelf. Choose its execution environment: local Python, the server or a DCC session. The script’s own execution permissions apply.
 
-### Bring the project shelf into Maya
+### Maya shelf
 
 When a connected Maya client advertises `create_script_shelf`, the editor can create or update a native shelf. Enter its name and confirm replacement when it already exists. The first button starts or reveals Handler. The remaining buttons preserve order, labels, tooltips, rendered icons and project-script references. Maya persists the tab through its native shelf mechanism.
 
 ![Native Maya buttons: Handler and Assets, Tasks, Versions tools](../assets/product-tour/maya-shelf-strip.png)
 
-Once exported, the shelf is saved in Maya. Update it through the editor when its buttons or access change. Saving a shelf in Handler does not automatically refresh every connected Maya session.
+An exported shelf is saved in Maya. Update it from Handler’s editor after changing its buttons or permissions.
 
 [Complete Script Shelf Help](../../thlib/ui/help_articles/script_shelf.en.md) · [Script Editor](../../thlib/ui/help_articles/script_editor.en.md)
 
-## Install the connector and connect Maya
+## Connector installation
 
 1. Enable the Maya plugin in **Configuration → DCC plugins**. Restart Handler if the plugin selection changed.
 2. Open **Configuration → Maya Scene → Maya integration** and select **Find Maya**.
@@ -67,4 +65,4 @@ Managed integration supports Windows and Python 3 Maya, starting with Maya 2022.
 
 [Installation and legacy drag-and-drop installer](../../installer/README.md) · [DCC API](../dcc_api.md) · [Connection protocol](../thin_client_protocol.md)
 
-These are Handler desktop capabilities. Stream's browser uses the same server objects and publications; native Handler supplies local Maya access. The product remains a prototype: validate your open, save and check-in workflow on a scene copy before production use.
+Local Maya access is provided by Handler. Stream’s browser uses the same server objects and publications. The integration remains a prototype; check it on a copy of a working scene before using it in a project.

@@ -1,34 +1,32 @@
-# Dashboards for your team
-
-**A useful place for your team to start work.**
+# Project dashboards
 
 [TACTIC Handler](../../README.md) · [Русский](dashboards.ru.md) · [Project assistant](assistant.en.md)
 
 The overview and editor below run in **native Qt Quick in Handler**, connected to Stream. The Asset desk example is shown in Stream's browser. Saved page definitions belong to the server.
 
-A supervisor and an artist ask different questions of the same data. One needs workload and delays; the other needs an asset and its review notes. Build a page for each by choosing the figures, objects and actions they need. It appears in ordinary project navigation and uses the project’s records and permissions.
+A dashboard is a project page containing the reports, objects and actions you choose. Build it in the visual editor and open it from the sidebar. The examples below show a production overview and an asset workspace.
 
 ![Production overview with four metrics, grouped reports, a status chart and an asset navigator](../assets/product-tour/dashboard-overview.png)
 
-*This page is saved in the disposable Orbit Studio project and opened through its regular sidebar. Counts and reports are computed from its records.*
+*Orbit Studio demonstration project. Figures are calculated from its records.*
 
-## For supervisors: workload, statuses and planned hours
+## Production overview
 
-This page gives a supervisor a view of the current work: **6 assets and 18 tasks, with 6 in progress and 2 complete**. The chart breaks down statuses; reports show processes and planned hours by artist. Item View sits below them, so the overview leads into individual assets.
+The project has **6 assets and 18 tasks: 6 in progress and 2 complete**. The chart shows statuses; reports list processes and planned hours by assignee. Item View displays the assets below.
 
-The figures are calculated from project records. When tasks change, refreshing the page updates the report. Metrics and aggregates respect the current user’s access to the underlying data.
+Reports recalculate when the page refreshes and respect the user’s access to records.
 
-## For artists: the asset, its details and review notes
+## Asset desk
 
-An artist may find the **Asset desk** more useful: objects on the left and details of the selection on the right. Inspect the preview and description, then open editing or notes. It uses the same records as the production overview, with a different focus for the page.
+**Asset desk** puts objects on the left and the selected asset’s preview, description and actions on the right. Editing and notes open from here.
 
 ![Asset desk with Item View, selected-object information and native actions](../assets/product-tour/dashboard-desk.png)
 
-Select another object and the detail area follows it; the buttons act on that exact record. A tree containing several object types can use a different group of details for each type.
+Details and actions follow the selection. Different object types in the tree can have separate detail groups.
 
-## Build a page and see the result as you work
+## Visual editor
 
-Build the page in **Administration → Page layouts**. The block tree sits alongside a preview using project data and the selected block’s properties. Move things around, try sizes and spacing, undo a change and check a narrower window. Snapping and alignment help with placement; the XML view exposes the saved definition.
+Open **Administration → Page layouts**. The block tree sits beside a preview using project data and the element’s properties. Rearrange blocks, change sizes and spacing, align and snap them into place. The editor includes undo, width previews and an XML view.
 
 ![Page layouts editor with block structure, production-data preview and properties](../assets/product-tour/dashboard-editor.png)
 
@@ -45,17 +43,17 @@ Build the page in **Administration → Page layouts**. The block tree sits along
 | **Action, button, link** | Native operations and navigation. |
 | **Divider, spacer** | Separation and breathing room without empty data widgets. |
 
-Header, content and footer regions establish a page hierarchy. Width/height rules, minimums and maximums, padding, gaps, fill, border, radius and shadow tune presentation. Theme tokens allow the page to fit the application's appearance.
+The page has header, content and footer regions. Blocks have size limits, spacing, backgrounds, borders, radii and shadows. Colors and other settings can use application theme values.
 
-## Choose records and filters for each block
+## Data sources and filters
 
-Each data block needs a source: its Search Type, fields, filters and view. Several reports can use a shared page filter so they change together. Grouping supports up to three fields and the available aggregate calculations.
+A data source specifies the Search Type, fields, filters and view. Shared page filters can update several reports together. Grouping accepts up to three fields.
 
-If the project already has a useful table or object card, reuse it on the page: Table takes a configured table view, and Item View takes an item layout. Open their settings from the page editor and return when done. The object keeps its familiar presentation on the dashboard.
+Table uses a saved table view; Item View uses an item layout. Their editors open from the block’s settings.
 
-There is currently **one Items workspace per dashboard**. Use it as the selection source for the page's details. Multiple metrics, reports and tables can accompany it. Reports read data; forms and native action blocks provide explicit write operations where permitted.
+A page supports **one Items workspace**, whose selection drives the detail blocks. Several metrics, reports and tables can accompany it. Forms and actions perform writes with permission checks.
 
-## Save the page and open it from the sidebar
+## Saving and navigation
 
 1. Create a page in Page layouts and give it a meaningful name and title.
 2. Establish containers and the primary data source; choose views for object/table blocks.
@@ -63,20 +61,20 @@ There is currently **one Items workspace per dashboard**. Use it as the selectio
 4. Test the preview with real project records, selection and the intended viewport sizes.
 5. Save the definition and open its project navigation entry.
 
-The saved page uses native `config/widget_config` definitions, sidebar configuration and a project URL such as `/projects/orbit/dashboard/production_overview`. Saving checks the source revision. Supported command retries use operation identities and durable receipts to avoid duplicating an uncertain save.
+Pages are stored in `config/widget_config` and open at URLs such as `/projects/orbit/dashboard/production_overview`. Saving checks the source revision to detect concurrent edits.
 
-## Ask the assistant for a first draft
+## Drafting with the assistant
 
-Ask the [project assistant](assistant.en.md) to prepare a layout from supported blocks, then inspect its preview and open the saved result in the visual editor. An assistant-created page remains editable project configuration.
+The assistant can draft a dashboard using the available blocks. The result opens in the same visual editor and remains editable. [project assistant](assistant.en.md)
 
-For example: “Create a production overview with task counts by status, planned hours by assignee and an asset navigator. Use existing project records.” The request still needs the corresponding project permissions and enabled change tools.
+Example request: “Create a production overview with task counts by status, planned hours by assignee and an asset navigator. Use existing project records.” Saving requires project permissions and enabled write operations.
 
-## Open the saved page in Stream and Handler
+## Pages in Stream and Handler
 
-The page document and shared Frame descriptions support **Vue in Stream and Qt Quick in Handler**. Handler renders native controls without embedding HTML. The server owns query permissions, validation and saved definitions; the client owns interaction and selection. Sharing the layout does not merge client and server execution environments.
+The same page definition is used by **Stream in Vue and Handler in Qt Quick**. Handler renders native controls. The server stores definitions and enforces access permissions.
 
-Dashboard authoring belongs to project administration. A reader's access still determines which records and actions are available. Validate the saved page under the intended user roles, including empty data and narrower windows.
+Page editing is a project administration function. Readers see records and actions allowed by their permissions. Check the page under the intended roles, with an empty selection and at narrow widths.
 
 [Frame contracts](../frame/index.md) · [Administration](../administration.md)
 
-> Dashboards are part of the development prototype. The examples demonstrate current configured pages; they do not guarantee layout parity or performance for every custom composition and data volume.
+> Dashboards are part of the prototype. These examples use small selections from the demonstration project.
