@@ -6,13 +6,13 @@
 
 **Objects, people, processes and published files — one production context.**
 
-[Русский](product-tour.ru.md) · [Workflow](#workflow) · [Tasks & Gantt](#planning) · [Files & naming](#files) · [Tactic Frame](#frame) · [Administration](#administration) · [Get started](#start)
+[Русский](product-tour.ru.md) · [Workflow](#workflow-is-an-execution-engine) · [Tasks & Gantt](#plan-the-work-then-follow-it-through) · [Files & naming](#from-working-file-to-traceable-publication) · [Tactic Frame](#tactic-frame-one-ui-description-two-native-renderers) · [Administration](#administration-shape-the-project-itself) · [Get started](#run-it-and-extend-it)
 
-[Docks](#docks) · [Sidebar Editor](#sidebar) · [Object overview](#object-overview) · [Server history](#history) · [Users & access](#people)
+[Docks](#docks-assemble-the-interface-around-a-job) · [Sidebar Editor](#sidebar-editor-turn-navigation-into-a-workflow) · [Object overview](#object-overview-the-complete-production-record) · [Server history](#server-activity-understand-what-happened) · [Users & access](#users-groups-and-effective-access)
 
 | Explore the assistant | Build your own workspace |
 | --- | --- |
-| [**The built-in project assistant →**](assistant.en.md)<br>Ask about real records, prepare changes and inspect the operations behind an answer. | [**Custom dashboards →**](dashboards.en.md)<br>Combine metrics, charts, Item View and selection-driven tools into a project page. |
+| [**The built-in project assistant →**](assistant.en.md) — Ask about real records, prepare changes and inspect the operations behind an answer. | [**Custom dashboards →**](dashboards.en.md) — Combine metrics, charts, Item View and selection-driven tools into a project page. |
 
 ![TACTIC Handler — Item View with six Orbit Studio production assets](../assets/product-tour/item-view.png)
 
@@ -20,7 +20,6 @@
 
 > **Development prototype.** The product is under active development. The Perforce-like File Workspace is also a prototype. Evaluate your actual schema, permissions, scripts and file workflows on isolated data before production use.
 
-<a id="purpose"></a>
 ## Why this project exists
 
 Handler brings TACTIC production work to the artist's desktop: local files, repository mappings, application integration and a persistent workspace. Connected to **TACTIC Stream**, it also exposes the modern workflow, project-authoring, dashboard and assistant capabilities shown here.
@@ -40,7 +39,6 @@ flowchart LR
     Publish --> Team
 ```
 
-<a id="workspace"></a>
 ## A workspace built around the item
 
 An asset, shot, document or custom entity is the entry point. **Item View** gives it a visual identity, useful fields and direct actions. The continuous tree reveals related objects, processes and publications. The table exposes structured fields for sorting, filtering, selection and editing. These are different ways to work with the same project records.
@@ -62,7 +60,6 @@ The **Item Layouts** editor binds images and text to object data and places supp
 **Page layouts, item layouts and columns have distinct jobs:** a page composes a workspace, an item layout composes one object, and a table view chooses its fields and widgets. The sidebar connects these definitions to project navigation. [Item Layouts Help](../../thlib/ui/help_articles/item_layouts.en.md)
 
 
-<a id="docks"></a>
 ## Docks: assemble the interface around a job
 
 The workspace is a **composition of functional panels**. Put search results next to a large file preview, stack reference panels into tabs, reserve the lower half for tasks, or move a utility out of the way. The same project can have a review workspace, a planning workspace and a publishing workspace assembled from the available docks.
@@ -93,7 +90,6 @@ Personal workspace state retains placement, sizes, visibility and stacks in its 
 A preset describes panels and their layout. It does not save credentials, commit an editor draft or become a saved search. Reset restores workspace geometry without deleting project records or saved searches. In combination with Item Layouts, Columns Editor, page layouts and script shelves, docks let a studio compose a wide range of working interfaces from implemented tools. [Docks and windows](../../thlib/ui/help_articles/windows.en.md)
 
 
-<a id="sidebar"></a>
 ## Sidebar Editor: turn navigation into a workflow
 
 A sidebar item can define much more than a label. It connects a Search Type, initial search, presentation, workspace layout and script shelf. “Asset review” and “Asset planning” can open the same underlying records with different starting filters and tools.
@@ -113,7 +109,6 @@ Handler's `tactic_handler` sidebar and TACTIC's `project_view` are independent d
 Rename the display title to change the label while retaining the internal identity. A configured Saved Search initializes the entry's first tab; reopening retains its working state instead of adding a duplicate tab. XML Apply updates the draft, and Save publishes the sidebar. Group preview changes what the editor shows; it does not impersonate that group or replace server data permissions. [Sidebar Editor Help](../../thlib/ui/help_articles/sidebar_editor.en.md)
 
 
-<a id="object-overview"></a>
 ## Object overview: the complete production record
 
 Open **Details / SObject Report** for a record to move from a result card to its production overview. The profile-style header combines preview, identity, description and metrics; the section switcher leads into work associated with that exact object.
@@ -131,7 +126,6 @@ Open **Details / SObject Report** for a record to move from a result card to its
 A task opens the matching Task Manager scope and selects the exact task in Inspector. A note returns to its process discussion. Publications retain their source project. Cost information is shown only with the corresponding permission. This report provides the context behind a status rather than forcing a user to reconstruct it from unrelated screens. [SObject Report Help](../../thlib/ui/help_articles/sobject_info.en.md)
 
 
-<a id="workflow"></a>
 ## Workflow is an execution engine
 
 The pipeline graph is backed by server operations. Each object can follow a configured pipeline; process events drive task state, dependencies, scripts and notifications. The object pipeline and a task's status pipeline serve different purposes, so an asset's production route need not be reduced to the task's Pending / In Progress / Complete statuses.
@@ -153,7 +147,6 @@ Author in **Administration → Workflow**: choose a pipeline, arrange its graph,
 
 Pipeline definitions and transitions are server-owned. Handler provides native authoring and production views; it does not run a separate competing workflow engine on the workstation.
 
-<a id="planning"></a>
 ## Plan the work, then follow it through
 
 ### Task Manager
@@ -174,7 +167,6 @@ The Gantt view adds a time axis to the task set. Move or resize task bars, adjus
 
 The task calendar and agenda provide a date-oriented view; milestones represent project checkpoints. Work-hour entries and cost reports connect effort to people and work where the account has access. [Task Manager Help](../../thlib/ui/help_articles/dock.tasks.en.md) · [Calendar Help](../../thlib/ui/help_articles/dock.task_calendar.en.md)
 
-<a id="communication"></a>
 ## Conversations that retain production context
 
 **Messages** handles direct conversations, group discussions and Favorites across projects. Replies, mentions, reactions, pins, forwarding, member management and conversation search support ongoing coordination. Attach files through the picker, drag and drop or the clipboard; drafts preserve unfinished messages.
@@ -184,7 +176,6 @@ The task calendar and agenda provide a date-oriented view; milestones represent 
 Use **Notes** for decisions that belong to an object, process or task. Use notifications and the activity journal to follow changes and return to the affected records. The **Knowledge Base** gives longer-lived documentation a tree of Markdown articles, attachments and revision history. A chat can organize a review; the resulting decision can stay attached to the thing being reviewed.
 
 
-<a id="history"></a>
 ## Server activity: understand what happened
 
 The **Activity Feed** is a project journal of supported record changes: notes, publications, tasks, status changes, object edits and work hours. Entries identify the actor and time, show readable change details and link back to the affected object or task. The object's Activity section provides the narrower history for one production record, including supported child and relation events.
@@ -196,7 +187,6 @@ Filter by people and activity category, exclude your own actions, search loaded 
 Three histories serve different purposes. **Activity Feed** explains project changes. **Notifications** records notices from the current client session and links to their sources. **System Activity / Debug Log** exposes runtime work and diagnostics. Clearing a notification list does not erase the server journal, messages or file versions. The journal is not a promise of unrestricted, immutable audit coverage for every legacy extension.
 
 
-<a id="files"></a>
 ## From working file to traceable publication
 
 1. Select an object and its process/context. Add local files or folders through **Drop Plate**, or prepare a scene through the selected DCC connection.
@@ -226,7 +216,6 @@ Synchronize the scope you need: selected objects, processes, versions or related
 
 **Watch Folders** bind a project and a local path to matching/check-in rules and feed discovered work into Commit Queue. They do not turn saving a repository setting into an implicit move or deletion. These are Handler desktop capabilities; they are distinct from Stream's browser upload/download workflow.
 
-<a id="frame"></a>
 ## Tactic Frame: one UI description, two native renderers
 
 **Tactic Frame is the shared language for describing interfaces in Handler and Stream.** A Frame module describes nodes, geometry, state and actions; Qt Quick and Vue render that description with their respective house controls. Handler's interface remains native Qt rather than an embedded web page.
@@ -264,7 +253,6 @@ Shared building blocks cover fields, buttons, selectors, virtualized lists, tabl
 
 Project XML views and visual layout documents configure content above this layer. They are not a replacement file syntax for Frame modules. Both products ship independently and carry their own shared-description copy; supported behavior must be checked in both renderers. [Frame contracts](../frame/index.md)
 
-<a id="scripting"></a>
 ## Script Editor, shelves and production automation
 
 The Script Editor combines a project script library with tabs, drafts, undo, syntax highlighting, completion, search/replace and outline navigation. Run the current script or selected text, then inspect its result and errors in the output area. Named folders turn one-off tools into a discoverable studio library.
@@ -283,7 +271,6 @@ The editor makes the execution target visible. Local/DCC output can return to th
 
 [Script Editor Help](../../thlib/ui/help_articles/script_editor.en.md) · [Script Shelf Help](../../thlib/ui/help_articles/script_shelf.en.md)
 
-<a id="administration"></a>
 ## Administration: shape the project itself
 
 Create the entities and relationships the studio actually uses, then define how people see and act on them. Search Types are configurable data types, not a fixed Asset/Shot-only product model. Schema diagrams make their relationships visible.
@@ -311,7 +298,6 @@ Create the entities and relationships the studio actually uses, then define how 
 Authoring sections keep their own drafts. Save/discard controls and revision checks make changes explicit; permissions remain enforced by server operations. A visual editor does not grant its user unrestricted database access. [Administration Help](../../thlib/ui/help_articles/administration.en.md)
 
 
-<a id="people"></a>
 ## Users, groups and effective access
 
 User management is a server-wide directory, not a list of assignee names copied into a project. Accounts have identity, profile/contact fields, account settings and group memberships. The same identities appear in assignments, conversations, activity and participant lists.
@@ -332,7 +318,6 @@ Use effective-access checks for a particular user to inspect the outcome of memb
 
 A practical onboarding sequence is **account → groups → project/data permissions → sidebar visibility → check the resulting user access**. Administration's selected project scopes project definitions; it does not turn server-wide users into project-local accounts. Drafts, confirmation and native server checks remain in force throughout.
 
-<a id="configuration"></a>
 ## Configuration: connection, storage and daily behavior
 
 Configuration separates deployment and personal preferences from project authoring. Each page owns its draft: Apply affects the current page, Save handles pending changes, and leaving dirty settings is guarded. Appearance can be previewed and reverted.
@@ -357,7 +342,6 @@ Configuration separates deployment and personal preferences from project authori
 
 Supported server XML settings expose service, network, security, directory and scheduling controls with validation and restart requirements. Changing configuration and restarting a service are separate actions. Repository and database migration require their own procedure. [Configuration Help](../../thlib/ui/help_articles/configuration.en.md)
 
-<a id="assistant"></a>
 ## A project assistant with actual context
 
 Ask what is ready for review, which version is published or what is missing from a handoff. The built-in **External agent** window captures the project, page, Search Type and selected objects. Its executor reads or changes data through scoped native tools.
@@ -368,7 +352,6 @@ In this demonstration it found a useful discrepancy: modeling was marked Complet
 
 **[Explore the built-in assistant →](assistant.en.md)**
 
-<a id="dashboards"></a>
 ## Custom dashboards that are working pages
 
 Compose metrics, reports, charts, Item View, forms and native actions around a team's job. A production overview can lead directly into an asset; a review desk can keep selected-object details next to its tree. The page remains connected to project data and permissions.
@@ -377,7 +360,6 @@ Compose metrics, reports, charts, Item View, forms and native actions around a t
 
 **[Explore custom dashboards and their visual editor →](dashboards.en.md)**
 
-<a id="start"></a>
 ## Run it and extend it
 
 ### Connect a Maya session
@@ -422,7 +404,6 @@ with local() as handler:
 
 Replace the demo project and Search Type with your own. [API and examples](../handler_api.md) · [Architecture](../application_architecture.md) · [Handbook](../handbook.en.md)
 
-<a id="scope"></a>
 ## Scope and provenance
 
 The presentation shows Handler connected to Stream. Stream-specific project authoring, dashboards and the assistant require that server; their presence here does not imply the same service exists in every original TACTIC deployment. Consult the [compatibility map](../tactic_compatibility/README.md) for an existing installation.

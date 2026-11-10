@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0.415 - 2026-11-10
+
+- Replace presentation HTML anchors and line breaks with Markdown heading links and plain text so restricted Markdown viewers do not expose markup.
+
 ## 0.6.0.414 - 2026-11-10
 
 - Reshape the English/Russian README into a visual presentation, retain the full product tour separately, and add a Maya/plugin/shelf guide with fresh native Item View, shelf-editor and Maya captures.

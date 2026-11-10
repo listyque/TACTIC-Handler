@@ -32,9 +32,8 @@ When several sessions are connected, select the intended client. Each command ta
 
 Maya owns its native scene operations. TACTIC authentication, naming, repository work, transfers and publication records remain with Handler and the server. Maya Scene settings control the format, project-directory creation, playblast preparation where supported, and focus after native actions.
 
-[Publishing and files](product-tour.en.md#files) · [Maya Scene Help](../../thlib/ui/help_articles/configuration.maya.en.md)
+[Publishing and files](product-tour.en.md#from-working-file-to-traceable-publication) · [Maya Scene Help](../../thlib/ui/help_articles/configuration.maya.en.md)
 
-<a id="shelf"></a>
 ## Shelf: turn a script into an everyday tool
 
 The shelf sits beside Search. A familiar button runs in the context of the project and selection; its editor retains the saved-script reference, label, tooltip, icon and order.
@@ -57,7 +56,6 @@ A Maya shelf is a saved export. Update it through the editor after changing butt
 
 [Complete Script Shelf Help](../../thlib/ui/help_articles/script_shelf.en.md) · [Script Editor](../../thlib/ui/help_articles/script_editor.en.md)
 
-<a id="setup"></a>
 ## Connect installed Maya
 
 1. Enable the Maya plugin in **Configuration → DCC plugins**. Restart Handler if the plugin selection changed.
