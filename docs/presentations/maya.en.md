@@ -1,4 +1,4 @@
-# Maya and studio tools
+# Handler in Maya: scenes and studio tools
 
 **From a published version in the project to a scene you can work on.**
 
@@ -10,7 +10,7 @@ The job starts before opening a scene: you need the right object, process and ve
 
 *Fresh capture of installed Maya 2023 with a separate profile. The actual connector created the shelf; the geometry is a demonstration blockout. This capture demonstrates shelf creation, not a complete Maya scene-publication acceptance run.*
 
-## From a project version to an open scene
+## Open, import or reference the version you need
 
 Find the object and publication in standard Item View or Snapshot Browser, then choose how to use the file: open the scene, import its contents or create a reference. Handler resolves the path through the local repository and sends the action to the selected Maya session.
 
@@ -23,7 +23,7 @@ Find the object and publication in standard Item View or Snapshot Browser, then 
 
 When several Maya sessions are open, choose the intended one first. The command addresses that client, so you can work with several scenes while knowing where the action will go.
 
-## From a working scene to a publication
+## Save the scene and hand it over through check-in
 
 1. Select the object and publication context in Handler.
 2. Prepare the scene through connected Maya; choose ASCII or Binary where needed.
@@ -32,9 +32,9 @@ When several Maya sessions are open, choose the intended one first. The command 
 
 Maya owns its native scene operations. TACTIC authentication, naming, repository work, transfers and publication records remain with Handler and the server. Maya Scene settings control the format, project-directory creation, playblast preparation where supported, and focus after native actions.
 
-[Publishing and files](product-tour.en.md#from-working-file-to-traceable-publication) · [Maya Scene Help](../../thlib/ui/help_articles/configuration.maya.en.md)
+[Publishing and files](product-tour.en.md#check-in-and-check-out-hand-files-to-the-next-person) · [Maya Scene Help](../../thlib/ui/help_articles/configuration.maya.en.md)
 
-## Shelf: turn a script into an everyday tool
+## Script Shelf: make studio scripts easy to find
 
 A small script becomes an everyday tool when people can find it and understand what it does. The shelf beside Search gives it a button, label, icon and tooltip. Behind the button is the saved script, working with the project and selection context.
 
@@ -46,7 +46,7 @@ A **personal shelf** belongs to the signed-in user. A **shared shelf** provides 
 
 Develop and save the tool in Script Editor, then add it to the shelf. Users need a clear label and tooltip; the author also chooses where it runs—local Python, the server or a selected DCC session. Those environments have different data and capabilities. The button retains the named script’s access rules.
 
-### The same shelf in Maya
+### Bring the project shelf into Maya
 
 When a connected Maya client advertises `create_script_shelf`, the editor can create or update a native shelf. Enter its name and confirm replacement when it already exists. The first button starts or reveals Handler. The remaining buttons preserve order, labels, tooltips, rendered icons and project-script references. Maya persists the tab through its native shelf mechanism.
 
@@ -56,7 +56,7 @@ Once exported, the shelf is saved in Maya. Update it through the editor when its
 
 [Complete Script Shelf Help](../../thlib/ui/help_articles/script_shelf.en.md) · [Script Editor](../../thlib/ui/help_articles/script_editor.en.md)
 
-## Connect installed Maya
+## Install the connector and connect Maya
 
 1. Enable the Maya plugin in **Configuration → DCC plugins**. Restart Handler if the plugin selection changed.
 2. Open **Configuration → Maya Scene → Maya integration** and select **Find Maya**.

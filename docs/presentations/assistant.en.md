@@ -1,4 +1,4 @@
-# The project assistant
+# An assistant that can read your project
 
 **A way to work through what is happening in your project.**
 
@@ -12,7 +12,7 @@ The window is called **External agent**. The conversation lives inside the appli
 
 *A real completed read-only request in the disposable Orbit Studio project. The model read tasks, notes and publication history; the response was not written into the screenshot.*
 
-## From selected asset to useful handoff
+## Survey Drone: the task is done, but the model is missing
 
 For this demonstration, we selected Survey Drone and asked the assistant to **read its tasks, assignees, planned dates, notes and published versions, then describe its state and next actions without changing the project**. Here is what those records established.
 
@@ -28,7 +28,7 @@ This is an easy distinction to miss during a handoff. A task status describes pr
 
 ![The same conversation's operation details in the Stream browser](../assets/product-tour/assistant-tools.png)
 
-## What it can work with
+## Work you can ask the assistant to do
 
 Beyond answering questions, the assistant can help prepare tasks, records or a project page. Available actions depend on the session’s tools, the account’s permissions, the chosen project and whether changes are enabled.
 
@@ -45,7 +45,7 @@ Beyond answering questions, the assistant can help prepare tasks, records or a p
 
 The table describes implemented tools and examples of how to ask for them. The Survey Drone report is the scenario run for this presentation; the other capabilities follow the current implementation contracts. A complex request may need clarification or a review of the proposed result.
 
-## Context is captured, not guessed
+## One conversation about the selected project and objects
 
 Before the first message, check the captured **project, page, Search Type, view and objects**. That first request fixes the conversation’s scope. You can then look at another asset without redirecting work already under way. Start a new conversation when you want to change that scope.
 
@@ -53,7 +53,7 @@ Continue the conversation, add guidance to a running request or cancel further w
 
 Project rules add studio instructions to subsequent turns. They guide behavior within the existing permissions; they cannot grant access to another project or enable a missing operation.
 
-## Read, prepare, validate, apply
+## From a question to an authorized change
 
 ```mermaid
 flowchart LR
@@ -68,11 +68,11 @@ Start by reading and asking questions. Writing requires a separate **Allow chang
 
 Cancel stops the next actions; changes already saved remain in place. Undo covers supported field edits and first checks that the current values still match what that operation wrote. It does not provide a general rollback of files, workflow changes or arbitrary scripts.
 
-### Generated scripts have their own approval path
+### Check a generated script before running it
 
 A generated script starts inactive. Review its source, run the supported trial flow in verified isolation, inspect the result, then explicitly activate the exact reviewed version. The script's execution permission is checked separately. A database rollback or subprocess alone is not an execution sandbox, and a trial is not proof that arbitrary production data will be handled correctly.
 
-## Choose the model and where it runs
+## Choose a model and connect an executor
 
 ![AI provider configuration in the Stream browser interface](../assets/product-tour/assistant-providers.png)
 
@@ -88,13 +88,13 @@ The model list comes from the configured provider, so reasoning controls, image 
 
 Choose a connected **Handler computer** or the **TACTIC server** as executor and connect it explicitly. The selection determines where provider sign-in and local endpoint addresses are resolved. Sending a prompt does not silently start a different executor or fall back to another machine. Provider secrets are protected by the server's encrypted storage; they are not plain-text Handler preferences.
 
-## Attachments and optional web access
+## Attach files and enable web search
 
 Attach files or paste an image into the conversation. The current limits are 20 attachments and 64 MB per file; model image input has a separate 20 MB limit. A file can be available for native check-in without the model being able to decode its contents.
 
 Web access is a separate opt-in for a new conversation. Supported downloads use public HTTPS sources and retain source/hash information; private-network fetching is excluded. Web search is available through supported Codex, OpenAI and Anthropic adapters, while other adapters have different capabilities. Retrieved pages and file content are evidence to inspect, not instructions that override project permissions.
 
-## The UI is one entrance to scoped tools
+## Connect an external assistant through MCP
 
 External administrator clients can also connect through the implemented MCP interface. Access is scoped to project and tool permissions, with revocation and expiration. This does not give a model an unrestricted terminal, the application source tree or control over unrelated desktop applications.
 

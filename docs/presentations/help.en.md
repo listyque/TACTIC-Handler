@@ -1,4 +1,4 @@
-# Built-in Help
+# Help where you work
 
 **A guide to the tool you are using, available while you work.**
 
@@ -8,7 +8,7 @@ What happens after check-in? Where do you change a naming rule? How do you bring
 
 ![TACTIC Handler Help: topic catalog, article search and the Knowledge Base guide](../assets/product-tour/help.png)
 
-## Start with the screen you are using
+## Open the guide for the current tool
 
 Start with the immediate task, such as understanding the publication queue, then follow the article’s links to the surrounding workflow. The catalog gives you the bigger picture; search finds explanations by words in their titles or text. Search, configuration, administration, scripting and workspace panels have their own topics.
 
@@ -20,7 +20,7 @@ Start with the immediate task, such as understanding the publication queue, then
 | Read in your working language | English and Russian articles, selected with the interface language; English fallback when needed. |
 | Keep a reference | Download a Markdown copy of the current article. |
 
-## Documentation that belongs to the application
+## Application Help and your studio’s own guides
 
 Handler ships its Help articles as local Markdown files and displays them in a native Qt reader. Reading these bundled instructions does not require a server connection. You can also open the current source file externally or reload the catalog.
 
@@ -28,7 +28,7 @@ Help explains application behavior: what a command does and how to use a tool. T
 
 [Explore the Knowledge Base →](knowledge-base.en.md)
 
-## Try it in a real workflow
+## Find the answer and get back to work
 
 1. Open a working tool, such as Configuration or Commit Queue.
 2. Use its Help action to open the matching article.
