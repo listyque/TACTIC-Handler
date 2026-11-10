@@ -2,9 +2,11 @@
 
 **Desktop client for TACTIC and TACTIC Stream.**
 
-[Русский](README.ru.md) · **[Get started](#installation-and-connection)** · [Feature tour](docs/presentations/product-tour.en.md) · [Maya integration](docs/presentations/maya.en.md) · [Documentation](docs/index.md)
+[Русский](README.ru.md) · **[Get started](#installation-and-connection)** · [Feature tour](docs/presentations/product-tour.en.md) · [Maya integration](docs/presentations/maya.en.md) · [Plugins](#plugins-in-practice) · [Documentation](docs/index.md)
 
-Handler lets you find an asset, read its tasks and review notes, open a published scene in Maya and check in a new version. It works with local files and repositories while the server stores project records. It connects to TACTIC Stream and compatible original TACTIC installations.
+TACTIC Handler is a desktop application for managing assets, shots, tasks and published files in animation and VFX production. It is written in **Python and PySide6**, with a native **Qt Quick / QML** interface. Handler connects a studio’s TACTIC project to the files on an artist’s workstation and to Maya.
+
+You can find a shot, see who is working on it, read the feedback, open the required scene version and publish your changes from the same workspace. The project’s records, permissions and workflow live on a **Southpaw TACTIC** server or its actively developed fork, **TACTIC Stream**. Handler is a separate client providing the desktop tools: file preparation and transfer, version browsing, local queues, script shelves and DCC integration.
 
 ![Standard Item View: Survey Drone, production processes and published versions](docs/assets/product-tour/item-view-standard.png)
 
@@ -15,6 +17,46 @@ Handler lets you find an asset, read its tasks and review notes, open a publishe
 Item View is Handler’s main view. Expand an object to see its processes, tasks and publications, with file versions directly in the search results. Cards provide a visual view; tables support editing fields across many records.
 
 Tasks, notes and file previews can sit beside the results. Save the arrangement as a layout and put project scripts on a personal or shared shelf.
+
+## Who it is for
+
+- **Artists** — find scenes, textures and caches, follow assigned tasks, read review notes and publish work with the right version and filename.
+- **Supervisors and coordinators** — track assets and shots, assign work, plan dates in Gantt, review publications and follow project activity.
+- **Pipeline TDs and administrators** — define project types and relationships, set naming and access rules, build workspaces, write scripts and distribute studio tools as plugins.
+
+Handler uses the types and relationships defined in your project. Assets and shots are common examples; the same tools can work with a library of models, reference materials, deliveries or your own record types.
+
+## Features at a glance
+
+| Area | What you can do |
+| --- | --- |
+| **Find and organize work** | Search by text, tags, fields and related tasks; save searches; browse objects, processes and versions in [Item View](docs/presentations/product-tour.en.md#item-view-and-search), cards or editable tables. |
+| **Publish files** | Check in scenes, **UDIM textures, image sequences, animation and groups of files**. Match names in Drop Plate and review the context, version, previews and destination in [Commit Queue](docs/presentations/product-tour.en.md#check-in-and-check-out). |
+| **Manage repositories** | Check out a selected version, download dependencies, synchronize local repositories and set up [Watch Folders](docs/presentations/product-tour.en.md#repository-sync-and-watch-folders). Edit file and directory rules in Naming Editor. |
+| **Plan production** | Assign tasks, change statuses, edit dates and progress in [Task Manager, Gantt and calendar](docs/presentations/product-tour.en.md#planning); record work hours. Configure process transitions in Workflow. |
+| **Review and communicate** | Keep Notes with their object and process, talk in Messages, inspect an object’s overview and follow server activity. |
+| **Arrange the workspace** | Combine dock panels, save layouts, edit sidebar entries, design item cards and build [custom dashboards](docs/presentations/dashboards.en.md). |
+| **Work with Maya** | Open, import or reference published files, choose the connected Maya session, save scenes for check-in and export [script shelves](docs/presentations/maya.en.md). |
+| **Automate studio work** | Use Script Editor for local and server scripts, call the [object-based Python API](docs/handler_api.md), attach tools to shelves and install desktop plugins. |
+| **Configure the project** | Manage schema, relationships, users, groups, access, workflow and plugins through [Administration](docs/presentations/product-tour.en.md#project-administration). |
+| **Keep knowledge close** | Read searchable EN/RU Help, publish studio instructions in the [Knowledge Base](docs/presentations/knowledge-base.en.md) and query project information with the [assistant](docs/presentations/assistant.en.md). |
+
+The tour below shows these tools with TACTIC Stream. Original TACTIC support depends on the server’s available APIs; see the [compatibility map](docs/tactic_compatibility/README.md).
+
+## Technology
+
+| Part | Implementation |
+| --- | --- |
+| Application | **Python 3**; the current Windows source setup uses **Python 3.14**. |
+| Desktop interface | **PySide6 / Qt 6**, **Qt Quick and QML**, native windows and docks. The runtime version is pinned in [requirements.txt](requirements.txt). |
+| Shared UI descriptions | **Tactic Frame**, authored as JavaScript modules. Shared screens render as Qt Quick in Handler and Vue in Stream. |
+| Server connection | TACTIC’s **XML-RPC API** and file-transfer routes. Python wrappers expose projects, Search Types, objects, snapshots and files. |
+| Background operations | Worker pools handle server queries, repository transfers and other long operations. Qt models deliver their results to the interface. |
+| Maya connection | A thin Python connector and the local **Handler Server** router. Scene operations run in the selected Maya process; repository work runs in Handler. |
+
+The current delivery target is Windows. Maya is the documented DCC integration; the [connector API](docs/dcc_api.md#adding-another-dcc) explains how to add another application. The server is a separate installation and can run on another machine.
+
+[Application architecture](docs/application_architecture.md) · [Handler Python API](docs/handler_api.md) · [Tactic Frame](docs/frame/index.md)
 
 ## Installation and connection
 
@@ -98,6 +140,34 @@ Built-in Help opens from working tools and the main menu. It covers commands, se
 
 [Explore built-in Help →](docs/presentations/help.en.md)
 
+## Plugins in practice
+
+### Batch Render: a Maya queue inside Handler
+
+Batch Render was built specifically for Handler for the Niki production workflow. Add episodes, choose shots and frame ranges, then start the queue. The plugin prepares local scenes and dependencies, runs Maya batch and displays progress and logs. You can pause, reorder or retry work and control the running queue from its web panel.
+
+![Batch Render: episode catalogue and a paused queue of Maya shots](docs/assets/product-tour/batch-render.png)
+
+This is a desktop plugin with its own releases, distributed through the project’s TACTIC server. Its project types, repository presets, cache paths and Maya settings need to match the studio using it. The screenshot shows demonstration entries before rendering starts.
+
+[Batch Render workflow and setup →](docs/presentations/plugins.en.md#batch-render) · [Plugin source](plugins/batch_render)
+
+### VFX: the original TACTIC project template
+
+The restored VFX template shows another kind of extension: an entire project structure with assets, sequences, shots, relationships and working pages. In **Shot Planner**, assets sit beside shots so their use in the sequence can be planned. **Shot Sheet** brings shot information and related work together; **Review** submits a specific published version to a review session.
+
+![Restored VFX Shot Planner in Handler: assets and shots from an isolated demonstration project](docs/assets/product-tour/vfx-planner.png)
+
+These are the legacy template’s retained layouts rendered by Handler’s native controls, shown with TACTIC Stream. The adapted package repairs its configuration and supported actions; some original production widgets remain excluded.
+
+[VFX pages, adaptation and limits →](docs/presentations/plugins.en.md#vfx-project-template)
+
+### Build a tool for your studio
+
+Start with a saved search, dock layout and shelf for a department. Add a Python action to validate a delivery or prepare files; use a desktop plugin when the tool needs its own window and local processes. Project packages can distribute schema, workflow, naming, sidebar entries and reusable widgets. Batch Render and VFX show both approaches in use.
+
+[Extension options and authoring references →](docs/presentations/plugins.en.md#building-your-own-tools)
+
 ## Configuration and APIs
 
 | Area | Explore |
@@ -109,6 +179,6 @@ Built-in Help opens from working tools and the main menu. It covers commands, se
 
 **[Full product tour →](docs/presentations/product-tour.en.md)** · [All documentation](docs/index.md)
 
-Project editors, dashboards and the assistant are shown here with a TACTIC Stream server. Use the compatibility map for original TACTIC. Screenshots were captured in the current application using the Orbit Studio demonstration project.
+Project editors, dashboards and the assistant are shown here with a TACTIC Stream server. Use the compatibility map for original TACTIC. Screenshots show the current application with demonstration data: Orbit Studio, a paused Batch Render queue and an isolated VFX project.
 
 Built on the [Southpaw TACTIC](https://github.com/Southpaw-TACTIC/TACTIC) ecosystem. [Eclipse Public License 1.0](LICENSE).

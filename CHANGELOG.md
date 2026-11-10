@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.421 - 2026-11-10
+
+- Expand the English/Russian READMEs with Handler's purpose, audiences, technology stack and feature inventory, including UDIM and sequence publishing.
+- Present the Handler-specific Batch Render plugin and adapted legacy VFX template with current native screenshots, workflows, extension references and compatibility limits.
+
 ## 0.6.0.420 - 2026-11-10
 
 - Edit the English/Russian product presentations for direct descriptions, concise headings and captions; remove repetitive promotional framing and update section links.

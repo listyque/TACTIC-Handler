@@ -10,6 +10,7 @@ The product handbook covers setup, workflows, and operational notes.
 
 - Visual presentation: [English](../README.md) · [Русский](../README.ru.md).
 - Full product and workspace tour: [English](presentations/product-tour.en.md) · [Русский](presentations/product-tour.ru.md).
+- Plugin examples — Batch Render and the restored VFX template: [English](presentations/plugins.en.md) · [Русский](presentations/plugins.ru.md).
 - Maya plugin and studio shelves: [English](presentations/maya.en.md) · [Русский](presentations/maya.ru.md).
 - Built-in project assistant: [English](presentations/assistant.en.md) · [Русский](presentations/assistant.ru.md).
 - Custom dashboards: [English](presentations/dashboards.en.md) · [Русский](presentations/dashboards.ru.md).

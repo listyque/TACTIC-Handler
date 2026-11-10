@@ -10,6 +10,8 @@
 | --- | --- |
 | [**The built-in project assistant →**](assistant.en.md) — Query project data, prepare changes and inspect the operation log. | [**Custom dashboards →**](dashboards.en.md) — Combine metrics, charts, Item View and selection-driven tools into a project page. |
 
+[Plugin examples: Batch Render and the restored VFX template →](plugins.en.md)
+
 ![TACTIC Handler — Item View with six Orbit Studio production assets](../assets/product-tour/item-view.png)
 
 *Current application screenshots. Orbit Studio, its people and materials are demonstration data.*
