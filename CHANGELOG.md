@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0.422 - 2026-11-10
+
+- Link the English/Russian product presentations and documentation entry points to the GitHub Wiki.
+- Correct the table-widget Help link to the separately owned Stream Widget Database.
+
 ## 0.6.0.421 - 2026-11-10
 
 - Expand the English/Russian READMEs with Handler's purpose, audiences, technology stack and feature inventory, including UDIM and sequence publishing.

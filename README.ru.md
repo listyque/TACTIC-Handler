@@ -2,7 +2,7 @@
 
 **Настольный клиент для TACTIC и TACTIC Stream.**
 
-[English](README.md) · **[Начать работу](#установка-и-подключение)** · [Обзор возможностей](docs/presentations/product-tour.ru.md) · [Maya-плагин](docs/presentations/maya.ru.md) · [Плагины](#примеры-плагинов) · [Документация](docs/index.md)
+[English](README.md) · **[Начать работу](#установка-и-подключение)** · [Обзор возможностей](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru) · [Maya-плагин](https://github.com/listyque/TACTIC-Handler/wiki/Tour-maya-ru) · [Плагины](#примеры-плагинов) · [Документация](https://github.com/listyque/TACTIC-Handler/wiki/Home-ru)
 
 TACTIC Handler — настольное приложение для работы с ассетами, шотами, задачами и опубликованными файлами в анимации и VFX. Оно написано на **Python и PySide6**, интерфейс — **Qt Quick / QML**. Handler связывает проект студии в TACTIC с файлами на рабочем компьютере художника и с Maya.
 
@@ -30,18 +30,18 @@ Handler работает с типами и связями, заданными �
 
 | Область | Что можно делать |
 | --- | --- |
-| **Поиск и организация работы** | Искать по тексту, тегам, полям и связанным задачам; сохранять поиски; просматривать объекты, процессы и версии в [Item View](docs/presentations/product-tour.ru.md#item-view-и-поиск), карточках или редактируемых таблицах. |
-| **Публикация файлов** | Сдавать сцены, **UDIM-текстуры, секвенции изображений, анимацию и наборы файлов**. Разбирать имена в Drop Plate, проверять контекст, версию, превью и путь в [Commit Queue](docs/presentations/product-tour.ru.md#чекин-и-чекаут). |
-| **Репозитории** | Забирать выбранную версию и зависимости, синхронизировать локальный репозиторий, настраивать [Watch Folders](docs/presentations/product-tour.ru.md#repository-sync-и-watch-folders). Задавать правила имён и каталогов в Naming Editor. |
-| **Планирование** | Назначать задачи, менять статусы, сроки и прогресс в [Task Manager, Gantt и календаре](docs/presentations/product-tour.ru.md#планирование), учитывать рабочее время. Настраивать переходы между процессами в Workflow. |
+| **Поиск и организация работы** | Искать по тексту, тегам, полям и связанным задачам; сохранять поиски; просматривать объекты, процессы и версии в [Item View](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#item-view-и-поиск), карточках или редактируемых таблицах. |
+| **Публикация файлов** | Сдавать сцены, **UDIM-текстуры, секвенции изображений, анимацию и наборы файлов**. Разбирать имена в Drop Plate, проверять контекст, версию, превью и путь в [Commit Queue](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#чекин-и-чекаут). |
+| **Репозитории** | Забирать выбранную версию и зависимости, синхронизировать локальный репозиторий, настраивать [Watch Folders](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#repository-sync-и-watch-folders). Задавать правила имён и каталогов в Naming Editor. |
+| **Планирование** | Назначать задачи, менять статусы, сроки и прогресс в [Task Manager, Gantt и календаре](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#планирование), учитывать рабочее время. Настраивать переходы между процессами в Workflow. |
 | **Ревью и общение** | Хранить Notes у объекта и процесса, переписываться в Messages, открывать обзор объекта и следить за событиями сервера. |
-| **Рабочее пространство** | Комбинировать доки, сохранять раскладки, редактировать sidebar, оформлять карточки объектов и собирать [свои дашборды](docs/presentations/dashboards.ru.md). |
-| **Maya** | Открывать, импортировать и подключать reference из публикаций, выбирать сессию Maya, сохранять сцену для чекина и экспортировать [полки скриптов](docs/presentations/maya.ru.md). |
-| **Автоматизация** | Писать локальные и серверные скрипты в Script Editor, обращаться к [объектному Python API](docs/handler_api.md), выносить инструменты на полки и устанавливать клиентские плагины. |
-| **Настройка проекта** | Управлять схемой, связями, пользователями, группами, правами, workflow и плагинами через [Administration](docs/presentations/product-tour.ru.md#администрирование-проекта). |
-| **Справка и знания** | Читать встроенную справку с поиском на русском и английском, вести инструкции студии в [базе знаний](docs/presentations/knowledge-base.ru.md), обращаться к [помощнику](docs/presentations/assistant.ru.md) за информацией о проекте. |
+| **Рабочее пространство** | Комбинировать доки, сохранять раскладки, редактировать sidebar, оформлять карточки объектов и собирать [свои дашборды](https://github.com/listyque/TACTIC-Handler/wiki/Tour-dashboards-ru). |
+| **Maya** | Открывать, импортировать и подключать reference из публикаций, выбирать сессию Maya, сохранять сцену для чекина и экспортировать [полки скриптов](https://github.com/listyque/TACTIC-Handler/wiki/Tour-maya-ru). |
+| **Автоматизация** | Писать локальные и серверные скрипты в Script Editor, обращаться к [объектному Python API](https://github.com/listyque/TACTIC-Handler/wiki/Handler-Python-API), выносить инструменты на полки и устанавливать клиентские плагины. |
+| **Настройка проекта** | Управлять схемой, связями, пользователями, группами, правами, workflow и плагинами через [Administration](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#администрирование-проекта). |
+| **Справка и знания** | Читать встроенную справку с поиском на русском и английском, вести инструкции студии в [базе знаний](https://github.com/listyque/TACTIC-Handler/wiki/Tour-knowledge-base-ru), обращаться к [помощнику](https://github.com/listyque/TACTIC-Handler/wiki/Tour-assistant-ru) за информацией о проекте. |
 
-Ниже эти инструменты показаны с сервером TACTIC Stream. Возможности подключения к оригинальному TACTIC зависят от доступных серверных API — они описаны в [карте совместимости](docs/tactic_compatibility/README.md).
+Ниже эти инструменты показаны с сервером TACTIC Stream. Возможности подключения к оригинальному TACTIC зависят от доступных серверных API — они описаны в [карте совместимости](https://github.com/listyque/TACTIC-Handler/wiki/TACTIC-compatibility).
 
 ## На чём написан
 
@@ -54,9 +54,9 @@ Handler работает с типами и связями, заданными �
 | Фоновые операции | Запросы к серверу, передача файлов и другие длительные операции выполняются в рабочих потоках. Результаты поступают в интерфейс через модели Qt. |
 | Связь с Maya | Тонкий Python-коннектор и локальный маршрутизатор **Handler Server**. Операции со сценой выполняются в выбранном процессе Maya, работа с репозиторием — в Handler. |
 
-Текущая целевая платформа поставки — Windows. Для Maya есть готовая описанная интеграция; подключение другого приложения разбирается в [API коннекторов](docs/dcc_api.md#adding-another-dcc). Сервер устанавливается отдельно и может работать на другой машине.
+Текущая целевая платформа поставки — Windows. Для Maya есть готовая описанная интеграция; подключение другого приложения разбирается в [API коннекторов](https://github.com/listyque/TACTIC-Handler/wiki/DCC-API#adding-another-dcc). Сервер устанавливается отдельно и может работать на другой машине.
 
-[Архитектура приложения](docs/application_architecture.md) · [Python API Handler](docs/handler_api.md) · [Tactic Frame](docs/frame/index.md)
+[Архитектура приложения](https://github.com/listyque/TACTIC-Handler/wiki/Architecture) · [Python API Handler](https://github.com/listyque/TACTIC-Handler/wiki/Handler-Python-API) · [Tactic Frame](https://github.com/listyque/TACTIC-Handler/wiki/Frame)
 
 ## Установка и подключение
 
@@ -70,7 +70,7 @@ py -3.14 -m venv .venv
 
 Откройте **Configuration → Server**, подключитесь и войдите в систему. Выберите проект и настройте пути репозитория перед работой с файлами.
 
-[Установка и первое подключение](docs/handbook.ru.md) · [Подключение Maya](docs/presentations/maya.ru.md) · [Совместимость с оригинальным TACTIC](docs/tactic_compatibility/README.md)
+[Установка и первое подключение](https://github.com/listyque/TACTIC-Handler/wiki/Handbook-ru) · [Подключение Maya](https://github.com/listyque/TACTIC-Handler/wiki/Tour-maya-ru) · [Совместимость с оригинальным TACTIC](https://github.com/listyque/TACTIC-Handler/wiki/TACTIC-compatibility)
 
 ## Работа в Handler
 
@@ -80,7 +80,7 @@ py -3.14 -m venv .venv
 
 ![Рабочее пространство из доков: объекты, задачи и опубликованные файлы](docs/assets/product-tour/docks-planning.png)
 
-[Доки и сохранённые раскладки →](docs/presentations/product-tour.ru.md#доки-и-раскладки) · [Sidebar Editor →](docs/presentations/product-tour.ru.md#sidebar-editor)
+[Доки и сохранённые раскладки →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#доки-и-раскладки) · [Sidebar Editor →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#sidebar-editor)
 
 ### Задачи и расписание
 
@@ -88,7 +88,7 @@ Task Manager показывает личные задачи, работу отд
 
 ![Gantt: этапы производства, исполнители и сроки](docs/assets/product-tour/gantt.png)
 
-[Задачи и Gantt →](docs/presentations/product-tour.ru.md#планирование) · [Workflow →](docs/presentations/product-tour.ru.md#workflow-граф-и-исполнение) · [Notes и Messages →](docs/presentations/product-tour.ru.md#messages-и-notes)
+[Задачи и Gantt →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#планирование) · [Workflow →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#workflow-граф-и-исполнение) · [Notes и Messages →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#messages-и-notes)
 
 ### Чекин, версии и синхронизация
 
@@ -96,7 +96,7 @@ Task Manager показывает личные задачи, работу отд
 
 ![Commit Queue: подготовленная публикация, версия и рассчитанный путь](docs/assets/product-tour/commit-queue.png)
 
-[Чекин, чекаут, нейминг и Repository Sync →](docs/presentations/product-tour.ru.md#чекин-и-чекаут)
+[Чекин, чекаут, нейминг и Repository Sync →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#чекин-и-чекаут)
 
 ### Maya и полки скриптов
 
@@ -108,7 +108,7 @@ Task Manager показывает личные задачи, работу отд
 
 ![Редактор Script Shelf: инструменты проекта, иконки и порядок кнопок](docs/assets/product-tour/shelf-editor.png)
 
-[Maya-плагин, полки и работа со сценами →](docs/presentations/maya.ru.md)
+[Maya-плагин, полки и работа со сценами →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-maya-ru)
 
 ### Помощник проекта
 
@@ -116,7 +116,7 @@ Task Manager показывает личные задачи, работу отд
 
 ![Помощник проекта работает с ассетами, задачами и опубликованными версиями](docs/assets/product-tour/assistant.png)
 
-[Чат-бот: провайдеры, инструменты и возможности →](docs/presentations/assistant.ru.md)
+[Чат-бот: провайдеры, инструменты и возможности →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-assistant-ru)
 
 ### Собственные дашборды
 
@@ -124,7 +124,7 @@ Task Manager показывает личные задачи, работу отд
 
 ![Кастомный дашборд: показатели проекта, загрузка команды и ассеты](docs/assets/product-tour/dashboard-overview.png)
 
-[Дашборды и визуальное редактирование →](docs/presentations/dashboards.ru.md)
+[Дашборды и визуальное редактирование →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-dashboards-ru)
 
 ### Справка и база знаний
 
@@ -132,13 +132,13 @@ Task Manager показывает личные задачи, работу отд
 
 ![База знаний: инструкция по сдаче, связанная с Survey Drone](docs/assets/product-tour/knowledge-base.png)
 
-[База знаний: чтение, редактор и публикация →](docs/presentations/knowledge-base.ru.md)
+[База знаний: чтение, редактор и публикация →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-knowledge-base-ru)
 
 Встроенная справка открывается из рабочих окон и главного меню. В ней описаны команды, настройки и процедуры; статьи доступны на русском и английском. Поиск работает по тексту, текущую статью можно сохранить в Markdown.
 
 ![Встроенная справка: каталог с поиском и контекстная статья](docs/assets/product-tour/help.png)
 
-[Презентация встроенной справки →](docs/presentations/help.ru.md)
+[Презентация встроенной справки →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-help-ru)
 
 ## Примеры плагинов
 
@@ -150,7 +150,7 @@ Batch Render сделан специально для Handler под произ�
 
 Это клиентский плагин со своими версиями, которые распространяются через TACTIC-сервер проекта. Типы объектов, пресеты репозитория, пути кешей и настройки Maya должны соответствовать проекту студии. На снимке — демонстрационная очередь до запуска рендера.
 
-[Работа и настройка Batch Render →](docs/presentations/plugins.ru.md#batch-render) · [Исходники плагина](plugins/batch_render)
+[Работа и настройка Batch Render →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-plugins-ru#batch-render) · [Исходники плагина](plugins/batch_render)
 
 ### VFX: оригинальный шаблон проекта TACTIC
 
@@ -160,24 +160,24 @@ Batch Render сделан специально для Handler под произ�
 
 Сохранённые раскладки legacy-шаблона отображаются нативными контролами Handler; здесь они работают с TACTIC Stream. В адаптированном пакете исправлены конфигурации и поддерживаемые действия. Часть старых производственных виджетов остаётся исключённой.
 
-[Экраны VFX, адаптация и ограничения →](docs/presentations/plugins.ru.md#шаблон-проекта-vfx)
+[Экраны VFX, адаптация и ограничения →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-plugins-ru#шаблон-проекта-vfx)
 
 ### Свой инструмент для студии
 
 Для рабочего места отдела можно начать с сохранённого поиска, раскладки доков и полки. Затем добавить Python-действие для проверки поставки или подготовки файлов. Если инструменту нужны своё окно и локальные процессы, его можно оформить как клиентский плагин. Пакеты проекта позволяют переносить схему, workflow, нейминг, sidebar и переиспользуемые виджеты. Batch Render и VFX показывают оба подхода на конкретных задачах.
 
-[Варианты расширения и документация для авторов →](docs/presentations/plugins.ru.md#свои-инструменты)
+[Варианты расширения и документация для авторов →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-plugins-ru#свои-инструменты)
 
 ## Настройка и API
 
 | Область | Подробнее |
 | --- | --- |
-| **Устройство проекта** | [Схема и администрирование](docs/presentations/product-tour.ru.md#администрирование-проекта), [пользователи и права](docs/presentations/product-tour.ru.md#пользователи-и-права), [конфигурация](docs/presentations/product-tour.ru.md#configuration). |
-| **Контекст и события** | [Обзор объекта](docs/presentations/product-tour.ru.md#обзор-объекта) и [история работы на сервере](docs/presentations/product-tour.ru.md#activity-feed-и-история-проекта). |
-| **Автоматизация** | [Script Editor и среды выполнения](docs/presentations/product-tour.ru.md#script-editor-и-автоматизация), [Python API](docs/handler_api.md), [DCC API](docs/dcc_api.md). |
-| **Разработка интерфейса** | [Tactic Frame](docs/presentations/product-tour.ru.md#tactic-frame): общие описания для нативного Qt Quick и Vue. |
+| **Устройство проекта** | [Схема и администрирование](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#администрирование-проекта), [пользователи и права](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#пользователи-и-права), [конфигурация](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#configuration). |
+| **Контекст и события** | [Обзор объекта](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#обзор-объекта) и [история работы на сервере](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#activity-feed-и-история-проекта). |
+| **Автоматизация** | [Script Editor и среды выполнения](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#script-editor-и-автоматизация), [Python API](https://github.com/listyque/TACTIC-Handler/wiki/Handler-Python-API), [DCC API](https://github.com/listyque/TACTIC-Handler/wiki/DCC-API). |
+| **Разработка интерфейса** | [Tactic Frame](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru#tactic-frame): общие описания для нативного Qt Quick и Vue. |
 
-**[Полный обзор продукта →](docs/presentations/product-tour.ru.md)** · [Вся документация](docs/index.md)
+**[Полный обзор продукта →](https://github.com/listyque/TACTIC-Handler/wiki/Tour-product-tour-ru)** · [Вся документация](https://github.com/listyque/TACTIC-Handler/wiki/Home-ru)
 
 Редакторы проекта, дашборды и помощник в этой презентации показаны с сервером TACTIC Stream. Для оригинального TACTIC доступна карта совместимости. На снимках — текущее приложение с демонстрационными данными: Orbit Studio, очередь Batch Render на паузе и изолированный VFX-проект.
 

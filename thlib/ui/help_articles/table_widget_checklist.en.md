@@ -6,7 +6,7 @@ order: 96
 
 # Table View: active widget checklist
 
-[Table View / Columns Editor](table_view.en.md) · [B07](table_widgets_b07.en.md) · [Widget Database](widget_database.en.md)
+[Table View / Columns Editor](table_view.en.md) · [B07](table_widgets_b07.en.md) · [Stream Widget Database](https://github.com/listyque/TACTIC-Stream/wiki/Help-widget_database)
 
 Current as of 2026-10-21: 239 shipped XML/CG entries; 71 referenced adapted classes, **0 without adapters**, 30 excluded production dependencies, 3 explicitly unfinished. The complete catalogue contains 74 classes / 180 named aliases. DependencyLink now has a shared snapshot tree; ParentGroup now has identity grouping, a shared parent picker and child creation; both publish classes now open configured forms with their actual field actions. Checkout currently accepts ordinary single files; sequence/UDIM and remaining options stay open. Registration does not certify every original option; stage 2/B07 remain open.
 

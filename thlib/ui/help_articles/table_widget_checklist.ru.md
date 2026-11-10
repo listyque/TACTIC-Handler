@@ -6,7 +6,7 @@ order: 96
 
 # Table View: рабочий чеклист
 
-[Table View / Columns Editor](table_view.ru.md) · [B07](table_widgets_b07.ru.md) · [Widget Database](widget_database.ru.md)
+[Table View / Columns Editor](table_view.ru.md) · [B07](table_widgets_b07.ru.md) · [Stream Widget Database](https://github.com/listyque/TACTIC-Stream/wiki/Help-widget_database-ru)
 
 Актуально на 2026-10-21: 239 поставляемых XML/CG-записей, 71 упомянутый класс с адаптером, **0 без адаптера**, 30 исключённых production-зависимостей, 3 явно недописанных. Полный каталог — 74 класса / 180 именованных aliases. DependencyLink получил общее дерево снапшотов; ParentGroup получил группировку по ключу, общий выбор родителя и создание дочерней записи; оба publish-класса открывают настроенные формы с исходными field actions. Регистрация не доказывает готовность всех options; этап 2/B07 остаются открытыми. Checkout пока принимает обычные отдельные файлы; последовательности/UDIM и оставшиеся опции ещё открыты.
 

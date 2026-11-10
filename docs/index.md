@@ -1,5 +1,7 @@
 # TACTIC Handler documentation
 
+GitHub Wiki: [English](https://github.com/listyque/TACTIC-Handler/wiki/Home) · [Русский](https://github.com/listyque/TACTIC-Handler/wiki/Home-ru).
+
 Handler is the native desktop client. Its Python objects, GUI thread, local files,
 check-in queue and DCC router are distinct from Stream's server runtime.
 
